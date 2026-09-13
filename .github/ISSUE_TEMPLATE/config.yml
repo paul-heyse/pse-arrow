@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Blank issues are off: every issue goes through a form so that the fields the
+# maintainer needs to triage it are present from the start. Questions, ideas, and
+# "is this supposed to work?" belong in Discussions; security reports never belong in
+# an issue at all (SECURITY.md).
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/paul-heyse/pse-arrow/discussions
+    about: >-
+      Ask how something works, float an idea before it is a decision, or share what you
+      are building. Anything that turns out to need a decision becomes a design-decision
+      issue.
+  - name: Report a security vulnerability
+    url: https://github.com/paul-heyse/pse-arrow/security/advisories/new
+    about: >-
+      Report privately through a GitHub security advisory, never as a public issue. See
+      SECURITY.md for scope, expected response times, and the email fallback.
+  - name: Code of Conduct concern
+    url: https://github.com/paul-heyse/pse-arrow/blob/main/CODE_OF_CONDUCT.md
+    about: >-
+      Report conduct concerns privately to paul@heyse.io. Acknowledged within 7 days.

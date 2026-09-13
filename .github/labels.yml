@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# The declared label set. `just labels-sync` (scripts/labels-sync.sh) applies it with
+# `gh label create --force`, which is idempotent: it creates a label or updates its
+# colour and description in place. The script never deletes, so a label removed from
+# this file survives on the repository until someone removes it deliberately.
+#
+# FORMAT IS LOAD-BEARING. scripts/labels-sync.sh parses this file with a strict
+# stdlib-only parser (no PyYAML on the critical path), so every entry must be exactly
+# three lines in this order and nothing else:
+#
+#   - name: "<name>"
+#     color: "<6 hex digits, no leading #>"
+#     description: "<one line, at most 100 characters — GitHub's limit>"
+#
+# Comments and blank lines between entries are fine. Anything else is a hard error.
+#
+# Conventions: `kind/*` says what a thing is (exactly one per issue), `area/*` says where
+# it lives (as many as apply), `phase/*` says when it is scheduled. The unprefixed labels
+# are process signals that CI and GOVERNANCE.md refer to by name — `adr`, `needs-review`,
+# `needs-adr`, `register`, and `release` all have behaviour attached, so renaming one
+# means updating the workflows too.
+
+# --- kind: what this is -------------------------------------------------------------
+- name: "kind/bug"
+  color: "d73a4a"
+  description: "Behaviour differs from the blueprint, the docs, or a test"
+- name: "kind/feature"
+  color: "0e8a16"
+  description: "New capability within an already accepted decision"
+- name: "kind/design-decision"
+  color: "5319e7"
+  description: "Needs a decision recorded as an ADR before code lands"
+- name: "kind/parity-gap"
+  color: "b60205"
+  description: "Disagreement with idaes-pse 2.12.0 inside the parity envelope"
+- name: "kind/library-upgrade"
+  color: "1d76db"
+  description: "Move a pinned dependency or a whole dependency family"
+- name: "kind/docs"
+  color: "0075ca"
+  description: "Documentation, the mdBook site, or the doc lint"
+- name: "kind/chore"
+  color: "cfd3d7"
+  description: "Maintenance with no behaviour change"
+- name: "kind/governance"
+  color: "6f42c1"
+  description: "Process, roles, rulesets, or repository configuration"
+
+# --- area: where it lives -----------------------------------------------------------
+- name: "area/schema-registry"
+  color: "c5def5"
+  description: "pse-schema: the relation schema registry and code generation"
+- name: "area/identity-catalog"
+  color: "c5def5"
+  description: "pse-ids and pse-catalog: hashing, identity, manifests"
+- name: "area/physical-typing"
+  color: "c5def5"
+  description: "Units, dimensions, and physical type checking"
+- name: "area/materials-properties"
+  color: "c5def5"
+  description: "Property packages, materials models, and their kernels"
+- name: "area/math-ir"
+  color: "c5def5"
+  description: "The relational math IR and its invariants"
+- name: "area/compiler-passes"
+  color: "c5def5"
+  description: "Compiler passes over the math IR"
+- name: "area/rules-inference"
+  color: "c5def5"
+  description: "DataFusion-based rules and inference"
+- name: "area/numerics-solvers"
+  color: "c5def5"
+  description: "Numerics, NLP solving, Ipopt, and MUMPS"
+- name: "area/backends"
+  color: "c5def5"
+  description: "Backends: native, generated Pyomo, and their bindings"
+- name: "area/python-boundary"
+  color: "c5def5"
+  description: "The pyo3 extension and the pse Python package"
+- name: "area/diagnostics"
+  color: "c5def5"
+  description: "Errors, diagnostic codes, and how failures are reported"
+- name: "area/docs"
+  color: "c5def5"
+  description: "The mdBook site and the documentation tooling"
+- name: "area/governance"
+  color: "c5def5"
+  description: "ADRs, the register, and the decision process"
+- name: "area/ci"
+  color: "c5def5"
+  description: "Workflows, required checks, and the solver image"
+- name: "area/tooling"
+  color: "c5def5"
+  description: "justfile, xtask, scripts, and the developer environment"
+
+# --- phase: when it is scheduled ----------------------------------------------------
+- name: "phase/0-foundations"
+  color: "fef2c0"
+  description: "Phase 0: repository, toolchain, contracts, and CI foundations"
+- name: "phase/1-slice-a"
+  color: "fef2c0"
+  description: "Phase 1: vertical slice A"
+- name: "phase/2-slice-b"
+  color: "fef2c0"
+  description: "Phase 2: vertical slice B"
+- name: "phase/3-slice-c"
+  color: "fef2c0"
+  description: "Phase 3: vertical slice C"
+- name: "phase/4-breadth"
+  color: "fef2c0"
+  description: "Phase 4: breadth across the model library"
+
+# --- process signals with behaviour attached ----------------------------------------
+- name: "adr"
+  color: "7057ff"
+  description: "Carries an ADR; title must be 'adr: ADR-NNNN <title>' (GOVERNANCE.md)"
+- name: "needs-review"
+  color: "d4c5f9"
+  description: "A design review is outstanding; required before an ADR is accepted"
+- name: "needs-adr"
+  color: "e99695"
+  description: "A decision must be recorded before this can proceed"
+- name: "register"
+  color: "bfd4f2"
+  description: "Touches docs/adr/register.md: a deferred item and its trigger"
+- name: "release"
+  color: "006b75"
+  description: "Release pull request; cargo-semver-checks becomes gating"
+- name: "blocked"
+  color: "d93f0b"
+  description: "Waiting on something outside this repository"
+- name: "dependencies"
+  color: "0366d6"
+  description: "Dependency updates, including Dependabot pull requests"

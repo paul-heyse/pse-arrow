@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# One place where every CI job gets its Rust toolchain, its cache, and its cargo tools.
+#
+# The toolchain is NEVER named here. `rust-toolchain.toml` is the single authority
+# (channel 1.98.1, profile minimal, the five components); this action only makes sure
+# rustup exists and then runs `rustup show active-toolchain`, which installs whatever
+# that file asks for. That is also why the solver container's `ci` stage works: it ships
+# no rustup, so the first step installs one with `--default-toolchain none` and lets the
+# toolchain file decide.
+#
+# Tool versions are passed in by the caller from workflow-level env vars, so a version
+# appears exactly once per workflow and Dependabot/`pinact` have one thing to move.
+
+name: Set up Rust
+description: >-
+  Install rustup if absent, materialise the toolchain pinned in rust-toolchain.toml,
+  restore the cargo/target cache, and install the requested cargo tools at exact versions.
+
+inputs:
+  shared-key:
+    description: >-
+      Cache key shared by jobs that build the same thing (for example `check` for
+      cargo check/clippy jobs and `test` for nextest jobs). Jobs with different feature
+      sets or profiles must not share a key.
+    required: true
+  save-if:
+    description: >-
+      Whether this job may WRITE the cache. Pass `${{ github.ref == 'refs/heads/main' }}`
+      so pull requests read a warm cache but only main refreshes it. A literal string,
+      not a boolean — it is forwarded verbatim to Swatinem/rust-cache.
+    required: false
+    default: "false"
+  tools:
+    description: >-
+      Cargo tools with exact versions, one per line (a comma-separated single line also
+      works), e.g. `cargo-nextest@0.9.143`. Forwarded verbatim to taiki-e/install-action,
+      which fetches prebuilt binaries. Leave empty for jobs that need no tools.
+    required: false
+    default: ""
+  cache:
+    description: Set to "false" to skip the cargo cache entirely (used by jobs that must build cold).
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install rustup if the image does not have one
+      shell: bash
+      run: |
+        set -euo pipefail
+        if command -v rustup >/dev/null 2>&1; then
+          echo "rustup already present: $(rustup --version)"
+          exit 0
+        fi
+        echo "rustup not found (expected inside the solver container); installing it."
+        curl --proto '=https' --tlsv1.2 --retry 5 --retry-connrefused -sSf \
+          https://sh.rustup.rs -o /tmp/rustup-init.sh
+        sh /tmp/rustup-init.sh -y \
+          --default-toolchain none \
+          --profile minimal \
+          --no-modify-path
+        rm -f /tmp/rustup-init.sh
+        echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> "$GITHUB_PATH"
+
+    - name: Materialise the pinned toolchain
+      shell: bash
+      run: |
+        set -euo pipefail
+        # `rustup show active-toolchain` reads rust-toolchain.toml and installs the
+        # channel and components it names. Nothing here chooses a version.
+        rustup show active-toolchain
+        rustc --version --verbose
+        cargo --version
+        # A drifted toolchain file is worth catching here rather than three jobs later.
+        test -f rust-toolchain.toml || {
+          echo "::error::rust-toolchain.toml is missing; the toolchain would be unpinned."
+          exit 1
+        }
+
+    - name: Cache cargo registry and target directory
+      if: inputs.cache != 'false'
+      uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      with:
+        shared-key: ${{ inputs.shared-key }}
+        save-if: ${{ inputs.save-if }}
+        cache-all-crates: "true"
+        cache-on-failure: "true"
+
+    - name: Install cargo tools
+      if: inputs.tools != ''
+      uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+      with:
+        tool: ${{ inputs.tools }}

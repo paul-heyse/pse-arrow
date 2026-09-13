@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# The book. `docs / build` is a required check; `docs / deploy` publishes it to Pages
+# from `main` only.
+#
+# The book never needs the Rust extension: `docs/generated/` is committed, so a
+# documentation change can be verified without a solver, a toolchain, or a wheel. The
+# rustdoc API reference is folded in opportunistically when `rust / docs` has already
+# produced its artifact for the same commit — it is a bonus, never a dependency.
+name: docs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  # Pages deployments must not race. Grouping by ref (not by run) with
+  # cancel-in-progress on pull requests only means a superseded PR build is dropped
+  # while a main deployment always finishes.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MDBOOK_VERSION: 0.5.4
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Only to look for the rustdoc artifact from this commit's `rust` run.
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: install mdBook
+        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        with:
+          tool: mdbook@${{ env.MDBOOK_VERSION }}
+      - name: ADR index is current
+        # `adr.py index` regenerates docs/adr/README.md and the decisions block in
+        # docs/SUMMARY.md; --check fails instead of writing. Run `just adr-index`.
+        run: python3 scripts/adr.py index --check
+      - name: register rows are well formed
+        run: python3 scripts/check_register.py --lint
+      - name: fold in the rustdoc reference if it exists
+        # Best effort by design. `rust / docs` may still be running, or may not run at
+        # all for a docs-only change; either way the book must still build.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          run_id="$(gh run list --repo "${GITHUB_REPOSITORY}" \
+            --workflow rust.yml --commit "${GITHUB_SHA}" \
+            --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')"
+          if [ -z "${run_id}" ]; then
+            echo "::notice::no successful rust run for ${GITHUB_SHA}; building the book without the API reference"
+            exit 0
+          fi
+          if gh run download "${run_id}" --repo "${GITHUB_REPOSITORY}" \
+               --name rustdoc --dir docs/generated/rustdoc; then
+            echo "::notice::rustdoc reference folded into the book"
+          else
+            echo "::notice::rust run ${run_id} produced no rustdoc artifact; continuing"
+          fi
+      - name: mdbook build
+        run: mdbook build docs
+      - name: internal links resolve
+        # --offline: external links are not this gate's business (they rot for reasons
+        # outside the repository). Every internal link must resolve.
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
+        with:
+          args: --offline --no-progress --include-fragments docs/book
+          fail: true
+          output: lychee-report.md
+      - name: upload the Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs/book
+
+  deploy:
+    name: deploy
+    needs: [build]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

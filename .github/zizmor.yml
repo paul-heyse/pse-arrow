@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# zizmor configuration — https://docs.zizmor.sh/configuration/
+#
+# Two audits are suppressed here, each for a stated reason. Nothing else is: a zizmor
+# finding on a workflow is a finding about what CI can be made to do, and the default is
+# to fix it, not to silence it. Adding an entry to this file is a governance-visible act
+# and needs the reason written down, the same as a `deny.toml` skip.
+
+rules:
+  # `./.github/actions/setup-rust` is a local composite action. zizmor prefers GitHub's
+  # newer repository-relative `$/...` form, which does not require the repository to be
+  # checked out first. We keep `./...` deliberately:
+  #
+  #   * every job that uses the composite already runs actions/checkout, because the
+  #     composite reads `rust-toolchain.toml` out of the working tree — so the `$/...`
+  #     form buys nothing here;
+  #   * `./...` is unambiguously supported on every runner version, and the security
+  #     property zizmor cares about (the action comes from this repository, at this
+  #     commit) holds identically for both forms.
+  #
+  # Revisit when `$/...` has been supported long enough to be uncontroversial; the fix is
+  # mechanical and zizmor offers it as an auto-fix.
+  self-repository:
+    ignore:
+      - rust.yml
+      - python.yml
+      - wheels.yml
+      - release.yml
+      - rust-scheduled.yml
+
+  # `.github/actions/setup-rust` appends to GITHUB_PATH so that a rustup installed in the
+  # same step is on PATH for subsequent steps. The appended value is
+  # `${CARGO_HOME:-$HOME/.cargo}/bin` — a fixed path derived from runner-controlled
+  # environment only, never from a pull-request title, branch name, issue body, or any
+  # other attacker-influenced input. zizmor rates its own confidence as Low here.
+  github-env:
+    ignore:
+      - action.yml

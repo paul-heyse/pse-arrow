@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# The monthly register review.
+#
+# `docs/adr/register.md` records decisions that were deliberately deferred, each with an
+# observable trigger and a check that can be run. A deferral with no scheduled review is
+# just a decision nobody wrote down, so once a month this runs the automatable checks and
+# puts what is due in front of a human as a single issue.
+#
+# One issue per month, reused rather than duplicated: a pile of stale register issues
+# would defeat the purpose.
+name: register-review
+
+on:
+  schedule:
+    # 09:00 UTC on the first of the month.
+    - cron: "0 9 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  review:
+    name: review
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: collect what is due
+        id: due
+        run: |
+          set -euo pipefail
+          month="$(date -u +%Y-%m)"
+          echo "month=${month}" >> "$GITHUB_OUTPUT"
+          echo "title=Register review ${month}" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "Automated review of \`docs/adr/register.md\` for ${month}."
+            echo
+            echo "Each row below has reached its \`next-check\` date or had its trigger"
+            echo "fire. Closing a row means writing the ADR its trigger called for, or"
+            echo "moving \`next-check\` forward with a reason — not deleting the row."
+            echo
+            echo '```'
+          } > issue-body.md
+
+          # `--due` lists the rows due this month and runs the checks that can be
+          # automated (a crates.io version query, a `cargo info`, a file probe). It
+          # exits non-zero only when the register itself is malformed, which
+          # `governance / adr-lint` would already have caught on the pull request.
+          if python3 scripts/check_register.py --due >> issue-body.md; then
+            status="ok"
+          else
+            status="error"
+          fi
+
+          {
+            echo '```'
+            echo
+            echo "Check status: **${status}**."
+            echo
+            echo "_Opened by [register-review.yml](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})._"
+          } >> issue-body.md
+
+          cat issue-body.md
+
+      - name: open or update this month's issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ steps.due.outputs.title }}
+        run: |
+          set -euo pipefail
+          # Search by exact title among open and closed issues so a reopened month is
+          # updated rather than duplicated.
+          number="$(gh issue list --repo "${GITHUB_REPOSITORY}" \
+            --state all --label register --limit 50 \
+            --json number,title \
+            --jq "map(select(.title == \"${TITLE}\")) | .[0].number // empty")"
+
+          if [ -n "${number}" ]; then
+            echo "updating issue #${number}"
+            gh issue edit "${number}" --repo "${GITHUB_REPOSITORY}" --body-file issue-body.md
+            gh issue reopen "${number}" --repo "${GITHUB_REPOSITORY}" 2>/dev/null || true
+          else
+            echo "creating a new issue"
+            gh issue create --repo "${GITHUB_REPOSITORY}" \
+              --title "${TITLE}" \
+              --body-file issue-body.md \
+              --label register \
+              --label kind/governance \
+              --label area/governance
+          fi

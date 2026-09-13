@@ -1,0 +1,133 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+name: Parity gap
+description: pse-arrow and idaes-pse 2.12.0 disagree — numerically, structurally, or in what they accept.
+title: "parity: "
+labels: ["kind/parity-gap"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Parity means: for the models covered by the parity harness, `pse-arrow` and
+        **`idaes-pse==2.12.0`** agree within a declared tolerance, on Linux, with Ipopt
+        3.14.x + MUMPS from the pinned solver image. A gap is a disagreement inside that
+        envelope.
+
+
+        `pse-arrow` is a **clean-room** re-implementation. Please describe *behaviour*
+        you observed from IDAES — do not paste IDAES source code into this issue.
+
+
+        Disagreement outside the envelope (a different IDAES version, a different solver,
+        a different platform, HSL linear solvers) is expected and is not a parity gap.
+        Say so in "Environment" and open it as a bug report instead if it still looks
+        wrong.
+
+  - type: textarea
+    id: reference
+    attributes:
+      label: IDAES reference
+      description: >-
+        What exactly are we comparing against? Name the IDAES model, unit model, or
+        property package and the public API path used to build it, plus the version.
+        If there is a parity test for it already, name the test.
+      placeholder: |
+        idaes.models.unit_models.heat_exchanger.HeatExchanger with
+        idaes.models.properties.modular_properties … , idaes-pse 2.12.0
+        Parity test: python/pse/parity/tests/test_heat_exchanger.py::test_duty_trajectory
+    validations:
+      required: true
+
+  - type: textarea
+    id: divergence
+    attributes:
+      label: The divergence
+      description: >-
+        The two results side by side. For a numerical gap give the quantity, both values,
+        the absolute and relative difference, and where in the trajectory it first
+        appears. For a structural gap, describe what each side produced (variable count,
+        degrees of freedom, which constraint is missing or extra).
+      render: text
+    validations:
+      required: true
+
+  - type: input
+    id: tolerance
+    attributes:
+      label: Tolerance
+      description: >-
+        The declared tolerance for this comparison (rtol/atol, or the test's own), and
+        by how much it is exceeded. If no tolerance is declared yet, say what you think
+        it should be and why.
+      placeholder: "rtol=1e-8, atol=1e-10 — exceeded by 4 orders of magnitude (rel. diff 3.1e-4)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: believed-correct
+    attributes:
+      label: Which side do you believe is correct?
+      description: >-
+        An honest answer, including "I don't know", is more useful than a confident one.
+        This determines whether the outcome is a fix, a documented deviation with an ADR,
+        or an upstream report.
+      options:
+        - pse-arrow is correct; IDAES appears to be wrong
+        - IDAES is correct; pse-arrow appears to be wrong
+        - Both are defensible — the models differ in a way that is not a bug
+        - I don't know
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why do you believe that?
+      description: >-
+        The argument, not the conclusion. A textbook or paper result, a conservation
+        balance that one side violates, a limiting case with a known answer, a
+        dimensional analysis, a hand calculation. "It matches IDAES" is not a reason for
+        IDAES being right — IDAES is the *reference*, not the ground truth.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: >-
+        How to see both numbers. Ideally the parity harness invocation
+        (`just parity` / `uv run --no-sync pytest --parity -k …`) plus the model file.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        `cargo xtask probe-host --json`, or the `artifacts/probe_host.json` the parity
+        pre-flight writes. It records the Ipopt, MUMPS, ASL, and IDAES versions actually
+        in use, which is the first thing to check on any parity report.
+      render: json
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: >-
+            The parity pre-flight passed — Python < 3.14, `idaes.__version__ == "2.12.0"`,
+            and `ipopt` 3.14.x on `PATH` (it fails rather than skips when it is not).
+          required: true
+        - label: >-
+            I am reporting observed behaviour of IDAES. I have not copied IDAES source
+            code, comments, or docstrings into this issue.
+          required: true
+        - label: >-
+            I checked whether an existing register row or ADR already covers this
+            deviation.
+          required: false

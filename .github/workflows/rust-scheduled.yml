@@ -1,0 +1,267 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# The weekly sweep: the checks that are too slow, too noisy, or too rarely wrong to sit
+# on the pull-request path, but that must not be allowed to rot.
+#
+# Every job here has an owner and a documented response in `docs/dev/ci.md`. A red
+# scheduled job is not "flaky CI" — it is a finding, and the response is either a fix,
+# an issue with a label, or a register row. Nothing here blocks a pull request, which is
+# exactly why it needs a human to read it.
+#
+# Miri is deliberately absent: there is no `unsafe` outside the FFI crates, where Miri
+# cannot follow the calls anyway. Re-adoption has a register row whose trigger is the
+# first non-FFI `unsafe` block.
+name: rust-scheduled
+
+on:
+  schedule:
+    # Monday 06:00 UTC — before the working week, after the weekend's dependency churn.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  # PLACEHOLDER until the first solver image is pushed; see rust.yml for the full note.
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+  # The only nightly this repository names outside tooling/dfarrow-apiex. cargo-udeps
+  # needs one; it is pinned so a nightly regression cannot silently change the result.
+  NIGHTLY: nightly-2026-09-08
+  CARGO_NEXTEST_VERSION: 0.9.143
+  CARGO_HACK_VERSION: 0.6.45
+  CARGO_UDEPS_VERSION: 0.1.61
+  CARGO_MUTANTS_VERSION: 27.1.0
+  CARGO_GEIGER_VERSION: 0.13.0
+
+jobs:
+  # Owner: maintainer. Response: a broken feature combination is a bug in the feature
+  # wiring, not a reason to drop the combination — fix the cfg or make the feature
+  # additive (docs/dev/ci.md).
+  features:
+    name: features
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: features
+          save-if: "true"
+          tools: cargo-hack@${{ env.CARGO_HACK_VERSION }}
+      - name: feature powerset
+        # depth 2: pairwise. The full powerset over the optional backends and kernels
+        # would not finish, and pairs catch essentially all of the real breakage.
+        run: cargo hack --feature-powerset --depth 2 --workspace --locked check --all-targets
+
+  # Owner: maintainer. Response: a test that passes at opt-level 0 and fails at 3 is
+  # almost always a float-comparison or an uninitialised-ordering bug in our code.
+  test-release:
+    name: test-release
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: test-release
+          save-if: "true"
+          tools: cargo-nextest@${{ env.CARGO_NEXTEST_VERSION }}
+      - name: nextest at the release profile
+        run: |
+          cargo nextest run --workspace --locked --profile ci \
+            --cargo-profile release \
+            --features pse-relations/force-validate
+      - name: doctests at the release profile
+        run: cargo test --doc --workspace --locked --release
+
+  # Owner: maintainer. Response: remove the dependency, or record why it is kept
+  # (a build-only or feature-gated use that udeps cannot see).
+  udeps:
+    name: udeps
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: udeps
+          save-if: "true"
+          tools: cargo-udeps@${{ env.CARGO_UDEPS_VERSION }}
+      - name: install the pinned nightly
+        run: |
+          set -euo pipefail
+          rustup toolchain install "${NIGHTLY}" --profile minimal --no-self-update
+          rustup run "${NIGHTLY}" rustc --version
+      - name: unused dependencies
+        run: cargo "+${NIGHTLY}" udeps --workspace --locked --all-targets
+
+  # Owner: maintainer. Advisory only (`continue-on-error`): a surviving mutant is a
+  # question about test strength, not a defect. Response: read the artifact and decide
+  # whether the surviving mutation describes behaviour anyone relies on.
+  mutants:
+    name: mutants
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: mutants
+          save-if: "true"
+          tools: cargo-mutants@${{ env.CARGO_MUTANTS_VERSION }}
+      - name: mutate the two crates whose correctness is pure logic
+        # pse-ids (hashing and identity) and pse-mathir (the IR and its invariants) have
+        # no I/O and no solver, so a surviving mutant there is a real gap in the tests.
+        run: cargo mutants --no-shuffle -p pse-ids -p pse-mathir -- --locked
+      - name: upload the mutants report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mutants-report
+          path: mutants.out/
+          if-no-files-found: warn
+          retention-days: 30
+
+  # Owner: maintainer. Response: any `unsafe` outside the four allowlisted crates is a
+  # governance failure, not a style question — and it fires the Miri register row.
+  unsafe-surface:
+    name: unsafe-surface
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: geiger
+          save-if: "true"
+      - name: install cargo-geiger
+        # Not available as a prebuilt binary from taiki-e/install-action, so it is built
+        # here. Weekly, cached, and the only `cargo install` in this repository.
+        run: cargo install cargo-geiger --locked --version "${CARGO_GEIGER_VERSION}"
+      - name: count the unsafe surface
+        run: cargo geiger --workspace --all-targets --output-format GitHubMarkdown | tee geiger.md
+      - name: publish to the run summary
+        if: ${{ !cancelled() }}
+        run: cat geiger.md >> "${GITHUB_STEP_SUMMARY}"
+
+  # Owner: maintainer. Response: fix the prose or add an allowlist entry with a reason.
+  # The pull-request job is paths-filtered; this is the full sweep.
+  doc-lint:
+    name: doc-lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: check
+          save-if: "true"
+      - name: every backticked path in docs resolves
+        run: cargo xtask doc-lint
+
+  # Owner: maintainer. Response: this is the early warning for a pre-1.0 dependency
+  # raising its own MSRV in a patch release. It is advisory about the FUTURE lockfile,
+  # so it never touches the committed one.
+  floors-latest:
+    name: floors-latest
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: floors
+          save-if: "true"
+          tools: cargo-hack@${{ env.CARGO_HACK_VERSION }}
+      - name: what would move
+        run: cargo update --dry-run --workspace 2>&1 | tee "${RUNNER_TEMP}/update.log"
+      - name: floors still hold against the latest resolvable set
+        run: |
+          set -euo pipefail
+          cp Cargo.lock "${RUNNER_TEMP}/Cargo.lock.committed"
+          cargo update
+          echo "::group::resolved changes"
+          diff -u "${RUNNER_TEMP}/Cargo.lock.committed" Cargo.lock || true
+          echo "::endgroup::"
+          status=0
+          cargo hack check --rust-version --workspace --all-targets --locked || status=$?
+          # Always restore: this job must leave no trace in the working tree, and the
+          # committed lockfile is the authority.
+          cp "${RUNNER_TEMP}/Cargo.lock.committed" Cargo.lock
+          exit "${status}"
+
+  # Owner: maintainer. Response: a checksum difference means the recipe is not
+  # reproducible — usually an unpinned apt package or a timestamp leaking into a build.
+  # Parity trajectories depend on this recipe, so a drift here is a correctness problem.
+  solvers-image-rebuild-check:
+    name: solvers-image-rebuild-check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: rebuild the solver stage with no cache
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: docker/solvers
+          target: solvers
+          push: false
+          load: true
+          no-cache: true
+          tags: pse-solvers:rebuild
+      - name: compare library checksums against the published image
+        env:
+          PUBLISHED_IMAGE: ${{ env.SOLVER_IMAGE }}
+        run: |
+          set -uo pipefail
+          checksums() {
+            docker run --rm --entrypoint sh "$1" -c \
+              'cd /opt/pse-solvers/lib && sha256sum lib*.so* 2>/dev/null | sort'
+          }
+          checksums pse-solvers:rebuild > "${RUNNER_TEMP}/rebuild.sha256"
+          echo "::group::rebuilt libraries"
+          cat "${RUNNER_TEMP}/rebuild.sha256"
+          echo "::endgroup::"
+
+          if ! docker pull --quiet "${PUBLISHED_IMAGE}" >/dev/null 2>&1; then
+            echo "::warning::could not pull ${PUBLISHED_IMAGE}; recorded the rebuild checksums only."
+            echo "::warning::this is expected until solvers-image.yml has pushed the first image."
+            exit 0
+          fi
+          checksums "${PUBLISHED_IMAGE}" > "${RUNNER_TEMP}/published.sha256"
+          if diff -u "${RUNNER_TEMP}/published.sha256" "${RUNNER_TEMP}/rebuild.sha256"; then
+            echo "solvers: the recipe reproduces the published libraries byte for byte"
+          else
+            echo "::error::the solver recipe is not reproducible; see the diff above."
+            exit 1
+          fi

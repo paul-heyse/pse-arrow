@@ -1,0 +1,163 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Dependabot configuration. Two rules shape all of it:
+#
+#  1. A dependency *family* moves as a unit. arrow, datafusion, pyo3 and the codegen
+#     crates are `=`-pinned once in [workspace.dependencies], and a partial move produces
+#     a mixed family that `cargo tree -d` cannot see. The groups below exist so that
+#     `cargo xtask family-check` either passes for the whole group or fails loudly. A
+#     pull request that moves part of a group is closed, not merged (GOVERNANCE.md §5).
+#
+#  2. `commit-message.prefix: deps` makes every Dependabot title a Conventional Commit,
+#     so `governance / pr-title` passes and git-cliff files it under "Dependencies"
+#     (`deps` is a type in cliff.toml).
+#
+# Renovate is the documented fallback if these groups prove too coarse (register row).
+
+version: 2
+
+updates:
+  # --- Rust ---------------------------------------------------------------------------
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    # `increase` rewrites the `=` pin in Cargo.toml as well as Cargo.lock. Anything else
+    # would leave the manifest claiming a version the lockfile no longer resolves.
+    versioning-strategy: increase
+    open-pull-requests-limit: 8
+    labels:
+      - dependencies
+      - kind/library-upgrade
+      - area/tooling
+    commit-message:
+      prefix: deps
+      include: scope
+    groups:
+      arrow-family:
+        patterns:
+          - "arrow"
+          - "arrow-*"
+          - "parquet"
+          - "parquet-*"
+      datafusion-family:
+        patterns:
+          - "datafusion"
+          - "datafusion-*"
+          - "object_store"
+      pyo3-family:
+        patterns:
+          - "pyo3"
+          - "pyo3-*"
+          - "numpy"
+      # A codegen bump changes generated output, so the pull request must also carry the
+      # regeneration commit; `rust / codegen-diff` fails otherwise.
+      codegen:
+        patterns:
+          - "syn"
+          - "quote"
+          - "proc-macro2"
+          - "prettyplease"
+      numerics:
+        patterns:
+          - "num-dual"
+          - "faer"
+          - "faer-*"
+          - "petgraph"
+          - "diffsol"
+          - "feos"
+          - "feos-*"
+          - "egglog"
+
+  # --- Python -------------------------------------------------------------------------
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - kind/library-upgrade
+      - area/python-boundary
+    commit-message:
+      prefix: deps
+      include: scope
+    ignore:
+      # The parity pin. It is the definition of what "parity" means and moves only by
+      # ADR, with the tag in scripts/fetch-external.sh and the tolerances moved with it
+      # (GOVERNANCE.md §5). Dependabot must never touch it.
+      - dependency-name: "idaes-pse"
+    groups:
+      runtime:
+        patterns:
+          - "pyarrow"
+          - "attrs"
+          - "cattrs"
+          - "msgspec"
+          - "pyomo"
+          - "pint"
+          - "numpy"
+          - "scipy"
+      quality-tools:
+        patterns:
+          - "ruff"
+          - "pyrefly"
+          - "pyright"
+          - "import-linter"
+          - "reuse"
+          - "taplo"
+          - "typos"
+          - "pre-commit"
+          - "maturin"
+          - "pytest"
+          - "pytest-*"
+
+  # --- GitHub Actions -----------------------------------------------------------------
+  # Every `uses:` is pinned by commit SHA with a version comment; Dependabot moves the
+  # SHA and the comment together. `pinact` in repo-hygiene catches anything that drifts
+  # back to a tag.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - area/ci
+    commit-message:
+      prefix: deps
+      include: scope
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  # --- Solver container base image ----------------------------------------------------
+  # Only the base image is tracked here; Ipopt, MUMPS and ASL are built from pinned
+  # source tarballs verified against docker/solvers/checksums.sha256, and moving one of
+  # those is an ADR because parity trajectories depend on the solver build.
+  - package-ecosystem: docker
+    directory: "/docker/solvers"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 2
+    labels:
+      - dependencies
+      - area/ci
+      - area/numerics-solvers
+    commit-message:
+      prefix: deps
+      include: scope

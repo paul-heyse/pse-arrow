@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+name: Bug report
+description: Something behaves differently from what the blueprint, the docs, or a test says it should.
+title: "bug: "
+labels: ["kind/bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        **Not for security problems.** If this could be exploited by an untrusted model
+        file, a malicious dependency, or across the FFI boundary, stop and follow
+        [SECURITY.md](https://github.com/paul-heyse/pse-arrow/blob/main/SECURITY.md)
+        instead.
+
+
+        **Not for numerical disagreement with IDAES** — use the *Parity gap* form, which
+        asks the questions that kind of report needs.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: >-
+        The observed behaviour, and the behaviour you expected. Say which one you are
+        confident about and why.
+      placeholder: |
+        Expected: `pse.open(...)` rejects the relation with a P2 validity diagnostic.
+        Observed: it accepts it and the solve fails later with an opaque Ipopt error.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        The smallest input and command sequence that shows it. A failing test, a model
+        file, or a short script beats a description. Include the full error and
+        backtrace (`RUST_BACKTRACE=1`).
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: >-
+        The `pse-arrow` version, or the commit SHA if you are on a checkout. `pse.build_info()`
+        prints it along with the lockfile hashes.
+      placeholder: "0.0.1 / 9f3c1a2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        Please paste the output of `cargo xtask probe-host --json` (or
+        `python -c "import pse, json; print(json.dumps(pse.probe_host(), indent=2))"`).
+        It records the OS, the Rust toolchain, the interpreter, and which solver
+        libraries were found — which is usually where the answer is. If you cannot run
+        it, describe the OS, architecture, how you installed Ipopt, and whether you are
+        in the solver container or the devcontainer.
+      render: json
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      description: Where the problem shows up. Pick the outermost one you can reproduce from.
+      multiple: true
+      options:
+        - Rust API (a pse-* crate)
+        - Python API (the pse package)
+        - CLI / xtask / justfile
+        - Native solver backend (Ipopt / MUMPS)
+        - The Pyomo adapter
+        - Build, packaging, or wheels
+        - CI, tooling, or the solver image
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and workaround
+      description: >-
+        What this blocks for you, and whether you found a way around it. This is how the
+        issue gets prioritised — please be concrete rather than urgent.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues and discussions for this.
+          required: true
+        - label: >-
+            `just doctor` is clean, or I have said above which part of it is not and why
+            I think that is unrelated.
+          required: false
+        - label: >-
+            I am reporting behaviour, not asking a question. (Questions go to
+            Discussions — they get better answers there.)
+          required: true

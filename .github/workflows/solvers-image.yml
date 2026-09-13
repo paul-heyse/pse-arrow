@@ -1,0 +1,260 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# The solver container: Ipopt 3.14.20 + MUMPS 5.9.1 + ASL, built from pinned source
+# tarballs verified against docker/solvers/checksums.sha256.
+#
+# On a pull request that touches the recipe: build all three stages and run the smoke
+# test, but push nothing. On a push to `main`: build, push to GHCR, and open a pull
+# request that moves `SOLVER_IMAGE` across the workflows to the new digest.
+#
+# The image is content-addressed by the recipe: `ci-<tree-hash>` where the tree hash is
+# the first 12 characters of `git rev-parse HEAD:docker/solvers`. Two checkouts with the
+# same recipe therefore name the same tag, and a workflow pinned to a digest cannot
+# silently pick up a rebuilt image.
+#
+# Changing the recipe in a way that can move solver iteration counts (an Ipopt, MUMPS or
+# ASL version, an optimisation flag, the BLAS choice) needs an ADR: parity trajectories
+# depend on it.
+name: solvers-image
+
+on:
+  pull_request:
+    paths:
+      - "docker/solvers/**"
+      - ".github/workflows/solvers-image.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docker/solvers/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: paul-heyse/pse-solvers
+  # The human-readable recipe tag. Bumped by hand (…-r2, -r3) when the recipe changes in
+  # a way that keeps the same upstream versions; the upstream versions themselves come
+  # from docker/solvers/checksums.sha256 and moving one is an ADR.
+  RECIPE_TAG: ipopt3.14.20-mumps5.9.1-asl20241108-r1
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Only on a push to main does anything actually get pushed; the token is scoped
+      # per job rather than at the workflow level so a pull-request build cannot publish.
+      packages: write
+    outputs:
+      tree-hash: ${{ steps.recipe.outputs.tree-hash }}
+      ci-digest: ${{ steps.build-ci.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: content-address the recipe
+        id: recipe
+        run: |
+          set -euo pipefail
+          tree_hash="$(git rev-parse "HEAD:docker/solvers" | cut -c1-12)"
+          echo "tree-hash=${tree_hash}" >> "$GITHUB_OUTPUT"
+          echo "recipe tree hash: ${tree_hash}"
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: log in to GHCR
+        if: ${{ github.event_name != 'pull_request' }}
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.title=pse-solvers
+            org.opencontainers.image.description=Ipopt 3.14.20 + MUMPS 5.9.1 + ASL, built from pinned sources for pse-arrow CI
+            org.opencontainers.image.licenses=EPL-2.0 AND CeCILL-C AND MIT
+            org.opencontainers.image.source=https://github.com/paul-heyse/pse-arrow
+
+      - name: build the solvers stage
+        id: build-solvers
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: docker/solvers
+          target: solvers
+          load: ${{ github.event_name == 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RECIPE_TAG }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: build the ci stage
+        id: build-ci
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: docker/solvers
+          target: ci
+          load: ${{ github.event_name == 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ steps.recipe.outputs.tree-hash }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: build the dev stage
+        id: build-dev
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: docker/solvers
+          target: dev
+          load: ${{ github.event_name == 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ steps.recipe.outputs.tree-hash }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: smoke test the built image
+        # Only meaningful when the image is local, i.e. on pull requests. The recipe's
+        # own post-build test compiles hs071_c.c and solves a tiny .nl; this repeats the
+        # essential part from outside the build so a broken `ci` stage cannot merge.
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          CI_IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ steps.recipe.outputs.tree-hash }}
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint bash "${CI_IMAGE}" -c '
+            set -euo pipefail
+            ipopt --version
+            pkg-config --modversion ipopt
+            test -f "${IPOPT_DIR}/include/coin-or/IpStdCInterface.h"
+            uv --version
+          '
+
+      - name: record what was published
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          TREE_HASH: ${{ steps.recipe.outputs.tree-hash }}
+          CI_DIGEST: ${{ steps.build-ci.outputs.digest }}
+          DEV_DIGEST: ${{ steps.build-dev.outputs.digest }}
+          SOLVERS_DIGEST: ${{ steps.build-solvers.outputs.digest }}
+        run: |
+          {
+            echo "### Solver image published"
+            echo
+            echo "| tag | digest |"
+            echo "|---|---|"
+            echo "| \`${RECIPE_TAG}\` | \`${SOLVERS_DIGEST}\` |"
+            echo "| \`ci-${TREE_HASH}\` | \`${CI_DIGEST}\` |"
+            echo "| \`dev-${TREE_HASH}\` | \`${DEV_DIGEST}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  update-pin:
+    name: update-pin
+    needs: [build]
+    if: ${{ github.event_name != 'pull_request' && needs.build.outputs.ci-digest != '' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: rewrite SOLVER_IMAGE everywhere it appears
+        env:
+          NEW_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.ci-digest }}
+          NEW_DEV_TAG: dev-${{ needs.build.outputs.tree-hash }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import re
+
+          new_ref = os.environ["NEW_REF"]
+          new_dev = os.environ["NEW_DEV_TAG"]
+
+          # Both the workflow-level `SOLVER_IMAGE` env and the literal `container.image`
+          # strings, which cannot reference it (the `env` context is unavailable there).
+          ci_pattern = re.compile(
+              r"ghcr\.io/paul-heyse/pse-solvers:ci-[0-9a-zA-Z.\-]+(?:@sha256:[0-9a-f]{64})?"
+          )
+          dev_pattern = re.compile(
+              r"ghcr\.io/paul-heyse/pse-solvers:dev-[0-9a-zA-Z.\-]+(?:@sha256:[0-9a-f]{64})?"
+          )
+
+          targets = sorted(pathlib.Path(".github/workflows").glob("*.yml"))
+          devcontainer = pathlib.Path(".devcontainer/devcontainer.json")
+          if devcontainer.exists():
+              targets.append(devcontainer)
+
+          changed = []
+          for path in targets:
+              text = path.read_text(encoding="utf-8")
+              updated = ci_pattern.sub(new_ref, text)
+              updated = dev_pattern.sub(
+                  f"ghcr.io/paul-heyse/pse-solvers:{new_dev}", updated
+              )
+              if updated != text:
+                  path.write_text(updated, encoding="utf-8")
+                  changed.append(str(path))
+
+          print("updated:" if changed else "nothing to update")
+          for name in changed:
+              print(" ", name)
+          PY
+      - name: open the update pull request
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          branch: ci/solver-image-${{ needs.build.outputs.tree-hash }}
+          delete-branch: true
+          # Conventional title so `governance / pr-title` passes on the generated PR.
+          title: "ci(solvers): pin the solver image to ci-${{ needs.build.outputs.tree-hash }}"
+          commit-message: |
+            ci(solvers): pin the solver image to ci-${{ needs.build.outputs.tree-hash }}
+
+            Generated by solvers-image.yml after publishing the image built from
+            docker/solvers at tree hash ${{ needs.build.outputs.tree-hash }}.
+          labels: |
+            area/ci
+            area/numerics-solvers
+            kind/chore
+          body: |
+            The solver image was rebuilt from `docker/solvers/` and pushed to GHCR.
+            This moves every `SOLVER_IMAGE` value and every literal `container.image`
+            string onto the new digest.
+
+            - recipe tree hash: `${{ needs.build.outputs.tree-hash }}`
+            - `ci` digest: `${{ needs.build.outputs.ci-digest }}`
+
+            **Evidence:** `Observed` — the image was built and pushed by [this run](${{
+            github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+            The gates on this pull request are what prove the new image actually works:
+            `rust / test`, `rust / clippy`, `rust / codegen-diff` and `python / parity`
+            all run inside it.
+
+            No ADR is needed for a rebuild at unchanged upstream versions. If this pull
+            request accompanies a version or flag change in the recipe, it needs one —
+            solver iteration counts, and therefore parity trajectories, depend on it.
+
+            ---
+
+            Note: pull requests opened with the default `GITHUB_TOKEN` do not start
+            workflow runs. Close and reopen this pull request (or push an empty commit)
+            to make the checks run.

@@ -1,0 +1,16 @@
+{
+  "names": [
+    "process-systems-engineering",
+    "apache-arrow",
+    "datafusion",
+    "rust",
+    "pyo3",
+    "chemical-engineering",
+    "flowsheet-modeling",
+    "equation-oriented-modeling",
+    "nonlinear-optimization",
+    "ipopt",
+    "pyomo",
+    "idaes"
+  ]
+}

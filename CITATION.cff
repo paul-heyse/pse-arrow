@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Citation File Format 1.2.0 — https://citation-file-format.github.io
+# `license` is a list because CFF validates each entry against the SPDX identifier
+# enumeration and does not accept the expression "MIT OR Apache-2.0"; the two entries
+# together mean the same dual licence declared in Cargo.toml and pyproject.toml.
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+type: software
+title: "pse-arrow: an Arrow-native process systems engineering core"
+abstract: >-
+  An Arrow-native process systems engineering core in Rust: typed relations as the only
+  model authority, a relational math IR, DataFusion-based inference, native NLP solving,
+  and a generated Pyomo backend. A clean-room re-implementation of core IDAES-PSE
+  capabilities, parity-tested against idaes-pse 2.12.0. Not affiliated with IDAES.
+authors:
+  - family-names: Heyse
+    given-names: Paul
+    email: paul@heyse.io
+repository-code: "https://github.com/paul-heyse/pse-arrow"
+url: "https://paul-heyse.github.io/pse-arrow"
+license:
+  - MIT
+  - Apache-2.0
+version: 0.0.1
+date-released: "2026-09-13"
+keywords:
+  - process systems engineering
+  - apache arrow
+  - datafusion
+  - rust
+  - chemical engineering
+  - flowsheet modeling
+  - equation-oriented modeling
+  - nonlinear optimization
+references:
+  - type: article
+    title: >-
+      The IDAES process modeling framework and model library—Flexibility for process
+      simulation and optimization
+    authors:
+      - family-names: Lee
+        given-names: Andrew
+      - family-names: Ghouse
+        given-names: Jaffer H.
+      - family-names: Eslick
+        given-names: John C.
+      - family-names: Laird
+        given-names: Carl D.
+      - family-names: Siirola
+        given-names: John D.
+      - family-names: Zamarripa
+        given-names: Miguel A.
+      - family-names: Gunter
+        given-names: Dan
+      - family-names: Shinn
+        given-names: John H.
+      - family-names: Dowling
+        given-names: Alexander W.
+      - family-names: Bhattacharyya
+        given-names: Debangsu
+      - family-names: Biegler
+        given-names: Lorenz T.
+      - family-names: Burgard
+        given-names: Anthony P.
+      - family-names: Miller
+        given-names: David C.
+    journal: "Journal of Advanced Manufacturing and Processing"
+    volume: 3
+    issue: 3
+    number: e10095
+    year: 2021
+    doi: 10.1002/amp2.10095
+    notes: >-
+      Parity reference; not affiliated. pse-arrow is a clean-room re-implementation that
+      is numerically compared against idaes-pse 2.12.0 by its parity harness. It is not
+      affiliated with, endorsed by, or derived from the IDAES project or its sponsors.

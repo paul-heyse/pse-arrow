@@ -1,0 +1,221 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Builds the `pse-arrow` wheels and sdist.
+#
+# Called two ways:
+#   * `workflow_call` — python.yml asks for just the Linux x86_64 wheel so the parity
+#     job tests the artifact that would actually ship; release.yml asks for all five.
+#   * `pull_request` with a path filter — packaging inputs changed, so prove the wheels
+#     still build. Not a required check.
+#
+# Every wheel must be tagged `cp311-abi3`: one wheel per platform serves 3.11 upward,
+# which is the whole point of building against the abi3-py311 pyo3 feature. The check is
+# an assertion here rather than a comment, because a silently non-abi3 wheel would only
+# show up as a missing wheel for some user's interpreter months later.
+name: wheels
+
+on:
+  workflow_call:
+    inputs:
+      targets:
+        description: '"all" for the full five-target matrix, or "linux-x86_64" for just that one.'
+        type: string
+        required: false
+        default: all
+  pull_request:
+    paths:
+      - "crates/**"
+      - "python/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - ".github/workflows/wheels.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.targets || 'all' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  UV_VERSION: 0.12.13
+  MATURIN_VERSION: 1.15.0
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: choose the target matrix
+        id: plan
+        env:
+          # Read through env, never interpolated into the script body.
+          TARGETS: ${{ inputs.targets || 'all' }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          # manylinux 2_28 because pyarrow 25.0.1 publishes only manylinux_2_28 wheels;
+          # a 2_17 wheel of ours would be installable where its dependency is not.
+          all_targets = [
+              {"name": "linux-x86_64", "runner": "ubuntu-24.04", "target": "x86_64", "manylinux": "2_28"},
+              {"name": "linux-aarch64", "runner": "ubuntu-24.04-arm", "target": "aarch64", "manylinux": "2_28"},
+              {"name": "macos-arm64", "runner": "macos-15", "target": "aarch64", "manylinux": "auto"},
+              {"name": "macos-x86_64", "runner": "macos-15-intel", "target": "x86_64", "manylinux": "auto"},
+              {"name": "windows-x64", "runner": "windows-2022", "target": "x64", "manylinux": "auto"},
+          ]
+          wanted = os.environ["TARGETS"].strip()
+          if wanted == "all":
+              chosen = all_targets
+          else:
+              chosen = [t for t in all_targets if t["name"] == wanted]
+              if not chosen:
+                  raise SystemExit(f"wheels: unknown target {wanted!r}")
+          print("matrix=" + json.dumps({"include": chosen}))
+          PY
+
+  build:
+    name: ${{ matrix.name }}
+    needs: [plan]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: build wheel
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        with:
+          command: build
+          target: ${{ matrix.target }}
+          manylinux: ${{ matrix.manylinux }}
+          maturin-version: ${{ env.MATURIN_VERSION }}
+          # The toolchain still comes from rust-toolchain.toml; this only tells the
+          # action not to install one of its own choosing.
+          rust-toolchain: stable
+          sccache: "true"
+          args: --release --out dist --locked
+      - name: every wheel is cp311-abi3
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import sys
+
+          wheels = sorted(pathlib.Path("dist").glob("*.whl"))
+          if not wheels:
+              sys.exit("wheels: no wheel was produced")
+          bad = [w.name for w in wheels if "cp311-abi3" not in w.name]
+          for wheel in wheels:
+              print(("ok   " if wheel.name not in bad else "BAD  ") + wheel.name)
+          if bad:
+              sys.exit(
+                  "wheels: not tagged cp311-abi3: "
+                  + ", ".join(bad)
+                  + "\n  The abi3-py311 pyo3 feature is missing, or maturin built a "
+                    "version-specific wheel. One wheel must serve 3.11 upward."
+              )
+          PY
+      - name: upload wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: wheel-${{ matrix.name }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 7
+
+  sdist:
+    name: sdist
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: sdist
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: build sdist
+        run: uv build --sdist --out-dir dist
+      - name: the sdist actually builds, from a fresh environment
+        # A PEP 517 build from the sdist in an empty venv is the only thing that proves
+        # [tool.maturin] `include` carries everything the build needs: uv.lock,
+        # rust-toolchain.toml, REUSE.toml, the crates.
+        run: |
+          set -euo pipefail
+          uv venv .venv-sdist --python 3.11
+          uv pip install --python .venv-sdist --no-cache dist/*.tar.gz
+          uv run --python .venv-sdist --no-project python -c \
+            'import pse; print("sdist install ok:", pse.__version__)'
+      - name: upload sdist
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  verify-clean-install:
+    name: verify-clean-install (${{ matrix.python-version }})
+    needs: [build]
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two ends of the abi3 range the single wheel claims to serve.
+        python-version: ["3.11", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          python-version: ${{ matrix.python-version }}
+      - name: fetch the Linux x86_64 wheel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wheel-linux-x86_64
+          path: dist
+      - name: install into an empty environment and import
+        # From a checkout, but deliberately NOT from the source tree: `--no-project` and
+        # a cd out of the repository root make sure `import pse` resolves to the wheel.
+        run: |
+          set -euo pipefail
+          uv venv ".venv-${{ matrix.python-version }}" --python "${{ matrix.python-version }}"
+          uv pip install --python ".venv-${{ matrix.python-version }}" --no-cache dist/*.whl
+          cd "${RUNNER_TEMP}"
+          uv run --python "${GITHUB_WORKSPACE}/.venv-${{ matrix.python-version }}" \
+            --no-project python -c \
+            'import pse, json; print(json.dumps(pse.build_info().__dict__, default=str, indent=2))'
+      - name: no numpy on import
+        # numpy must stay behind the pse._array boundary; importing pse must not pull it
+        # in. A subprocess with a poisoned finder is the fixture; here a plain check.
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}"
+          uv run --python "${GITHUB_WORKSPACE}/.venv-${{ matrix.python-version }}" \
+            --no-project python -c \
+            'import sys, pse; assert "numpy" not in sys.modules, "importing pse pulled in numpy"; print("ok")'

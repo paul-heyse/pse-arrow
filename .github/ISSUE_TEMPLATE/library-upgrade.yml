@@ -1,0 +1,131 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+name: Library upgrade
+description: Move a pinned dependency or a whole dependency family.
+title: "deps: "
+labels: ["kind/library-upgrade", "dependencies"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Every dependency here is version-pinned and the lockfiles are committed. A
+        *family* (arrow, datafusion, pyo3, object_store) is pinned with `=` once in
+        `[workspace.dependencies]` and moves as a unit — a partial move is a bug, and
+        `cargo tree -d` cannot detect it, which is why `cargo xtask family-check` exists.
+
+
+        Routine patch bumps inside an already-pinned family arrive as grouped Dependabot
+        pull requests and do not need this issue. Use this form for a family move, a
+        major version, a new dependency, or a drop — see
+        [GOVERNANCE.md §5](https://github.com/paul-heyse/pse-arrow/blob/main/GOVERNANCE.md#5-how-the-pins-move).
+
+  - type: dropdown
+    id: family
+    attributes:
+      label: Family
+      description: Which pinned group this touches. `none` means a standalone dependency.
+      options:
+        - arrow (arrow*, parquet*)
+        - datafusion (datafusion*)
+        - object_store
+        - pyo3 (pyo3*, pyo3-arrow)
+        - codegen (syn, quote, proc-macro2, prettyplease)
+        - numerics (num-dual, faer*, petgraph, diffsol, feos*, egglog)
+        - Python runtime (pyarrow, attrs, cattrs, msgspec)
+        - Python quality / test tooling
+        - idaes-pse (the parity pin)
+        - Rust toolchain / MSRV
+        - Solver stack (Ipopt, MUMPS, ASL)
+        - none — a standalone dependency
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of move
+      options:
+        - Patch or minor bump inside the pinned family
+        - Major version — the family moves
+        - Add a new dependency
+        - Drop a dependency
+        - Replace one dependency with another
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: From → to
+      description: Every crate or package in the family, with its current and target version.
+      placeholder: "arrow 59.3.0 → 60.0.0; arrow-ipc, arrow-cast, parquet likewise"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why move
+      description: >-
+        The capability, fix, or advisory that makes this worth the churn. "It is newer"
+        is not a reason. If this is driven by `cargo audit` or a yanked release, link
+        the advisory.
+    validations:
+      required: true
+
+  - type: textarea
+    id: breakage
+    attributes:
+      label: Breaking changes and required code changes
+      description: >-
+        From the upstream changelog: what breaks for us specifically. Which crates,
+        which APIs, and roughly how much work. Note anything on the banned-API list
+        (`clippy.toml` `disallowed-methods`) that the new version changes.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: obligations
+    attributes:
+      label: What this move obliges
+      description: >-
+        Tick what applies; the pull request has to actually do these. Unticked boxes are
+        fine if genuinely not applicable — say why below.
+      options:
+        - label: An ADR is required (a family moves, a dependency is added or dropped, or a major version).
+        - label: >-
+            The capability map under `docs/capability-maps/` must be regenerated
+            (`just evidence-regen`) and its `pins:` front matter updated.
+        - label: The evidence lockfiles under `docs/capability-maps/evidence/rust/` must be regenerated.
+        - label: "`cargo xtask family-check` must pass with the new evidence lockfiles."
+        - label: >-
+            Pre-1.0 floors must be re-checked (`dependency_floors`) — a pre-1.0
+            dependency may raise its own `rust-version`.
+        - label: "`deny.toml` `skip` entries must be re-seeded from a fresh `cargo deny check bans`."
+        - label: "`cargo semver-checks` must be re-run (this changes our own public API)."
+        - label: Generated sources change and must be regenerated (`just codegen`) in the same pull request.
+        - label: A `datafusion-proto` bump — serialized plan byte stability must be re-checked (register row).
+        - label: The solver image or `pse-ipopt-sys` bindings are affected.
+
+  - type: textarea
+    id: register
+    attributes:
+      label: Register rows this fires or closes
+      description: >-
+        Rows in `docs/adr/register.md` whose trigger this move satisfies (for example
+        the `feos-core` / num-dual row, or the pre-1.0 floors row). `just register-check`
+        lists what is due.
+      placeholder: "R-06 (feos-core tracking num-dual 0.15) — trigger fires; R-07 (pre-1.0 floors) — re-check"
+    validations:
+      required: false
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: How the move will be verified
+      description: >-
+        Beyond a green `just ci-pr`: the specific things that would catch a bad move —
+        a parity run, a benchmark comparison with conditions, a golden-store round trip,
+        a feature-powerset run. Label with the §D evidence vocabulary.
+    validations:
+      required: true

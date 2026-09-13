@@ -1,0 +1,186 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Lints for the repository's own plumbing: spelling, TOML formatting, the workflows
+# themselves, and every shell script.
+#
+# None of these are required checks — they are cheap and they fail fast, so they are read
+# rather than enforced. `zizmor` in particular is a security lint on the workflows: a
+# finding here is about what a pull request from a fork could make CI do.
+name: repo-hygiene
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TAPLO_VERSION: 0.10.0
+  ZIZMOR_VERSION: 1.30.1
+  SHELLCHECK_VERSION: 0.11.0
+  ACTIONLINT_VERSION: 1.7.12
+  # sha256 of actionlint_1.7.12_linux_amd64.tar.gz, from the release's checksums.txt.
+  # actionlint is not available as a prebuilt install-action tool, so it is fetched
+  # directly and verified rather than trusted.
+  ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+
+jobs:
+  typos:
+    name: typos
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: spelling
+        # Configured by typos.toml, which holds the domain vocabulary (Ipopt, MUMPS,
+        # DataFusion, PyO3 …). A false positive is fixed there, never by a nolint.
+        uses: crate-ci/typos@d43b6c087ac471e2ea7b8af622ff15f05c0c365b # v1.50.1
+
+  taplo:
+    name: taplo
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        with:
+          tool: taplo@${{ env.TAPLO_VERSION }}
+      - name: TOML formatting
+        run: taplo fmt --check --diff
+      - name: TOML validity
+        run: taplo lint
+
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        with:
+          # actionlint shells out to shellcheck for every `run:` block; without it the
+          # most valuable half of the check silently does nothing.
+          tool: shellcheck@${{ env.SHELLCHECK_VERSION }}
+      - name: fetch actionlint
+        run: |
+          set -euo pipefail
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --proto '=https' --tlsv1.2 -sSfL --retry 5 --retry-connrefused \
+            -o "${RUNNER_TEMP}/actionlint.tar.gz" "${url}"
+          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict -
+          tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
+          "${RUNNER_TEMP}/actionlint" --version
+      - name: lint the workflows
+        run: |
+          set -euo pipefail
+          "${RUNNER_TEMP}/actionlint" -color
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # zizmor's online audits resolve action references; the read-only job token is
+      # enough and no secret is involved.
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        with:
+          tool: zizmor@${{ env.ZIZMOR_VERSION }}
+      - name: audit the workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor --format github .github/workflows .github/actions
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        with:
+          tool: shellcheck@${{ env.SHELLCHECK_VERSION }}
+      - name: lint every shell script
+        run: |
+          set -euo pipefail
+          mapfile -t scripts < <(
+            git ls-files -z '*.sh' '.envrc' | tr '\0' '\n' | sort
+          )
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "no shell scripts found"
+            exit 0
+          fi
+          printf 'checking:\n'
+          printf '  %s\n' "${scripts[@]}"
+          shellcheck --severity=style --color=always "${scripts[@]}"
+
+  pinned-actions:
+    name: pinned-actions
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: every action is pinned to a commit SHA with a version comment
+        # A tag is mutable; a SHA is not. The comment is what makes the pin readable and
+        # what Dependabot and `pinact` move together with it. This is the check that
+        # keeps a "quick fix" from reintroducing `uses: foo/bar@v1`.
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          # `uses: owner/repo@<40 hex> # vX.Y.Z` — or a local `./...` action.
+          PINNED = re.compile(
+              r"^\s*-?\s*uses:\s*(?P<ref>\S+)\s*(?P<comment>#.*)?$"
+          )
+          SHA = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
+
+          problems = []
+          roots = [pathlib.Path(".github/workflows"), pathlib.Path(".github/actions")]
+          files = sorted(p for root in roots for p in root.rglob("*.yml"))
+          for path in files:
+              for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                  match = PINNED.match(line)
+                  if not match:
+                      continue
+                  ref = match.group("ref")
+                  if ref.startswith("./") or ref.startswith("."):
+                      continue          # a local action in this repository
+                  if not SHA.match(ref):
+                      problems.append(f"{path}:{lineno}: not pinned to a commit SHA: {ref}")
+                      continue
+                  comment = match.group("comment") or ""
+                  if not re.search(r"#\s*v?\d+(\.\d+)*", comment):
+                      problems.append(
+                          f"{path}:{lineno}: pinned, but missing a `# vX.Y.Z` version comment"
+                      )
+
+          if problems:
+              print("::error::unpinned or undocumented action references:")
+              for problem in problems:
+                  print(f"  {problem}")
+              sys.exit(1)
+          print(f"all action references in {len(files)} files are pinned by SHA with a version comment")
+          PY

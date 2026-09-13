@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Coverage is INFORMATIONAL in phase 0: `rust / coverage` and `python / test` upload
+# reports, Codecov comments once both have landed, and no status ever blocks a pull
+# request. Making a target gating is a governance change (GOVERNANCE.md §2) once there
+# is enough code for a number to mean something. `after_n_builds` is the number of
+# uploads expected per commit: one from `rust / coverage`, one from `python / test`.
+
+codecov:
+  require_ci_to_pass: false
+  notify:
+    after_n_builds: 2
+    wait_for_ci: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...95"
+  status:
+    project:
+      default:
+        informational: true
+        target: auto
+        threshold: 100%
+    patch:
+      default:
+        informational: true
+        target: auto
+        threshold: 100%
+
+comment:
+  layout: "condensed_header, diff, flags, components"
+  behavior: default
+  require_changes: false
+  after_n_builds: 2
+
+flag_management:
+  default_rules:
+    carryforward: true
+    statuses:
+      - type: project
+        informational: true
+      - type: patch
+        informational: true
+  individual_flags:
+    - name: rust
+      paths:
+        - crates/
+        - xtask/
+    - name: python
+      paths:
+        - python/
+
+ignore:
+  - "docs/generated/**"
+  - "crates/*/src/generated/**"
+  - "python/pse/contracts/**"
+  - "external/**"
+  - "target/**"
+  - "tests/golden/**"
+  - "benches/**"
+  - "tooling/**"

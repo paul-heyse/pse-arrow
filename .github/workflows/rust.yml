@@ -1,0 +1,326 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# The Rust pull-request gate. Six of these jobs are required checks on `main`
+# (fmt, clippy, test, codegen-diff, family-check, deny); the rest run on every pull
+# request but do not block: docs, doc-lint, coverage, semver, msrv-floors.
+#
+# Conventions that apply to every workflow in this directory:
+#   * `permissions: contents: read` at the top, widened only on the job that needs it.
+#   * No `RUSTFLAGS` anywhere. Setting it would invalidate every cache and, worse,
+#     `-C target-cpu` would change float results between a developer's machine and CI.
+#   * Every `uses:` is pinned to a full commit SHA with the tag in a comment.
+#   * Tool versions live in `env` so each one appears exactly once per workflow.
+name: rust
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: "1"
+  # PLACEHOLDER until the first solver image is pushed to GHCR. `solvers-image.yml`
+  # opens a pull request that rewrites this value AND the literal `container.image`
+  # strings below to `ci-<tree-hash>@sha256:<digest>`. Until then every container job
+  # here fails to pull, which is deliberate and visible rather than silently skipped.
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+  CARGO_NEXTEST_VERSION: 0.9.143
+  CARGO_DENY_VERSION: 0.20.2
+  CARGO_AUDIT_VERSION: 0.22.2
+  # cargo-shear tracks the latest 1.x deliberately: it is a lint, not a gate input, and
+  # its false-positive fixes land in patch releases.
+  CARGO_SHEAR_VERSION: "1"
+  CARGO_HACK_VERSION: 0.6.45
+  CARGO_LLVM_COV_VERSION: 0.9.0
+  TAPLO_VERSION: 0.10.0
+
+jobs:
+  # --- required ----------------------------------------------------------------------
+  fmt:
+    name: fmt
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: lint
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          tools: taplo@${{ env.TAPLO_VERSION }}
+      - name: cargo fmt
+        run: cargo fmt --all --check
+      - name: taplo fmt
+        run: taplo fmt --check --diff
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-24.04
+    # A literal, not ${{ env.SOLVER_IMAGE }}: the `env` context is not available in
+    # `jobs.<job_id>.container`. Keep it in step with the SOLVER_IMAGE env above.
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: check
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: clippy (default features)
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: clippy (no default features)
+        # Proves the `ipopt` feature is genuinely optional, so a consumer without a
+        # solver can still build the library crates.
+        run: cargo clippy --workspace --all-targets --locked --no-default-features -- -D warnings
+
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: test
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          tools: cargo-nextest@${{ env.CARGO_NEXTEST_VERSION }}
+      - name: nextest
+        # `force-validate` turns on arrow's own invariant checks. It is named explicitly
+        # rather than hidden behind an alias so that what CI runs is readable here.
+        run: |
+          cargo nextest run --workspace --locked --profile ci \
+            --features pse-relations/force-validate
+      - name: doctests
+        # nextest does not run doctests; every gate pairs the two.
+        run: cargo test --doc --workspace --locked
+      - name: benches build and smoke
+        # Builds and runs each criterion bench once. There is no timing gate here — a
+        # performance claim needs `Measured` with stated conditions, not a CI runner.
+        run: cargo test --benches -p pse-benches --locked
+      - name: upload JUnit report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nextest-junit
+          path: target/nextest/ci/junit.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  codegen-diff:
+    name: codegen-diff
+    runs-on: ubuntu-24.04
+    # Needs the Ipopt headers and libclang for the bindgen arm of `xtask codegen`.
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: codegen
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: generated sources match the generator
+        # Regenerates into the working tree and fails on any diff or untracked file.
+        # If this is red, run `just codegen` and commit the result in the same PR.
+        run: cargo xtask codegen --check
+
+  family-check:
+    name: family-check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: check
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: one resolved version per pinned family
+        # `cargo tree -d` cannot see a MIXED family (arrow 59 beside arrow-ipc 60), which
+        # is the failure mode that matters here. This can.
+        run: |
+          cargo xtask family-check \
+            --evidence docs/capability-maps/evidence/rust/*.lock
+      - name: lockfile is complete and current
+        run: cargo metadata --locked --format-version 1 > /dev/null
+
+  deny:
+    name: deny
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: policy
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          tools: |
+            cargo-deny@${{ env.CARGO_DENY_VERSION }}
+            cargo-audit@${{ env.CARGO_AUDIT_VERSION }}
+            cargo-shear@${{ env.CARGO_SHEAR_VERSION }}
+      - name: cargo deny
+        # advisories + licenses + bans + sources, all configured in deny.toml.
+        run: cargo deny --all-features --locked check
+      - name: cargo audit
+        run: cargo audit --deny warnings
+      - name: cargo shear
+        run: cargo shear
+
+  # --- informational -----------------------------------------------------------------
+  docs:
+    name: docs
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    env:
+      # The one place a *DOCFLAGS variable is set. This is not RUSTFLAGS: it does not
+      # affect codegen and so cannot move a float result.
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: docs
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: cargo doc
+        run: cargo doc --no-deps --workspace --locked
+      - name: upload rustdoc
+        # `docs / build` copies this into the book when the artifact exists.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: rustdoc
+          path: target/doc
+          if-no-files-found: error
+          retention-days: 7
+
+  doc-lint:
+    name: doc-lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: what changed
+        id: changed
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            docs:
+              - 'docs/**'
+              - 'crates/**/*.rs'
+              - 'xtask/**'
+      - uses: ./.github/actions/setup-rust
+        if: steps.changed.outputs.docs == 'true'
+        with:
+          shared-key: check
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: backticked paths in docs resolve
+        if: steps.changed.outputs.docs == 'true'
+        # Checks every `a::b::c` and [rustdoc:…] identifier in docs/** against the
+        # committed path indexes. The full sweep runs weekly in rust-scheduled.yml.
+        run: cargo xtask doc-lint
+
+  coverage:
+    name: coverage
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+    permissions:
+      contents: read
+      # Codecov uploads with OIDC; no token is stored in this repository.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: coverage
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          tools: |
+            cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }}
+            cargo-nextest@${{ env.CARGO_NEXTEST_VERSION }}
+      - name: cargo llvm-cov
+        run: |
+          cargo llvm-cov nextest --workspace --locked --profile ci \
+            --features pse-relations/force-validate \
+            --lcov --output-path lcov.info
+      - name: upload to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: lcov.info
+          flags: rust
+          use_oidc: true
+          # Informational in phase 0 (codecov.yml): a flaky upload must not fail a PR.
+          fail_ci_if_error: false
+
+  semver:
+    name: semver
+    runs-on: ubuntu-24.04
+    # Gating only on release pull requests; advisory everywhere else. There is nothing
+    # to compare against before the first tag, so the action is allowed to no-op.
+    continue-on-error: ${{ !contains(github.event.pull_request.labels.*.name, 'release') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-rust
+        with:
+          shared-key: semver
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239 # v2.9
+        with:
+          feature-group: default-features
+          rust-toolchain: manual
+
+  msrv-floors:
+    name: msrv-floors
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: what changed
+        id: changed
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            lock:
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'rust-toolchain.toml'
+      - uses: ./.github/actions/setup-rust
+        if: steps.changed.outputs.lock == 'true'
+        with:
+          shared-key: check
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          tools: cargo-hack@${{ env.CARGO_HACK_VERSION }}
+      - name: every dependency's rust-version floor is at or below ours
+        if: steps.changed.outputs.lock == 'true'
+        # Pre-1.0 crates raise their own MSRV in patch releases; the blueprint requires
+        # this to be re-checked at every upgrade, so it runs whenever the lock moves.
+        run: cargo hack check --rust-version --workspace --all-targets --locked

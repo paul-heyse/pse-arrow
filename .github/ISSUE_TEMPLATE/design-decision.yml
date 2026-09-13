@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+name: Design decision
+description: Propose a decision that needs an ADR — an architectural change, a deviation, or a governance change.
+title: "design: "
+labels: ["kind/design-decision", "needs-adr"]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        This form opens the *discussion* that an ADR closes. Filling it well means the
+        ADR is mostly written: the fields below map onto the MADR sections and the
+        charter §H front matter in `docs/adr/template.md`.
+
+
+        Check the table in
+        [CONTRIBUTING.md §4](https://github.com/paul-heyse/pse-arrow/blob/main/CONTRIBUTING.md#4-when-an-adr-or-a-design-review-is-required)
+        first. If the change is a bug fix, a refactor inside an existing contract, or a
+        patch bump inside a pinned family, you do not need this form — just open a pull
+        request.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: >-
+        What forces this decision now? What is true today that makes the current
+        arrangement inadequate? Cite the blueprint section (`blueprint §14.3`) and any
+        ADR this would touch (`ADR-0020`).
+    validations:
+      required: true
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: Proposed decision
+      description: One or two sentences, stated as a decision — "We will …", not "We should consider …".
+    validations:
+      required: true
+
+  - type: dropdown
+    id: level
+    attributes:
+      label: Level
+      description: >-
+        `decision` is a normal architectural choice. `should-deviation` departs from a
+        SHOULD in the design charter and needs a compensating control.
+        `must-gap` narrows scope — it records that something is not done and never
+        claims compliance.
+      options:
+        - decision
+        - should-deviation
+        - must-gap
+    validations:
+      required: true
+
+  - type: dropdown
+    id: bar
+    attributes:
+      label: Which bar does this clear?
+      description: From the CONTRIBUTING.md §4 table. If you are unsure, pick the higher one.
+      options:
+        - ADR + design review (D1–D14, a crate, a dependency family, a contract, governance, any SHOULD deviation)
+        - ADR only (a new relation family, pass, kernel contract, or backend binding within an accepted decision; moving the parity pin; a deferred trigger firing)
+        - Not sure — please triage
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: Options considered
+      description: >-
+        At least two, each with its honest pros and cons — including "do nothing" where
+        that is real. An ADR with one option is a memo, not a decision.
+      placeholder: |
+        1. … — pro: …; con: …
+        2. … — pro: …; con: …
+        3. Do nothing — pro: …; con: …
+    validations:
+      required: true
+
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: >-
+        What becomes easier, what becomes harder, and what becomes impossible. Include
+        the migration cost for anything already built, and the compensating control if
+        this is a `should-deviation`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: >-
+        The test, lint, benchmark, or CI check that will show the decision actually
+        holds once it lands. This becomes the ADR's `verification:` field, so name
+        something concrete and runnable.
+      placeholder: "tests/governance/src/pins_match_blueprint.rs — asserts the family pin appears exactly once"
+    validations:
+      required: true
+
+  - type: textarea
+    id: blueprint
+    attributes:
+      label: Blueprint sections governed
+      description: >-
+        Which `§` sections this decision governs and would amend. Section numbers are
+        stable citation targets — insert `§14.3.1`, never renumber.
+      placeholder: "§3.1, §14.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: >-
+        Label each claim with the §D vocabulary: `Proposed`, `Interface-checked`,
+        `Tested <name>`, `Measured <name> + conditions`, `Observed <link>`. Most fresh
+        proposals are honestly `Proposed` or `Interface-checked` — say so.
+    validations:
+      required: true
+
+  - type: input
+    id: revisit
+    attributes:
+      label: Revisit trigger
+      description: >-
+        An *observable* condition that should re-open this decision — a release, a
+        benchmark crossing a threshold, an upstream API landing. If the decision is a
+        deferral, this becomes a row in `docs/adr/register.md`.
+      placeholder: "salsa 0.20 ships a stable public API for durable inputs"
+    validations:
+      required: false
