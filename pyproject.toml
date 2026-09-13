@@ -1,0 +1,445 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# The one Python project of pse-arrow (import name `pse`; blueprint §21). Every library is
+# pinned `==` (blueprint §3.1). Two interpreter ranges: the platform package targets
+# CPython >= 3.11; the parity environment (idaes-pse 2.12.0) is 3.11-3.13, expressed as a
+# dependency group with a marker rather than a second project, so one uv.lock covers both.
+
+[build-system]
+requires = ["maturin>=1.15,<2"]
+build-backend = "maturin"
+
+[project]
+name = "pse-arrow"
+# Version authority is crates/pse-py/Cargo.toml (workspace-inherited): one number for Rust
+# and Python; the release gate asserts tag == version == wheel == installed metadata.
+dynamic = ["version"]
+description = "Arrow-native process systems engineering core (import name: pse)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSES/*.txt"]
+authors = [{ name = "Paul Heyse", email = "paul@heyse.io" }]
+keywords = [
+  "process systems engineering",
+  "arrow",
+  "datafusion",
+  "idaes",
+  "pyomo",
+  "ipopt",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Topic :: Scientific/Engineering :: Chemistry",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Typing :: Typed",
+]
+# Blueprint §3.1: every library pinned ==. Exact pins in wheel metadata are a deliberate
+# reproducibility-over-composability choice, revisited by ADR at the first PyPI release.
+dependencies = [
+  "pyarrow==25.0.1",
+  "attrs==26.1.0",
+  "cattrs==26.2.0",
+  "msgspec==0.21.1",
+]
+
+[project.optional-dependencies]
+# The Pyomo adapter (blueprint §21.2). Not core: pse.open/compile/solve are native; the
+# adapter exists for parity and Pyomo-ecosystem tools (§21.3). numpy is the §21.6 array
+# boundary, exercised only by the adapter and the parity harness.
+# numpy 2.5, scipy 1.18 and pint 0.26 all require CPython >= 3.12, and the platform
+# floor is 3.11 (abi3-py311 wheels, blueprint §3.1), so each pin is split by
+# interpreter rather than the floor being raised. Both halves stay `==`-exact; the
+# marker is the same mechanism [dependency-groups].parity already uses for IDAES.
+pyomo = [
+  "pyomo==6.10.1",
+  "pint==0.26.1; python_full_version >= '3.12'",
+  "pint==0.25.3; python_full_version < '3.12'",
+  "numpy==2.5.3; python_full_version >= '3.12'",
+  "numpy==2.4.6; python_full_version < '3.12'",
+]
+
+[project.urls]
+Homepage = "https://github.com/paul-heyse/pse-arrow"
+Documentation = "https://paul-heyse.github.io/pse-arrow/"
+Repository = "https://github.com/paul-heyse/pse-arrow"
+Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
+
+# PEP 735. Exact pins for tools: a formatter or type checker that drifts produces phantom
+# diffs. Bumping is a deliberate commit (`just lock-upgrade <pkg>`).
+[dependency-groups]
+quality = [
+  "ruff==0.16.7",
+  "pyrefly==1.3.0",
+  "import-linter==2.15",
+  "reuse==6.2.0",
+  "taplo==0.9.3",
+  "typos==1.50.1",
+  "pre-commit==4.6.2",
+  "maturin==1.15.0",
+  "pyright==1.1.409",
+]
+test = [
+  "pytest==9.1.1",
+  "pytest-cov==7.1.0",
+  "pytest-xdist==3.8.0",
+  # Test-time oracles only (blueprint §24.1); import-linter keeps them out of pse proper.
+  # Split by interpreter for the same reason as the `pyomo` extra above.
+  "numpy==2.5.3; python_full_version >= '3.12'",
+  "numpy==2.4.6; python_full_version < '3.12'",
+  "scipy==1.18.1; python_full_version >= '3.12'",
+  "scipy==1.17.1; python_full_version < '3.12'",
+]
+# The parity environment (blueprint §3.1, §24). IDAES 2.12.0 classifies 3.10-3.13 and the
+# platform floor is 3.11, so parity runs on 3.11-3.13. The marker makes
+# `uv sync --group parity` on 3.14 install nothing IDAES-related, and the --parity
+# conftest then FAILS (never skips).
+parity = [
+  { include-group = "test" },
+  "idaes-pse==2.12.0; python_full_version < '3.14'",
+]
+evidence = [
+  { include-group = "parity" },
+]
+dev = [
+  { include-group = "quality" },
+  { include-group = "test" },
+]
+
+[tool.uv]
+package = true
+required-version = "==0.12.13"
+python-preference = "managed"
+default-groups = ["dev"]
+# Rebuild the extension when Rust inputs change (uv's defaults watch only pyproject/src).
+# uv.lock is a key because pse-buildinfo embeds it: a lock change must change build_info().
+cache-keys = [
+  { file = "pyproject.toml" },
+  { file = "Cargo.toml" },
+  { file = "Cargo.lock" },
+  { file = "uv.lock" },
+  { file = "rust-toolchain.toml" },
+  { file = "crates/**/Cargo.toml" },
+  { file = "crates/**/*.rs" },
+]
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[tool.maturin]
+bindings = "pyo3"
+manifest-path = "crates/pse-py/Cargo.toml"
+module-name = "pse._native"
+python-source = "python"
+python-packages = ["pse"]
+locked = true
+profile = "release"
+editable-profile = "dev"
+strip = true
+auditwheel = "repair"
+# abi3-py311 lives in crates/pse-py/Cargo.toml (pyo3 features): one authority.
+include = [
+  { path = "uv.lock", format = "sdist" },
+  { path = "rust-toolchain.toml", format = "sdist" },
+  { path = "REUSE.toml", format = "sdist" },
+]
+exclude = [
+  { path = "python/pse/tests/**", format = "wheel" },
+  { path = "python/pse/parity/tests/**", format = "wheel" },
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["python"]
+extend-exclude = ["external", "build", "docs", "target", "tooling"]
+
+[tool.ruff.format]
+docstring-code-format = true
+# Generated contracts are formatted by the generator; formatting them here would make
+# `rust / codegen-diff` fail. Lint still runs on them.
+exclude = ["python/pse/contracts/**"]
+
+[tool.ruff.lint]
+# Explicit selection: a ruff upgrade cannot silently change what the gate means.
+select = [
+  "E",
+  "W",
+  "F",
+  "I",
+  "B",
+  "C4",
+  "UP",
+  "SIM",
+  "RUF",
+  "PT",
+  "PERF",
+  "N",
+  "ARG",
+  "PTH",
+  "TRY",
+  "PLC",
+  "PLE",
+  "PLW",
+  "ISC",
+  "ANN",  # every def annotated; ANN401 bans Any in annotations
+  "TC",   # type-checking imports
+  "TID",  # banned-api below
+  "D",    # google docstrings
+  "S",    # bandit
+  "T20",  # no print outside tools/scripts
+  "ERA",  # no commented-out code
+  "PGH",  # no blanket noqa / type: ignore
+  "PIE",
+  "RET",
+  "SLF",
+  "FA",
+  "LOG",
+  "G",
+  "DTZ",
+  "PYI",
+  "NPY",
+  "FURB",
+  "FLY",
+  "INP",
+  "EXE",
+  "ICN",
+  "TD",
+]
+ignore = [
+  "ISC001", # conflicts with the formatter
+  "TD002",  # TODO author is git blame's job; TD003 (issue link) stays
+]
+
+[tool.ruff.lint.per-file-ignores]
+"conftest.py" = ["D1", "INP001", "S603", "S607"]
+"python/pse/tests/**" = [
+  "S101",
+  "D1",
+  "ARG001",
+  "ARG002",
+  "PT011",
+  "SLF001",
+  "INP001",
+  "TID251",
+  "S603",
+  "S607",
+]
+"python/pse/parity/tests/**" = [
+  "S101",
+  "D1",
+  "ARG001",
+  "ARG002",
+  "PT011",
+  "SLF001",
+  "INP001",
+  "TID251",
+]
+"python/pse/contracts/**" = ["D", "E501", "TID251"]
+"python/pse/codec/**" = ["TID251"]
+# stdlib CLI scripts: json/tomllib are their codec, subprocess is their job, and every
+# helper does not need a google docstring.
+"scripts/**" = [
+  "T20",
+  "INP001",
+  "S603",
+  "S607",
+  "S602",
+  "D1",
+  "E501",
+  "TRY003",
+  "DTZ011",
+  "PERF401",
+  "TID251",
+]
+"docs/capability-maps/evidence/python/**" = ["ALL"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pse"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-annotations]
+mypy-init-return = true
+allow-star-arg-any = false
+
+[tool.ruff.lint.flake8-type-checking]
+# attrs/msgspec classes evaluate annotations at runtime (the import-time Any lint); TC
+# rules must not move their imports under TYPE_CHECKING.
+runtime-evaluated-base-classes = ["msgspec.Struct"]
+runtime-evaluated-decorators = [
+  "attrs.define",
+  "attrs.frozen",
+  "attr.s",
+  "attr.define",
+  "attr.frozen",
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+parametrize-names-type = "tuple"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "parents"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"typing.Any".msg = "Contracts are fully typed (blueprint §21.5); Any is banned outside tests."
+"cattrs.Converter".msg = "Use pse.codec.converter(): it installs the forbid_extra_keys hook factory."
+"cattrs.GenConverter".msg = "Use pse.codec.converter()."
+"cattrs.structure".msg = "The global converter ignores extra keys; use pse.codec."
+"cattrs.unstructure".msg = "Use pse.codec."
+"pyarrow.register_extension_type".msg = "Use pse.contracts.extension_types.register_all() (idempotent, blueprint §4.4)."
+"pyomo.util.check_units.assert_units_consistent".msg = "Use identify_inconsistent_units so the finding names components (blueprint §21.2)."
+"json".msg = "Every JSON the package reads or writes is a msgspec.Struct (blueprint §21.5); use msgspec.json."
+"tomllib".msg = "Use msgspec.toml (blueprint §21.5)."
+"pickle".msg = "No pickle: artifacts are Arrow/Parquet with content hashes."
+
+[tool.pyrefly]
+project-includes = ["python/pse", "scripts", "conftest.py"]
+project-excludes = ["**/.venv*/**", "**/target/**", "external/**", "build/**"]
+search-path = ["python", "python/stubs"]
+# Check against the floor, not the 3.14 we develop on.
+python-version = "3.11"
+
+[[tool.pyrefly.sub-config]]
+matches = "python/pse/parity/**"
+replace-imports-with-any = ["idaes.*", "pyomo.*", "pint.*"]
+
+[[tool.pyrefly.sub-config]]
+matches = "python/pse/adapters/pyomo/**"
+replace-imports-with-any = ["pyomo.*", "pint.*"]
+
+[tool.importlinter]
+root_packages = ["pse"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "numpy/scipy only at the array boundary, in the parity harness, and in tests (blueprint §21.6, §24.1)"
+type = "forbidden"
+source_modules = ["pse"]
+forbidden_modules = ["numpy", "scipy"]
+# Phase 0: the parity harness and the Pyomo adapter are docstring-only, so several of
+# the ignores below match nothing yet. `warn` keeps them listed (and reported) instead of
+# failing the gate on an ignore that is correct but premature; it returns to the default
+# `error` when those modules land, so a stale ignore is caught again.
+unmatched_ignore_imports_alerting = "warn"
+ignore_imports = [
+  "pse._array -> numpy",
+  "pse.parity.** -> numpy",
+  "pse.parity.** -> scipy",
+  "pse.tests.** -> numpy",
+  "pse.tests.** -> scipy",
+]
+
+[[tool.importlinter.contracts]]
+name = "what IDAES drags in never becomes a platform dependency (blueprint §3.1)"
+type = "forbidden"
+source_modules = ["pse"]
+forbidden_modules = [
+  "idaes",
+  "pandas",
+  "pydantic",
+  "sympy",
+  "networkx",
+  "matplotlib",
+  "click",
+]
+unmatched_ignore_imports_alerting = "warn" # see the note above
+ignore_imports = [
+  "pse.parity.** -> idaes",
+  "pse.parity.** -> pandas",
+]
+
+[[tool.importlinter.contracts]]
+name = "pyomo/pint only in the adapter, the parity harness, and tests (blueprint §21.2)"
+type = "forbidden"
+source_modules = ["pse"]
+forbidden_modules = ["pyomo", "pint"]
+unmatched_ignore_imports_alerting = "warn" # see the note above
+ignore_imports = [
+  "pse.adapters.pyomo.** -> pyomo",
+  "pse.adapters.pyomo.** -> pint",
+  "pse.parity.** -> pyomo",
+  "pse.parity.** -> pint",
+  "pse.tests.** -> pyomo",
+  "pse.tests.** -> pint",
+]
+
+[[tool.importlinter.contracts]]
+name = "generated contracts depend on nothing else in pse"
+type = "forbidden"
+source_modules = ["pse.contracts"]
+forbidden_modules = [
+  "pse.codec",
+  "pse.authoring",
+  "pse.adapters",
+  "pse.parity",
+  "pse.governance",
+  "pse._array",
+  "pse._build",
+]
+
+[tool.pytest.ini_options]
+minversion = "9.1"
+testpaths = ["python/pse/tests", "python/pse/parity/tests"]
+python_files = ["test_*.py"]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "--import-mode=importlib",
+  "-ra",
+  "--durations=100",
+  "--durations-min=2",
+]
+xfail_strict = true
+# Allow-list policy: one entry per line, scoped by category AND module regex, with a comment
+# naming the upstream issue. A blanket `ignore::DeprecationWarning` is a review failure.
+filterwarnings = [
+  "error",
+]
+log_level = "INFO"
+console_output_style = "count"
+required_plugins = ["pytest-cov", "pytest-xdist"]
+markers = [
+  "unit: fast, no solver, no golden store; must run in < 2 s",
+  "component: may need a solver, the golden stores, or the built extension in release profile",
+  "integration: long-running end-to-end",
+  "performance: opt-in with --performance; never collected otherwise",
+  "parity: needs the parity environment (IDAES 2.12.0 + ipopt on PATH); deselected without --parity, FAILS (never skips) with it",
+  "golden(name): opens tests/golden/<name> read-only",
+]
+
+[tool.coverage.run]
+branch = true
+source_pkgs = ["pse"]
+omit = ["python/pse/tests/*", "python/pse/parity/tests/*"]
+relative_files = true
+
+[tool.coverage.paths]
+pse = ["python/pse", "*/site-packages/pse"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_empty = true
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "@overload",
+  "raise NotImplementedError",
+  "^\\s*\\.\\.\\.$",
+  "if __name__ == .__main__.:",
+]

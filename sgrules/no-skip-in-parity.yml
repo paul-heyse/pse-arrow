@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-skip-in-parity
+language: Python
+severity: error
+message: "Parity tests fail when the environment is wrong; they never skip."
+note: |
+  A skipped parity test reports the same green as one that ran and matched
+  IDAES. The --parity session fixture in the root conftest.py fails the session
+  when the environment is not usable, and names what is missing; individual
+  tests must not soften that (plan §5).
+files:
+  - "python/pse/parity/**/*.py"
+rule:
+  any:
+    - pattern: pytest.skip($$$ARGS)
+    - pattern: pytest.importorskip($$$ARGS)
+    - pattern: pytest.mark.skip
+    - pattern: pytest.mark.skipif

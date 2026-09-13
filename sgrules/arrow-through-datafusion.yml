@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: arrow-through-datafusion
+language: Rust
+severity: error
+message: "Use datafusion's re-exported arrow, not a direct arrow-* dependency."
+note: |
+  DataFusion re-exports the exact arrow family version it was built against
+  (`datafusion::arrow`). A crate that depends on `arrow` directly can resolve to
+  a second copy of the family, and two arrow versions in one process produce
+  type errors that read like data corruption -- `cargo tree -d` does not detect a
+  mixed family, which is why `cargo xtask family-check` exists (blueprint §3.1).
+
+  Exempt by design, and therefore not matched here: pse-ids, pse-relations,
+  pse-schema and pse-py sit below or beside DataFusion (hashing, relation
+  construction, codegen, the pyo3-arrow boundary) and use the arrow crates
+  directly on purpose.
+files:
+  - "crates/pse-rules/**/*.rs"
+  - "crates/pse-catalog/**/*.rs"
+  - "crates/pse-diagnostics/**/*.rs"
+  - "crates/pse-compiler/**/*.rs"
+rule:
+  kind: use_declaration
+  regex: "^use\\s+(arrow|arrow_array|arrow_arith|arrow_buffer|arrow_cast|arrow_data|arrow_ipc|arrow_json|arrow_ord|arrow_row|arrow_schema|arrow_select|arrow_string|parquet)\\s*(::|;)"

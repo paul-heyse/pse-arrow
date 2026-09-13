@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-session-config-set-str
+language: Rust
+severity: error
+message: "SessionConfig::set_str takes an untyped key; use the typed setter."
+note: |
+  `set_str("datafusion.execution.target_partitions", "8")` silently accepts a
+  misspelled key and a wrongly-typed value, so a session can be built with the
+  setting the engine profile names having no effect at all. The engine profile
+  is a declared input to the memo key (blueprint §14.2 rule 5): a setting that
+  did not apply makes the fingerprint a lie. Use the typed `with_*` setters, or
+  `options_mut()` for the `datafusion.pse.*` config extension.
+files:
+  - "crates/**/*.rs"
+  - "tests/**/*.rs"
+  - "benches/**/*.rs"
+rule:
+  pattern: $RECEIVER.set_str($KEY, $VALUE)

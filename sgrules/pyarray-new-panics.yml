@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: pyarray-new-panics
+language: Rust
+severity: error
+message: "PyArray::new panics on a field/array mismatch; use PyArray::try_new."
+note: |
+  A panic that crosses the pyo3 boundary becomes a process abort or an opaque
+  pyo3_runtime.PanicException, neither of which is a diagnostic. Every fallible
+  construction at the Python boundary returns a typed error that the Python side
+  can render (blueprint §21.1, §23.2).
+files:
+  - "crates/pse-py/**/*.rs"
+rule:
+  pattern: PyArray::new($$$ARGS)

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-future-annotations
+language: Python
+severity: error
+message: "`from __future__ import annotations` is banned under python/pse."
+note: |
+  PEP 563 turns every annotation into a string. The import-time contract lint
+  (pse.governance.check) resolves attrs field types to decide whether a field is
+  typing.Any, a bare dict or a bare list; with PEP 563 it would see strings and
+  pass everything. attrs and msgspec would also need resolve_types() at every
+  call site. Python >= 3.11 needs no future import for PEP 585/604 syntax
+  (blueprint §21.5, plan §5).
+files:
+  - "python/**/*.py"
+  - "conftest.py"
+rule:
+  pattern: from __future__ import annotations

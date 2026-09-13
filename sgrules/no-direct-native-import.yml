@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-direct-native-import
+language: Python
+severity: error
+message: "Import the typed wrapper in pse._build, not pse._native directly."
+note: |
+  pse._native is the raw pyo3 surface: untyped dicts, no contract validation and
+  no stability promise between builds. pse._build is the one module that imports
+  it, and test_native_stub_surface diffs the hand-written stub against it there.
+  Spreading the import removes that single point of control (plan §5).
+files:
+  - "python/**/*.py"
+  - "conftest.py"
+ignores:
+  - "python/pse/_build.py"
+  - "python/pse/tests/**"
+rule:
+  any:
+    - pattern: import pse._native
+    - pattern: from pse._native import $$$NAMES
+    - pattern: from pse import _native
+    - pattern: from . import _native
+    - pattern: from ._native import $$$NAMES

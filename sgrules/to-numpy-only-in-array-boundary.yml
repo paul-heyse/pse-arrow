@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: to-numpy-only-in-array-boundary
+language: Python
+severity: error
+message: "Arrow -> numpy conversion belongs in pse._array.to_ndarray()."
+note: |
+  A bare .to_numpy() on a nullable column encodes null as NaN, collapsing the
+  distinction the pse.* extension types exist to protect. pse._array.to_ndarray
+  asserts null_count == 0, converts zero-copy unless the call site names a
+  copy_reason, and is the only module outside the parity harness allowed to
+  import numpy (blueprint §21.6).
+files:
+  - "python/**/*.py"
+ignores:
+  - "python/pse/_array.py"
+  - "python/pse/parity/**"
+  - "python/pse/tests/**"
+rule:
+  pattern: $RECEIVER.to_numpy($$$ARGS)

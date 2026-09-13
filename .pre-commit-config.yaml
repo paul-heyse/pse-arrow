@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Two tiers. `pre-commit` holds the checks that are fast enough to run on every
+# commit and that catch a mistake while it is still cheap to fix; `pre-push`
+# holds the ones that need the whole project loaded (type checking, the Rust
+# toolchain) and would make committing feel slow.
+#
+# Every local hook runs the project's own tool from `.venv/bin`, never whatever
+# is on PATH: a stale global ruff produces a different diff than CI, which is
+# the single most common way a green working copy turns red in review.
+# `just bootstrap` installs both hook types.
+
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+minimum_pre_commit_version: "4.6.0"
+
+repos:
+  # Keep this rev equal to the `ruff` pin in [dependency-groups].quality.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.7
+    hooks:
+      - id: ruff-format
+      - id: ruff-check
+        # No --fix: the baseline is zero, and an auto-fix hides the lesson.
+        args: [--no-fix]
+
+  - repo: local
+    hooks:
+      - id: taplo
+        name: taplo fmt --check
+        language: system
+        entry: .venv/bin/taplo fmt --check --diff
+        files: \.toml$
+        pass_filenames: false
+
+      - id: typos
+        name: typos
+        language: system
+        entry: .venv/bin/typos
+        pass_filenames: false
+
+      - id: reuse
+        name: reuse lint (SPDX headers)
+        language: system
+        entry: .venv/bin/reuse lint
+        pass_filenames: false
+
+      - id: uv-lock-check
+        name: uv lock --check
+        language: system
+        entry: uv lock --check
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+
+      - id: check-generated
+        name: generated contracts match GENERATED.sha256
+        language: system
+        entry: python3 scripts/check_generated.py
+        files: ^python/pse/contracts/
+        pass_filenames: false
+
+      - id: ast-grep
+        name: ast-grep scan (structural bans)
+        language: system
+        entry: ast-grep scan --config sgconfig.yml
+        types_or: [python, rust]
+        pass_filenames: false
+
+      - id: actionlint
+        name: actionlint
+        language: system
+        entry: actionlint
+        files: ^\.github/workflows/.*\.ya?ml$
+        pass_filenames: false
+
+      - id: shellcheck
+        name: shellcheck
+        language: system
+        entry: shellcheck
+        types: [shell]
+
+      - id: pyrefly
+        name: pyrefly check
+        language: system
+        entry: .venv/bin/pyrefly check
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: import-linter
+        name: import-linter contracts
+        language: system
+        entry: .venv/bin/lint-imports
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: cargo-fmt
+        name: cargo fmt --all --check
+        language: system
+        entry: cargo fmt --all --check
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: cargo-clippy
+        name: cargo clippy -D warnings
+        language: system
+        entry: cargo clippy --workspace --all-targets --locked -- -D warnings
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-push]

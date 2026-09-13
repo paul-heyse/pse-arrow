@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+id: no-zero-copy-false-without-reason
+language: Python
+severity: error
+message: "Pass copy_reason= to pse._array.to_ndarray instead of zero_copy_only=False."
+note: |
+  zero_copy_only=False makes pyarrow copy silently, which is how a hot path
+  quietly acquires an O(n) allocation per call and how a chunked or nullable
+  column slips across the boundary unnoticed. to_ndarray(column,
+  copy_reason="...") permits the copy and records why, at the call site
+  (blueprint §21.6).
+files:
+  - "python/**/*.py"
+rule:
+  pattern:
+    context: "f(zero_copy_only=False)"
+    selector: keyword_argument
