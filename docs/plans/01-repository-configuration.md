@@ -17,12 +17,12 @@ pull request, followed by verification of the merged commit. No release is publi
 
 | Work | Status / acceptance |
 |---|---|
-| Environment | Proposed: consistent relative/absolute venv paths, pinned tools, Git hooks, external reading copies, repeatable bootstrap and doctor |
-| Solver access | Proposed: one image manifest outside the recipe hash, verified literal consumers, working container parity recipe |
-| Claude/Codex | Proposed: nine native roles, shared skills/rules/hooks, protected-edit fixtures and fresh runtime discovery |
-| CI / packaging | Proposed: repair parity wheel install and coverage upload; unique check names; full wheel matrix and sdist installation |
-| GitHub | Proposed: compare declared/live configuration, activate main/tag rulesets after checks report, merge only green |
-| Qualification | Proposed: ci-pr, feature powerset, release tests, parity preflight, bootstrap from a fresh clone, solver checksums, negative controls |
+| Environment | Tested: bootstrap in a fresh clone with relative and absolute venv paths (including spaces); doctor clean; directory entry made zero network connections |
+| Solver access | Tested: immutable CI/dev pins agree with consumers; container preflight passes; no-cache rebuild matches published library checksums |
+| Claude/Codex | Implemented: nine native roles, shared skills/rules/hooks; Tested: ten setup fixtures and Codex role/skill discovery; interactive hook trust and Claude usage-limit recovery remain |
+| CI / packaging | Implemented: parity install, coverage artifact upload, unique check names, five-platform wheels with ten clean installs, sdist build/install; final CI evidence is on PR #1 |
+| GitHub | Tested: main/tag rulesets active; settings re-applied without duplicate objects; two consecutive comparisons report zero differences |
+| Qualification | Tested: local Rust/Python gates, depth-two feature combinations and release tests, fresh bootstrap, six negative controls; final PR/main checks remain the merge acceptance record |
 
 **Tested (starting state):** `just doctor`, local mode, reports 1 blocking failure
 and 3 warnings, baseline zero. `just lint-agents` and `just adr-lint`, read-only local
@@ -267,22 +267,76 @@ Each step is one PR after the seeding commits (a fresh repo cannot require check
 
 ---
 
-## Outcome (recorded after implementation)
-
-*Filled in when the plan's steps have landed. Every claim here carries a charter
-§D evidence label; `Proposed` is not allowed in an Outcome.*
+## Outcome and remaining runtime activation
 
 ### What was built
 
-<!-- What actually exists now, step by step, with the evidence label and the
-named test, benchmark or CI job for each claim. -->
+**Implemented:** setup completion is delivered through [PR #1](https://github.com/paul-heyse/pse-arrow/pull/1).
+The shared framework has nine repository-specific Claude roles and generated native
+Codex definitions, canonical skills with runtime aliases, and shared session/edit/
+format hooks. AGENTS.md routes both runtimes to the same scoped rules. Pyrefly is the
+only configured Python type checker; the unused alternative was removed from the
+quality group, lockfile, environment and Dependabot configuration.
 
-### A mistake made and corrected
+**Tested:** all counts below use a zero-failure baseline. Local Rust qualification
+uses toolchain 1.98.1; Rust test commands explicitly enable
+`pse-relations/force-validate`.
 
-<!-- At least one, concretely: what was wrong, how it was found, what changed.
-An outcome with no mistake was not executed or not read honestly. -->
+| Command / condition | Result and limit |
+|---|---|
+| `just ci-fast`, dev | 23 Rust tests passed, zero skipped; doctests passed (phase-zero crates contain no doctest cases) |
+| `just test-release`, release | 23 Rust tests passed, zero skipped |
+| `IPOPT_DIR=<prefix> just features-powerset`, libraries extracted from the pinned CI image | 47 depth-two feature configurations and 31 no-default-feature checks passed |
+| `just ci-pr`, local | Composite Rust, governance, policy, docs, benchmark smoke, Python quality and 36 Python tests passed |
+| `just quality` | Ruff, Pyrefly, import contracts and repository checks passed; ten setup fixtures passed |
+| `just parity-container`, pinned dev image, Python 3.13 | 41 existing package/preflight tests passed; numerical modeling parity is not established |
+| Fresh-clone `just bootstrap`, `just doctor`, `just quality` | Relative and absolute venv selection passed; an absolute path containing a space was exercised |
+| `strace -f -e connect direnv exec . true` | Zero IPv4/IPv6 connections during directory entry |
+| `just solver-rebuild-check` | No-cache source build reproduced published shared-library checksums byte for byte |
+| `just gh-setup-check` twice after re-applying setup | Zero configuration differences; main and tag rulesets remain unique and active |
 
-### Deviations from the plan, deliberate
+**Tested:** disposable fixtures rejected a staged generated-file edit (`just codegen-check`),
+a mixed family (`just family-check`), an invalid blueprint citation (`just adr-lint`),
+missing/double pytest cost markers, and parity on Python 3.14. The setup fixtures also
+reject accepted-ADR edits against a base ref; existing Python tests reject `typing.Any`.
+A temporary non-conventional title on PR #1 failed `governance / pr-title`; restoring
+the conventional title restored the check. No negative fixture remains in the source tree.
 
-<!-- What was done differently and why. A deviation that changed a decision is
-an ADR, not a paragraph here; link it. -->
+**Interface-checked:** a fresh Codex runtime listed all nine custom roles; the app server
+listed both skills and all three hooks without configuration errors. The hooks are
+reported as **untrusted**, so automatic execution is not certified. Shared hook behavior
+is covered directly by the setup fixtures.
+
+### Mistakes found and corrected
+
+**Implemented:** the previous Python parity job selected no environment when installing
+the wheel; it now names `.venv-parity`. Coverage uploads now run on a host runner with
+its verification tools. Windows fixture paths are normalized, directory skill aliases
+are excluded from sdists, and benchmark smoke selects the relations crate when enabling
+its validation feature. Doctor reads package metadata because invoking a tool wrapper's
+`--version` attempted network access. Dependabot's Cargo strategy is `auto`; GitHub
+rejected the earlier `increase` value. Final cross-platform and packaging results are
+recorded by PR #1's checks, rather than inferred from local compilation.
+
+### Deliberate boundaries and handoff
+
+**Implemented:** source/configuration parity is complete; this plan stays in progress
+until the remaining runtime activation is verified. In Codex, review and trust the three
+project hooks with `/hooks`, then start a fresh session and exercise an ordinary edit
+and a protected-path rejection. In Claude Code, accept the repository trust dialog and
+repeat the `plan-scout` smoke check when the account limit permits: the attempted live
+check returned HTTP 429 with the existing monthly spend-limit message.
+
+**Interface-checked:** local commits carry SSH signatures, but GitHub reports the local
+key as unknown. Registering that public signing key needs the account's
+`admin:ssh_signing_key` scope, which the current credential does not have. The squash
+merge uses GitHub's verified signature; no admin bypass is used to waive required checks.
+The declared admin-role bypass remains, so an admin credential cannot prove ordinary
+contributors' direct pushes are rejected. No test push to main is attempted.
+
+**Implemented:** real model generators, API doc lint, numerical parity, automated solver
+pin PR credentials, and package publication retain their existing phase boundaries.
+The API-doc job reports its R-20 prerequisite explicitly while indexes are absent.
+Generic secret scanning is unavailable for this personal repository; supported secret
+scanning and push protection are enabled (see `.github/setup/README.md`). No registry
+publisher is activated, package uploaded, or release tag created by this completion pass.

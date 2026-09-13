@@ -26,9 +26,9 @@ updates:
       day: monday
       time: "06:00"
       timezone: Etc/UTC
-    # `increase` rewrites the `=` pin in Cargo.toml as well as Cargo.lock. Anything else
-    # would leave the manifest claiming a version the lockfile no longer resolves.
-    versioning-strategy: increase
+    # Cargo supports `auto` and `lockfile-only`; `increase` is rejected by GitHub.
+    # Every proposed update still has to pass the exact-pin and family gates.
+    versioning-strategy: auto
     open-pull-requests-limit: 8
     labels:
       - dependencies
