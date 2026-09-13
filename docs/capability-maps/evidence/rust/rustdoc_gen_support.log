@@ -1,0 +1,1023 @@
+toolchain: rustc 1.100.0-nightly (809936eac 2026-09-12)
+cargo:     cargo 1.100.0-nightly (7941be6fb 2026-09-11)
+started:   2026-09-13T16:33:33-04:00
+error: specification `syn` is ambiguous
+help: re-run this command with one of the following specifications
+  syn@1.0.109
+  syn@2.0.119
+  syn@3.0.5
+FAIL syn
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+    Checking unicode-ident v1.0.24
+ Documenting quote v1.0.47
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+OK   quote
+ Documenting proc-macro2 v1.0.107
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+OK   proc-macro2
+   Compiling prettyplease v0.3.0
+    Checking quote v1.0.47
+    Checking syn v3.0.5
+ Documenting prettyplease v0.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.11s
+OK   prettyplease
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling quote v1.0.47
+   Compiling syn v3.0.5
+   Compiling serde_derive v1.0.229
+ Documenting serde v1.0.229
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.43s
+OK   serde
+   Compiling autocfg v1.5.1
+   Compiling libm v0.2.16
+   Compiling zerocopy v0.8.57
+    Checking cfg-if v1.0.4
+   Compiling libc v0.2.189
+   Compiling version_check v0.9.5
+   Compiling getrandom v0.3.4
+    Checking rand_core v0.6.4
+    Checking bytes v1.12.1
+    Checking once_cell v1.21.4
+    Checking foldhash v0.2.0
+    Checking allocator-api2 v0.2.21
+    Checking iana-time-zone v0.1.65
+    Checking arrow-schema v59.3.0
+    Checking equivalent v1.0.2
+   Compiling serde_arrow v0.15.0
+   Compiling syn v2.0.119
+   Compiling bytemuck_derive v1.12.1
+    Checking serde v1.0.229
+    Checking rand v0.8.8
+   Compiling ahash v0.8.12
+   Compiling num-traits v0.2.19
+    Checking hashbrown v0.17.1
+    Checking bytemuck v1.25.2
+    Checking num-integer v0.1.47
+    Checking num-complex v0.4.6
+    Checking chrono v0.4.45
+    Checking num-bigint v0.5.1
+   Compiling zerocopy-derive v0.8.57
+    Checking half v2.7.1
+    Checking arrow-buffer v59.3.0
+    Checking arrow-data v59.3.0
+    Checking arrow-array v59.3.0
+    Checking marrow v0.3.0
+ Documenting serde_arrow v0.15.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.60s
+OK   serde_arrow
+    Checking unsafe-libyaml v0.2.11
+    Checking itoa v1.0.18
+    Checking ryu v1.0.23
+    Checking indexmap v2.14.2
+ Documenting serde_yaml v0.9.34+deprecated
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.39s
+OK   serde_yaml
+   Compiling rustversion v1.0.23
+   Compiling multiversion_no_op v1.0.0
+    Checking scopeguard v1.2.0
+    Checking simdutf8 v0.1.5
+   Compiling zmij v1.0.23
+    Checking core_detect v1.0.0
+    Checking anstyle v1.0.14
+    Checking arraydeque v0.5.1
+    Checking smallvec v1.16.1
+    Checking unicode-width v0.2.2
+    Checking base64 v0.23.1
+    Checking nohash-hasher v0.2.0
+    Checking granit-parser v1.2.1
+    Checking annotate-snippets v0.12.16
+   Compiling encoding_rs v0.8.41
+   Compiling multiversion-macros v0.9.0
+    Checking multiversion v0.9.0
+    Checking encoding_rs_io v0.1.8
+ Documenting serde-saphyr v1.2.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.96s
+OK   serde-saphyr
+    Checking winnow v1.0.4
+    Checking serde_spanned v1.1.1
+    Checking toml_datetime v1.1.1+spec-1.1.0
+    Checking toml_writer v1.1.2+spec-1.1.0
+    Checking toml_parser v1.1.3+spec-1.1.0
+ Documenting toml v1.1.6+spec-1.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.65s
+OK   toml
+ Documenting winnow v1.0.4
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.22s
+OK   winnow
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 1 warning
+    Checking foldhash v0.1.5
+    Checking fixedbitset v0.5.7
+    Checking hashbrown v0.15.5
+ Documenting petgraph v0.8.3
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.53s
+OK   petgraph
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 1 warning
+   Compiling crossbeam-utils v0.8.23
+   Compiling crossbeam-epoch v0.9.21
+   Compiling crossbeam-deque v0.8.8
+   Compiling rayon-core v1.13.0
+   Compiling parking_lot_core v0.9.12
+   Compiling typeid v1.0.3
+   Compiling portable-atomic v1.15.0
+    Checking pin-project-lite v0.2.17
+    Checking either v1.18.0
+    Checking inventory v0.3.24
+    Checking thin-vec v0.2.19
+    Checking boxcar v0.2.14
+    Checking rustc-hash v2.1.3
+    Checking intrusive-collections v0.10.3
+    Checking salsa-macro-rules v0.28.2
+    Checking tracing-core v0.1.36
+    Checking lock_api v0.4.14
+    Checking hashlink v0.12.2
+   Compiling tracing-attributes v0.1.31
+   Compiling salsa-macros v0.28.2
+    Checking parking_lot v0.12.5
+    Checking crossbeam-queue v0.3.14
+    Checking tracing v0.1.44
+    Checking rayon v1.12.0
+ Documenting salsa v0.28.2
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.28s
+OK   salsa
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 1 warning
+    Checking memchr v2.8.3
+    Checking utf8parse v0.2.2
+    Checking colorchoice v1.0.5
+    Checking is_terminal_polyfill v1.70.2
+    Checking anstyle-query v1.1.5
+   Compiling serde_json v1.0.151
+   Compiling ucd-trie v0.1.7
+   Compiling num-traits v0.2.19
+   Compiling rustix v1.1.4
+    Checking clap_lex v1.1.0
+   Compiling getrandom v0.4.3
+    Checking strsim v0.11.1
+   Compiling find-msvc-tools v0.1.12
+   Compiling heck v0.5.0
+   Compiling dot-structures v0.1.2
+   Compiling syn v1.0.109
+   Compiling shlex v2.0.1
+   Compiling thiserror v2.0.20
+   Compiling anyhow v1.0.104
+    Checking log v0.4.34
+    Checking crossbeam-channel v0.5.17
+    Checking arc-swap v1.9.2
+    Checking linux-raw-sys v0.12.1
+    Checking rand_core v0.9.5
+    Checking bumpalo v3.20.3
+    Checking bitflags v2.13.2
+    Checking anstyle-parse v1.0.0
+    Checking num-bigint v0.4.8
+    Checking regex-syntax v0.8.11
+    Checking egglog-numeric-id v3.0.0
+    Checking ppv-lite86 v0.2.21
+    Checking ordered-float v5.5.0
+    Checking num-iter v0.1.46
+   Compiling thiserror-impl v2.0.20
+   Compiling into-attr v0.1.1
+   Compiling dot-generator v0.2.0
+    Checking hashbrown v0.16.1
+   Compiling cc v1.4.6
+    Checking web-time v1.1.0
+    Checking fastrand v2.5.0
+    Checking typenum v1.20.1
+    Checking hashbrown v0.14.5
+   Compiling im-rc v15.1.0
+   Compiling clap_derive v4.6.4
+    Checking jiff-core v0.1.1
+    Checking dyn-clone v1.0.20
+   Compiling enum-map-derive v0.17.0
+    Checking rand_xoshiro v0.6.0
+   Compiling egglog-add-primitive v3.0.0
+    Checking anstream v1.0.0
+    Checking crossbeam v0.8.5
+    Checking clap_builder v4.6.6
+    Checking egglog-concurrency v3.0.0
+    Checking egglog-ast v3.0.0
+    Checking rand_chacha v0.9.0
+   Compiling pest v2.9.1
+    Checking aho-corasick v1.1.5
+    Checking csv-core v0.1.13
+    Checking enum-map v2.7.3
+    Checking rand v0.9.5
+    Checking egglog-union-find v3.0.0
+    Checking csv v1.4.0
+    Checking dashmap v6.2.1
+   Compiling chrono v0.4.45
+    Checking jiff v0.2.37
+    Checking num-rational v0.4.2
+    Checking bitmaps v2.1.0
+    Checking regex-automata v0.4.18
+   Compiling libmimalloc-sys v0.1.49
+    Checking num v0.4.3
+   Compiling pest_meta v2.9.1
+   Compiling egglog v3.0.0
+    Checking sized-chunks v0.6.5
+    Checking tempfile v3.27.0
+   Compiling pest_generator v2.9.1
+    Checking clap v4.6.6
+    Checking egglog-reports v3.0.0
+    Checking egglog-core-relations v3.0.0
+    Checking mimalloc v0.1.52
+   Compiling into-attr-derive v0.2.1
+   Compiling pest_derive v2.9.1
+    Checking graphviz-rust v0.9.8
+    Checking regex v1.13.1
+    Checking env_filter v2.0.0
+    Checking env_logger v0.11.11
+    Checking egraph-serialize v0.3.0
+    Checking egglog-bridge v3.0.0
+ Documenting egglog v3.0.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.55s
+OK   egglog
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 1 warning
+error: specification `num-dual` is ambiguous
+help: re-run this command with one of the following specifications
+  num-dual@0.14.2
+  num-dual@0.15.0
+FAIL num-dual
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 1 warning
+   Compiling nano-gemm-codegen v0.2.1
+   Compiling paste v1.0.15
+    Checking reborrow v0.5.5
+    Checking pulp-wasm-simd-flag v0.1.1
+   Compiling dyn-stack-macros v0.1.3
+   Compiling seq-macro v0.3.6
+    Checking nano-gemm-core v0.2.1
+   Compiling defer v0.2.1
+    Checking generativity v1.2.1
+   Compiling equator-macro v0.6.0
+   Compiling pulp v0.22.3
+    Checking raw-cpuid v11.6.0
+    Checking byteorder v1.5.0
+    Checking atomic-wait v1.1.0
+    Checking num_cpus v1.17.0
+   Compiling equator-macro v0.4.2
+   Compiling interpol v0.2.1
+   Compiling equator-macro v0.2.1
+    Checking py_literal v0.4.0
+    Checking rand_distr v0.5.1
+    Checking dyn-stack v0.13.2
+    Checking equator v0.6.0
+   Compiling private-gemm-x86 v0.1.20
+    Checking equator v0.2.2
+    Checking equator v0.4.2
+    Checking npyz v0.8.4
+   Compiling nano-gemm-c64 v0.2.1
+   Compiling nano-gemm-f32 v0.2.1
+   Compiling nano-gemm-f64 v0.2.1
+   Compiling nano-gemm-c32 v0.2.1
+    Checking spindle v0.2.6
+    Checking gemm-common v0.19.0
+    Checking qd v0.8.0
+    Checking faer-traits v0.24.0
+    Checking gemm-c64 v0.19.0
+    Checking gemm-c32 v0.19.0
+    Checking gemm-f64 v0.19.0
+    Checking gemm-f32 v0.19.0
+    Checking gemm v0.19.0
+    Checking nano-gemm v0.2.2
+ Documenting faer v0.24.4
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.88s
+OK   faer
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 1 warning
+ Documenting uom v0.38.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.59s
+OK   uom
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 2 warnings
+    Checking rawpointer v0.2.1
+   Compiling litrs v1.0.0
+   Compiling quantity v0.14.1
+   Compiling matrixmultiply v0.3.11
+    Checking itertools v0.15.0
+    Checking approx v0.5.1
+   Compiling nalgebra-macros v0.3.0
+    Checking safe_arch v1.2.0
+    Checking wide v1.7.0
+   Compiling document-features v0.2.12
+    Checking simba v0.10.2
+    Checking nalgebra v0.35.0
+    Checking num-dual v0.14.2
+ Documenting feos-core v0.10.1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.66s
+OK   feos-core
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+ Documenting quantity v0.14.1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.51s
+OK   quantity
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+   Compiling diffsol-la v0.1.1
+   Compiling diffsol v0.16.2
+    Checking petgraph v0.8.3
+    Checking faer v0.24.4
+    Checking diffsol-nl v0.1.1
+ Documenting diffsol v0.16.2
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.56s
+OK   diffsol
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+    Checking constant_time_eq v0.4.2
+    Checking cpufeatures v0.3.1
+    Checking arrayvec v0.7.8
+   Compiling blake3 v1.8.7
+ Documenting blake3 v1.8.7
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.24s
+OK   blake3
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+ Documenting rayon v1.12.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+OK   rayon
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+   Compiling tokio-macros v2.7.2
+ Documenting tokio v1.53.1
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.44s
+OK   tokio
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+ Documenting tracing v0.1.44
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+OK   tracing
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+error: specification `thiserror` is ambiguous
+help: re-run this command with one of the following specifications
+  thiserror@1.0.69
+  thiserror@2.0.20
+FAIL thiserror
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 3 warnings
+    Checking stable_deref_trait v1.2.1
+    Checking writeable v0.6.4
+   Compiling icu_locale_fallback_data v2.3.0
+    Checking litemap v0.8.3
+   Compiling object v0.37.3
+   Compiling icu_segmenter_data v2.3.0
+    Checking utf8_iter v1.0.4
+    Checking gimli v0.32.3
+    Checking adler2 v2.0.1
+    Checking rustc-demangle v0.1.28
+    Checking is_ci v1.2.0
+    Checking supports-hyperlinks v3.2.0
+    Checking unicode-width v0.1.14
+    Checking owo-colors v4.4.0
+    Checking supports-unicode v3.0.0
+   Compiling synstructure v0.13.2
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+    Checking terminal_size v0.4.4
+   Compiling miette-derive v7.6.0
+    Checking miniz_oxide v0.8.9
+    Checking supports-color v3.0.2
+    Checking zerotrie v0.2.5
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+    Checking zerofrom v0.1.8
+    Checking yoke v0.8.3
+    Checking zerovec v0.11.8
+    Checking addr2line v0.25.1
+    Checking tinystr v0.8.4
+    Checking potential_utf v0.1.6
+    Checking icu_collections v2.3.0
+    Checking icu_locale_core v2.3.0
+    Checking icu_provider v2.3.1
+    Checking icu_locale_fallback v2.3.0
+    Checking icu_segmenter v2.3.0
+    Checking backtrace v0.3.76
+    Checking backtrace-ext v0.2.1
+    Checking textwrap v0.16.4
+ Documenting miette v7.6.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.53s
+OK   miette
+finished:  2026-09-13T16:34:17-04:00
+ok=22 fail=3
+-rw-rw-r-- 1 paul paul   282199 Sep 13 16:34 target/doc/blake3.json
+-rw-rw-r-- 1 paul paul  4623473 Sep 13 16:34 target/doc/diffsol.json
+-rw-rw-r-- 1 paul paul  3749080 Sep 13 16:33 target/doc/egglog.json
+-rw-rw-r-- 1 paul paul  8700548 Sep 13 16:33 target/doc/faer.json
+-rw-rw-r-- 1 paul paul  1700273 Sep 13 16:34 target/doc/feos_core.json
+-rw-rw-r-- 1 paul paul   959051 Sep 13 16:34 target/doc/miette.json
+-rw-rw-r-- 1 paul paul  5330908 Sep 13 16:33 target/doc/petgraph.json
+-rw-rw-r-- 1 paul paul   125520 Sep 13 16:33 target/doc/prettyplease.json
+-rw-rw-r-- 1 paul paul   469147 Sep 13 16:33 target/doc/proc_macro2.json
+-rw-rw-r-- 1 paul paul  9271465 Sep 13 16:34 target/doc/quantity.json
+-rw-rw-r-- 1 paul paul   207212 Sep 13 16:33 target/doc/quote.json
+-rw-rw-r-- 1 paul paul  4546603 Sep 13 16:34 target/doc/rayon.json
+-rw-rw-r-- 1 paul paul  1831689 Sep 13 16:33 target/doc/salsa.json
+-rw-rw-r-- 1 paul paul  1124403 Sep 13 16:33 target/doc/serde_arrow.json
+-rw-rw-r-- 1 paul paul   115781 Sep 13 16:33 target/doc/serde.json
+-rw-rw-r-- 1 paul paul  1923454 Sep 13 16:33 target/doc/serde_saphyr.json
+-rw-rw-r-- 1 paul paul  1207301 Sep 13 16:33 target/doc/serde_yaml.json
+-rw-rw-r-- 1 paul paul  2964886 Sep 13 16:34 target/doc/tokio.json
+-rw-rw-r-- 1 paul paul   979797 Sep 13 16:33 target/doc/toml.json
+-rw-rw-r-- 1 paul paul   428960 Sep 13 16:34 target/doc/tracing.json
+-rw-rw-r-- 1 paul paul 83389796 Sep 13 16:33 target/doc/uom.json
+-rw-rw-r-- 1 paul paul  2973396 Sep 13 16:33 target/doc/winnow.json
+warning: binary `probe_compile` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_compile
+  |                                                                                                                          ^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-compile`, convert the file stem
+  |
+1 - src/bin/probe_compile.rs
+1 + src/bin/probe-compile.rs
+  |
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: binary `probe_parse` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_parse
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-parse`, convert the file stem
+  |
+1 - src/bin/probe_parse.rs
+1 + src/bin/probe-parse.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 5 warnings
+ Documenting syn v3.0.5
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.76s
+OK   syn@3.0.5 (explicit version spec)
+warning: binary `probe_compile` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_compile
+  |                                                                                                                          ^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-compile`, convert the file stem
+  |
+1 - src/bin/probe_compile.rs
+1 + src/bin/probe-compile.rs
+  |
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: binary `probe_parse` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_parse
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-parse`, convert the file stem
+  |
+1 - src/bin/probe_parse.rs
+1 + src/bin/probe-parse.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 5 warnings
+ Documenting num-dual v0.15.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.52s
+OK   num-dual@0.15.0 (explicit version spec)
+warning: binary `probe_compile` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_compile
+  |                                                                                                                          ^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-compile`, convert the file stem
+  |
+1 - src/bin/probe_compile.rs
+1 + src/bin/probe-compile.rs
+  |
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: binary `probe_parse` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_parse
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-parse`, convert the file stem
+  |
+1 - src/bin/probe_parse.rs
+1 + src/bin/probe-parse.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 5 warnings
+ Documenting num-dual v0.14.2
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.47s
+OK   num-dual@0.14.2 (explicit version spec)
+warning: binary `probe_compile` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_compile
+  |                                                                                                                          ^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-compile`, convert the file stem
+  |
+1 - src/bin/probe_compile.rs
+1 + src/bin/probe-compile.rs
+  |
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: binary `probe_parse` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_parse
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-parse`, convert the file stem
+  |
+1 - src/bin/probe_parse.rs
+1 + src/bin/probe-parse.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 5 warnings
+ Documenting num-dual v0.15.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.50s
+warning: binary `probe_compile` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_compile
+  |                                                                                                                          ^^^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `probe-compile`, convert the file stem
+  |
+1 - src/bin/probe_compile.rs
+1 + src/bin/probe-compile.rs
+  |
+warning: binary `probe_graph` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_graph
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-graph`, convert the file stem
+  |
+1 - src/bin/probe_graph.rs
+1 + src/bin/probe-graph.rs
+  |
+warning: binary `probe_identity` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_identity
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-identity`, convert the file stem
+  |
+1 - src/bin/probe_identity.rs
+1 + src/bin/probe-identity.rs
+  |
+warning: binary `probe_numerics` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_numerics
+  |                                                                                                                          ^^^^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-numerics`, convert the file stem
+  |
+1 - src/bin/probe_numerics.rs
+1 + src/bin/probe-numerics.rs
+  |
+warning: binary `probe_parse` should have a kebab-case name
+  |
+1 | /tmp/claude-1000/-home-paul-idaes-pse-rust-datafusion/fcf6f6ea-94d5-4a38-9160-2c66ca8deabe/scratchpad/support/target/.../probe_parse
+  |                                                                                                                          ^^^^^^^^^^^
+  |
+help: to change the binary name to `probe-parse`, convert the file stem
+  |
+1 - src/bin/probe_parse.rs
+1 + src/bin/probe-parse.rs
+  |
+warning: `pse-support-apisurface` (manifest) generated 5 warnings
+ Documenting thiserror v2.0.20
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.09s
+OK   thiserror@2.0.20 (explicit version spec)

@@ -1,0 +1,4 @@
+# The extractor itself builds on stable-era tooling; rustdoc JSON *generation*
+# is pinned separately (see PROFILE.md) to nightly-2026-08-18 == format_version 61.
+[toolchain]
+channel = "nightly-2026-08-18"

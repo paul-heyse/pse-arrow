@@ -1,0 +1,27 @@
+# Compile gate for the generated extension-point contracts.
+#
+# Every skeleton published in dfarrow55_extension_point_contracts_*.md is
+# implemented here against the pinned DataFusion 55.0.0 worktree. If a published
+# signature is wrong, this crate fails to compile — which is the point.
+[package]
+name = "dfarrow-verify"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+datafusion-session = { path = "../../../external/datafusion/datafusion/session" }
+datafusion-expr = { path = "../../../external/datafusion/datafusion/expr" }
+datafusion-expr-common = { path = "../../../external/datafusion/datafusion/expr-common" }
+datafusion-common = { path = "../../../external/datafusion/datafusion/common" }
+datafusion-physical-plan = { path = "../../../external/datafusion/datafusion/physical-plan" }
+datafusion-physical-expr = { path = "../../../external/datafusion/datafusion/physical-expr" }
+datafusion-optimizer = { path = "../../../external/datafusion/datafusion/optimizer" }
+datafusion-execution = { path = "../../../external/datafusion/datafusion/execution" }
+arrow = { version = "59.2.0" }
+async-trait = "0.1"
+
+[workspace]

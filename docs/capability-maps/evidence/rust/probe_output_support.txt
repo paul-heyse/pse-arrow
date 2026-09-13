@@ -1,0 +1,139 @@
+# Probe output — supporting Rust libraries
+# toolchain: rustc 1.100.0-nightly (809936eac 2026-09-12)
+# run: 2026-09-13T16:37:28-04:00
+
+############ probe_identity ############
+== PROBE 1: blake3 — the two routes to a 128-bit semantic ID
+   hash(material)[..16]        = 221090e3e5fabe979c6d73507758c9b7
+   derive_key(ctx, material)[..16] = d19bb5f9d890907fab83f83e9cbb59a1
+   the two routes agree        : false
+   finalize_xof -> 16 bytes    = 221090e3e5fabe979c6d73507758c9b7
+   xof(16) == hash[..16]       : true
+   Hasher::new_derive_key == derive_key : true
+   different context -> different bytes : true
+   NOTE: blake3 is an XOF, so any prefix of the output is itself a
+         valid-length digest; truncation to 16 bytes is defined, not ad hoc.
+
+== PROBE 2: serde_arrow — schema derivation and field metadata
+   field id     type=Struct([Field { name: "0", data_type: UInt8 }, Field { name: "1", data_type: UInt8 }, Field { name: "2", data_type: UInt8 }, Field { name: "3", data_type: UInt8 }, Field { name: "4", data_type: UInt8 }, Field { name: "5", data_type: UInt8 }, Field { name: "6", data_type: UInt8 }, Field { name: "7", data_type: UInt8 }, Field { name: "8", data_type: UInt8 }, Field { name: "9", data_type: UInt8 }, Field { name: "10", data_type: UInt8 }, Field { name: "11", data_type: UInt8 }, Field { name: "12", data_type: UInt8 }, Field { name: "13", data_type: UInt8 }, Field { name: "14", data_type: UInt8 }, Field { name: "15", data_type: UInt8 }]) metadata={"SERDE_ARROW:strategy": "TupleAsStruct"}
+   field v      type=Float64                  metadata={}
+   field label  type=LargeUtf8                metadata={}
+   to_record_batch rows=2 cols=3
+   BATCH field id carries metadata {"SERDE_ARROW:strategy": "TupleAsStruct"}
+   any STRATEGY-style key in field metadata : true
+   round-trip equal : true
+
+############ probe_graph ############
+== PROBE 3a: tarjan_scc determinism — component order and intra-component order
+   insertion order 1 : [[5], [4, 3], [2, 1, 0]]
+   insertion order 2 : [[5], [4, 3], [2, 1, 0]]
+   identical across insertion orders : true
+   same components once sorted       : true
+   -> if the first is false and the second true, intra-component order is
+      an artifact of traversal, which is exactly what §5.1 must not depend on.
+   kosaraju_scc on the same graph    : [[5], [3, 4], [0, 1, 2]]
+
+== PROBE 3b: maximum_matching — does it ignore edge direction?
+   directed eq->var graph, maximum_matching : [(0, 3), (1, 2)]  size=2
+   every edge reversed                      : [(0, 3), (1, 2)]  size=2
+   same matching size either way            : true
+   greedy_matching size                     : 2
+   is_bipartite_undirected (from node 0)    : true
+   -> petgraph ships general-graph matching; nothing here is bipartite-specialised.
+
+== PROBE 3c: feedback_arc_set — §12.5 tear selection
+   recycle 0->1->2->3->1, greedy_feedback_arc_set : [(3, 1)]
+   toposort before removal : Err(Cycle(NodeIndex(3)))
+   condensation node count : 2 (from 4)
+   -> a tear set IS a feedback arc set; §12.5 lists tear selection as hand-written.
+
+############ probe_numerics ############
+== PROBE 4: num-dual — derivative of an implicitly defined root
+   solved Z(A0)           = 0.023366337826   residual = 0.000e0
+   dZ/dA by hand (IFT)    = -0.014355061869
+   implicit_derivative    = -0.014355061869  (value 0.023366337826)
+   agrees with hand IFT   : true
+   value matches the root : true
+   first_derivative       : f=-0.000533 f'=-0.045095
+   second_derivative f''  : -1.859802   <- §18.2 step 5's kernel second derivatives
+
+== PROBE 5: faer matrix_free — the iterative route for §15.5 / §26 F17
+   LinOp::apply matches a direct product      : max|diff| = 0.000e0
+   BiLinOp::transpose_apply matches A^T * y   : max|diff| = 0.000e0
+   -> the matrix-free operator contract is 5 + 3 methods and it works;
+      a sparse Jacobian never has to be materialised to use it.
+   faer's own documentation for `partial_svd` says it computes
+   "the singular values ... with the LARGEST magnitude".
+   §15.5 asks for the SMALLEST k singular values (rank deficiency,
+   condition number) — the opposite end of the spectrum.
+   test matrix diagonal spans 1e3 down to 1e-16
+   -> partial_svd alone does NOT answer §26 F17. Reaching the smallest end
+      with a Krylov method needs shift-invert, i.e. applying A^-1, which
+      requires a sparse factorisation — faer's sparse LU. That combination
+      is the route, and it is two components, not one.
+   NOTE: partial_svd was not executed here. Its dimension preconditions
+      (`max_dim < min(m, n)` against a `v0` of length ncols) were not
+      satisfiable in this harness; recorded as [UNVERIFIED] rather than
+      guessed at. The directional finding rests on the crate's own docs.
+
+############ probe_compile ############
+== PROBE 6: salsa 0.28.2 — the mechanism behind F13
+   token_count = 3
+   doubled     = 6
+   -- input replaced with different text, same token count --
+   token_count = 3
+   doubled     = 6  (backdating means `doubled` need not re-run)
+   -- accumulator --
+   token_count(src2) = 4, accumulated findings = 1
+      Finding("suspicious token in \"this is bad \"")
+   -> findings ride alongside the value, not inside it: amendment E's mechanism.
+   -- durability levels available: LOW / MEDIUM / HIGH --
+   set HIGH durability on a reference input: ok
+   -> salsa keys on revision counters + durability, NOT on content hashes.
+      That is the substance of F13: overlapping purpose, different mechanism.
+
+== PROBE 8: egglog 3.0.0 — is extraction reproducible? (Q10, §5.1, §20.4)
+   5 identical runs, distinct results by rendering:
+     Debug  ({:?})                              : 5
+     Display ({})                                : 1
+     snapshot_stable_under_proof_encoding        : 1
+   extracted term (Display) : (Mul (Add (Var "x") (Num 2)) (Var "y"))
+
+   -> The EXTRACTION IS DETERMINISTIC. What varies is the `Debug` rendering
+      of the internal TermDag, whose `nodes` is a hash set — the same trap
+      the DataFusion map found in `datafusion-proto`'s field metadata.
+      Q10's answer: yes, provided nothing hashes a `Debug` string.
+      egglog ships `snapshot_stable_under_proof_encoding` for exactly this.
+   NOTE: one process, one egglog version. Cross-process and cross-version
+      stability are not measured here.
+
+############ probe_parse ############
+== PROBE 7a: toml::Spanned — byte offsets back to the source
+   id      span = 5..15  value = "pkg.demo"
+   version span = 26..27  value = 3
+   source slice at the version span : "3"
+   -- and what does a type error look like?
+   error span   : Some(26..33)
+   error message: invalid type: string "three", expected u32
+   full display :
+      TOML parse error at line 2, column 11
+        |
+      2 | version = "three"
+        |           ^^^^^^^
+      invalid type: string "three", expected u32
+
+== PROBE 7b: serde-saphyr — the recommended serde_yaml replacement
+   parsed ok : Pkg { id: "pkg.demo", version: 3 }
+   type error rejected. message:
+      error: line 2 column 10: invalid u32
+       --> <input>:2:10
+        |
+      1 | id: pkg.demo
+      2 | version: three
+        |          ^ invalid u32
+   message carries a position : true
+   -- malformed / hostile input --
+   unterminated flow seq  -> typed Err (no panic)
+   tab indentation        -> typed Err (no panic)
+   duplicate key          -> typed Err (no panic)
+   deep alias nest        -> typed Err (no panic)

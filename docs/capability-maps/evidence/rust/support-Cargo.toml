@@ -1,0 +1,63 @@
+# Extraction root for the supporting-Rust-library capability map.
+# Every crate `=`-pinned individually, same discipline as the arrow/datafusion manifest.
+#
+# NOTE: `feos-core` requires `num-dual ^0.14` while this manifest pins `num-dual =0.15.0`.
+# That is deliberate — the resolved lockfile is the evidence for open question Q2.
+[package]
+name = "pse-support-apisurface"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# ---------- C1 code generation ----------
+syn          = { version = "=3.0.5", features = ["full", "extra-traits", "visit", "visit-mut", "fold", "parsing", "printing"] }
+quote        = "=1.0.47"
+proc-macro2  = { version = "=1.0.107", features = ["span-locations"] }
+prettyplease = "=0.3.0"
+
+# ---------- C2 boundary serialization ----------
+serde        = { version = "=1.0.229", features = ["derive", "rc"] }
+serde_arrow  = { version = "=0.15.0", features = ["arrow-59"] }
+
+# ---------- C3 document loading and the expression DSL ----------
+serde_yaml   = "=0.9.34"          # extracted for the record; this is a rejection, not a dependency
+serde-saphyr = "=1.2.0"           # the recommended replacement (Q1)
+toml         = { version = "=1.1.6", features = ["parse", "serde", "display"] }
+winnow       = { version = "=1.0.4", features = ["std"] }
+
+# ---------- C4 graph algorithms ----------
+petgraph     = { version = "=0.8.3", features = ["stable_graph", "matrix_graph", "graphmap"] }
+
+# ---------- C5 incremental compute ----------
+salsa        = "=0.28.2"
+
+# ---------- C6 equality saturation (optional, phase 4) ----------
+egglog       = "=3.0.0"
+
+# ---------- C7 numerics ----------
+num-dual     = "=0.15.0"
+faer         = { version = "=0.24.4", features = ["linalg", "npy"] }
+uom          = { version = "=0.38.0", features = ["f64", "si", "std"] }
+
+# ---------- C8 domain providers (optional) ----------
+feos-core    = "=0.10.1"          # pulls num-dual ^0.14 and quantity ^0.14 — see the note above
+diffsol      = "=0.16.2"
+
+# ---------- C9 identity and storage ----------
+blake3       = { version = "=1.8.7", features = ["rayon"] }
+
+# ---------- C10 runtime and failure ----------
+rayon        = "=1.12.0"
+tokio        = { version = "=1.53.1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tracing      = "=0.1.44"
+thiserror    = "=2.0.20"
+miette       = { version = "=7.6.0", features = ["fancy"] }
+
+arrow-schema = "=59.3.0"
+arrow-array  = "=59.3.0"
+
+[workspace]

@@ -1,0 +1,113 @@
+# Probe output — arrow 59.3.0 / datafusion 55.1.0
+# toolchain: rustc 1.100.0-nightly (809936eac 2026-09-12)
+# run: 2026-09-13T16:19:49-04:00
+
+############ df_probe (A, C, D, E, H) ############
+== PROBE A: what filter shapes reach a provider on a FixedSizeBinary(16) key?
+   q: SELECT v FROM rel WHERE id = arrow_cast(X'00000000000000000000000000000003','FixedSi
+      offered to supports_filters_pushdown: ["rel.id = FixedSizeBinary(16, \"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3\")", "rel.id = FixedSizeBinary(16, \"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3\")"]
+      reached scan():                       1
+   q: SELECT v FROM rel WHERE id IN (arrow_cast(X'00000000000000000000000000000001','Fixed
+      offered to supports_filters_pushdown: ["rel.id = FixedSizeBinary(16, \"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1\") OR rel.id = FixedSizeBinary(16, \"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2\")", "rel.id = FixedSizeBinary(16, \"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1\") OR rel.id = FixedSizeBinary(16, \"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2\")"]
+      reached scan():                       1
+   q: SELECT v FROM rel WHERE kind = 'a'
+      offered to supports_filters_pushdown: ["rel.kind = Utf8(\"a\")", "rel.kind = Utf8(\"a\")"]
+      reached scan():                       1
+   q: SELECT v FROM rel WHERE kind = 'a' AND v > 2.0
+      offered to supports_filters_pushdown: ["rel.kind = Utf8(\"a\")", "rel.v > Float64(2)", "rel.kind = Utf8(\"a\")", "rel.v > Float64(2)"]
+      reached scan():                       2
+   q: SELECT v FROM rel WHERE id IS NOT NULL
+      offered to supports_filters_pushdown: []
+      reached scan():                       0
+
+== PROBE C: datafusion-proto encoding — usable? deterministic? stable?
+   without a codec: FAILS -> Error serializing custom table at /home/paul/.cargo/registry/src/index
+   with a codec: len=220 same-plan-twice identical=true
+   equivalent plan, fresh session:   identical=true
+   same query, different whitespace: identical=true
+   different predicate:              differs=true
+   round-trip ok; re-encode identical=false
+
+== PROBE D: null / NaN / -0.0 through the engine (sort, group by, join)
+   ORDER BY x            : ["-1", "-0", "0", "NaN", "null"]
+   GROUP BY x (distinct) : ["-1", "0", "NaN", "null"]   <- does -0.0 group with 0.0?
+   self equi-join rows   : PrimitiveArray<Int64>
+[
+  6,
+]
+
+== PROBE E: does an ARROW:extension:name field survive planning and execution?
+   planned output field 'id' metadata : Some("pse.semantic_id")
+   executed batch  field 'id' metadata: Some("pse.semantic_id")
+   after `AS key_out`                 : Some("pse.semantic_id")
+   as a GROUP BY key                  : Some("pse.semantic_id")
+
+== PROBE H: bounded MemoryPool — typed failure or process death?
+   error variant : Not enough memory to continue external sort. Consider increasing the memory limit config
+   message       : Not enough memory to continue external sort. Consider increasing the memory limit config: 'datafusion.runtime.memory_limit', or decreasing the config: 'datafusion.execution.sort_spill_reserv
+
+############ df_probe_b (B) ############
+== PROBE B: UserDefinedLogicalNode survival through the optimizer
+   before optimize:
+     PseRule: rule_id=rule-42
+       Projection: rel.v
+         Filter: rel.v > Float64(1)
+           TableScan: rel
+   after optimize:
+     PseRule: rule_id=rule-42
+       Filter: rel.v > Float64(1)
+         TableScan: rel projection=[v]
+   node survived        : true
+   rule_id still visible: true
+   physical planning    : FAILS without an ExtensionPlanner -> Error during planning: No installed planner was able to convert the custom node to an execution plan: RuleNode
+
+############ df_probe_c3 (C, characterised) ############
+== proto plan-byte stability vs number of field-metadata keys
+   (each row: 6 independent encodings of the same query/schema)
+   0 metadata key(s): len=35    distinct encodings among 6 runs = 1  STABLE
+   1 metadata key(s): len=49    distinct encodings among 6 runs = 1  STABLE
+   2 metadata key(s): len=63    distinct encodings among 6 runs = 2  UNSTABLE
+   3 metadata key(s): len=77    distinct encodings among 6 runs = 5  UNSTABLE
+   5 metadata key(s): len=105   distinct encodings among 6 runs = 6  UNSTABLE
+
+   Same process, same Schema object reused (not rebuilt):
+   3 keys, one shared Schema: distinct = 1  STABLE (instability is per-HashMap-instance)
+
+############ df_probe_x (X1, X2, X3) ############
+== PROBE X1: ExtensionTypeRegistry — register and resolve a pse.* type
+   canonical types preloaded (7): ["arrow.timestamp_with_offset", "arrow.variable_shape_tensor", "arrow.json", "arrow.fixed_shape_tensor", "arrow.uuid", "arrow.opaque", "arrow.bool8"]
+   after registering pse.semantic_id: 8
+   resolve from good Field -> storage_type=FixedSizeBinary(16)
+   wrong storage type      -> REJECTED: Error during planning: pse.semantic_id requires FixedSizeBinary(16), got Utf8
+   unregistered pse.* type -> Err Error during planning: Logical type not found.
+
+== PROBE X2: machine-readable EXPLAIN formats accepted by 55.1.0
+   indent    -> OK   sample: |               |   TableScan: rel projection=[v]                     |
+   tree      -> OK   sample: |               | │         FilterExec        │ |
+   pgjson    -> OK   sample: |              |   {                                      |
+   graphviz  -> OK   sample: |              | // Begin DataFusion GraphViz Plan,                                            |
+
+== PROBE X3: how does SessionConfig reject an invalid setting?
+
+thread 'main' (2474695) panicked at /home/paul/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/datafusion-execution-55.1.0/src/config.rs:186:44:
+called `Result::unwrap()` on an `Err` value: Context("Error setting config datafusion.explain.format", Configuration("Invalid explain format. Expected 'indent', 'tree', 'pgjson' or 'graphviz'. Got 'json'"))
+   set_str with an invalid value -> PANICS (not a typed error)
+   ConfigOptions::set              -> typed Err: Error setting config datafusion.explain.format
+
+############ arrow_probe2 (6, 7) ############
+== PROBE 6: does field/schema metadata key order change the canonical IPC bytes?
+   (§5.3 hashes this encoding; each row is 6 independently built schemas)
+   0 metadata key(s): len=312   distinct IPC encodings among 6 = 1  STABLE
+   1 metadata key(s): len=416   distinct IPC encodings among 6 = 1  STABLE
+   2 metadata key(s): len=488   distinct IPC encodings among 6 = 1  STABLE
+   3 metadata key(s): len=560   distinct IPC encodings among 6 = 1  STABLE
+   5 metadata key(s): len=704   distinct IPC encodings among 6 = 1  STABLE
+   5 keys inserted in sorted order: distinct = 1  still STABLE?
+
+== PROBE 7: Parquet — does pse.* / ARROW:extension:name metadata survive? deterministic bytes?
+   two writes of identical data: len=1093 identical=true
+   schema md survives : Some("rel-1")
+   field md survives  : Some("qt-demo")
+   ext name survives  : Some("pse.semantic_id")
+   null preserved=true -0.0 sign preserved=true
+   'created_by' writer string embedded in file: true

@@ -1,0 +1,600 @@
+toolchain: rustc 1.100.0-nightly (809936eac 2026-09-12)
+cargo:     cargo 1.100.0-nightly (7941be6fb 2026-09-11)
+started:   2026-09-13T16:15:24-04:00
+   Compiling libc v0.2.189
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling autocfg v1.5.1
+   Compiling libm v0.2.16
+    Checking cfg-if v1.0.4
+    Checking memchr v2.8.3
+   Compiling serde_core v1.0.229
+   Compiling zerocopy v0.8.57
+    Checking equivalent v1.0.2
+    Checking foldhash v0.2.0
+   Compiling zmij v1.0.23
+    Checking allocator-api2 v0.2.21
+   Compiling serde_json v1.0.151
+    Checking itoa v1.0.18
+   Compiling serde v1.0.229
+    Checking bitflags v2.13.2
+    Checking siphasher v1.0.3
+   Compiling version_check v0.9.5
+   Compiling getrandom v0.3.4
+    Checking bytes v1.12.1
+    Checking iana-time-zone v0.1.65
+   Compiling chrono-tz v0.10.4
+    Checking once_cell v1.21.4
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.12
+    Checking lexical-util v1.0.7
+   Compiling pkg-config v0.3.34
+   Compiling getrandom v0.4.3
+    Checking rand_core v0.10.1
+    Checking cpufeatures v0.3.1
+   Compiling zstd-safe v7.3.0
+    Checking unicode-segmentation v1.13.3
+    Checking regex-syntax v0.8.11
+    Checking ryu v1.0.23
+    Checking unicode-width v0.2.2
+    Checking base64 v0.23.1
+    Checking phf_shared v0.12.1
+    Checking simdutf8 v0.1.5
+    Checking chacha20 v0.10.2
+   Compiling ahash v0.8.12
+    Checking phf v0.12.1
+    Checking hashbrown v0.17.1
+   Compiling num-traits v0.2.19
+    Checking comfy-table v7.2.2
+    Checking lexical-parse-integer v1.0.6
+    Checking lexical-write-integer v1.0.6
+    Checking aho-corasick v1.1.5
+    Checking csv-core v0.1.13
+    Checking lexical-parse-float v1.0.6
+    Checking lexical-write-float v1.0.6
+   Compiling syn v2.0.119
+   Compiling syn v3.0.5
+    Checking lexical-core v1.0.6
+   Compiling jobserver v0.1.35
+    Checking rand v0.10.2
+   Compiling cc v1.4.6
+    Checking num-integer v0.1.47
+    Checking chrono v0.4.45
+    Checking num-complex v0.4.6
+    Checking atoi v2.0.0
+    Checking regex-automata v0.4.18
+    Checking num-bigint v0.5.1
+    Checking twox-hash v2.1.4
+    Checking lz4_flex v0.14.0
+    Checking indexmap v2.14.2
+    Checking csv v1.4.0
+   Compiling semver v1.0.28
+   Compiling zstd-sys v2.1.0+zstd.1.5.7
+   Compiling rustc_version v0.4.1
+   Compiling flatbuffers v25.12.19
+    Checking regex v1.13.1
+   Compiling serde_derive v1.0.229
+   Compiling zerocopy-derive v0.8.57
+    Checking zstd v0.13.3
+    Checking arrow-schema v59.3.0
+    Checking half v2.7.1
+    Checking arrow-buffer v59.3.0
+    Checking arrow-data v59.3.0
+    Checking arrow-array v59.3.0
+    Checking arrow-select v59.3.0
+    Checking arrow-row v59.3.0
+    Checking arrow-arith v59.3.0
+    Checking arrow-ord v59.3.0
+    Checking arrow-ipc v59.3.0
+    Checking arrow-string v59.3.0
+    Checking arrow-cast v59.3.0
+    Checking arrow-json v59.3.0
+    Checking arrow-csv v59.3.0
+ Documenting arrow v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.93s
+OK   arrow
+ Documenting arrow-arith v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+OK   arrow-arith
+ Documenting arrow-array v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.33s
+OK   arrow-array
+   Compiling crc32fast v1.5.2
+    Checking adler2 v2.0.1
+    Checking simd-adler32 v0.3.10
+   Compiling snap v1.1.2
+    Checking libbz2-rs-sys v0.2.5
+   Compiling heck v0.5.0
+    Checking zlib-rs v0.6.7
+    Checking crc-catalog v2.5.0
+   Compiling liblzma-sys v0.4.8
+    Checking rand_core v0.9.5
+    Checking uuid v1.26.1
+    Checking ppv-lite86 v0.2.21
+    Checking miniz_oxide v0.9.1
+    Checking crc v3.4.0
+   Compiling strum_macros v0.28.0
+    Checking rand_chacha v0.9.0
+    Checking bzip2 v0.6.1
+    Checking rand v0.9.5
+    Checking flate2 v1.1.10
+    Checking liblzma v0.4.8
+ Documenting arrow-avro v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.79s
+OK   arrow-avro
+ Documenting arrow-buffer v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+OK   arrow-buffer
+    Blocking waiting for file lock on package cache
+ Documenting arrow-cast v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+OK   arrow-cast
+ Documenting arrow-csv v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.15s
+OK   arrow-csv
+ Documenting arrow-data v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.15s
+OK   arrow-data
+    Checking pin-project-lite v0.2.17
+    Checking futures-core v0.3.34
+    Checking futures-sink v0.3.34
+    Checking slab v0.4.12
+    Checking futures-task v0.3.34
+    Checking futures-io v0.3.34
+    Checking http v1.5.0
+    Checking tracing-core v0.1.36
+   Compiling httparse v1.10.1
+    Checking tower-service v0.3.3
+   Compiling anyhow v1.0.104
+    Checking try-lock v0.2.5
+    Checking fnv v1.0.7
+    Checking atomic-waker v1.1.2
+   Compiling either v1.18.0
+    Checking sync_wrapper v1.0.2
+    Checking httpdate v1.0.3
+    Checking tower-layer v0.3.3
+    Checking smallvec v1.16.1
+    Checking mio v1.2.3
+    Checking socket2 v0.6.5
+    Checking mime v0.3.17
+   Compiling tokio-macros v2.7.2
+    Checking futures-channel v0.3.34
+   Compiling tracing-attributes v0.1.31
+   Compiling futures-macro v0.3.34
+   Compiling pin-project-internal v1.1.13
+    Checking percent-encoding v2.3.2
+    Checking matchit v0.8.4
+    Checking want v0.3.1
+   Compiling async-trait v0.1.92
+    Checking base64 v0.22.1
+   Compiling itertools v0.14.0
+    Checking tokio v1.53.1
+    Checking futures-util v0.3.34
+    Checking http-body v1.1.0
+    Checking http-body-util v0.1.5
+    Checking pin-project v1.1.13
+    Checking tracing v0.1.44
+    Checking axum-core v0.5.6
+   Compiling prost-derive v0.14.4
+    Checking prost v0.14.4
+    Checking prost-types v0.14.4
+    Checking futures-executor v0.3.34
+    Checking futures v0.3.34
+    Checking tokio-util v0.7.19
+    Checking h2 v0.4.19
+    Checking tower v0.5.3
+    Checking tokio-stream v0.1.19
+    Checking axum v0.8.9
+    Checking hyper v1.11.1
+    Checking hyper-util v0.1.20
+    Checking hyper-timeout v0.5.2
+    Checking tonic v0.14.6
+    Checking tonic-prost v0.14.6
+ Documenting arrow-flight v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.08s
+OK   arrow-flight
+ Documenting arrow-ipc v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
+OK   arrow-ipc
+ Documenting arrow-json v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+OK   arrow-json
+ Documenting arrow-ord v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
+OK   arrow-ord
+ Documenting arrow-row v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
+OK   arrow-row
+ Documenting arrow-schema v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+OK   arrow-schema
+ Documenting arrow-select v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
+OK   arrow-select
+ Documenting arrow-string v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
+OK   arrow-string
+    Checking stable_deref_trait v1.2.1
+    Checking litemap v0.8.3
+    Checking writeable v0.6.4
+   Compiling icu_properties_data v2.3.0
+    Checking utf8_iter v1.0.4
+   Compiling icu_normalizer_data v2.3.0
+   Compiling parking_lot_core v0.9.12
+    Checking alloc-no-stdlib v2.0.4
+   Compiling thiserror v2.0.20
+    Checking scopeguard v1.2.0
+    Checking either v1.18.0
+    Checking same-file v1.0.6
+   Compiling synstructure v0.13.2
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+   Compiling thiserror-impl v2.0.20
+    Checking form_urlencoded v1.2.2
+    Checking lock_api v0.4.14
+    Checking humantime v2.4.0
+   Compiling seq-macro v0.3.6
+    Checking walkdir v2.5.0
+    Checking alloc-stdlib v0.2.4
+    Checking brotli-decompressor v5.0.3
+    Checking itertools v0.14.0
+    Checking parking_lot v0.12.5
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+    Checking brotli v8.0.4
+    Checking zerofrom v0.1.8
+    Checking yoke v0.8.3
+    Checking zerovec v0.11.8
+    Checking zerotrie v0.2.5
+    Checking tinystr v0.8.4
+    Checking potential_utf v0.1.6
+    Checking icu_collections v2.3.0
+    Checking icu_locale_core v2.3.0
+    Checking icu_provider v2.3.1
+    Checking icu_properties v2.3.0
+    Checking icu_normalizer v2.3.0
+    Checking idna_adapter v1.2.2
+    Checking idna v1.1.0
+    Checking url v2.5.8
+    Checking object_store v0.13.2
+ Documenting parquet v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.55s
+OK   parquet
+    Checking arrow v59.3.0
+ Documenting parquet-variant v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+OK   parquet-variant
+    Checking parquet-variant v59.3.0
+    Checking parquet-variant-json v59.3.0
+ Documenting parquet-variant-compute v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.37s
+OK   parquet-variant-compute
+ Documenting parquet-variant-json v59.3.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.13s
+OK   parquet-variant-json
+   Compiling object v0.39.1
+   Compiling memchr v2.8.3
+   Compiling recursive-proc-macro-impl v0.1.1
+   Compiling stacker v0.1.25
+    Checking log v0.4.34
+   Compiling sqlparser_derive v0.5.0
+    Checking itertools v0.15.0
+    Checking typenum v1.20.1
+   Compiling generic-array v0.14.7
+    Checking datafusion-doc v55.1.0
+    Checking foldhash v0.1.5
+   Compiling crossbeam-utils v0.8.23
+   Compiling rustix v1.1.4
+    Checking fixedbitset v0.5.7
+    Checking linux-raw-sys v0.12.1
+    Checking fastrand v2.5.0
+    Checking const-oid v0.10.2
+    Checking hashbrown v0.14.5
+   Compiling blake3 v1.8.7
+    Checking subtle v2.6.1
+    Checking constant_time_eq v0.4.2
+    Checking arrayvec v0.7.8
+    Checking hex v0.4.3
+   Compiling zstd-safe v8.0.0
+    Checking compression-core v0.4.33
+    Checking glob v0.3.4
+   Compiling bigdecimal v0.4.10
+    Checking num-bigint v0.4.8
+    Checking parquet v59.3.0
+    Checking hashbrown v0.15.5
+    Checking datafusion-common-runtime v55.1.0
+   Compiling datafusion-macros v55.1.0
+    Checking zstd v0.14.0
+    Checking compression-codecs v0.4.41
+    Checking petgraph v0.8.3
+    Checking async-compression v0.4.46
+    Checking dashmap v6.2.1
+    Checking hybrid-array v0.4.15
+    Checking tempfile v3.27.0
+    Checking crypto-common v0.1.7
+    Checking block-buffer v0.10.4
+    Checking digest v0.10.7
+    Checking blake2 v0.10.6
+    Checking crypto-common v0.2.2
+    Checking block-buffer v0.12.1
+    Checking digest v0.11.3
+    Checking sha2 v0.11.0
+    Checking md-5 v0.11.0
+   Compiling ar_archive_writer v0.5.3
+   Compiling psm v0.1.32
+    Checking recursive v0.1.1
+    Checking sqlparser v0.62.0
+    Checking datafusion-common v55.1.0
+    Checking datafusion-proto-common v55.1.0
+    Checking datafusion-expr-common v55.1.0
+    Checking datafusion-proto-models v55.1.0
+    Checking datafusion-physical-expr-common v55.1.0
+    Checking datafusion-functions-aggregate-common v55.1.0
+    Checking datafusion-functions-window-common v55.1.0
+    Checking datafusion-expr v55.1.0
+    Checking datafusion-physical-expr v55.1.0
+    Checking datafusion-execution v55.1.0
+    Checking datafusion-functions v55.1.0
+    Checking datafusion-functions-aggregate v55.1.0
+    Checking datafusion-optimizer v55.1.0
+    Checking datafusion-functions-window v55.1.0
+    Checking datafusion-physical-plan v55.1.0
+    Checking datafusion-physical-expr-adapter v55.1.0
+    Checking datafusion-functions-nested v55.1.0
+    Checking datafusion-sql v55.1.0
+    Checking datafusion-session v55.1.0
+    Checking datafusion-datasource v55.1.0
+    Checking datafusion-pruning v55.1.0
+    Checking datafusion-catalog v55.1.0
+    Checking datafusion-datasource-arrow v55.1.0
+    Checking datafusion-datasource-json v55.1.0
+    Checking datafusion-datasource-csv v55.1.0
+    Checking datafusion-physical-optimizer v55.1.0
+    Checking datafusion-datasource-parquet v55.1.0
+    Checking datafusion-catalog-listing v55.1.0
+    Checking datafusion-functions-table v55.1.0
+ Documenting datafusion v55.1.0
+    Checking datafusion v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.48s
+OK   datafusion
+ Documenting datafusion-catalog v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.32s
+OK   datafusion-catalog
+ Documenting datafusion-catalog-listing v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+OK   datafusion-catalog-listing
+ Documenting datafusion-common v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.50s
+OK   datafusion-common
+ Documenting datafusion-common-runtime v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.11s
+OK   datafusion-common-runtime
+ Documenting datafusion-datasource v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.32s
+OK   datafusion-datasource
+ Documenting datafusion-datasource-arrow v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
+OK   datafusion-datasource-arrow
+ Documenting datafusion-datasource-csv v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
+OK   datafusion-datasource-csv
+ Documenting datafusion-datasource-json v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.24s
+OK   datafusion-datasource-json
+ Documenting datafusion-datasource-parquet v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.30s
+OK   datafusion-datasource-parquet
+ Documenting datafusion-doc v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+OK   datafusion-doc
+ Documenting datafusion-execution v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
+OK   datafusion-execution
+ Documenting datafusion-expr v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.62s
+OK   datafusion-expr
+ Documenting datafusion-expr-common v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.22s
+OK   datafusion-expr-common
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.2
+   Compiling winnow v1.0.4
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling rustversion v1.0.23
+   Compiling stabby-macros v72.1.16
+   Compiling stabby-abi v72.1.16
+    Checking sha2-const-stable v0.1.0
+   Compiling stabby v72.1.16
+    Checking libloading v0.9.0
+    Checking async-ffi v0.5.1
+    Checking semver v1.0.28
+    Checking datafusion-proto v55.1.0
+   Compiling indexmap v2.14.2
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling toml_edit v0.25.15+spec-1.1.0
+   Compiling proc-macro-crate v3.5.0
+ Documenting datafusion-ffi v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.57s
+OK   datafusion-ffi
+ Documenting datafusion-functions v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.51s
+OK   datafusion-functions
+ Documenting datafusion-functions-aggregate v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.33s
+OK   datafusion-functions-aggregate
+ Documenting datafusion-functions-aggregate-common v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
+OK   datafusion-functions-aggregate-common
+ Documenting datafusion-functions-nested v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.35s
+OK   datafusion-functions-nested
+ Documenting datafusion-functions-table v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
+OK   datafusion-functions-table
+ Documenting datafusion-functions-window v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.20s
+OK   datafusion-functions-window
+ Documenting datafusion-functions-window-common v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
+OK   datafusion-functions-window-common
+    Checking unicode-ident v1.0.24
+    Checking datafusion-doc v55.1.0
+    Checking proc-macro2 v1.0.107
+    Checking quote v1.0.47
+    Checking syn v3.0.5
+ Documenting datafusion-macros v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.01s
+OK   datafusion-macros
+ Documenting datafusion-optimizer v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.31s
+OK   datafusion-optimizer
+ Documenting datafusion-physical-expr v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.41s
+OK   datafusion-physical-expr
+ Documenting datafusion-physical-expr-adapter v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.23s
+OK   datafusion-physical-expr-adapter
+ Documenting datafusion-physical-expr-common v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.24s
+OK   datafusion-physical-expr-common
+ Documenting datafusion-physical-optimizer v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+OK   datafusion-physical-optimizer
+ Documenting datafusion-physical-plan v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.77s
+OK   datafusion-physical-plan
+ Documenting datafusion-proto v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+OK   datafusion-proto
+ Documenting datafusion-proto-common v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.32s
+OK   datafusion-proto-common
+ Documenting datafusion-pruning v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.24s
+OK   datafusion-pruning
+ Documenting datafusion-session v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.25s
+OK   datafusion-session
+    Checking sha1 v0.11.0
+ Documenting datafusion-spark v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.43s
+OK   datafusion-spark
+ Documenting datafusion-sql v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.52s
+OK   datafusion-sql
+   Compiling log v0.4.34
+   Compiling bytes v1.12.1
+   Compiling serde v1.0.229
+   Compiling itoa v1.0.18
+   Compiling serde_json v1.0.151
+   Compiling regex-syntax v0.8.11
+   Compiling prettyplease v0.2.37
+   Compiling linux-raw-sys v0.12.1
+   Compiling foldhash v0.1.5
+   Compiling bitflags v2.13.2
+   Compiling serde_derive_internals v0.29.1
+   Compiling zmij v1.0.23
+   Compiling fixedbitset v0.5.7
+   Compiling fastrand v2.5.0
+   Compiling foldhash v0.2.0
+   Compiling schemars v0.8.22
+   Compiling once_cell v1.21.4
+   Compiling allocator-api2 v0.2.21
+   Compiling dyn-clone v1.0.20
+   Compiling multimap v0.10.1
+   Compiling thiserror v2.0.20
+   Compiling unsafe-libyaml v0.2.11
+   Compiling ryu v1.0.23
+   Compiling same-file v1.0.6
+    Checking hashbrown v0.16.1
+    Checking pbjson v0.8.0
+   Compiling async-recursion v1.1.1
+   Compiling hashbrown v0.15.5
+   Compiling walkdir v2.5.0
+   Compiling rustix v1.1.4
+   Compiling prost v0.14.4
+   Compiling serde_tokenstream v0.2.3
+   Compiling schemars_derive v0.8.22
+   Compiling serde_yaml v0.9.34+deprecated
+    Checking regress v0.10.5
+   Compiling petgraph v0.8.3
+   Compiling prost-types v0.14.4
+   Compiling regex-automata v0.4.18
+   Compiling pbjson-build v0.8.0
+   Compiling tempfile v3.27.0
+   Compiling typify-impl v0.5.0
+   Compiling regex v1.13.1
+   Compiling prost-build v0.14.4
+   Compiling pbjson-types v0.8.0
+   Compiling typify-macro v0.5.0
+   Compiling typify v0.5.0
+   Compiling substrait v0.63.0
+ Documenting datafusion-substrait v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.35s
+OK   datafusion-substrait
+ Documenting datafusion-proto-models v55.1.0
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.86s
+OK   datafusion-proto-models
+finished:  2026-09-13T16:16:22-04:00
+ok=57 fail=0
+-rw-rw-r-- 1 paul paul   295282 Sep 13 16:15 target/doc/arrow_arith.json
+-rw-rw-r-- 1 paul paul  4300875 Sep 13 16:15 target/doc/arrow_array.json
+-rw-rw-r-- 1 paul paul   785660 Sep 13 16:15 target/doc/arrow_avro.json
+-rw-rw-r-- 1 paul paul  1529829 Sep 13 16:15 target/doc/arrow_buffer.json
+-rw-rw-r-- 1 paul paul   536608 Sep 13 16:15 target/doc/arrow_cast.json
+-rw-rw-r-- 1 paul paul   372710 Sep 13 16:15 target/doc/arrow_csv.json
+-rw-rw-r-- 1 paul paul   427390 Sep 13 16:15 target/doc/arrow_data.json
+-rw-rw-r-- 1 paul paul  4875649 Sep 13 16:15 target/doc/arrow_flight.json
+-rw-rw-r-- 1 paul paul  5437035 Sep 13 16:15 target/doc/arrow_ipc.json
+-rw-rw-r-- 1 paul paul   324713 Sep 13 16:15 target/doc/arrow.json
+-rw-rw-r-- 1 paul paul   525777 Sep 13 16:15 target/doc/arrow_json.json
+-rw-rw-r-- 1 paul paul   261597 Sep 13 16:15 target/doc/arrow_ord.json
+-rw-rw-r-- 1 paul paul   358641 Sep 13 16:15 target/doc/arrow_row.json
+-rw-rw-r-- 1 paul paul  1175779 Sep 13 16:15 target/doc/arrow_schema.json
+-rw-rw-r-- 1 paul paul   342366 Sep 13 16:15 target/doc/arrow_select.json
+-rw-rw-r-- 1 paul paul   181751 Sep 13 16:15 target/doc/arrow_string.json
+-rw-rw-r-- 1 paul paul   935129 Sep 13 16:15 target/doc/datafusion_catalog.json
+-rw-rw-r-- 1 paul paul   566575 Sep 13 16:15 target/doc/datafusion_catalog_listing.json
+-rw-rw-r-- 1 paul paul  5316994 Sep 13 16:16 target/doc/datafusion_common.json
+-rw-rw-r-- 1 paul paul   257819 Sep 13 16:16 target/doc/datafusion_common_runtime.json
+-rw-rw-r-- 1 paul paul   476340 Sep 13 16:16 target/doc/datafusion_datasource_arrow.json
+-rw-rw-r-- 1 paul paul   598942 Sep 13 16:16 target/doc/datafusion_datasource_csv.json
+-rw-rw-r-- 1 paul paul  1838110 Sep 13 16:16 target/doc/datafusion_datasource.json
+-rw-rw-r-- 1 paul paul   620426 Sep 13 16:16 target/doc/datafusion_datasource_json.json
+-rw-rw-r-- 1 paul paul  1075728 Sep 13 16:16 target/doc/datafusion_datasource_parquet.json
+-rw-rw-r-- 1 paul paul   187571 Sep 13 16:16 target/doc/datafusion_doc.json
+-rw-rw-r-- 1 paul paul  1517188 Sep 13 16:16 target/doc/datafusion_execution.json
+-rw-rw-r-- 1 paul paul  1369388 Sep 13 16:16 target/doc/datafusion_expr_common.json
+-rw-rw-r-- 1 paul paul  6664802 Sep 13 16:16 target/doc/datafusion_expr.json
+-rw-rw-r-- 1 paul paul  2993191 Sep 13 16:16 target/doc/datafusion_ffi.json
+-rw-rw-r-- 1 paul paul  1243473 Sep 13 16:16 target/doc/datafusion_functions_aggregate_common.json
+-rw-rw-r-- 1 paul paul  2263493 Sep 13 16:16 target/doc/datafusion_functions_aggregate.json
+-rw-rw-r-- 1 paul paul  4520039 Sep 13 16:16 target/doc/datafusion_functions.json
+-rw-rw-r-- 1 paul paul  2522958 Sep 13 16:16 target/doc/datafusion_functions_nested.json
+-rw-rw-r-- 1 paul paul   574389 Sep 13 16:16 target/doc/datafusion_functions_table.json
+-rw-rw-r-- 1 paul paul   348803 Sep 13 16:16 target/doc/datafusion_functions_window_common.json
+-rw-rw-r-- 1 paul paul   728008 Sep 13 16:16 target/doc/datafusion_functions_window.json
+-rw-rw-r-- 1 paul paul  1716582 Sep 13 16:15 target/doc/datafusion.json
+-rw-rw-r-- 1 paul paul    99585 Sep 13 16:16 target/doc/datafusion_macros.json
+-rw-rw-r-- 1 paul paul  1254435 Sep 13 16:16 target/doc/datafusion_optimizer.json
+-rw-rw-r-- 1 paul paul   456117 Sep 13 16:16 target/doc/datafusion_physical_expr_adapter.json
+-rw-rw-r-- 1 paul paul  1525177 Sep 13 16:16 target/doc/datafusion_physical_expr_common.json
+-rw-rw-r-- 1 paul paul  2769533 Sep 13 16:16 target/doc/datafusion_physical_expr.json
+-rw-rw-r-- 1 paul paul  1086691 Sep 13 16:16 target/doc/datafusion_physical_optimizer.json
+-rw-rw-r-- 1 paul paul  5942376 Sep 13 16:16 target/doc/datafusion_physical_plan.json
+-rw-rw-r-- 1 paul paul  3788057 Sep 13 16:16 target/doc/datafusion_proto_common.json
+-rw-rw-r-- 1 paul paul   866691 Sep 13 16:16 target/doc/datafusion_proto.json
+-rw-rw-r-- 1 paul paul 10885222 Sep 13 16:16 target/doc/datafusion_proto_models.json
+-rw-rw-r-- 1 paul paul   501501 Sep 13 16:16 target/doc/datafusion_pruning.json
+-rw-rw-r-- 1 paul paul   674575 Sep 13 16:16 target/doc/datafusion_session.json
+-rw-rw-r-- 1 paul paul  4238482 Sep 13 16:16 target/doc/datafusion_spark.json
+-rw-rw-r-- 1 paul paul  1628573 Sep 13 16:16 target/doc/datafusion_sql.json
+-rw-rw-r-- 1 paul paul   928994 Sep 13 16:16 target/doc/datafusion_substrait.json
+-rw-rw-r-- 1 paul paul  5744234 Sep 13 16:15 target/doc/parquet.json
+-rw-rw-r-- 1 paul paul   419315 Sep 13 16:15 target/doc/parquet_variant_compute.json
+-rw-rw-r-- 1 paul paul  1035226 Sep 13 16:15 target/doc/parquet_variant.json
+-rw-rw-r-- 1 paul paul   174930 Sep 13 16:15 target/doc/parquet_variant_json.json
+-rw-rw-r-- 1 paul paul   345308 Sep 13 16:15 target/doc/print_config_docs.json
+-rw-rw-r-- 1 paul paul   367655 Sep 13 16:15 target/doc/print_functions_docs.json
+-rw-rw-r-- 1 paul paul   290335 Sep 13 16:15 target/doc/print_runtime_config_docs.json
