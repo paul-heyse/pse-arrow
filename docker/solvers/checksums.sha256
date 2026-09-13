@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# sha256 of every tarball docker/solvers/build.sh downloads, including the two
+# that upstream's get.Mumps / get.ASL fetch (build.sh serves those from the
+# verified cache through a `wget` shim, so nothing reaches a compiler unchecked).
+# Regenerate with `PSE_SOLVERS_UPDATE_CHECKSUMS=1 docker/solvers/build.sh`.
+#
+# Ipopt 3.14.20 corroborated against Homebrew and conda-forge.
+43bddd6fa793b1694aa94d6129fe3e4a8d452d97a84ef5f2ff721c8047c75605  Ipopt-3.14.20.tar.gz
+659c9b57646b5a003ac618baa1faf9dd2044e46c732b3daaccbc7158003e1b46  MUMPS_5.9.1.tar.gz
+7ffe7541a5b1a347124f909a0e260c1784f698b78ff24b145d0b11be635292e5  solvers-20241108.tgz
+633e9d42b015a5a6a9ae324cac5736af1605fb74eb18299a54912b67d1a69be7  ThirdParty-ASL-2.1.0.tar.gz
+49c2773de7b34dea0152b1894da7634cb8319605a9e05b0d9bbc29746acb247c  ThirdParty-Mumps-3.0.14.tar.gz

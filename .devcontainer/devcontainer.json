@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+//
+// devcontainer.json is JSONC: "//" comments are part of the format and are
+// understood by VS Code and by the devcontainer CLI.
+{
+  "name": "pse-arrow",
+
+  // The `dev` stage of docker/solvers/Dockerfile: Ipopt 3.14.20 + MUMPS + ASL
+  // at /opt/pse-solvers, uv with managed CPython 3.11-3.13, and the toolchain
+  // from /rust-toolchain.toml.  `dev-latest` is a moving alias that the
+  // solvers-image workflow repoints whenever docker/solvers/** changes; pin
+  // `dev-<tree-hash>` here instead if you need a frozen environment.
+  // Build it yourself with `just solver-image` and swap in `pse-solvers:dev-local`.
+  "image": "ghcr.io/paul-heyse/pse-solvers:dev-latest",
+
+  "containerEnv": {
+    // Keep the venv inside the workspace so it survives container rebuilds and
+    // matches .envrc on the host.
+    "UV_PROJECT_ENVIRONMENT": "${containerWorkspaceFolder}/.venv",
+    "CARGO_TERM_COLOR": "always",
+    "RUST_BACKTRACE": "1"
+  },
+
+  // Named volumes: cargo's registry and the target directory are large, churn a
+  // lot, and must not be written through the bind mount.
+  "mounts": [
+    "source=pse-arrow-cargo-registry,target=/usr/local/cargo/registry,type=volume",
+    "source=pse-arrow-target,target=${containerWorkspaceFolder}/target,type=volume"
+  ],
+
+  // `just doctor` is the repository's environment check: it reports the Rust and
+  // Python toolchains, the solver it found, and what is missing.  It is
+  // read-only.  On a brand-new container it EXITS NON-ZERO because .venv does
+  // not exist yet and prints `just bootstrap` as the fix; that first red
+  // postCreate is expected, and `just bootstrap` is the next thing to run.
+  // (The image sets UV_PYTHON_DOWNLOADS=automatic in its `dev` stage precisely
+  // so that bootstrap can fetch the 3.14.7 named in .python-version.)
+  "postCreateCommand": "just bootstrap",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "rust-analyzer.cargo.extraEnv": { "IPOPT_DIR": "/opt/pse-solvers" },
+        "rust-analyzer.check.command": "clippy",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" }
+      }
+    }
+  }
+}
