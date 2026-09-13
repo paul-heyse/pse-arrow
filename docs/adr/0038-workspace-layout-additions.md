@@ -12,7 +12,7 @@ evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A sixth test family is needed, or `xtask` grows logic that belongs in a shipped crate
-verification: `tests/governance/every_crate_registered.rs` (every workspace member appears in the blueprint §3.2 layout and carries the `pse-` prefix); `rust / test`
+verification: `tests/governance/tests/every_crate_registered.rs` (every workspace member appears in the blueprint §3.2 layout and carries the `pse-` prefix); `rust / test`
 
 ---
 

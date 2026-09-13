@@ -12,7 +12,7 @@ evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A fourth artifact level is proposed, or a level needs identity, hashing or provenance conventions the other two do not share
-verification: `tests/governance/every_crate_registered.rs`; the lifecycle test layer in `tests/lifecycle`
+verification: `tests/governance/tests/every_crate_registered.rs`; the lifecycle test layer in `tests/lifecycle`
 
 ---
 

@@ -12,7 +12,7 @@ evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A kernel genuinely needs compile-time unit typing, or a remote Arrow transport becomes a requirement
-verification: `rust / deny` (`deny.toml` bans `uom` and `arrow-flight`); `python / lint` banned-api rule on `assert_units_consistent`; `tests/governance/banned_patterns.rs`
+verification: `rust / deny` (`deny.toml` bans `uom` and `arrow-flight`); `python / lint` banned-api rule on `assert_units_consistent`; `tests/governance/tests/banned_patterns.rs`
 
 ---
 

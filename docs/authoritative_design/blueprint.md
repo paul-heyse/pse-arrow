@@ -492,7 +492,7 @@ reference.schema_migrations @1
 | Migrations | `fn migrate_v1_to_v2(batch) -> batch` | artifact loader |
 | Authoring JSON Schema | for editor validation of package documents | tooling |
 
-Nothing hand-written may duplicate a column list. A hand-written struct that mirrors a relation is a governance failure (`tests/governance/no_shadow_structs.rs` greps generated symbol names against hand-written code).
+Nothing hand-written may duplicate a column list. A hand-written struct that mirrors a relation is a governance failure (`tests/governance/tests/no_shadow_structs.rs` greps generated symbol names against hand-written code).
 
 ### 4.3 Metadata conventions
 

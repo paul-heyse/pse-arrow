@@ -12,7 +12,7 @@ evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: `serde-saphyr` becomes unmaintained, or a document form the authoring language needs is not expressible through it
-verification: `rust / deny` (`deny.toml` bans `serde_yaml`); `tests/governance/banned_patterns.rs`; the hostile-document budget tests in `tests/conformance`
+verification: `rust / deny` (`deny.toml` bans `serde_yaml`); `tests/governance/tests/banned_patterns.rs`; the hostile-document budget tests in `tests/conformance`
 
 ---
 

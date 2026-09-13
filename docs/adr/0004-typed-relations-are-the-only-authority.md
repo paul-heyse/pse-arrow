@@ -12,7 +12,7 @@ evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A relation family needs content no typed schema can express and a JSON column is proposed for it a second time
-verification: `tests/governance/no_shadow_structs.rs`; `tests/governance/banned_patterns.rs`
+verification: `tests/governance/tests/no_shadow_structs.rs`; `tests/governance/tests/banned_patterns.rs`
 
 ---
 

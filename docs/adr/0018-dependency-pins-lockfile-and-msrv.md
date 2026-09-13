@@ -12,7 +12,7 @@ evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A DataFusion or Arrow release requires a Rust version above the pinned toolchain, or a pre-1.0 crate raises its declared floor above ours
-verification: `tests/governance/pins_match_blueprint.rs`, `tests/governance/toolchain_matches_msrv.rs`, `tests/governance/dependency_floors.rs`; `rust / family-check`; `rust / deny`
+verification: `tests/governance/tests/pins_match_blueprint.rs`, `tests/governance/tests/toolchain_matches_msrv.rs`, `tests/governance/tests/dependency_floors.rs`; `rust / family-check`; `rust / deny`
 
 ---
 

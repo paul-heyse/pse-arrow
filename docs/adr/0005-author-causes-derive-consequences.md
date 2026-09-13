@@ -12,7 +12,7 @@ evidence: Proposed
 supersedes: []
 superseded-by: null
 revisit: A derived relation acquires an authored write path, or derivation rows exceed the §24.3 benchmark's budget per equation
-verification: `tests/governance/banned_patterns.rs` (no write path into derived relations); the §24.3 derivation-cost benchmark
+verification: `tests/governance/tests/banned_patterns.rs` (no write path into derived relations); the §24.3 derivation-cost benchmark
 
 ---
 

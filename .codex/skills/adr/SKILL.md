@@ -49,7 +49,7 @@ lint checks every one of them:
 | `evidence` | A charter §D label — `Proposed`, `Interface-checked`, `Implemented`, `Tested`, `Measured`, `Formally established`. |
 | `supersedes` / `superseded-by` | Symmetric: if A supersedes B, B's `superseded-by` is A and B's status is `superseded`. Use `just adr-supersede`. |
 | `revisit` | An **observable trigger**, not a date. "A measurement shows X", "crate Y releases Z", "the first non-FFI `unsafe`". If the trigger is not imminent, add a row to `docs/adr/register.md` as well. |
-| `verification` | The named test, lint, benchmark or CI job that shows the decision holds — `tests/governance/pins_match_blueprint.rs`, `rust / family-check`, `governance / adr-lint`. Not "code review". |
+| `verification` | The named test, lint, benchmark or CI job that shows the decision holds — `tests/governance/tests/pins_match_blueprint.rs`, `rust / family-check`, `governance / adr-lint`. Not "code review". |
 
 Body sections: **Context · Scope · Drivers · Options · Outcome** (with
 *Consequences*, *Compensating controls*, *Confirmation*) **· Pros and cons ·

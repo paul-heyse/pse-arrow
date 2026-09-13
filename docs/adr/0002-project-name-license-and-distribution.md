@@ -12,7 +12,7 @@ evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: The PyPI name `pse` becomes available, or a crates.io name collision forces a different crate prefix at the phase-0 publish
-verification: `tests/governance/every_crate_registered.rs` (crate prefix); `governance / reuse` (`reuse lint` over the SPDX headers)
+verification: `tests/governance/tests/every_crate_registered.rs` (crate prefix); `governance / reuse` (`reuse lint` over the SPDX headers)
 
 ---
 
@@ -44,7 +44,7 @@ The distribution name and the import name differ, which every install instructio
 
 ### Compensating controls
 
-`reuse lint` in `python / lint`; `tests/governance/every_crate_registered.rs` asserts every workspace member carries the prefix and is listed in the blueprint §3.2 layout.
+`reuse lint` in `python / lint`; `tests/governance/tests/every_crate_registered.rs` asserts every workspace member carries the prefix and is listed in the blueprint §3.2 layout.
 
 ### Confirmation
 
