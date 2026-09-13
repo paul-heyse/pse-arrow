@@ -209,7 +209,7 @@ jobs:
           cd "${RUNNER_TEMP}"
           uv run --python "${GITHUB_WORKSPACE}/.venv-${{ matrix.python-version }}" \
             --no-project python -c \
-            'import pse, json; print(json.dumps(pse.build_info().__dict__, default=str, indent=2))'
+            'import pse, msgspec; print(msgspec.json.format(msgspec.json.encode(pse.build_info())).decode())'
       - name: no numpy on import
         # numpy must stay behind the pse._array boundary; importing pse must not pull it
         # in. A subprocess with a poisoned finder is the fixture; here a plain check.

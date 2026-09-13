@@ -41,9 +41,6 @@ env:
   CARGO_NEXTEST_VERSION: 0.9.143
   CARGO_DENY_VERSION: 0.20.2
   CARGO_AUDIT_VERSION: 0.22.2
-  # cargo-shear tracks the latest 1.x deliberately: it is a lint, not a gate input, and
-  # its false-positive fixes land in patch releases.
-  CARGO_SHEAR_VERSION: "1"
   CARGO_HACK_VERSION: 0.6.45
   CARGO_LLVM_COV_VERSION: 0.9.0
   TAPLO_VERSION: 0.10.0
@@ -135,6 +132,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: trust the checkout inside the container
+        # The container runs as a different uid from the runner's checkout; without this
+        # git reports "dubious ownership" and `git diff`/`git status` behave as if there
+        # were no repository at all.
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
       - uses: ./.github/actions/setup-rust
         with:
           shared-key: codegen
@@ -183,14 +185,15 @@ jobs:
           tools: |
             cargo-deny@${{ env.CARGO_DENY_VERSION }}
             cargo-audit@${{ env.CARGO_AUDIT_VERSION }}
-            cargo-shear@${{ env.CARGO_SHEAR_VERSION }}
       - name: cargo deny
         # advisories + licenses + bans + sources, all configured in deny.toml.
         run: cargo deny --all-features --locked check
       - name: cargo audit
+        # .cargo/audit.toml carries the dated acceptances.
         run: cargo audit --deny warnings
-      - name: cargo shear
-        run: cargo shear
+      # cargo shear / cargo machete are advisory in phase 0 (`just deps-unused`): the
+      # skeleton declares its blueprint dependencies before using them. Register row R-18
+      # promotes them to this gate once every crate has code.
 
   # --- informational -----------------------------------------------------------------
   docs:

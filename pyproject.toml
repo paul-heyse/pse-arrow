@@ -145,6 +145,10 @@ module-name = "pse._native"
 python-source = "python"
 python-packages = ["pse"]
 locked = true
+# "git": the sdist is the git-tracked tree, workspace intact, so `--locked` holds when
+# the sdist is built. The default "cargo" generator rewrites the workspace to pse-py's
+# dependency closure and the packaged Cargo.lock no longer matches it.
+sdist-generator = "git"
 profile = "release"
 editable-profile = "dev"
 strip = true
@@ -158,6 +162,12 @@ include = [
 exclude = [
   { path = "python/pse/tests/**", format = "wheel" },
   { path = "python/pse/parity/tests/**", format = "wheel" },
+  # Agent configuration is not part of a source distribution, and the two directory
+  # symlinks in it (.claude/skills, .codex/agents) cannot be archived by the sdist writer.
+  { path = ".claude/**", format = "sdist" },
+  { path = ".codex/**", format = "sdist" },
+  { path = ".github/**", format = "sdist" },
+  { path = "docs/capability-maps/evidence/**", format = "sdist" },
 ]
 
 [tool.ruff]
