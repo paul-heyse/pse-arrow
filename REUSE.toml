@@ -1,0 +1,71 @@
+# REUSE (https://reuse.software) specification for pse-arrow.
+#
+# Every authored source file (.rs, .py, .pyi, .sh, .toml, .yml) carries a two-line SPDX
+# header; the entries below cover file types that cannot carry one, or that are
+# generated/imported. `reuse lint` runs in pre-commit and as `governance / reuse`.
+version = 1
+SPDX-PackageName = "pse-arrow"
+SPDX-PackageSupplier = "Paul Heyse <paul@heyse.io>"
+SPDX-PackageDownloadLocation = "https://github.com/paul-heyse/pse-arrow"
+
+[[annotations]]
+path = [
+  "**/*.md",
+  "**/*.lock",
+  "**/*.json",
+  "**/*.txt",
+  "**/*.cff",
+  "**/*.snap",
+  "**/*.arrow",
+  "**/*.parquet",
+  "**/*.nl",
+  "**/*.sol",
+  "**/*.sha256",
+  "**/*.zst",
+  ".gitignore",
+  ".gitattributes",
+  ".editorconfig",
+  ".python-version",
+  ".envrc",
+  "justfile",
+  "rust-toolchain.toml",
+  "CODEOWNERS",
+  ".github/**",
+  ".claude/**",
+  ".codex/**",
+  "docs/**",
+  "packages/**",
+  "tests/golden/**",
+  "python/pse/contracts/GENERATED.sha256",
+  "crates/*/src/generated/**",
+  "crates/pse-ipopt-sys/src/bindings.rs",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Paul Heyse"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+# The design-principles documents are imported normative texts; the capability-map
+# evidence includes captured third-party output. Both are covered as aggregate, above.
+
+# Build artifacts that live inside the package directory: the compiled extension and
+# the bytecode caches beside it. Both are gitignored, but `reuse lint` walks the working
+# tree rather than the index, so without these entries the gate is red in every
+# environment where `uv sync` has actually built the extension.
+[[annotations]]
+path = [
+  "python/pse/_native*.so",
+  "python/pse/_native*.pyd",
+  "**/__pycache__/**",
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Paul Heyse"
+SPDX-License-Identifier = "MIT OR Apache-2.0"
+
+# tooling/dfarrow-apiex predates the repository (same author); its files are covered here
+# rather than retro-fitted with headers, so the extractor stays byte-comparable with the
+# evidence it produced.
+[[annotations]]
+path = ["tooling/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Paul Heyse"
+SPDX-License-Identifier = "MIT OR Apache-2.0"

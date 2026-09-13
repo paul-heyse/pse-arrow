@@ -1,0 +1,49 @@
+# Build output and regenerable artifacts
+/target/
+/build/
+/dist/
+/wheels/
+/docs/book/
+/artifacts/
+tooling/dfarrow-apiex/target/
+tooling/dfarrow-apiex/verify/target/
+
+# Reading copies fetched by scripts/fetch-external.sh (pinned tags; never committed)
+/external/
+/.worktrees/
+/idaes-pse/
+
+# Python
+.venv*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+python/pse/_native*.so
+python/pse/_native*.pyd
+*.so
+*.pyd
+*.dylib
+.ruff_cache/
+.pyrefly_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+lcov.info
+
+# Local overrides (templates are committed)
+.envrc.local
+.claude/settings.local.json
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Logs, except the committed evidence receipts
+*.log
+!docs/capability-maps/evidence/**/*.log

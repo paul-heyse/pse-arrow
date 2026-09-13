@@ -1,0 +1,34 @@
+* text=auto eol=lf
+*.rs text diff=rust
+*.py text diff=python
+*.pyi text diff=python
+*.md text
+*.toml text
+*.yml text
+*.yaml text
+*.json text
+*.sh text eol=lf
+justfile text eol=lf
+*.nl text eol=lf
+*.sol text eol=lf
+
+# Binary artifacts
+*.arrow binary
+*.feather binary
+*.ipc binary
+*.parquet binary
+*.zst binary
+*.png binary
+
+# Generated and lock content: collapsed in PR diffs, still reviewable
+Cargo.lock linguist-generated=true
+uv.lock linguist-generated=true
+*.snap linguist-generated=true
+docs/generated/** linguist-generated=true
+crates/*/src/generated/** linguist-generated=true
+crates/pse-ipopt-sys/src/bindings.rs linguist-generated=true
+python/pse/contracts/** linguist-generated=true
+docs/capability-maps/evidence/**/*.lock linguist-generated=true
+docs/capability-maps/evidence/**/*.log linguist-generated=true
+docs/capability-maps/evidence/**/*.txt linguist-generated=true
+docs/capability-maps/facts/** linguist-generated=true

@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# TOML formatting. One canonical shape so nobody argues about array wrapping.
+exclude = [
+  ".venv*/**",
+  "target/**",
+  "external/**",
+  "build/**",
+  "docs/book/**",
+  "docs/capability-maps/evidence/**",
+  "tooling/dfarrow-apiex/target/**",
+  "tooling/dfarrow-apiex/verify/target/**",
+]
+
+[formatting]
+# Arrays one entry per line: a diff that adds a dependency or an exclusion is one line.
+array_auto_expand = true
+array_auto_collapse = false
+# Never reorder: the pin tables in Cargo.toml and the lint selection in pyproject.toml
+# are ordered deliberately.
+reorder_keys = false
+reorder_arrays = false

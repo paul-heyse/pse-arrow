@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Spell check (typos-cli). Excludes lockfiles, generated output, captured third-party
+# evidence and vendored reading copies; checks our prose, code and the design corpus.
+[files]
+extend-exclude = [
+  "Cargo.lock",
+  "uv.lock",
+  "*.snap",
+  "*.zst",
+  "target/",
+  "external/",
+  "build/",
+  "docs/book/",
+  "docs/generated/",
+  "docs/capability-maps/evidence/**/*.log",
+  "docs/capability-maps/evidence/**/*.txt",
+  "docs/capability-maps/evidence/**/*.lock",
+  "docs/capability-maps/facts/",
+  "crates/*/src/generated/",
+  "crates/pse-ipopt-sys/src/bindings.rs",
+  "python/pse/contracts/",
+  "tests/golden/",
+  "LICENSES/",
+  "LICENSE-*",
+]
+
+[default.extend-words]
+# Domain vocabulary and identifiers that are not typos.
+IDAES = "IDAES"
+idaes = "idaes"
+Ipopt = "Ipopt"
+ipopt = "ipopt"
+MUMPS = "MUMPS"
+equil = "equil"
+mis = "mis"
+MIS = "MIS"
+FOM = "FOM"
+typ = "typ"
+cocurrent = "cocurrent"
+Nd = "Nd"
+nd = "nd"
+ue = "ue"
+ba = "ba"
+HEL = "HEL"
+inh = "inh"
+ther = "ther"
+delt = "delt"
+hd = "hd"
+iy = "iy"
+iz = "iz"
+Datas = "Datas"
+compilability = "compilability"
+Serializeable = "Serializeable"
