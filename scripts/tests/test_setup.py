@@ -37,6 +37,7 @@ hooks = load("agent-hooks")
 agents = load("agent-config")
 images = load("solver-images")
 adr = load("adr")
+doctor = load("doctor")
 
 
 class EditPolicyTests(unittest.TestCase):
@@ -77,7 +78,9 @@ class EditPolicyTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertIsNotNone(hooks.protected(self.root, name, design_edit=True))
         self.assertIsNone(hooks.protected(self.root, "crates/a/src/lib.rs"))
-        self.assertIsNone(hooks.protected(self.root, str(self.root / "a.py")))
+        self.assertIsNone(
+            hooks.protected(self.root, str((self.root / "a.py").resolve()))
+        )
 
     def test_symlink_cannot_hide_a_protected_destination(self) -> None:
         (self.root / "external").mkdir()
@@ -112,11 +115,25 @@ class EditPolicyTests(unittest.TestCase):
                 self.root, ["a.py", "a.py", "deleted.py", "docs/generated/skip.py"]
             )
         self.assertEqual(run.call_count, 1)
-        self.assertEqual(run.call_args.args[0][-1], str(self.root / "a.py"))
+        self.assertEqual(run.call_args.args[0][-1], str((self.root / "a.py").resolve()))
         self.assertEqual((self.root / "neighbor.py").read_text(), "x=1\n")
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_doctor_reads_distribution_versions_without_launching_wrappers(
+        self,
+    ) -> None:
+        with (
+            patch.object(
+                doctor, "pinned_quality_versions", return_value={"pyright": "1.0"}
+            ),
+            patch.object(Path, "exists", return_value=True),
+            patch.object(doctor, "run", return_value=(0, '{"pyright": "1.0"}')) as run,
+        ):
+            self.assertTrue(doctor.check_quality_tools().ok)
+        run.assert_called_once()
+        self.assertEqual(run.call_args.args[0], str(doctor.venv_bin("python")))
+
     def test_materialized_skills_and_native_roles_detect_drift(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

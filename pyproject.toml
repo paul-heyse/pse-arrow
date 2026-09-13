@@ -162,8 +162,9 @@ include = [
 exclude = [
   { path = "python/pse/tests/**", format = "wheel" },
   { path = "python/pse/parity/tests/**", format = "wheel" },
-  # Agent configuration is not part of a source distribution, and the two directory
-  # symlinks in it (.claude/skills, .codex/agents) cannot be archived by the sdist writer.
+  # Agent configuration is not part of a source distribution. Directory symlinks
+  # in the skill aliases cannot be archived by the sdist writer.
+  { path = ".agents/**", format = "sdist" },
   { path = ".claude/**", format = "sdist" },
   { path = ".codex/**", format = "sdist" },
   { path = ".github/**", format = "sdist" },

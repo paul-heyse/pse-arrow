@@ -243,13 +243,22 @@ jobs:
               - 'docs/**'
               - 'crates/**/*.rs'
               - 'xtask/**'
+      - name: report the phase-zero prerequisite
+        id: availability
+        run: |
+          if compgen -G "docs/capability-maps/facts/*.paths.txt.zst" > /dev/null; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::API doc lint is deferred under register R-20; no path indexes exist."
+          fi
       - uses: ./.github/actions/setup-rust
-        if: steps.changed.outputs.docs == 'true'
+        if: steps.changed.outputs.docs == 'true' && steps.availability.outputs.ready == 'true'
         with:
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: backticked paths in docs resolve
-        if: steps.changed.outputs.docs == 'true'
+        if: steps.changed.outputs.docs == 'true' && steps.availability.outputs.ready == 'true'
         # Checks every `a::b::c` and [rustdoc:…] identifier in docs/** against the
         # committed path indexes. The full sweep runs weekly in rust-scheduled.yml.
         run: cargo xtask doc-lint

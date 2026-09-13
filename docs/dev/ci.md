@@ -105,6 +105,8 @@ that is a bug in the justfile.
 ## Phase-zero limits
 
 Code generation and API-reference doc lint remain deferred (register R-20).
+PR-time API doc lint emits a deferral notice when the path indexes are absent;
+its CLI remains an exit-2 stub and scheduled checks retain the register trigger.
 `codegen-check` detects staged, unstaged and untracked generated-path changes; it
 does not prove a real schema or binding generator exists. The parity suite currently
 qualifies its environment and package boundaries, not numerical model parity.

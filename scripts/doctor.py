@@ -160,16 +160,25 @@ def check_quality_tools() -> Check:
     pins = pinned_quality_versions()
     if not pins:
         return Check("quality", False, "no [dependency-groups] quality pins", "")
+    # CLI wrappers such as pyright can download runtimes even for --version.
+    # Read installed distribution metadata through the selected interpreter instead.
+    code, out = run(
+        str(venv_bin("python")),
+        "-c",
+        "import importlib.metadata as m, json, sys; "
+        "installed = {d.metadata['Name'].lower().replace('_', '-'): d.version "
+        "for d in m.distributions()}; "
+        "print(json.dumps({n: installed.get(n, '?') for n in sys.argv[1:]}))",
+        *pins,
+    )
+    installed = json.loads(out) if code == 0 else {}
     problems, found = [], []
     for tool, wanted in pins.items():
         exe = venv_bin(tool if tool != "import-linter" else "lint-imports")
         if not exe.exists():
             problems.append(f"{tool} not in .venv")
             continue
-        code, out = run(str(exe), "--version")
-        actual = (
-            next((t for t in out.split() if t[:1].isdigit()), "?") if code == 0 else "?"
-        )
+        actual = installed.get(tool, "?")
         found.append(f"{tool} {actual}")
         if actual != wanted:
             problems.append(f"{tool} {actual} != pinned {wanted}")
@@ -195,7 +204,8 @@ def check_rust() -> Check:
         )
     if shutil.which("rustup") is None:
         return Check("rust", False, "rustup not installed", "https://rustup.rs")
-    code, out = run("rustc", "--version")
+    # `rustup run` fails for an absent toolchain instead of auto-installing it.
+    code, out = run("rustup", "run", wanted, "rustc", "--version")
     if code != 0:
         return Check(
             "rust",
@@ -214,7 +224,12 @@ def check_rust() -> Check:
 
 
 def check_cargo_tools() -> Check:
-    code, out = run("cargo", "install", "--list", timeout=60)
+    toolchain = tomllib.loads((ROOT / "rust-toolchain.toml").read_text())["toolchain"][
+        "channel"
+    ]
+    code, out = run(
+        "rustup", "run", toolchain, "cargo", "install", "--list", timeout=60
+    )
     if code != 0:
         return Check(
             "cargo-tools",
