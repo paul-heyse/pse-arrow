@@ -1,0 +1,50 @@
+# Paths that scripts/check_agent_config.py may not find on disk.
+#
+# Two kinds of entry, and every one of them says which kind it is. Entries are fnmatch
+# patterns; a directory entry also covers everything beneath it. Delete an entry the
+# moment its path lands -- an allowlist that outlives its reason is how the dead
+# references it exists to permit become invisible.
+
+# ---------------------------------------------------------------------------------
+# 1. Created later in the repository build-out (docs/plans/01-*.md sequences these).
+# ---------------------------------------------------------------------------------
+
+# The clean-room, parity-pin and non-affiliation statement, summarised in README.md.
+# Lands with the root scaffolding (plan step 2), before the first public push.
+docs/relationship-to-idaes.md
+
+# pse-schema output: `cargo xtask codegen --only docs`, surfaced as `just codegen`.
+# Appears with the first generated schema reference and is committed from then on
+# (ADR-0031), so it is absent only while the schema crate is still a skeleton.
+docs/generated
+
+# The ADR navigator skill -- when a record is required, how to fill the charter §H
+# front-matter fields. Lands with scripts/adr.py and the backfill ADRs (plan step 6).
+.codex/skills/adr/SKILL.md
+
+# ---------------------------------------------------------------------------------
+# 2. Inherited references in the agent definitions and the design-review skill.
+#
+# The nine agent files and the design-review skill were copied from the author's other
+# project. These paths point at a code-intelligence corpus and a `cq` CLI that this
+# repository does not ship, or are illustrative file names inside worked examples.
+# They are permitted so the copies stay byte-identical to their source; when the agent
+# definitions are next revised for this repository, the references should be removed
+# (or the corpus added) and these entries deleted with them.
+# ---------------------------------------------------------------------------------
+
+# The smartref code-intelligence reference corpus, routed by the MCP bootstrap block
+# in every agent file. Not present here; the agents fall back to Grep/Read.
+docs/library_ref/*
+
+# `./scripts/cq …` -- the code-query CLI those agents prefer over raw grep.
+scripts/cq
+
+# Example file names inside worked examples in architecture-executor.md,
+# precision-integrator.md and the design-review skill's REFERENCE.md.
+tests/fixtures/*
+tests/semantics/*
+tests/unit
+tests/unit/*
+tests/udf_conformance.rs
+tests/roundtrip.rs
