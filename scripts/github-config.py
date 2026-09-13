@@ -94,6 +94,15 @@ def check() -> list[str]:
         errors += compare(
             wanted["deployment_branch_policy"], actual["deployment_branch_policy"], name
         )
+        wait_timer = next(
+            (
+                r["wait_timer"]
+                for r in actual["protection_rules"]
+                if r["type"] == "wait_timer"
+            ),
+            0,
+        )
+        errors += compare(wanted["wait_timer"], wait_timer, name + "/wait-timer")
         reviewers = next(
             (
                 r
@@ -123,6 +132,11 @@ def check() -> list[str]:
         {"enabled": True}, api("private-vulnerability-reporting"), "security"
     )
     api("vulnerability-alerts")  # Enabled returns 204; failures are not swallowed.
+    errors += compare(
+        {"enabled": True, "paused": False},
+        api("automated-security-fixes"),
+        "dependabot",
+    )
     errors += compare({"build_type": "workflow"}, api("pages"), "pages")
     return errors
 

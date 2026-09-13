@@ -125,10 +125,12 @@ class ConfigurationTests(unittest.TestCase):
     ) -> None:
         with (
             patch.object(
-                doctor, "pinned_quality_versions", return_value={"pyright": "1.0"}
+                doctor, "pinned_quality_versions", return_value={"pyrefly": "1.3.0"}
             ),
             patch.object(Path, "exists", return_value=True),
-            patch.object(doctor, "run", return_value=(0, '{"pyright": "1.0"}')) as run,
+            patch.object(
+                doctor, "run", return_value=(0, '{"pyrefly": "1.3.0"}')
+            ) as run,
         ):
             self.assertTrue(doctor.check_quality_tools().ok)
         run.assert_called_once()

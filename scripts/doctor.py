@@ -160,7 +160,7 @@ def check_quality_tools() -> Check:
     pins = pinned_quality_versions()
     if not pins:
         return Check("quality", False, "no [dependency-groups] quality pins", "")
-    # CLI wrappers such as pyright can download runtimes even for --version.
+    # CLI wrappers can initialize runtimes even for --version.
     # Read installed distribution metadata through the selected interpreter instead.
     code, out = run(
         str(venv_bin("python")),

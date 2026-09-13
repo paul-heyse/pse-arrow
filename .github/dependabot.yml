@@ -109,7 +109,6 @@ updates:
         patterns:
           - "ruff"
           - "pyrefly"
-          - "pyright"
           - "import-linter"
           - "reuse"
           - "taplo"
