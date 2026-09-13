@@ -9,8 +9,9 @@ Why `gh api` and not `gh ruleset`: `gh ruleset` is read-only in gh 2.45. Ruleset
 therefore created by `POST` and updated by `PUT` against the id you look up by name.
 
 `just gh-setup` runs `scripts/gh-setup.sh`, which performs steps 2 to 8 below;
-`scripts/gh-setup.sh --dry-run` prints the calls without making them, and `--full`
-applies `ruleset-main-full.json` instead of `ruleset-main.json`. **This file is the
+`scripts/gh-setup.sh --dry-run` prints the calls without making them. The default
+applies `ruleset-main-full.json`; `--full` is a compatibility alias.
+`just gh-setup-check` compares live settings without changing them. **This file is the
 reference for what those calls are** — when the script and this document disagree, one
 of them is a bug, and the fix belongs in the script.
 
@@ -27,8 +28,8 @@ gh auth status   # must be paul-heyse, with the `admin:org`-free but repo-admin 
 |---|---|
 | `repo.json` | `PATCH /repos/{owner}/{repo}` — merge policy, features, secret scanning |
 | `topics.json` | `PUT /repos/{owner}/{repo}/topics` |
-| `ruleset-main.json` | the `main` branch ruleset, **phase-0 required checks** |
-| `ruleset-main-full.json` | the same ruleset with `python / *` added — the later re-run |
+| `ruleset-main.json` | historical bootstrap subset; no longer applied |
+| `ruleset-main-full.json` | active `main` branch ruleset, including Python checks |
 | `ruleset-tags.json` | the `tags` ruleset on `refs/tags/v*` |
 | `env-test-release.json` | the `test-release` environment (TestPyPI) |
 | `env-release.json` | the `release` environment (PyPI) |
@@ -284,5 +285,6 @@ gh api "repos/$OWNER/$REPO/environments" --jq '.environments[].name'
 gh label list --repo "$OWNER/$REPO" --limit 100 | wc -l     # expect 35
 ```
 
-Then the acceptance test for this whole file: **re-run `just gh-setup` and confirm it is
-a no-op** — no ruleset duplicated, no label churn, no environment recreated.
+Then run `just gh-setup-check`, re-run `just gh-setup`, and check again: zero
+configuration differences, no duplicate rulesets or environments. Labels are managed
+separately with `just labels-sync`. Publishing remains a separate release operation.

@@ -16,6 +16,13 @@
 name: wheels
 
 on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: Wheel target matrix (no publication)
+        type: choice
+        options: [all, linux-x86_64]
+        default: all
   workflow_call:
     inputs:
       targets:
@@ -59,6 +66,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      installs: ${{ steps.plan.outputs.installs }}
     steps:
       - name: choose the target matrix
         id: plan
@@ -88,6 +96,8 @@ jobs:
               if not chosen:
                   raise SystemExit(f"wheels: unknown target {wanted!r}")
           print("matrix=" + json.dumps({"include": chosen}))
+          installs = [{**t, "python-version": v} for t in chosen for v in ("3.11", "3.14")]
+          print("installs=" + json.dumps({"include": installs}))
           PY
 
   build:
@@ -178,14 +188,15 @@ jobs:
           retention-days: 7
 
   verify-clean-install:
-    name: verify-clean-install (${{ matrix.python-version }})
-    needs: [build]
-    runs-on: ubuntu-24.04
+    name: verify-clean-install (${{ matrix.name }}, ${{ matrix.python-version }})
+    needs: [plan, build]
+    runs-on: ${{ matrix.runner }}
+    env:
+      INSTALL_PYTHON: ${{ matrix.python-version }}
     strategy:
       fail-fast: false
-      matrix:
-        # The two ends of the abi3 range the single wheel claims to serve.
-        python-version: ["3.11", "3.14"]
+      # Both ends of the abi3 range on every platform actually built.
+      matrix: ${{ fromJSON(needs.plan.outputs.installs) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -194,20 +205,20 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ matrix.python-version }}
-      - name: fetch the Linux x86_64 wheel
+      - name: fetch the native wheel
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: wheel-linux-x86_64
+          name: wheel-${{ matrix.name }}
           path: dist
       - name: install into an empty environment and import
         # From a checkout, but deliberately NOT from the source tree: `--no-project` and
         # a cd out of the repository root make sure `import pse` resolves to the wheel.
         run: |
           set -euo pipefail
-          uv venv ".venv-${{ matrix.python-version }}" --python "${{ matrix.python-version }}"
-          uv pip install --python ".venv-${{ matrix.python-version }}" --no-cache dist/*.whl
+          uv venv ".venv-${INSTALL_PYTHON}" --python "${INSTALL_PYTHON}"
+          uv pip install --python ".venv-${INSTALL_PYTHON}" --no-cache dist/*.whl
           cd "${RUNNER_TEMP}"
-          uv run --python "${GITHUB_WORKSPACE}/.venv-${{ matrix.python-version }}" \
+          uv run --python "${GITHUB_WORKSPACE}/.venv-${INSTALL_PYTHON}" \
             --no-project python -c \
             'import pse, msgspec; print(msgspec.json.format(msgspec.json.encode(pse.build_info())).decode())'
       - name: no numpy on import
@@ -216,6 +227,6 @@ jobs:
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}"
-          uv run --python "${GITHUB_WORKSPACE}/.venv-${{ matrix.python-version }}" \
+          uv run --python "${GITHUB_WORKSPACE}/.venv-${INSTALL_PYTHON}" \
             --no-project python -c \
             'import sys, pse; assert "numpy" not in sys.modules, "importing pse pulled in numpy"; print("ok")'

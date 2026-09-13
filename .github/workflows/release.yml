@@ -177,7 +177,7 @@ jobs:
           uv run --python .venv-buildinfo --no-project python -c "
           import msgspec
           import pse
-          print(msgspec.json.format(msgspec.json.encode(pse.build_info()).decode()))
+          print(msgspec.json.format(msgspec.json.encode(pse.build_info())).decode())
           " > dist-metadata/BUILD_INFO.json
           cat dist-metadata/BUILD_INFO.json
       - name: upload the attested distributions

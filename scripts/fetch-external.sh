@@ -11,7 +11,6 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
-mkdir -p external
 
 lock_version() {
   # First `[[package]]` named $1 in Cargo.lock.
@@ -43,8 +42,10 @@ fetch() { # name url tag
     echo "external/$name is at $have, want $tag: refetching"; rm -rf "$dir"
   fi
   echo "external/$name <- $url @ $tag"
-  git clone --quiet --depth 1 --branch "$tag" "$url" "$dir"
+  git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" "$url" "$dir"
 }
+
+mkdir -p external
 
 fetch arrow-rs   https://github.com/apache/arrow-rs.git   "$ARROW_TAG"
 fetch datafusion https://github.com/apache/datafusion.git "$DATAFUSION_TAG"

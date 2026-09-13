@@ -437,13 +437,13 @@ fn codegen(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
     let status = Command::new("git")
         .arg("-C")
         .arg(root)
-        .args(["diff", "--exit-code", "--stat", "--"])
+        .args(["diff", "HEAD", "--exit-code", "--stat", "--"])
         .args(&paths)
         .status()
         .context("running git diff")?;
     if !status.success() {
         failures.push(format!(
-            "generated sources differ from the index; run `cargo xtask codegen` and commit \
+            "generated sources differ from HEAD; run `cargo xtask codegen` and commit \
              the result ({})",
             paths.join(" ")
         ));

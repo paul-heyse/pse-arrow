@@ -23,7 +23,7 @@ comment, kept current by Dependabot and `pinact`.
 |---|---|---|
 | `rust / fmt` | fmt | `cargo fmt --all --check`; `taplo fmt --check` |
 | `rust / clippy` | clippy (solver container) | `cargo clippy --workspace --all-targets --locked -- -D warnings`, then again with `--no-default-features` |
-| `rust / test` | test (solver container) | `cargo nextest run --workspace --locked --profile ci --features pse-relations/force-validate`; `cargo test --doc --workspace --locked`; `cargo test --benches -p pse-benches --locked`; JUnit artifact |
+| `rust / test` | test (solver container) | `cargo nextest run --workspace --locked --profile ci --features pse-relations/force-validate`; `cargo test --doc --workspace --locked --features pse-relations/force-validate`; `cargo test --benches -p pse-benches --locked --features pse-relations/force-validate`; JUnit artifact |
 | `rust / codegen-diff` | codegen-diff (container: Ipopt headers + libclang) | `cargo xtask codegen --check` |
 | `rust / family-check` | family-check | `cargo xtask family-check --evidence docs/capability-maps/evidence/rust/*.lock`; `cargo metadata --locked` |
 | `rust / deny` | deny | `cargo deny check`; `cargo audit`; `cargo shear` |
@@ -34,16 +34,16 @@ comment, kept current by Dependabot and `pinact`.
 | `governance / adr-lint` | adr-lint | `scripts/adr.py lint`; `scripts/check_register.py --lint`; the `needs-adr` label rule; the IDAES tag in `scripts/fetch-external.sh` equals the parity pin |
 | `governance / pr-title` | pr-title | Conventional-Commit title check, types and scopes from `cliff.toml` |
 
-**Staging.** A required check that never reports blocks every pull request, so
-the phase-0 required set is the six `rust / *` contexts plus `docs / build`,
-`governance / adr-lint` and `governance / pr-title`. The `python / *` contexts
-are added by re-running `just gh-setup` once the Python package first reports.
+The full set above is declared in `.github/setup/ruleset-main-full.json`.
+`just gh-setup` applies it; `just gh-setup-check` verifies the live configuration.
+Check names are explicit job names, including the aggregate Python test result.
+A newly declared check must report before its ruleset is activated.
 
 ## Run on pull requests, not required
 
 `rust / docs` (`RUSTDOCFLAGS=-Dwarnings cargo doc --no-deps`), `rust / doc-lint`
-(paths-filtered), `rust / coverage` (`cargo llvm-cov nextest … --lcov`, Codecov
-by OIDC, informational in phase 0), `rust / semver` (from the first tag; gating
+(paths-filtered), `rust / coverage` (`cargo llvm-cov nextest … --lcov`, artifact upload),
+`rust / coverage-upload` (host-runner Codecov OIDC, informational in phase 0), `rust / semver` (from the first tag; gating
 only on PRs labelled `release`), `rust / msrv-floors` (`cargo hack check
 --rust-version`, only when `Cargo.lock` changed), `rust / test-macos` and
 `rust / test-windows` (phase 1b, `continue-on-error` until a green week),
@@ -74,8 +74,11 @@ checkout is reproducible on its own). Opening that pull request needs the
 `PIN_PR_TOKEN` secret: a fine-grained personal access token scoped to this
 repository with contents, pull requests and workflows write, because the default
 `GITHUB_TOKEN` cannot create or update files under `.github/workflows`. Without the
-secret the job succeeds and prints the manual `sed` command as a notice (register
-row R-21).
+secret the job succeeds, uploads the image manifest, and prints the exact
+`just solver-pin-update --ci … --dev …` command (register row R-21).
+The canonical pins are in `.github/setup/solver-images.json`, outside the solver
+recipe tree hash. `just solver-pin-check` checks every literal consumer.
+`just solver-rebuild-check` repeats the no-cache library comparison locally.
 
 `register-review.yml` runs monthly with `issues: write`, executes
 `scripts/check_register.py --due` — including the shell checks in the `check`
@@ -92,8 +95,20 @@ uploads; coverage never blocks a merge in phase 0.
 | CI tier | Local recipe | What it proves |
 |---|---|---|
 | fast feedback | `just ci-fast` (fmt-check, check, clippy, test, doctest) | The workspace compiles and the unit and component tests pass at `dev`. |
-| pull-request gate | `just ci-pr` (adds governance, policy, docs, bench-smoke, quality, adr-lint) | Everything a required check runs, except the container-only jobs (`codegen-diff`'s bindgen step and `python / parity`). |
+| pull-request gate | `just ci-pr` (adds governance, policy, docs, bench-smoke, quality, adr-lint, py-test) | Local Rust/Python and repository checks; container parity is separate. |
+| parity preflight | `just parity-container` | Existing IDAES/solver preflight cases in the pinned dev image, using a separate Python 3.13 environment. |
 | scheduled | `just features-powerset`, `just test-release`, `just udeps`, `just mutants-file`, `just unsafe-surface`, `just floors-latest` | Individually reproduces one weekly job. |
 
 `just --list` is the contract: if a check exists in CI and has no local recipe,
 that is a bug in the justfile.
+
+## Phase-zero limits
+
+Code generation and API-reference doc lint remain deferred (register R-20).
+`codegen-check` detects staged, unstaged and untracked generated-path changes; it
+does not prove a real schema or binding generator exists. The parity suite currently
+qualifies its environment and package boundaries, not numerical model parity.
+
+The wheel workflow supports manual, non-publishing qualification. It builds all
+five native platform targets, checks `cp311-abi3` tags, installs each wheel under
+Python 3.11 and 3.14 outside the source tree, and builds/installs the sdist.

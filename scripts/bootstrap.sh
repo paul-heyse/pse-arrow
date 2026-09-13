@@ -15,7 +15,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 export UV_PROJECT_ENVIRONMENT="${UV_PROJECT_ENVIRONMENT:-.venv}"
-VENV="${ROOT}/${UV_PROJECT_ENVIRONMENT}"
+case "$UV_PROJECT_ENVIRONMENT" in
+  /*|[A-Za-z]:*) VENV="$UV_PROJECT_ENVIRONMENT" ;;
+  *) VENV="${ROOT}/${UV_PROJECT_ENVIRONMENT}" ;;
+esac
 PY="${VENV}/bin/python"  # used by doctor below on Windows
 [[ "${OS:-}" == Windows_NT ]] && PY="${VENV}/Scripts/python.exe"
 export PY
@@ -83,9 +86,9 @@ stage_repo_linters() {
 }
 
 stage_hooks() {
-  if [[ -x "${VENV}/bin/pre-commit" ]]; then
+  if [[ -x "$PY" ]]; then
     say "Installing git hooks (pre-commit and pre-push)"
-    "${VENV}/bin/pre-commit" install --install-hooks
+    "$PY" -m pre_commit install --install-hooks
   fi
 }
 
@@ -112,7 +115,7 @@ main() {
   fi
 
   say "Status"
-  python3 scripts/doctor.py --format=text || true
+  python3 scripts/doctor.py --format=text
 }
 
 main "$@"

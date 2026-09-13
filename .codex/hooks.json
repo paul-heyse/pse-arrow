@@ -1,0 +1,39 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/agent-hooks.py\" session",
+            "timeout": 45
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/agent-hooks.py\" guard",
+            "timeout": 10
+          }
+        ],
+        "matcher": "Edit|Write"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/agent-hooks.py\" format",
+            "timeout": 60
+          }
+        ],
+        "matcher": "Edit|Write"
+      }
+    ]
+  }
+}

@@ -60,6 +60,7 @@ jobs:
     outputs:
       tree-hash: ${{ steps.recipe.outputs.tree-hash }}
       ci-digest: ${{ steps.build-ci.outputs.digest }}
+      dev-digest: ${{ steps.build-dev.outputs.digest }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -176,49 +177,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: rewrite SOLVER_IMAGE everywhere it appears
+      - name: synchronize the image manifest and literal consumers
         env:
           NEW_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.ci-digest }}
-          NEW_DEV_TAG: dev-${{ needs.build.outputs.tree-hash }}
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          import os
-          import pathlib
-          import re
-
-          new_ref = os.environ["NEW_REF"]
-          new_dev = os.environ["NEW_DEV_TAG"]
-
-          # Both the workflow-level `SOLVER_IMAGE` env and the literal `container.image`
-          # strings, which cannot reference it (the `env` context is unavailable there).
-          ci_pattern = re.compile(
-              r"ghcr\.io/paul-heyse/pse-solvers:ci-[0-9a-zA-Z.\-]+(?:@sha256:[0-9a-f]{64})?"
-          )
-          dev_pattern = re.compile(
-              r"ghcr\.io/paul-heyse/pse-solvers:dev-[0-9a-zA-Z.\-]+(?:@sha256:[0-9a-f]{64})?"
-          )
-
-          targets = sorted(pathlib.Path(".github/workflows").glob("*.yml"))
-          devcontainer = pathlib.Path(".devcontainer/devcontainer.json")
-          if devcontainer.exists():
-              targets.append(devcontainer)
-
-          changed = []
-          for path in targets:
-              text = path.read_text(encoding="utf-8")
-              updated = ci_pattern.sub(new_ref, text)
-              updated = dev_pattern.sub(
-                  f"ghcr.io/paul-heyse/pse-solvers:{new_dev}", updated
-              )
-              if updated != text:
-                  path.write_text(updated, encoding="utf-8")
-                  changed.append(str(path))
-
-          print("updated:" if changed else "nothing to update")
-          for name in changed:
-              print(" ", name)
-          PY
+          NEW_DEV_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.dev-digest }}
+        run: python3 scripts/solver-images.py update --ci "$NEW_REF" --dev "$NEW_DEV_REF"
+      - name: retain the reviewed pin update when no automation token is configured
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: solver-image-manifest
+          path: .github/setup/solver-images.json
+          if-no-files-found: error
       - name: is a token with `workflows` permission available?
         # The default GITHUB_TOKEN cannot create or update files under .github/workflows,
         # and the pin lives in workflow files by design (a checkout is reproducible on its
@@ -229,12 +198,13 @@ jobs:
         env:
           HAVE_TOKEN: ${{ secrets.PIN_PR_TOKEN != '' }}
           NEW_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.ci-digest }}
+          NEW_DEV_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:dev-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.dev-digest }}
         run: |
           set -euo pipefail
           echo "have=${HAVE_TOKEN}" >> "$GITHUB_OUTPUT"
           if [ "${HAVE_TOKEN}" != "true" ]; then
             echo "::notice title=solver image pin::PIN_PR_TOKEN is not set; pin the image by hand:"
-            echo "::notice::sed -i 's#ghcr.io/paul-heyse/pse-solvers:ci-[^ ]*#${NEW_REF}#g' .github/workflows/*.yml && git commit -am 'ci(solvers): pin the solver image'"
+            echo "::notice::Run: just solver-pin-update --ci '${NEW_REF}' --dev '${NEW_DEV_REF}'"
           fi
       - name: open the update pull request
         if: ${{ steps.token.outputs.have == 'true' }}
@@ -262,7 +232,7 @@ jobs:
             - recipe tree hash: `${{ needs.build.outputs.tree-hash }}`
             - `ci` digest: `${{ needs.build.outputs.ci-digest }}`
 
-            **Evidence:** `Observed` — the image was built and pushed by [this run](${{
+            **Evidence:** `Implemented` — the image was built and pushed by [this run](${{
             github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
             The gates on this pull request are what prove the new image actually works:
             `rust / test`, `rust / clippy`, `rust / codegen-diff` and `python / parity`

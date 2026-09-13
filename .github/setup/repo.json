@@ -1,6 +1,6 @@
 {
   "name": "pse-arrow",
-  "description": "Arrow-native process systems engineering core in Rust: typed relations as the only model authority, a relational math IR, DataFusion-based inference, native NLP solving, and a generated Pyomo backend. Clean-room re-implementation of core IDAES-PSE capabilities, parity-tested against idaes-pse 2.12.0. Not affiliated with IDAES.",
+  "description": "Arrow-native process systems engineering core in Rust: typed relations as the only model authority, a relational math IR, DataFusion-based inference, native NLP solving, and a generated Pyomo backend. Clean-room re-implementation of core IDAES-PSE capabilities, targeting parity with idaes-pse 2.12.0. Not affiliated with IDAES.",
   "homepage": "https://paul-heyse.github.io/pse-arrow",
   "private": false,
   "default_branch": "main",

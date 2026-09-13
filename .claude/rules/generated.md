@@ -32,3 +32,7 @@ exactly what the generator emits.
 
 A `PreToolUse` hook blocks writes here. There is no environment escape for it: unlike the
 blueprint, there is no legitimate reason to hand-edit output.
+
+Phase-zero limitation: the generators are not implemented yet. The current check
+catches working-tree, staged and untracked changes; it cannot establish regeneration
+equivalence for committed output. Do not describe a clean tree as generator validation.

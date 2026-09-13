@@ -342,17 +342,11 @@ name = "numpy/scipy only at the array boundary, in the parity harness, and in te
 type = "forbidden"
 source_modules = ["pse"]
 forbidden_modules = ["numpy", "scipy"]
-# Phase 0: the parity harness and the Pyomo adapter are docstring-only, so several of
-# the ignores below match nothing yet. `warn` keeps them listed (and reported) instead of
-# failing the gate on an ignore that is correct but premature; it returns to the default
-# `error` when those modules land, so a stale ignore is caught again.
-unmatched_ignore_imports_alerting = "warn"
+# List only exercised exceptions. Add allowed adapter/parity imports when their
+# implementation lands; unmatched exceptions remain errors.
 ignore_imports = [
   "pse._array -> numpy",
-  "pse.parity.** -> numpy",
-  "pse.parity.** -> scipy",
   "pse.tests.** -> numpy",
-  "pse.tests.** -> scipy",
 ]
 
 [[tool.importlinter.contracts]]
@@ -368,25 +362,15 @@ forbidden_modules = [
   "matplotlib",
   "click",
 ]
-unmatched_ignore_imports_alerting = "warn" # see the note above
-ignore_imports = [
-  "pse.parity.** -> idaes",
-  "pse.parity.** -> pandas",
-]
+ignore_imports = []
 
 [[tool.importlinter.contracts]]
 name = "pyomo/pint only in the adapter, the parity harness, and tests (blueprint §21.2)"
 type = "forbidden"
 source_modules = ["pse"]
 forbidden_modules = ["pyomo", "pint"]
-unmatched_ignore_imports_alerting = "warn" # see the note above
 ignore_imports = [
-  "pse.adapters.pyomo.** -> pyomo",
-  "pse.adapters.pyomo.** -> pint",
   "pse.parity.** -> pyomo",
-  "pse.parity.** -> pint",
-  "pse.tests.** -> pyomo",
-  "pse.tests.** -> pint",
 ]
 
 [[tool.importlinter.contracts]]

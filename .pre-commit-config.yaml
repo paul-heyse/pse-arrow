@@ -30,20 +30,20 @@ repos:
       - id: taplo
         name: taplo fmt --check
         language: system
-        entry: .venv/bin/taplo fmt --check --diff
+        entry: just fmt-check
         files: \.toml$
         pass_filenames: false
 
       - id: typos
         name: typos
         language: system
-        entry: .venv/bin/typos
+        entry: just lint-typos
         pass_filenames: false
 
       - id: reuse
         name: reuse lint (SPDX headers)
         language: system
-        entry: .venv/bin/reuse lint
+        entry: just lint-license
         pass_filenames: false
 
       - id: uv-lock-check
@@ -83,14 +83,14 @@ repos:
       - id: pyrefly
         name: pyrefly check
         language: system
-        entry: .venv/bin/pyrefly check
+        entry: just typecheck
         pass_filenames: false
         stages: [pre-push]
 
       - id: import-linter
         name: import-linter contracts
         language: system
-        entry: .venv/bin/lint-imports
+        entry: just lint-imports
         pass_filenames: false
         stages: [pre-push]
 

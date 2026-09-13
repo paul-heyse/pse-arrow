@@ -42,7 +42,7 @@ env:
 
 jobs:
   lint:
-    name: lint
+    name: python / lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,7 +84,7 @@ jobs:
         run: python3 scripts/check_generated.py
 
   test-matrix:
-    name: test (${{ matrix.python-version }})
+    name: python / test (${{ matrix.python-version }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -131,7 +131,7 @@ jobs:
           fail_ci_if_error: false
 
   test:
-    name: test
+    name: python / test
     # The single required context. It does no work: it exists because required status
     # checks cannot name a matrix leg.
     needs: [test-matrix]
@@ -149,7 +149,7 @@ jobs:
   # The Linux x86_64 wheel the parity job installs. Calling wheels.yml rather than
   # rebuilding here means parity tests exactly the artifact that would ship.
   wheel:
-    name: wheel
+    name: python / wheel
     uses: ./.github/workflows/wheels.yml
     permissions:
       contents: read
@@ -157,7 +157,7 @@ jobs:
       targets: linux-x86_64
 
   parity:
-    name: parity
+    name: python / parity
     needs: [wheel]
     runs-on: ubuntu-24.04
     # The `ci` stage carries Ipopt 3.14.x + MUMPS + ASL and uv-managed CPython 3.11-3.13.
@@ -185,7 +185,7 @@ jobs:
       - name: install the built wheel
         # --no-deps: the pins come from uv.lock, not from the wheel's metadata, and this
         # guarantees the tested artifact is the one that was built, not a rebuild.
-        run: uv pip install --no-deps dist/*.whl
+        run: uv pip install --python .venv-parity --no-deps dist/*.whl
       - name: parity suite
         # --parity turns the pre-flight from "skip" into "fail": the session fixture
         # asserts Python < 3.14, idaes 2.12.0, and ipopt 3.14.x on PATH before anything

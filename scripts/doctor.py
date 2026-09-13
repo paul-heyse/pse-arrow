@@ -28,7 +28,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -37,25 +39,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VENV = ROOT / ".venv"
+VENV = ROOT / Path(os.environ.get("UV_PROJECT_ENVIRONMENT", ".venv"))
 
-CARGO_TOOLS = (
-    "cargo-nextest",
-    "cargo-deny",
-    "cargo-audit",
-    "cargo-shear",
-    "cargo-machete",
-    "cargo-llvm-cov",
-    "cargo-insta",
-    "cargo-hack",
-    "cargo-msrv",
-    "cargo-mutants",
-    "cargo-geiger",
-    "cargo-udeps",
-    "cargo-semver-checks",
-    "mdbook",
-    "git-cliff",
-)
+
+def cargo_tool_pins() -> dict[str, str]:
+    """Read the bootstrap authority rather than duplicating its tool pins."""
+    text = (ROOT / "scripts/bootstrap.sh").read_text()
+    block = text.split("CARGO_TOOLS=(", 1)[1].split(")", 1)[0]
+    return dict(re.findall(r'"([a-z0-9-]+)@([0-9.]+)"', block))
+
+
 REPO_LINTERS = ("actionlint", "ast-grep", "shellcheck")
 
 
@@ -117,18 +110,18 @@ def check_interpreter() -> Check:
     python = venv_bin("python")
     if not python.exists():
         return Check(
-            "python", False, f".venv missing (want {wanted})", "just bootstrap"
+            "python", False, f"{VENV} missing (want {wanted})", "just bootstrap"
         )
     code, out = run(str(python), "--version")
     if code != 0:
-        return Check("python", False, f".venv broken: {out}", "just bootstrap")
+        return Check("python", False, f"{VENV} broken: {out}", "just bootstrap")
     actual = out.split()[-1]
     ok = actual == wanted
     return Check(
         "python",
         ok,
-        f".venv {actual}" + ("" if ok else f" (.python-version wants {wanted})"),
-        "" if ok else "rm -rf .venv && just bootstrap",
+        f"{VENV} {actual}" + ("" if ok else f" (.python-version wants {wanted})"),
+        "" if ok else "just bootstrap",
         extra={"wanted": wanted, "actual": actual},
     )
 
@@ -155,7 +148,7 @@ def check_env_synced() -> Check:
     if not (ROOT / "uv.lock").exists():
         return Check("env", False, "no uv.lock", "uv lock")
     code, out = run(
-        "uv", "sync", "--check", "--locked", "--extra", "pyomo", timeout=120
+        "uv", "sync", "--check", "--locked", "--offline", "--extra", "pyomo", timeout=30
     )
     if code != 0:
         last = out.strip().splitlines()[-1] if out else "out of date"
@@ -230,19 +223,42 @@ def check_cargo_tools() -> Check:
             "https://rustup.rs",
             blocking=False,
         )
-    installed = {
-        line.split()[0] for line in out.splitlines() if line and not line[0].isspace()
-    }
-    missing = [t for t in CARGO_TOOLS if t not in installed]
-    if missing:
-        return Check(
-            "cargo-tools",
-            False,
-            f"missing: {', '.join(missing)}",
-            "just bootstrap-rust-tools",
-            blocking=False,
-        )
-    return Check("cargo-tools", True, f"{len(CARGO_TOOLS)} present")
+    installed = dict(re.findall(r"^([a-z0-9-]+) v([0-9.]+)", out, re.MULTILINE))
+    pins = cargo_tool_pins()
+    problems = [
+        f"{name}: {installed.get(name, 'missing')} (want {wanted})"
+        for name, wanted in pins.items()
+        if installed.get(name) != wanted
+    ]
+    return Check(
+        "cargo-tools",
+        not problems,
+        "; ".join(problems) if problems else f"{len(pins)} pinned tools match",
+        "just bootstrap-rust-tools" if problems else "",
+        blocking=True,
+    )
+
+
+def check_git_hooks() -> Check:
+    """Check the effective Git hook paths, including core.hooksPath."""
+    missing = []
+    for name in ("pre-commit", "pre-push"):
+        code, out = run("git", "rev-parse", "--git-path", f"hooks/{name}")
+        path = ROOT / out
+        if (
+            code
+            or not path.is_file()
+            or "pre_commit" not in path.read_text(errors="replace")
+        ):
+            missing.append(name)
+    return Check(
+        "git-hooks",
+        not missing,
+        ", ".join(missing) + " missing"
+        if missing
+        else "pre-commit and pre-push installed",
+        "just bootstrap" if missing else "",
+    )
 
 
 def check_repo_linters() -> Check:
@@ -300,37 +316,64 @@ def check_solvers() -> Check:
     ipopt = shutil.which("ipopt")
     if ipopt is None:
         docker = shutil.which("docker") or shutil.which("podman")
+        manifest = json.loads((ROOT / ".github/setup/solver-images.json").read_text())
+        image = manifest["ci"]
+        code, out = (
+            run(docker, "image", "inspect", image)
+            if docker
+            else (1, "no container runtime")
+        )
+        ready = code == 0
         return Check(
             "solvers",
-            False,
-            "no ipopt on PATH" + ("" if docker else "; no docker/podman either"),
-            "just bootstrap-solvers (container) or docker/solvers/build.sh natively",
+            ready,
+            "pinned container present; use just parity-container"
+            if ready
+            else "pinned solver container missing",
+            "" if ready else "just bootstrap-solvers",
             blocking=False,
         )
     code, out = run(ipopt, "-v")
     version = (
         next((t for t in out.split() if t[:1].isdigit()), "?") if code == 0 else "?"
     )
-    return Check("solvers", True, f"ipopt {version} at {ipopt}")
+    return Check(
+        "solvers",
+        code == 0 and version.startswith("3.14."),
+        f"ipopt {version} at {ipopt}",
+        "use the pinned solver container",
+        blocking=False,
+    )
 
 
 def check_external() -> Check:
-    have = (
-        [p.name for p in (ROOT / "external").glob("*") if (p / ".git").exists()]
-        if (ROOT / "external").exists()
-        else []
+    pins = tomllib.loads((ROOT / "Cargo.lock").read_text())["package"]
+    versions = {p["name"]: p["version"] for p in pins}
+    parity = pyproject()["dependency-groups"]["parity"]
+    idaes = next(
+        p.split("==", 1)[1].split(";", 1)[0]
+        for p in parity
+        if isinstance(p, str) and p.startswith("idaes-pse==")
     )
-    want = ["arrow-rs", "datafusion", "idaes-pse"]
-    missing = [w for w in want if w not in have]
-    if missing:
-        return Check(
-            "external",
-            False,
-            f"reading copies missing: {', '.join(missing)}",
-            "just fetch-external",
-            blocking=False,
-        )
-    return Check("external", True, ", ".join(want))
+    wanted = {
+        "arrow-rs": versions["arrow"],
+        "datafusion": versions["datafusion"],
+        "idaes-pse": idaes,
+    }
+    problems = []
+    for name, tag in wanted.items():
+        directory = ROOT / "external" / name
+        # Reading copies must match the pins, not merely exist.
+        code, out = run("git", "describe", "--tags", "--exact-match", cwd=directory)
+        if code or out != tag:
+            problems.append(f"{name}: missing or not at {tag}")
+    return Check(
+        "external",
+        not problems,
+        "; ".join(problems) if problems else "all reading copies match pins",
+        "just fetch-external" if problems else "",
+        blocking=False,
+    )
 
 
 CHECKS = (
@@ -342,6 +385,7 @@ CHECKS = (
     check_cargo_tools,
     check_repo_linters,
     check_extension,
+    check_git_hooks,
     check_solvers,
     check_external,
 )

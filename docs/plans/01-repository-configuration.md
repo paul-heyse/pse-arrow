@@ -8,7 +8,33 @@ phase: 0
 
 # Plan: repository configuration and working environment for `pse-arrow`
 
-## Context
+## Completion ledger (2026-09-13)
+
+The initial design below is historical planning context. The repository is now public
+at `paul-heyse/pse-arrow`; the starting commit for completion is `3c9c95f`, already
+pushed to `main`, with a clean working tree. Completion uses signed commits and a
+pull request, followed by verification of the merged commit. No release is published.
+
+| Work | Status / acceptance |
+|---|---|
+| Environment | Proposed: consistent relative/absolute venv paths, pinned tools, Git hooks, external reading copies, repeatable bootstrap and doctor |
+| Solver access | Proposed: one image manifest outside the recipe hash, verified literal consumers, working container parity recipe |
+| Claude/Codex | Proposed: nine native roles, shared skills/rules/hooks, protected-edit fixtures and fresh runtime discovery |
+| CI / packaging | Proposed: repair parity wheel install and coverage upload; unique check names; full wheel matrix and sdist installation |
+| GitHub | Proposed: compare declared/live configuration, activate main/tag rulesets after checks report, merge only green |
+| Qualification | Proposed: ci-pr, feature powerset, release tests, parity preflight, bootstrap from a fresh clone, solver checksums, negative controls |
+
+**Tested (starting state):** `just doctor`, local mode, reports 1 blocking failure
+and 3 warnings, baseline zero. `just lint-agents` and `just adr-lint`, read-only local
+mode, report 0 failures, baseline zero. These are structural checks, not runtime
+certification. The latest Python CI fails selecting the parity venv; Rust CI is pending.
+
+Keep the recorded phase boundaries: real model generators, API-reference doc lint,
+release tooling and numerical parity beyond the existing preflight are deferred.
+Neither a clean generated tree nor a successful preflight proves those capabilities.
+Registry publishing and new release tags are outside this completion pass.
+
+## Original context (historical)
 
 The revision-3 blueprint (`docs/design_review/Arrow-native-idaes-core-architecture-blueprint-rev3.md`) is the authoritative architecture: a Cargo workspace of 23 `pse-*` crates, a pyo3/pyo3-arrow extension, a Python package `pse`, shipped reference packages, and the §24.1 test/governance matrix that the repository has to be able to run. Nothing in the current working tree is under version control, no toolchain file exists, and the only pinned artifacts are the capability-map evidence lockfiles under `docs/design_review/evidence/`. The user asked for a best-in-class repo configuration and working environment (Rust and Python toolchains, testing, public GitHub setup, design-decision/ADR process) aligned to rev 3.
 
