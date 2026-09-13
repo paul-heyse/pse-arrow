@@ -23,7 +23,7 @@ comment, kept current by Dependabot and `pinact`.
 |---|---|---|
 | `rust / fmt` | fmt | `cargo fmt --all --check`; `taplo fmt --check` |
 | `rust / clippy` | clippy (solver container) | `cargo clippy --workspace --all-targets --locked -- -D warnings`, then again with `--no-default-features` |
-| `rust / test` | test (solver container) | `cargo nextest run --workspace --locked --profile ci --features pse-relations/force-validate`; `cargo test --doc --workspace --locked --features pse-relations/force-validate`; `cargo test --benches -p pse-benches --locked --features pse-relations/force-validate`; JUnit artifact |
+| `rust / test` | test (solver container) | `cargo nextest run --workspace --locked --profile ci --features pse-relations/force-validate`; `cargo test --doc --workspace --locked --features pse-relations/force-validate`; `cargo test --benches -p pse-benches -p pse-relations --locked --features pse-relations/force-validate`; JUnit artifact |
 | `rust / codegen-diff` | codegen-diff (container: Ipopt headers + libclang) | `cargo xtask codegen --check` |
 | `rust / family-check` | family-check | `cargo xtask family-check --evidence docs/capability-maps/evidence/rust/*.lock`; `cargo metadata --locked` |
 | `rust / deny` | deny | `cargo deny check`; `cargo audit`; `cargo shear` |

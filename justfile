@@ -233,7 +233,7 @@ coverage:
 [group('pr')]
 [doc('Every benchmark runs once (no timing gate)')]
 bench-smoke:
-    cargo test --benches -p pse-benches --locked {{ validate }}
+    cargo test --benches -p pse-benches -p pse-relations --locked {{ validate }}
 
 [group('pr')]
 [doc('Identifiers named in docs resolve in the extracted API facts')]

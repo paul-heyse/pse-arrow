@@ -112,7 +112,7 @@ jobs:
       - name: benches build and smoke
         # Builds and runs each criterion bench once. There is no timing gate here — a
         # performance claim needs `Measured` with stated conditions, not a CI runner.
-        run: cargo test --benches -p pse-benches --locked --features pse-relations/force-validate
+        run: cargo test --benches -p pse-benches -p pse-relations --locked --features pse-relations/force-validate
       - name: upload JUnit report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
