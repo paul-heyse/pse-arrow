@@ -1,3 +1,8 @@
+---
+status: historical
+supersededBy: blueprint.md
+
+---
 # Proposed architecture: an Arrow-native mathematical compiler
 
 I would build this as a **Rust-native mathematical modeling platform whose authoritative representation is a versioned collection of typed Arrow relations, with DataFusion providing relational planning, model assembly, validation, and analytical execution.**

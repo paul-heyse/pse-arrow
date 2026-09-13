@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[book]
+title = "pse-arrow"
+description = "Arrow-native process systems engineering core in Rust: the authoritative design, the decisions behind it, and the evidence under both."
+authors = ["Paul Heyse"]
+language = "en"
+# The book is built from docs/ in place: every document is readable on GitHub
+# and in the rendered book without a second copy. Decision: ADR-0036.
+src = "."
+
+[build]
+build-dir = "book"
+create-missing = false
+use-default-preprocessors = true
+
+[output.html]
+site-url = "/pse-arrow/"
+git-repository-url = "https://github.com/paul-heyse/pse-arrow"
+git-repository-icon = "fab-github"
+edit-url-template = "https://github.com/paul-heyse/pse-arrow/edit/main/docs/{path}"
+default-theme = "light"
+preferred-dark-theme = "navy"
+no-section-label = false
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.search]
+enable = true
+limit-results = 30
+use-boolean-and = true

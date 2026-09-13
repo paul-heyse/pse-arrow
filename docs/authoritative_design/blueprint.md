@@ -1,10 +1,10 @@
 # Arrow-native IDAES core: detailed design architecture blueprint
 
-**Status:** design blueprint, revision 3 (2026-09-13); supersedes revision 2 (`Arrow-native-idaes-core-architecture-blueprint.md`, retained for the record)
+**Status:** design blueprint, revision 4 (2026-09-13). One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
 **Reviews:** `docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint_2026-09-13.md` (revision 1 → findings F1–F17) and `design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md` (revision 2 → findings R2-1–R2-8). Revision 3 resolves every finding of both reviews, including the items revision 2 had parked; the decisions taken are listed in *Revision history* and the residual risks in §26
-**Follows:** `docs/design_review/Arrow-native-idaes-pse-proposal.md` (the proposal this document makes concrete)
-**Governing doctrine:** `docs/library_ref/semantic_design_principles_holistic.md`, `docs/library_ref/Inference-Complete Process Metamodel Design Principles.md`, `docs/library_ref/semantic_math_basis.md`
-**Library authorities:** `datafusion-pyarrow-rust-ref` skill corpus, the three capability maps under `docs/design_review/` (DataFusion 55.1.0, Arrow 59.3.0, rustdoc extraction under `docs/design_review/evidence/`), `docs/library_ref/IDAES_deep_dive.md`, the `idaes-pse/` source tree
+**Follows:** `docs/authoritative_design/proposal.md` (the proposal this document makes concrete)
+**Governing doctrine:** `docs/design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01–DM-60, gates G1–G7) applied through `AGENT_DESIGN_DIRECTIVE.md`. The P-numbered principles cited in §2.1 and §22.2 come from the doctrine texts this document was drafted against (*semantic_design_principles_holistic*, *Inference-Complete Process Metamodel Design Principles*, *semantic_math_basis*), which are not part of this repository.
+**Library authorities:** `datafusion-pyarrow-rust-ref` skill corpus, the capability maps under `docs/capability-maps/` (DataFusion 55.1.0, Arrow 59.3.0, rustdoc extraction under `docs/capability-maps/evidence/`), the `external/idaes-pse` reading copy at tag 2.12.0 (`just fetch-external`; read for behaviour, never copied)
 
 ---
 
@@ -46,11 +46,12 @@
 
 ## Revision history
 
-| Revision | Date | Change |
-|---|---|---|
-| 1 | 2026-09-13 | Initial blueprint following the proposal. |
-| 2 | 2026-09-13 | Resolves the priority-1 findings of the design review of the same date. **F1** authored identity is assigned at creation and stored in the document; `qualified_name` is an attribute; `change_ops.op = rename`; case targets resolve to identities at commit (§5.1, §6.1, §6.10, §22.2). **F2** every `pse.expr_dsl` column is the sole authored form of an expression; parsed graphs live in `normalized.*_expr_*` produced by P3 (§6.6, §7.7). **F3** solver profiles and discretization policies are authored policy relations; `compiled` holds only bound plans (§6.10, §6.11, §14.1). **F4** undecided rule outcomes are written to `inferred.undecided`, never to a head relation (§6.7, §7.6, §14.2, §14.5). **F5** `affine_kind` is replaced by `scale_kind ∈ {point, difference}`; multiplication and division are unrestricted after canonical-unit normalization; the addition algebra is unchanged (§6.2, §7.2, §7.4, §8). **F6** a dedicated pass P12 (index expansion) turns indexed equation instances into scalar rows; P12–P15 of revision 1 are now P13–P16; §7 and §8.2 pass references corrected (§6.9, §7.1, §7.2, §14.1). **F7** P10 never folds parameter symbols; static attributes are computed on a case-bound view whose substitutions are recorded (§7.4, §7.5, §14.1, §14.4). **F9** the DataFusion engine is a declared input: `reference.engine_profiles`, explicit rule lists, semantic-settings hash and a `datafusion-proto` plan fingerprint enter the memo key and the pass record (§6.11, §14.2, §14.3, §20.2). **F15** a lifecycle test layer and the FFI/subprocess interruption rules (§18.3, §18.4, §20.1, §24.1). Also: dependency anchors raised to DataFusion 55.1.0 / Arrow 59.3.0 with family-wide `=` pins (§3.1), per the project owner's direction. |
-| 3 | 2026-09-13 | Resolves every finding of the second review and every item revision 2 had parked, using the four capability maps' measurements. **R2-1** the plan fingerprint leaves the memo key; schema and field metadata are canonicalized at construction; the codec obligations, the analyzer rule list and a versioned settings allow-list are stated (§4.3, §14.2, §14.3, §6.11). **R2-2** `-0.0` preservation is qualified; `Float64` columns are never distinct or join keys in rule plans (§5.3, §14.2, §19.2). **R2-3** §4.3 corrected; the ten `pse.*` types are registered in the engine's extension-type registry (§4.3, §4.4, §5.4, §14.3). **R2-4** the Python boundary is rewritten as enforced contracts: pint validates and never defines, contract classes are generated, strict structuring, an `Any` lint, the msgspec/attrs division, shipped `pyarrow` extension classes with an idempotent registrar, the numpy null rule, pre-flight checks, exact pins and two interpreter ranges (§3.1, §3.3, §4.4, §21). **R2-5** every crate and Python library is pinned, a committed lockfile and `cargo deny` are required, `arrow-flight` and `uom` are dropped, §3.3 roles match use sites, `serde-saphyr` replaces `serde_yaml`, `num-dual` is 0.15 with FeOs conditional, `blake3` belongs to `pse-ids` with `derive_key` (§3.1, §3.2, §3.3, §5.1, §9.8). **R2-6** `object_store`, petgraph and faer statements corrected (§15.3–§15.5, §20.1). **R2-7** §5.4 states the measured pushdown shapes, purity, the wrapper test, `Precision` and selective statistics. **R2-8** `feedback_arc_set`, the formatter factory, `force_validate`, a `datafusion.pse.*` config extension, `pgjson` plans, the optimizer observer, `toml::Spanned`, `implicit_derivative`, and the Ipopt C names are adopted (§12.5, §14.2, §18.2, §18.3, §22.1, §23, §24.1). Parked items: **F8** rule bodies, invariant specs and selectors are typed relations (§4.1, §6.7, §6.10, §6.11); **F10** capability probes are runtime operations with recorded resolved options (§6.13, §18.3); **F12** the hashing contract names its constants and its scope (§5.3, §18.2); **F13** `salsa` is deferred behind an artifact-hash memo with a stated trigger (§14.3); **F14** derivation granularity is declared per relation (§4.1, §14.2); **F16** the bundle carries quantity types and a loss profile (§21.1); **F17** the SVD and condition-number routes are named and the pushdown precondition is discharged (§15.4, §15.5, §5.4). Also decided: `FairSpillPool` with an explicit limit (§14.3), `pyo3-arrow` retained (§21.1), `LogicalPlan::Extension` rule nodes deferred with a trigger (§14.2), IDAES 2.12.0 as the parity reference (§3.1, §6.14, §25), the commit contract stated (§22.2). |
+| Revision | Date | Change | git |
+|---|---|---|---|
+| 1 | 2026-09-13 | Initial blueprint following the proposal. | — |
+| 2 | 2026-09-13 | Resolves the priority-1 findings of the design review of the same date. **F1** authored identity is assigned at creation and stored in the document; `qualified_name` is an attribute; `change_ops.op = rename`; case targets resolve to identities at commit (§5.1, §6.1, §6.10, §22.2). **F2** every `pse.expr_dsl` column is the sole authored form of an expression; parsed graphs live in `normalized.*_expr_*` produced by P3 (§6.6, §7.7). **F3** solver profiles and discretization policies are authored policy relations; `compiled` holds only bound plans (§6.10, §6.11, §14.1). **F4** undecided rule outcomes are written to `inferred.undecided`, never to a head relation (§6.7, §7.6, §14.2, §14.5). **F5** `affine_kind` is replaced by `scale_kind ∈ {point, difference}`; multiplication and division are unrestricted after canonical-unit normalization; the addition algebra is unchanged (§6.2, §7.2, §7.4, §8). **F6** a dedicated pass P12 (index expansion) turns indexed equation instances into scalar rows; P12–P15 of revision 1 are now P13–P16; §7 and §8.2 pass references corrected (§6.9, §7.1, §7.2, §14.1). **F7** P10 never folds parameter symbols; static attributes are computed on a case-bound view whose substitutions are recorded (§7.4, §7.5, §14.1, §14.4). **F9** the DataFusion engine is a declared input: `reference.engine_profiles`, explicit rule lists, semantic-settings hash and a `datafusion-proto` plan fingerprint enter the memo key and the pass record (§6.11, §14.2, §14.3, §20.2). **F15** a lifecycle test layer and the FFI/subprocess interruption rules (§18.3, §18.4, §20.1, §24.1). Also: dependency anchors raised to DataFusion 55.1.0 / Arrow 59.3.0 with family-wide `=` pins (§3.1), per the project owner's direction. | `design-rev2` |
+| 3 | 2026-09-13 | Resolves every finding of the second review and every item revision 2 had parked, using the four capability maps' measurements. **R2-1** the plan fingerprint leaves the memo key; schema and field metadata are canonicalized at construction; the codec obligations, the analyzer rule list and a versioned settings allow-list are stated (§4.3, §14.2, §14.3, §6.11). **R2-2** `-0.0` preservation is qualified; `Float64` columns are never distinct or join keys in rule plans (§5.3, §14.2, §19.2). **R2-3** §4.3 corrected; the ten `pse.*` types are registered in the engine's extension-type registry (§4.3, §4.4, §5.4, §14.3). **R2-4** the Python boundary is rewritten as enforced contracts: pint validates and never defines, contract classes are generated, strict structuring, an `Any` lint, the msgspec/attrs division, shipped `pyarrow` extension classes with an idempotent registrar, the numpy null rule, pre-flight checks, exact pins and two interpreter ranges (§3.1, §3.3, §4.4, §21). **R2-5** every crate and Python library is pinned, a committed lockfile and `cargo deny` are required, `arrow-flight` and `uom` are dropped, §3.3 roles match use sites, `serde-saphyr` replaces `serde_yaml`, `num-dual` is 0.15 with FeOs conditional, `blake3` belongs to `pse-ids` with `derive_key` (§3.1, §3.2, §3.3, §5.1, §9.8). **R2-6** `object_store`, petgraph and faer statements corrected (§15.3–§15.5, §20.1). **R2-7** §5.4 states the measured pushdown shapes, purity, the wrapper test, `Precision` and selective statistics. **R2-8** `feedback_arc_set`, the formatter factory, `force_validate`, a `datafusion.pse.*` config extension, `pgjson` plans, the optimizer observer, `toml::Spanned`, `implicit_derivative`, and the Ipopt C names are adopted (§12.5, §14.2, §18.2, §18.3, §22.1, §23, §24.1). Parked items: **F8** rule bodies, invariant specs and selectors are typed relations (§4.1, §6.7, §6.10, §6.11); **F10** capability probes are runtime operations with recorded resolved options (§6.13, §18.3); **F12** the hashing contract names its constants and its scope (§5.3, §18.2); **F13** `salsa` is deferred behind an artifact-hash memo with a stated trigger (§14.3); **F14** derivation granularity is declared per relation (§4.1, §14.2); **F16** the bundle carries quantity types and a loss profile (§21.1); **F17** the SVD and condition-number routes are named and the pushdown precondition is discharged (§15.4, §15.5, §5.4). Also decided: `FairSpillPool` with an explicit limit (§14.3), `pyo3-arrow` retained (§21.1), `LogicalPlan::Extension` rule nodes deferred with a trigger (§14.2), IDAES 2.12.0 as the parity reference (§3.1, §6.14, §25), the commit contract stated (§22.2). | `design-rev3` |
+| 4 | 2026-09-13 | Repository conventions: MSRV = pinned toolchain (ADR-0018); layout additions (ADR-0038); document paths under `docs/` (ADR-0033). | (this PR) |
 
 ## 0. Purpose, scope, and how to read this document
 
@@ -67,6 +68,8 @@ The proposal established the thesis: *make mathematical and physical semantics t
 7. the **workspace layout**, dependency pins, and delivery phases with acceptance tests.
 
 It is written for engineers and programming agents who will implement the platform. Where a design decision could reasonably go two ways, the decision is stated with its rationale rather than left open.
+
+This file is the authoritative design. Decisions that changed it are recorded under `docs/adr/` (ADR-NNNN); design reviews under `docs/design_review/reviews/` are evidence, not authority. Section numbers are stable citation targets: new material is inserted as a sub-section, never by renumbering.
 
 ### 0.2 What "core IDAES-PSE capabilities" means here
 
@@ -174,11 +177,15 @@ Each decision below is binding for the implementation. "Because" states the rati
 
 ### D1. Typed relations are the only authority
 
+> Decision: ADR-0004
+
 Every durable fact about a model lives in a typed Arrow relation declared in the semantic schema registry (§4). There is no entity–attribute–value table, no JSON column that carries required behavior, and no Rust struct that is the "real" model with Arrow as an export.
 
 *Because* the proposal's central claim (§2.1 of the proposal) is that structure declared once removes five parallel maintenance surfaces. *Consequence:* Rust structs that hold model data are generated views over relations, never hand-written mirrors.
 
 ### D2. Author causes, derive consequences
+
+> Decision: ADR-0005
 
 The authored model holds only primitive facts (topology, materials, quantities, phenomena, laws, options, specifications). Participation, roles, boundary classification, property requirements, method selection, equations, and orderings are derived by contracted passes and materialized with derivation provenance.
 
@@ -186,49 +193,73 @@ The authored model holds only primitive facts (topology, materials, quantities, 
 
 ### D3. Three artifact levels, one schema system
 
+> Decision: ADR-0006
+
 `CanonicalModel`, `CanonicalMathGraph`, and `CanonicalMathProblem` are stages in one catalog, share identity conventions, extension types, hashing, and provenance. They are not three applications.
 
 ### D4. Semantic IDs, artifact-local ordinals, and content hashes are distinct
+
+> Decision: ADR-0007
 
 Stable 128-bit semantic IDs identify authored and derived entities across revisions; `UInt32`/`UInt64` ordinals index compiled artifacts; blake3 content hashes identify immutable artifact versions. Names, row positions, dictionary codes, and solver positions are never identity (§5). An authored entity's identity is assigned when it is created and stored in its document; its `qualified_name` is an attribute that a `rename` change op may alter without touching any identity (§5.1, §22.2).
 
 ### D5. Physical type is more than a unit string
 
+> Decision: ADR-0008
+
 Every quantity-bearing column and every symbol carries a `quantity_type_id` resolving dimension vector, quantity kind, basis, reference state, affine semantics, and index shape (§8). Heterogeneous value columns require a per-row `quantity_type_id`. Null never means "unknown to be solved" (§7.6).
 
 ### D6. The math IR is richer than DataFusion `Expr`
+
+> Decision: ADR-0009
 
 Expression nodes, arguments, and typed operator payloads are relations; indexed operators (`SumOver`, `Gather`, `Broadcast`, `Derivative`, `Integral`, `ImplicitSystem`, `KernelCall`) survive until a backend requires scalarization. DataFusion `Expr` is used to *compute over* the IR, not to *be* the IR (§7).
 
 ### D7. Laws are templates over contributions
 
+> Decision: ADR-0010
+
 Material, energy, momentum, element, and charge balances, and the costing and utility-minimization laws, are instances of law templates expanded over a `contributions` substrate by the generic compiler (§10). Control volumes are template compositions that declare which contributions exist.
 
 ### D8. Property demand is resolved explicitly
+
+> Decision: ADR-0011
 
 There is no lazy attribute construction. A pass computes the closure of required properties from equations, selects providers by type and configured preference, persists the selection, and generates the property equations or kernel bindings (§9.6). Inspection never constructs physics.
 
 ### D9. Kernels have one contract and generated adapters
 
+> Decision: ADR-0012
+
 Every constitutive computation implemented in code is a `KernelSpec` with identity, signature (physical types), mathematical behavior, derivative availability, execution forms, failure behavior, and backend bindings. Scalar, batched Arrow, derivative, DataFusion UDF, NL external-function, and Pyomo bindings are generated from it (§18.5, §21.4).
 
 ### D10. DataFusion has four roles and no more
+
+> Decision: ADR-0013
 
 Relational assembly and inference (rule plans), snapshot catalog (providers), batch kernel evaluation (generated UDFs), and analytics (queries over `runtime`). It does not run inside Newton iterations, and a solve is never a scalar function call.
 
 ### D11. Native numerics own execution layouts
 
+> Decision: ADR-0014
+
 The evaluation program, sparse Jacobian structures, and solver workspaces are compiled artifacts derived from relations. They borrow Arrow buffers when layouts permit and copy when they do not. Zero-copy is a preference, not an obligation.
 
 ### D12. Pyomo is a generated, generic, coarse-grained backend
+
+> Decision: ADR-0015
 
 One adapter consumes a `CanonicalMathProblem` bundle over the Arrow C stream interface and constructs Pyomo objects. No IDAES class hierarchy is recreated. The adapter exists for parity testing and for Pyomo-ecosystem tools (parmest, PyROS, GDPopt, DAE utilities) until native equivalents exist.
 
 ### D13. Cases and results never mutate the model
 
+> Decision: ADR-0016
+
 A model revision defines structure; a case revision defines values, bounds, fixed status, objectives, and overlays; a run records what happened. Initialization stages, homotopy steps, and "fix then release" operations are immutable case overlays, not mutations.
 
 ### D14. Incrementality follows declared dependencies
+
+> Decision: ADR-0017
 
 Every pass declares its inputs; memoization is keyed by the content hashes of those inputs, the pass version, and — for passes that execute plans — the engine profile (§14.3). A value change invalidates only artifacts that depended on that value being a constant or satisfying a condition (§14.4, §14.5).
 
@@ -267,9 +298,9 @@ Every pass declares its inputs; memoization is keyed by the content hashes of th
 | `object_store` | **0.13.2** | The 0.13 line exposes `*_opts` methods only (`put_opts`, `get_opts`, `copy_opts`, `rename_opts`, `delete_stream`); §20.1 is written against that surface. |
 | `pyo3` / `pyo3-arrow` | **0.29** / **0.19.0** | Retained over `arrow-pyarrow`: the platform needs the PyCapsule stream protocol and the numpy bridge that `pyo3-arrow` provides, and `arrow-pyarrow` requires a Python interpreter at build time, which breaks the offline build. `pyo3-arrow` depends on `thiserror 1.x` beside the platform's 2.x; no type crosses that boundary. `abi3-py311` wheels. |
 | `tokio` | **1.53.1** | DataFusion runtime. |
-| Rust edition / MSRV | **2024** / **1.94.0** | DataFusion 55 floor; every supporting crate below builds under it (verified by the capability-map extraction on a 1.100 nightly; the declared floors of the pre-1.0 crates are re-checked at each upgrade). |
+| Rust edition / MSRV | **2024** / pinned stable toolchain (1.98.1 at revision 4; ADR-0018) | DataFusion 55's own floor is 1.94.0; the workspace declares only what CI exercises, and `tests/governance` keeps `rust-version` equal to `rust-toolchain.toml`. Every supporting crate below builds under it (verified by the capability-map extraction on a 1.100 nightly; the declared floors of the pre-1.0 crates are re-checked at each upgrade). |
 
-**Supporting crates (Rust).** All pinned with `=`; the resolved set is the one the supporting-library capability map committed as a lockfile under `docs/design_review/evidence/rust/`.
+**Supporting crates (Rust).** All pinned with `=`; the resolved set is the one the supporting-library capability map committed as a lockfile under `docs/capability-maps/evidence/rust/`.
 
 | Crate | Pin | Owning crate | Note |
 |---|---|---|---|
@@ -341,12 +372,25 @@ python/
 packages/
   reference/                     shipped reference packages: units, elements, species, property methods, unit templates
 tests/
-  golden/                        golden relation snapshots and fingerprints per vertical slice
+  golden/                        golden relation snapshots and fingerprints per vertical slice (data, not a crate)
+  governance/                    workspace member crate pse-tests-governance (§24.1 governance layer)
+  engine/                        workspace member crate pse-tests-engine
+  conformance/                   workspace member crate pse-tests-conformance
+  lifecycle/                     workspace member crate pse-tests-lifecycle
+  structural/                    workspace member crate pse-tests-structural
+crates/pse-ipopt-sys/            links = "ipopt"; build.rs emits link directives only; bindgen output committed (§18.3)
+crates/pse-buildinfo/            lockfile hashes, rustc version, profile, git sha; feeds the manifest and pse.build_info()
+xtask/                           codegen, family-check, governance, doc-lint, probe-host, release — the logic behind the justfile
+benches/                         crate pse-benches: criterion, harness = false, one bench per §24.3 group
 ```
+
+> Decision: ADR-0038 — the five `tests/*` crates, `pse-ipopt-sys`, `pse-buildinfo`, `xtask` and `benches` were added to this layout at revision 4; the phase-0 `ipopt` feature is default-on with `pse-ipopt-sys` optional.
 
 Dependency direction is strictly downward in the list above within each layer; `pse-mathir`, `pse-quantity`, `pse-material`, and `pse-ids` depend on no engine crate; `pse-catalog` and `pse-rules` are the only crates that depend on DataFusion planning types; backends depend on `compiled` relation views only.
 
 ### 3.3 Supporting libraries and the boundary each must respect
+
+> Decision: ADR-0021, ADR-0022, ADR-0026, ADR-0037
 
 | Library | Role (matches its use sites) | Boundary |
 |---|---|---|
@@ -575,6 +619,8 @@ runtime.runs @1  (see §6.13)
 A change to a case never changes the model revision; a change to a template or connection creates a new model revision and invalidates compiled artifacts by dependency (§14.5), not wholesale.
 
 ### 5.3 Canonical serialization and hashing
+
+> Decision: ADR-0023, ADR-0030
 
 Content hashes must reflect semantic content, not batch layout. Content identity is defined over the **canonical IPC encoding only**; Parquet artifacts (§20.1) are never hashed (Parquet is deterministic within a writer version and preserves metadata, but embeds `created_by`, so its bytes change on upgrade while the data does not). The canonical serializer lives in `pse-ids` and is versioned as `pse.canon.v1`:
 
@@ -2158,6 +2204,8 @@ Generated `ScalarUDFImpl` wrappers for kernels (§18.5) are registered in the se
 
 ### 14.3 The pass engine
 
+> Decision: ADR-0019, ADR-0020, ADR-0029
+
 - **Memoization.** The pass engine keeps a memo keyed by `(pass_id, pass_version, content hashes of the declared inputs in `pass_specs.cache_key_inputs`, engine_profiles.content_hash for passes that execute plans — P2 validators, P4–P6, P8, and kernel batch evaluation wherever it is used)` → output artifact hashes, backed by the artifact store. Backdating is inherent: a pass that re-runs on changed inputs and produces byte-identical outputs leaves the next pass's key unchanged. Per-instance memoization inside P7 uses the same key shape over `(instance_id, template hash, resolved features)`. `salsa` is **deferred**: its distinctive value — automatic dependency tracking — duplicates the declared inputs of `pass_specs`, and an undeclared read is a contract violation, not something to track; its unwind-based cancellation cannot cross the Ipopt boundary. Trigger for adoption: a measurement showing that sub-pass granularity finer than per-instance is needed.
 - **Session.** One DataFusion `SessionContext` per snapshot, built from the engine profile (§14.2 rule 5) with the catalog of §5.4, the `pse.*` extension-type registry (§4.4), the generated UDF registry, the `datafusion.pse.*` config extension, a **`FairSpillPool`** sized from `datafusion.runtime.memory_limit` (declared per deployment; never `UnboundedMemoryPool` — a bounded pool turns exhaustion into a typed, actionable `ResourcesExhausted` error naming the keys to change, an unbounded one into a process death), an explicitly configured `DiskManager` directory with `spill_compression` and `max_spill_file_size_bytes` declared, `target_partitions` validated against the rayon budget at construction (§18.8), and a `TimeProvider` (`SystemTimeProvider` in production, a fixed provider under test and reproduction). Passes obtain the session from the driver; no pass creates its own.
 - **Parallelism.** Independent passes (for example scaling-plan generation and NL lowering) run concurrently on `rayon`; DataFusion partitions relational work internally. Thread budgets are coordinated (§18.8).
@@ -2413,6 +2461,8 @@ Arrow buffers of parameter values are borrowed only when the array is contiguous
 
 ### 18.3 In-process Ipopt
 
+> Decision: ADR-0028
+
 `pse-backend-native` binds the Ipopt C API (`CreateIpoptProblem`, `IpoptSolve`, `AddIpoptNumOption`/`StrOption`/`IntOption`) with callbacks for `eval_f`, `eval_grad_f`, `eval_g`, `eval_jac_g`, `eval_h` over the evaluation program. Options come from `solver_profiles`; the IDAES defaults are shipped as profiles `ipopt.default` (`tol = 1e-6`, `max_iter = 200`, `nlp_scaling_method = gradient-based`) and `ipopt.user_scaled` (`nlp_scaling_method = user-scaling`, or pre-scaled problem with `nlp_scaling_method = none`), with `linear_solver` resolved when a run starts from `runtime.host_capabilities` (§6.13), which the explicit runtime operation `probe_host` writes (Ipopt version, available linear solvers, HSL, PETSc, the Python environment); a profile naming `ma57` on a host without HSL fails with `capability.backend` unless the profile declares `fallback_linear_solver = mumps`, in which case the fallback is a selected policy, and the options actually passed to `CreateIpoptProblem` are recorded in `runs.resolved_options` so that a reproduction on a different host is either identical or visibly different. Results: primal values (unscaled), duals, bound multipliers (`zL`, `zU`), termination status mapped to `TerminationStatus`, iteration statistics taken as data inside the intermediate callback through `GetIpoptCurrentIterate` and `GetIpoptCurrentViolations` (Ipopt ≥ 3.14; `probe_host` records the version and an older Ipopt degrades to parsing the solver's text output, recorded as such) into `runtime.iterations` (objective, primal and dual infeasibility, `mu`, step size, regularization, restoration flag). The `-sys` crate is generated with `bindgen` from `IpStdCInterface.h`, with the generated bindings committed and diffed in CI as §4.2 treats generated relation code; `index_style` is C (0) and asserted.
 
 Interruption across the C boundary: the driver checks the cancellation token inside the intermediate callback and returns `false` to stop the solve. No Rust panic and no unwind ever crosses an Ipopt callback; a callback catches the failure, records it in the driver state, and returns `false`, and the driver converts the recorded failure into `solve.evaluation_error` or `runtime.cancelled` after `IpoptSolve` returns. The last iterate is written to `runtime.solutions` under the run's terminal status, so a cancelled or failed run is distinguished from a converged one by `runs.status`, never by the absence of rows.
@@ -2580,6 +2630,8 @@ Relation versions are explicit; loaders apply generated migrations forward; a sn
 
 ### 21.1 Extension module
 
+> Decision: ADR-0024
+
 `pse-py` (pyo3 0.29, pyo3-arrow 0.19) exposes a small API; every table crosses as an Arrow C stream (`__arrow_c_stream__`) that the consumer drains as a `RecordBatchReader`, never as row objects and never as a materialized `Table` on both sides at once. The capsule protocol, not `pyarrow`, is the contract: any Arrow implementation (pyarrow, polars, datafusion-python at whatever version) can consume it, and none of the typed classes of §21.5 names a `pyarrow` type.
 
 ```python
@@ -2646,6 +2698,8 @@ A nullable Arrow column converted to a bare `ndarray` turns null into NaN, colla
 P1 parses every document into `authored` rows via a change set; the document's content hash is recorded on each row's source span. YAML documents are parsed by `serde-saphyr` (typed errors with line and column, hostile input refused without a panic, a parsing `budget` on nesting, aliases and allocation) and TOML by `toml` with `Spanned<T>`, so every row's `pse.source_span` comes from the parser. Every entity declared under `id_policy = explicit` carries an `id:` field; `pse authoring assign-ids` inserts missing ones and P1 rejects a document that still lacks one (§5.1). YAML is one surface; the same change sets can be produced by Python builders (`pse.authoring`) and by agents.
 
 ### 22.2 The change-set model
+
+> Decision: ADR-0027
 
 ```text
 authored.change_sets @1     change_set_id, base_revision_id, author, message, created_at
