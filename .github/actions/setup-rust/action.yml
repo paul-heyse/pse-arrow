@@ -27,9 +27,11 @@ inputs:
     required: true
   save-if:
     description: >-
-      Whether this job may WRITE the cache. Pass `${{ github.ref == 'refs/heads/main' }}`
-      so pull requests read a warm cache but only main refreshes it. A literal string,
-      not a boolean — it is forwarded verbatim to Swatinem/rust-cache.
+      Whether this job may WRITE the cache. Pass the expression "github.ref equals
+      refs/heads/main" (in the usual expression braces) so pull requests read a warm
+      cache but only main refreshes it. A literal string, not a boolean; it is forwarded
+      verbatim to Swatinem/rust-cache. (Descriptions are expression-evaluated by the
+      runner, which is why the braces are not spelled out here.)
     required: false
     default: "false"
   tools:

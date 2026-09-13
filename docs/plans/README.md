@@ -1,7 +1,7 @@
 # Plans
 
 A plan records **how work is sequenced and verified**. A decision record
-([`../adr/`](../adr/README.md)) records **what was decided and why**. The two
+([`../adr/`](../adr/)) records **what was decided and why**. The two
 have different lifecycles, which is why they live in different directories.
 
 | Plan | Covers | ADRs | Status |

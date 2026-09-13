@@ -16,11 +16,11 @@ name is `pse` and the crate prefix is `pse-`. Everything is licensed
 | Question | Authority |
 |---|---|
 | What is the design? | [`authoritative_design/blueprint.md`](authoritative_design/blueprint.md) — one file, stable section numbers, revised in git |
-| Why does it read that way? | [`adr/`](adr/README.md) — one record per decision, with the charter §H fields |
+| Why does it read that way? | [`adr/`](adr/) — one record per decision, with the charter §H fields |
 | What was deliberately deferred? | [`adr/register.md`](adr/register.md) — one row per deferral, with its trigger and next check |
-| How is the work sequenced? | [`plans/`](plans/README.md) — living until done, then an appended Outcome |
+| How is the work sequenced? | [`plans/`](plans/) — living until done, then an appended Outcome |
 | Is the design any good? | [`design_review/reviews/`](design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md) — **evidence, not authority** |
-| What can the libraries actually do? | [`capability-maps/`](capability-maps/arrow-rust.md) and their [evidence](capability-maps/evidence/README.md) — probes, lockfiles and captured outputs |
+| What can the libraries actually do? | [`capability-maps/`](capability-maps/arrow-rust.md) and their [evidence](capability-maps/evidence/) — probes, lockfiles and captured outputs |
 | What runs in CI, and who answers when it goes red? | [`dev/ci.md`](dev/ci.md) |
 
 When the code and a plan disagree, the code is what runs. When the code and the
@@ -32,7 +32,7 @@ blueprint disagree, one of them is a bug, and the ADR says which.
 2. **The design** — blueprint [§0](authoritative_design/blueprint.md) (purpose and
    reading guide), then **§2** (the fourteen binding decisions D1–D14), then the
    section §0.3 points you at for what you are about to do.
-3. **The decisions** — the [ADR index](adr/README.md). ADR-0004 … ADR-0017 are
+3. **The decisions** — the [ADR index](adr/). ADR-0004 … ADR-0017 are
    D1–D14 one record each; ADR-0018 … ADR-0038 are the repository, supply-chain
    and process decisions.
 4. **The evidence** — the [capability maps](capability-maps/arrow-rust.md) before

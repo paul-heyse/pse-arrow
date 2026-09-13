@@ -10,7 +10,7 @@ this repository has that status:
 |---|---|
 | [`blueprint.md`](blueprint.md) | **Authoritative.** One file, revised in git. Tags `design-rev2` and `design-rev3` mark the seeded history. |
 | [`proposal.md`](proposal.md) | **Historical.** The thesis the blueprint makes concrete; superseded by it and kept for the record. Front matter says so. |
-| [`../adr/`](../adr/README.md) | **Why.** One record per decision. A record binds; it does not restate the design. |
+| [`../adr/`](../adr/) | **Why.** One record per decision. A record binds; it does not restate the design. |
 | [`../design_review/reviews/`](../design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md) | **Evidence, not authority.** A review finds defects and cites measurements. It does not change the design; the ADR that responds to a finding does. |
 | [`../capability-maps/`](../capability-maps/arrow-rust.md) | **Evidence.** What the pinned libraries actually do, with reproducible probes under `evidence/`. |
 
@@ -32,7 +32,7 @@ The blueprint changes only through a pull request that:
 
 1. is labelled `adr` and titled `adr: ADR-NNNN <title>` (or is a named follow-up
    `design:` PR referenced by that ADR);
-2. adds or changes exactly one decision record under [`../adr/`](../adr/README.md);
+2. adds or changes exactly one decision record under [`../adr/`](../adr/);
 3. adds a row to the blueprint's **Revision history** table naming the revision,
    the date, the change and the git tag or pull request;
 4. adds an inline `> Decision: ADR-NNNN` line under the heading of every section

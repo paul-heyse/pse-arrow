@@ -47,47 +47,19 @@ jobs:
       - name: register rows are well formed
         run: python3 scripts/check_register.py --lint
       - name: the IDAES tag matches the parity pin
-        # scripts/fetch-external.sh clones idaes-pse at a tag; [dependency-groups] parity
-        # pins idaes-pse==X. If those two ever disagree, the parity harness is comparing
-        # against one version while the reading copy shows another.
+        # scripts/fetch-external.sh derives the idaes-pse tag from the parity pin in
+        # pyproject.toml (and the arrow/datafusion tags from Cargo.lock); `--print` reports
+        # them without cloning. If the derivation ever changes, this is where it shows.
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import pathlib
-          import re
-          import sys
-
-          pyproject = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
-          fetch = pathlib.Path("scripts/fetch-external.sh").read_text(encoding="utf-8")
-
-          pins = set(re.findall(r"idaes-pse\s*==\s*([0-9][0-9A-Za-z.\-]*)", pyproject))
-          tags = set(re.findall(r"IDAES_TAG\s*=\s*[\"']?v?([0-9][0-9A-Za-z.\-]*)", fetch))
-
-          if not pins:
-              sys.exit(
-                  "governance: no `idaes-pse==<version>` pin found in pyproject.toml.\n"
-                  "  The parity pin is what 'parity' means; it must be declared in the "
-                  "`parity` dependency group."
-              )
-          if len(pins) > 1:
-              sys.exit(f"governance: conflicting idaes-pse pins in pyproject.toml: {sorted(pins)}")
-          if not tags:
-              sys.exit(
-                  "governance: no `IDAES_TAG=` assignment found in scripts/fetch-external.sh.\n"
-                  "  The reading copy must be pinned to the same version as the parity pin."
-              )
-          if len(tags) > 1:
-              sys.exit(f"governance: conflicting IDAES_TAG values in fetch-external.sh: {sorted(tags)}")
-
-          pin, tag = pins.pop(), tags.pop()
-          if pin != tag:
-              sys.exit(
-                  f"governance: parity pin idaes-pse=={pin} but fetch-external.sh clones {tag}.\n"
-                  "  Moving the parity pin means moving both, in the same pull request, "
-                  "with an ADR (GOVERNANCE.md §5)."
-              )
-          print(f"governance: idaes-pse parity pin and reading-copy tag agree at {pin}")
-          PY
+          pin="$(grep -oE 'idaes-pse==[0-9][0-9A-Za-z.-]*' pyproject.toml | head -n1 | cut -d= -f3)"
+          [ -n "$pin" ] || { echo "::error::no idaes-pse== pin in pyproject.toml"; exit 1; }
+          tag="$(scripts/fetch-external.sh --print | sed -n 's/^IDAES_TAG=//p')"
+          [ "$pin" = "$tag" ] || {
+            echo "::error::parity pin idaes-pse==${pin} but fetch-external.sh resolves ${tag}"
+            exit 1
+          }
+          echo "idaes-pse parity pin and reading-copy tag agree at ${pin}"
       - name: decision labels are consistent
         if: ${{ github.event_name == 'pull_request' }}
         env:
@@ -198,6 +170,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: install just (check_agent_config.py verifies recipe names against `just --summary`)
+        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        with:
+          tool: just@1.58.0
       - name: agent configuration is canonical
         # .claude/ and .codex/ share content through symlinks in one direction only;
         # this fails when a copy has been made where a link belongs, or when AGENTS.md

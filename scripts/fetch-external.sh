@@ -27,6 +27,13 @@ ARROW_TAG="${ARROW_TAG:-$(lock_version arrow)}"
 DATAFUSION_TAG="${DATAFUSION_TAG:-$(lock_version datafusion)}"
 IDAES_TAG="${IDAES_TAG:-$(grep -oE 'idaes-pse==[0-9.]+' pyproject.toml | head -n1 | cut -d= -f3)}"
 
+# `--print` reports the tags the pins resolve to without touching the network; the
+# governance workflow compares the IDAES one against the parity pin.
+if [ "${1:-}" = "--print" ]; then
+  printf 'ARROW_TAG=%s\nDATAFUSION_TAG=%s\nIDAES_TAG=%s\n' "$ARROW_TAG" "$DATAFUSION_TAG" "$IDAES_TAG"
+  exit 0
+fi
+
 fetch() { # name url tag
   local name="$1" url="$2" tag="$3" dir="external/$1"
   if [ -d "$dir/.git" ]; then

@@ -81,7 +81,8 @@ jobs:
         # outside the repository). Every internal link must resolve.
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
-          args: --offline --no-progress --include-fragments docs/book
+          # 404.html carries the site-root link (/pse-arrow/), which cannot resolve offline.
+          args: --offline --no-progress --include-fragments --exclude-path docs/book/404.html docs/book
           fail: true
           output: lychee-report.md
       - name: upload the Pages artifact
