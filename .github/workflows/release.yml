@@ -36,7 +36,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
   # PLACEHOLDER until the first solver image is pushed; see rust.yml for the full note.
-  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
   UV_VERSION: 0.12.13
   UV_NO_PROGRESS: "1"
   DIST_NAME: pse-arrow

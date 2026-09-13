@@ -67,6 +67,16 @@ request; each exists to find a problem before an upgrade does.
 | `floors-latest` (`cargo update --dry-run` + floors against a temp lock) | paul-heyse | a newer version of a pre-1.0 crate raises its declared MSRV above ours, or a family would go mixed | This is the early warning ADR-0018 is built around. Record it on register row R-07 with the date, and decide the upgrade deliberately — bump the toolchain by ADR, or hold the pin. |
 | `solvers-image-rebuild-check` (no cache) | paul-heyse | the solver recipe no longer reproduces the same library checksums | Diff the build log against the last good one, find the moving input (a base-image digest, an upstream tarball, a compiler version), pin it in `docker/solvers/`, and update `checksums.sha256`. Until it reproduces, treat parity iteration counts as unverified (register row R-08). |
 
+`solvers-image.yml` builds the solver container on every pull request that touches
+`docker/solvers/**` and, on `main`, pushes it to GHCR and opens the pull request that
+moves the `SOLVER_IMAGE` pin (a digest reference inside the workflow files, so a
+checkout is reproducible on its own). Opening that pull request needs the
+`PIN_PR_TOKEN` secret: a fine-grained personal access token scoped to this
+repository with contents, pull requests and workflows write, because the default
+`GITHUB_TOKEN` cannot create or update files under `.github/workflows`. Without the
+secret the job succeeds and prints the manual `sed` command as a notice (register
+row R-21).
+
 `register-review.yml` runs monthly with `issues: write`, executes
 `scripts/check_register.py --due` — including the shell checks in the `check`
 column — and opens or updates one `Register review YYYY-MM` issue. **Red means

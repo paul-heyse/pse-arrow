@@ -36,7 +36,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
   # PLACEHOLDER until the first solver image is pushed; see rust.yml for the full note.
-  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
   # The only nightly this repository names outside tooling/dfarrow-apiex. cargo-udeps
   # needs one; it is pinned so a nightly regression cannot silently change the result.
   NIGHTLY: nightly-2026-09-08
@@ -54,7 +54,7 @@ jobs:
     name: features
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -75,7 +75,7 @@ jobs:
     name: test-release
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -99,7 +99,7 @@ jobs:
     name: udeps
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,7 +152,7 @@ jobs:
     name: unsafe-surface
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

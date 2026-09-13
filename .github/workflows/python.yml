@@ -33,7 +33,7 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
   # PLACEHOLDER until the first solver image is pushed; see rust.yml for the full note.
-  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
   UV_VERSION: 0.12.13
   # Never resolve or write the lockfile in CI. Every uv command here is `--locked`; this
   # makes an accidental omission fail instead of silently re-resolving.
@@ -64,7 +64,11 @@ jobs:
         run: uv run --no-sync pyrefly check
       - name: import boundaries
         # Enforces the layering in [tool.importlinter]: numpy and scipy only at the array
-        # boundary, idaes only under pse.parity, contracts depending on nothing.
+        # boundary, idaes only under pse.parity, contracts depending on nothing. The
+        # project is not installed in this job (no Rust build); grimp only needs to find
+        # the package on sys.path, so python/ is put there directly.
+        env:
+          PYTHONPATH: python
         run: uv run --no-sync lint-imports
       - name: reuse lint
         run: uv run --no-sync reuse lint
@@ -159,7 +163,7 @@ jobs:
     # The `ci` stage carries Ipopt 3.14.x + MUMPS + ASL and uv-managed CPython 3.11-3.13.
     # A literal, not ${{ env.SOLVER_IMAGE }} — see rust.yml.
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     env:
       # A separate environment: the parity group pins idaes-pse==2.12.0, which cannot
       # coexist with the platform interpreter (< 3.14 marker).

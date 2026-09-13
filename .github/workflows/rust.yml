@@ -37,7 +37,7 @@ env:
   # opens a pull request that rewrites this value AND the literal `container.image`
   # strings below to `ci-<tree-hash>@sha256:<digest>`. Until then every container job
   # here fails to pull, which is deliberate and visible rather than silently skipped.
-  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+  SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
   CARGO_NEXTEST_VERSION: 0.9.143
   CARGO_DENY_VERSION: 0.20.2
   CARGO_AUDIT_VERSION: 0.22.2
@@ -73,7 +73,7 @@ jobs:
     # A literal, not ${{ env.SOLVER_IMAGE }}: the `env` context is not available in
     # `jobs.<job_id>.container`. Keep it in step with the SOLVER_IMAGE env above.
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,7 +93,7 @@ jobs:
     name: test
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -130,7 +130,7 @@ jobs:
     runs-on: ubuntu-24.04
     # Needs the Ipopt headers and libclang for the bindgen arm of `xtask codegen`.
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -159,8 +159,13 @@ jobs:
         # `cargo tree -d` cannot see a MIXED family (arrow 59 beside arrow-ipc 60), which
         # is the failure mode that matters here. This can.
         run: |
+          # One --evidence per lockfile (clap takes one value each); families-only, because
+          # the evidence lockfiles were resolved on their own day and unrelated transitive
+          # crates drift by patch version without saying anything about the pins.
           cargo xtask family-check \
-            --evidence docs/capability-maps/evidence/rust/*.lock
+            --evidence docs/capability-maps/evidence/rust/apisurface-Cargo.lock \
+            --evidence docs/capability-maps/evidence/rust/support-Cargo.lock \
+            --evidence-families-only
       - name: lockfile is complete and current
         run: cargo metadata --locked --format-version 1 > /dev/null
 
@@ -192,7 +197,7 @@ jobs:
     name: docs
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     env:
       # The one place a *DOCFLAGS variable is set. This is not RUSTFLAGS: it does not
       # affect codegen and so cannot move a float result.
@@ -219,6 +224,9 @@ jobs:
   doc-lint:
     name: doc-lint
     runs-on: ubuntu-24.04
+    # `cargo xtask doc-lint` exits 2 ("not implemented in phase 0") until the path indexes
+    # under docs/capability-maps/facts exist (register row R-19). Informational until then.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -247,7 +255,7 @@ jobs:
     name: coverage
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/paul-heyse/pse-solvers:ci-PLACEHOLDER
+      image: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
     permissions:
       contents: read
       # Codecov uploads with OIDC; no token is stored in this repository.

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# cargo-audit configuration. CI runs `cargo audit --deny warnings`, so every entry here
+# is a deliberate, dated acceptance. Same rule as deny.toml: reason, owner, review date.
+
+[advisories]
+ignore = [
+  # paste 1.0.15 (proc-macro; unmaintained, no vulnerability). Transitive via the
+  # arrow/datafusion families; leaves the graph when upstream drops it. cargo deny's
+  # `unmaintained = "workspace"` covers direct dependencies.
+  "RUSTSEC-2024-0436", # paul-heyse, review 2027-03-01
+]

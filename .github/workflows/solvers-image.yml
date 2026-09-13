@@ -219,9 +219,28 @@ jobs:
           for name in changed:
               print(" ", name)
           PY
+      - name: is a token with `workflows` permission available?
+        # The default GITHUB_TOKEN cannot create or update files under .github/workflows,
+        # and the pin lives in workflow files by design (a checkout is reproducible on its
+        # own). The pull request therefore needs PIN_PR_TOKEN: a fine-grained PAT scoped to
+        # this repository with contents: write, pull requests: write and workflows: write.
+        # Without it this job prints the pin and the manual command instead of failing.
+        id: token
+        env:
+          HAVE_TOKEN: ${{ secrets.PIN_PR_TOKEN != '' }}
+          NEW_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-${{ needs.build.outputs.tree-hash }}@${{ needs.build.outputs.ci-digest }}
+        run: |
+          set -euo pipefail
+          echo "have=${HAVE_TOKEN}" >> "$GITHUB_OUTPUT"
+          if [ "${HAVE_TOKEN}" != "true" ]; then
+            echo "::notice title=solver image pin::PIN_PR_TOKEN is not set; pin the image by hand:"
+            echo "::notice::sed -i 's#ghcr.io/paul-heyse/pse-solvers:ci-[^ ]*#${NEW_REF}#g' .github/workflows/*.yml && git commit -am 'ci(solvers): pin the solver image'"
+          fi
       - name: open the update pull request
+        if: ${{ steps.token.outputs.have == 'true' }}
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
+          token: ${{ secrets.PIN_PR_TOKEN }}
           branch: ci/solver-image-${{ needs.build.outputs.tree-hash }}
           delete-branch: true
           # Conventional title so `governance / pr-title` passes on the generated PR.
@@ -255,6 +274,5 @@ jobs:
 
             ---
 
-            Note: pull requests opened with the default `GITHUB_TOKEN` do not start
-            workflow runs. Close and reopen this pull request (or push an empty commit)
-            to make the checks run.
+            Opened with `PIN_PR_TOKEN` (a fine-grained PAT), so the checks run on it as
+            they would on a human-opened pull request.
