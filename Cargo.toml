@@ -1,0 +1,306 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Workspace for pse-arrow: the Arrow-native process systems engineering core
+# (docs/authoritative_design/blueprint.md, revision 3).
+#
+# Every third-party pin lives here exactly once (blueprint §3.1) and members inherit
+# everything via `.workspace = true`. The arrow, datafusion, object_store and pyo3
+# families must resolve to ONE version each: `=` pins bind direct dependencies only and
+# `cargo tree -d` cannot flag a mixed family, so `cargo xtask family-check` asserts the
+# resolved graph against [workspace.metadata.pse.families]. Pin changes are
+# `kind/library-upgrade` PRs (ADR-0018); families move as a unit.
+
+[workspace]
+# A virtual manifest has no `edition`, so cargo would otherwise fall back to resolver 1.
+# Resolver 3 = feature isolation for dev/build/target deps + MSRV-aware resolution.
+resolver = "3"
+members = [
+  "crates/*",
+  "tests/governance",
+  "tests/engine",
+  "tests/conformance",
+  "tests/lifecycle",
+  "tests/structural",
+  "xtask",
+  "benches",
+]
+exclude = [
+  "tooling/dfarrow-apiex",
+  "tooling/dfarrow-apiex/verify",
+  "docker",
+  "external",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+# Kept EQUAL to rust-toolchain.toml by tests/governance (ADR-0018). DataFusion 55's own
+# floor is 1.94.0; we declare only what CI exercises. Every crate is publish = false
+# until phase-1 exit, so no consumer needs a lower floor.
+rust-version = "1.98.1"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/paul-heyse/pse-arrow"
+homepage = "https://paul-heyse.github.io/pse-arrow/"
+authors = ["Paul Heyse <paul@heyse.io>"]
+publish = false
+
+[workspace.dependencies]
+# ---- internal (path deps; `version` is added when publish flips to true) ----
+pse-schema = { path = "crates/pse-schema" }
+pse-relations = { path = "crates/pse-relations" }
+pse-ids = { path = "crates/pse-ids" }
+pse-quantity = { path = "crates/pse-quantity" }
+pse-material = { path = "crates/pse-material" }
+pse-authoring = { path = "crates/pse-authoring" }
+pse-mathir = { path = "crates/pse-mathir" }
+pse-templates = { path = "crates/pse-templates" }
+pse-rules = { path = "crates/pse-rules" }
+pse-catalog = { path = "crates/pse-catalog" }
+pse-compiler = { path = "crates/pse-compiler" }
+pse-structural = { path = "crates/pse-structural" }
+pse-kernels = { path = "crates/pse-kernels" }
+pse-kernels-ext = { path = "crates/pse-kernels-ext" }
+pse-numerics = { path = "crates/pse-numerics" }
+pse-plans = { path = "crates/pse-plans" }
+pse-backend-native = { path = "crates/pse-backend-native" }
+pse-backend-nl = { path = "crates/pse-backend-nl" }
+pse-backend-pyomo = { path = "crates/pse-backend-pyomo" }
+pse-diagnostics = { path = "crates/pse-diagnostics" }
+pse-runtime = { path = "crates/pse-runtime" }
+pse-ipopt-sys = { path = "crates/pse-ipopt-sys" }
+pse-buildinfo = { path = "crates/pse-buildinfo" }
+
+# ---- arrow family @ =59.3.0 (blueprint §3.1) ----
+# Features fixed here. `force_validate` is exposed as `pse-relations/force-validate` and
+# passed by every test invocation, never a default. `ipc_compression` and `prettyprint`
+# are never on an identity path; DataFusion's own features may unify lz4/zstd into
+# arrow-ipc, and the call-site bans (clippy.toml) keep them off pse.canon.v1 paths.
+arrow = { version = "=59.3.0", default-features = false, features = [
+  "ipc",
+  "ffi",
+  "canonical_extension_types",
+] }
+arrow-array = { version = "=59.3.0", default-features = false, features = [
+  "ffi",
+] }
+arrow-buffer = "=59.3.0"
+arrow-data = { version = "=59.3.0", default-features = false, features = [
+  "ffi",
+] }
+arrow-schema = { version = "=59.3.0", default-features = false, features = [
+  "ffi",
+  "canonical_extension_types",
+] }
+arrow-ipc = { version = "=59.3.0", default-features = false }
+arrow-select = "=59.3.0"
+arrow-cast = { version = "=59.3.0", default-features = false }
+arrow-ord = "=59.3.0"
+arrow-row = "=59.3.0"
+parquet = { version = "=59.3.0", default-features = false, features = [
+  "arrow",
+  "async",
+  "object_store",
+] }
+
+# ---- datafusion family @ =55.1.0: default features only (blueprint §3.1) ----
+# `serde`, `avro`, `parquet_encryption`, `backtrace` are denied in deny.toml [bans.features].
+datafusion = "=55.1.0"
+datafusion-common = "=55.1.0"
+datafusion-expr = "=55.1.0"
+datafusion-execution = "=55.1.0"
+datafusion-catalog = "=55.1.0"
+datafusion-physical-plan = "=55.1.0"
+datafusion-physical-expr = "=55.1.0"
+datafusion-optimizer = "=55.1.0"
+datafusion-proto = "=55.1.0"
+
+# Required by DataFusion 55 (^0.13.2); 0.14.x exists on crates.io and must not be taken.
+object_store = "=0.13.2"
+
+# ---- Python boundary (pse-py only; features added in that crate) ----
+pyo3 = "=0.29.2"
+pyo3-arrow = "=0.19.0"
+
+# ---- runtime ----
+tokio = { version = "=1.53.1", default-features = false, features = [
+  "rt-multi-thread",
+  "sync",
+  "macros",
+  "time",
+] }
+rayon = "=1.12.0"
+tracing = "=0.1.44"
+thiserror = "=2.0.20"
+# `fancy` only in the driver (xtask); library crates derive Diagnostic and nothing else.
+miette = "=7.6.0"
+
+# ---- serialization and documents ----
+serde = { version = "=1.0.229", features = ["derive", "rc"] }
+serde_arrow = { version = "=0.15.0", features = ["arrow-59"] }
+serde-saphyr = "=1.2.0"
+toml = { version = "=1.1.6", default-features = false, features = [
+  "parse",
+  "serde",
+  "display",
+] }
+winnow = { version = "=1.0.4", default-features = false, features = ["std"] }
+
+# ---- code generation (pse-schema and xtask only) ----
+# syn 3, not the ecosystem's syn 2; a prettyplease upgrade is a regeneration commit.
+syn = { version = "=3.0.5", features = [
+  "full",
+  "extra-traits",
+  "visit",
+  "visit-mut",
+  "fold",
+  "parsing",
+  "printing",
+] }
+quote = "=1.0.47"
+proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
+prettyplease = "=0.3.0"
+
+# ---- graphs, numerics, identity ----
+petgraph = { version = "=0.8.3", default-features = false, features = [
+  "stable_graph",
+  "graphmap",
+] }
+num-dual = "=0.15.0"
+faer = { version = "=0.24.4", default-features = false, features = ["linalg"] }
+# pse-ids is the only crate allowed to depend on blake3 (tests/governance/blake3_owner).
+blake3 = { version = "=1.8.7", features = ["rayon"] }
+
+# ---- phase-2+ optional providers enter here WITH their consumer crate (blueprint §9.8,
+# §13.6, §7.4): feos-core / feos =0.10.1 (conditional on num-dual 0.15), diffsol =0.16.2,
+# egglog =3.0.0. Not before.
+
+# ---- dev and tooling (exempt from the §3.1 check via tests/governance/tooling_deps.toml) ----
+proptest = "=1.11.0"
+insta = "=1.48.0"
+criterion = { version = "=0.8.2", default-features = false }
+tempfile = "=3.27.0"
+tracing-subscriber = "=0.3.23"
+cargo_metadata = "=0.23.1"
+clap = { version = "=4.6.6", features = ["derive"] }
+regex = "=1.13.1"
+ignore = "=0.4.33"
+bindgen = "=0.73.2"
+pkg-config = "=0.3.34"
+semver = "=1.0.28"
+anyhow = "=1.0.104"
+
+[workspace.lints.rust]
+# Allowed per crate, with a reason, only in [workspace.metadata.pse].unsafe-allowlist.
+unsafe_code = "deny"
+missing_docs = "warn"
+unreachable_pub = "warn"
+unused_qualifications = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+missing_debug_implementations = "warn"
+non_ascii_idents = "forbid"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+private_intra_doc_links = "warn"
+bare_urls = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+wildcard_dependencies = "deny"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+# Numerics: i64/usize -> f64 is pervasive and intended.
+cast_precision_loss = "allow"
+# Panic policy for library crates (tests are exempt via clippy.toml; xtask/benches opt out
+# at crate level with a reason).
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+unimplemented = "deny"
+todo = "deny"
+unreachable = "warn"
+exit = "deny"
+mem_forget = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+dbg_macro = "deny"
+# Governance hooks; the tables live in clippy.toml.
+disallowed_methods = "deny"
+disallowed_types = "deny"
+disallowed_macros = "deny"
+# FFI discipline.
+undocumented_unsafe_blocks = "deny"
+multiple_unsafe_ops_per_block = "deny"
+allow_attributes_without_reason = "deny"
+# Exact float compares are deliberate in canonicalization; annotate them.
+float_cmp = "warn"
+
+# ---- profiles. `force_validate` is an arrow FEATURE, not a profile (see above). ----
+[profile.dev]
+debug = "line-tables-only"
+
+# arrow/datafusion/faer at -O0 make the suite crawl; float semantics are unchanged.
+[profile.dev.package."*"]
+opt-level = 2
+debug = false
+
+# `--profile debugging` when you need variables in a debugger.
+[profile.debugging]
+inherits = "dev"
+debug = "full"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 16
+# REQUIRED: PyO3 turns unwinds into exceptions and the Ipopt callbacks `catch_unwind`;
+# `abort` would take the interpreter down (blueprint §18.3, §21).
+panic = "unwind"
+debug = "line-tables-only"
+strip = "none"
+
+# samply / perf with inlined-frame information.
+[profile.profiling]
+inherits = "release"
+debug = "full"
+
+# Shipped wheels and binaries only (`maturin --profile dist`).
+[profile.dist]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+
+# No [patch] / [replace] tables, ever (tests/governance/no_patch_tables.rs).
+
+[workspace.metadata.pse]
+blueprint = "docs/authoritative_design/blueprint.md"
+# Passed to every test invocation by the justfile and CI; never a default feature.
+validate-features = ["pse-relations/force-validate"]
+unsafe-allowlist = [
+  "pse-ipopt-sys",
+  "pse-backend-native",
+  "pse-kernels-ext",
+  "pse-py",
+]
+
+# Consumed by `cargo xtask family-check`: one resolved version per family, equal to the
+# declared one (`match = "minor"` for pyo3).
+[workspace.metadata.pse.families]
+arrow = { version = "59.3.0", crates = [
+  "arrow",
+  "arrow-*",
+  "parquet",
+  "parquet-*",
+] }
+datafusion = { version = "55.1.0", crates = ["datafusion", "datafusion-*"] }
+object_store = { version = "0.13.2", crates = ["object_store"] }
+pyo3 = { version = "0.29", match = "minor", crates = [
+  "pyo3",
+  "pyo3-ffi",
+  "pyo3-macros",
+  "pyo3-macros-backend",
+  "pyo3-build-config",
+] }

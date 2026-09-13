@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-mathir"
+description = "Expression graph, operator catalog and contracts, canonicalization and unit inference (blueprint §3.2, §12)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+pse-ids.workspace = true
+pse-quantity.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+miette.workspace = true

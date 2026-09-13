@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-kernels-ext"
+description = "Optional external property providers: CoolProp FFI, Helmholtz libraries and FeOs (blueprint §3.2, §9.8)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+pse-kernels.workspace = true
+num-dual.workspace = true
+thiserror.workspace = true
+miette.workspace = true
+
+[features]
+# Both are empty placeholders in phase 0: the providers enter the graph WITH their
+# dependency (blueprint §3.1 "phase-2+ optional providers"), so enabling either today
+# changes nothing. `feos` additionally waits on feos-core tracking num-dual 0.15
+# (blueprint §9.8, register row).
+coolprop = []
+feos = []

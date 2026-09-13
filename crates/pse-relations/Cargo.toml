@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-relations"
+description = "Generated typed relation views, builders, validators and migrations (blueprint §3.2)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+arrow.workspace = true
+arrow-array.workspace = true
+arrow-schema.workspace = true
+serde_arrow.workspace = true
+serde.workspace = true
+pse-schema.workspace = true
+pse-ids.workspace = true
+thiserror.workspace = true
+miette.workspace = true
+
+[features]
+# Arrow's full array validation, exposed so it can be switched on for tests and CI only
+# (blueprint §24.1 "Structural validity"). NEVER a default: every test invocation passes
+# `--features pse-relations/force-validate` explicitly, and
+# `[workspace.metadata.pse].validate-features` names it.
+force-validate = ["arrow/force_validate"]
+
+[dev-dependencies]
+proptest.workspace = true

@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-backend-native"
+description = "Ipopt C-API FFI driver over the evaluation program (blueprint §3.2, §18.3)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+pse-numerics.workspace = true
+pse-relations.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+miette.workspace = true
+
+[dependencies.pse-ipopt-sys]
+workspace = true
+optional = true
+
+[features]
+# OFF by default in phase 0: the native backend is not implemented yet and Ipopt >= 3.14
+# is not on every host (this machine ships 3.11.9), so a default-on feature would make
+# `cargo check --workspace` fail for anyone without the solver container. Turning it on
+# is an ADR at phase 1 (plan §4, §11 step 5).
+default = []
+# `pse-ipopt-sys/link` is what makes that crate's build script probe for the library;
+# without it the -sys crate compiles to an empty shell on any host.
+ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
+# Phase-4 placeholder: `diffsol` enters [workspace.dependencies] with this feature
+# (blueprint §13.6), not before.
+diffsol = []

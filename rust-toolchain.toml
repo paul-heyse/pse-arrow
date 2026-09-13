@@ -1,0 +1,11 @@
+# Pinned stable toolchain. Nightly is never the default in this repository: the nightly
+# used for rustdoc-JSON extraction is pinned in tooling/dfarrow-apiex/rust-toolchain.toml
+# and applies only inside that directory (rustup picks the nearest toolchain file);
+# scheduled jobs that need nightly say `+nightly-YYYY-MM-DD` explicitly.
+#
+# [workspace.package].rust-version in Cargo.toml is kept EQUAL to this channel by
+# tests/governance (toolchain_matches_msrv); bump both together (ADR-0018).
+[toolchain]
+channel = "1.98.1"
+profile = "minimal"
+components = ["rustfmt", "clippy", "rust-src", "rust-analyzer", "llvm-tools"]

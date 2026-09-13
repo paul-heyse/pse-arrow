@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Deliberately minimal (tests/governance/no_patch_tables.rs asserts it stays so).
+#
+# No linker override: rustc >= 1.90 links x86_64 Linux with rust-lld already; on Apple
+# targets the correct configuration is the absence of one. mold is a per-user opt-in in
+# ~/.cargo/config.toml, never a repository requirement.
+#
+# No `target-cpu=native`, ever. It lets LLVM contract `a*b + c` into a single FMA, which
+# changes floating-point results between a developer machine and CI; parity tolerances
+# would pass in one place and fail in the other.
+#
+# sccache is not wired in here: a mandatory `rustc-wrapper` breaks every contributor who
+# lacks it. The justfile / .envrc set RUSTC_WRAPPER per command instead. (sccache cannot
+# cache cdylib/bin/proc-macro crates, which is why pse-py is a thin shell over rlibs.)
+#
+# There is no config key for `--locked`; every gate passes it explicitly.
+
+[alias]
+xtask = "run --quiet --package xtask --"
+
+[future-incompat-report]
+frequency = "always"

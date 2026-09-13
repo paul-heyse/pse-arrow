@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-py"
+description = "pyo3 + pyo3-arrow extension module (cdylib) that is the whole Python boundary (blueprint §3.2, §21)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+# maturin's `module-name = "pse._native"` requires the shared object to be `_native`.
+name = "_native"
+# cdylib only: sccache cannot cache cdylib/bin/proc-macro crates, which is why this crate
+# is a thin shell over rlibs (.cargo/config.toml).
+crate-type = ["cdylib"]
+# A cdylib built with pyo3's `extension-module` deliberately leaves the CPython symbols
+# undefined, so a test/doctest/bench harness for this target cannot link. The Python-side
+# tests live in `python/pse/tests`; Rust logic lives in pse-runtime, which is tested.
+test = false
+doctest = false
+bench = false
+
+[dependencies]
+pyo3 = { workspace = true, features = ["extension-module", "abi3-py311"] }
+pyo3-arrow.workspace = true
+pse-runtime.workspace = true
+pse-buildinfo.workspace = true

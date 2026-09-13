@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-tests-conformance"
+description = "Backend conformance tests: native, NL and Pyomo agree (blueprint §24.1)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+# A test family is never published.
+publish = false
+
+[lints]
+workspace = true

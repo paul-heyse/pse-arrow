@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Explicit style edition: bare rustfmt defaults to 2015 and would disagree with `cargo fmt`.
+style_edition = "2024"
+max_width = 100
+use_field_init_shorthand = true
+use_try_shorthand = true
+newline_style = "Unix"
+# Generated files carry `#![rustfmt::skip]` (emitted by the generator); the nightly-only
+# `ignore` option is not used.

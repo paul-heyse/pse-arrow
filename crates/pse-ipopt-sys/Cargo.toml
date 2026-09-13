@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-ipopt-sys"
+description = "Raw FFI bindings to the Ipopt C API; build script emits link directives only (blueprint §3.1, §18.3)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+# Declares the native library so cargo enforces one -sys crate per library and exports
+# `cargo:version=` to dependents as DEP_IPOPT_VERSION (recorded by `probe_host`).
+links = "ipopt"
+build = "build.rs"
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# The probe is a FEATURE, not unconditional build-script behaviour: `cargo check
+# --workspace` builds every member's build script, and Ipopt >= 3.14 is not on every host
+# (this development machine ships 3.11.9). With `link` off the build script emits only
+# rerun-if-env-changed and the crate compiles to an empty shell. `pse-backend-native`'s
+# `ipopt` feature turns it on, which is the only path that actually links.
+link = []
+
+[build-dependencies]
+pkg-config.workspace = true

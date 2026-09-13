@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# clippy configuration. `msrv` is NOT set here: clippy reads package.rust-version, and
+# setting both invites drift.
+
+# `unwrap_used` / `expect_used` / `panic` are denied at workspace level because a panic
+# crossing the PyO3 or Ipopt boundary is an abort risk. Tests are exempt: `assert!`
+# expands to `panic!` and `unwrap` is idiomatic in test bodies.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-dbg-in-tests = true
+allow-print-in-tests = true
+
+# Pre-1.0: let clippy propose better signatures.
+avoid-breaking-exported-api = false
+
+# Product names that appear in prose. `clippy::doc_markdown` flags any mixed-case word as a
+# missing code span; backticking a product name is wrong. ".." keeps clippy's default list.
+doc-valid-idents = [
+  "DataFusion",
+  "PyO3",
+  "PyArrow",
+  "NumPy",
+  "SciPy",
+  "IDAES",
+  "Ipopt",
+  "MUMPS",
+  "PETSc",
+  "CoolProp",
+  "FeOs",
+  "Pyomo",
+  "RecordBatch",
+  "SessionContext",
+  "SessionConfig",
+  "TableProvider",
+  "LogicalPlan",
+  "IPC",
+  "CPython",
+  "PyPI",
+  "GitHub",
+  "..",
+]
+
+# Type-aware layer of the blueprint §24.1 governance bans. The regex layer is
+# tests/governance/banned_patterns.rs. Definition paths are checked against the extracted
+# API facts (docs/capability-maps/facts) by `cargo xtask doc-lint`.
+disallowed-methods = [
+  { path = "arrow_schema::Field::extension_type", reason = "panics on a missing or invalid extension; use `try_extension_type` (blueprint §4.4)" },
+  { path = "datafusion_execution::config::SessionConfig::set_str", reason = "panics on an invalid key; use typed `ConfigOptions` only (blueprint §23.2, `config.invalid`)" },
+  { path = "serde_arrow::schema::SchemaLike::from_type", reason = "schemas come from the registry, never inferred (blueprint §5.3)" },
+  { path = "serde_arrow::schema::SchemaLike::from_samples", reason = "schemas come from the registry, never inferred (blueprint §5.3)" },
+  { path = "arrow_ipc::writer::IpcWriteOptions::try_with_compression", reason = "canonical IPC is uncompressed (blueprint §5.3, pse.canon.v1)" },
+]
+disallowed-types = [
+  { path = "anyhow::Error", reason = "every pse-* crate returns a concrete thiserror enum with miette::Diagnostic (blueprint §23.2); xtask opts out at crate level" },
+]

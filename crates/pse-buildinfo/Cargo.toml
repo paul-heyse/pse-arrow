@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-buildinfo"
+description = "Build provenance: rustc version, profile, git sha and the embedded lockfiles (blueprint §3.1, plan §5)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+build = "build.rs"
+
+[lints]
+workspace = true
+
+# No dependencies, and deliberately no blake3: `pse-ids` is the only crate allowed to hash
+# (blueprint §5.1, governance `blake3_owner`). This crate embeds the bytes; whoever needs
+# a digest of them asks `pse-ids`.

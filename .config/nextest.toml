@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# cargo-nextest configuration. nextest does not run doctests: every gate pairs
+# `cargo nextest run` with `cargo test --doc --workspace --locked`.
+
+[test-groups]
+# Ipopt + MUMPS solves are memory-heavy and spawn their own rayon/tokio threads
+# (blueprint §18.8 thread budget).
+solver = { max-threads = 2 }
+# Object-store lifecycle tests and golden-snapshot writers share on-disk state.
+serial = { max-threads = 1 }
+
+[profile.default]
+fail-fast = true
+slow-timeout = { period = "60s", terminate-after = 2 }
+leak-timeout = "500ms"
+
+[[profile.default.overrides]]
+filter = 'package(pse-backend-native) | package(pse-tests-lifecycle) | test(/(^|::)solve_/)'
+test-group = "solver"
+threads-required = 2
+slow-timeout = { period = "300s", terminate-after = 2 }
+
+[[profile.default.overrides]]
+filter = 'package(pse-tests-engine) | package(pse-catalog) | test(/object_store/)'
+test-group = "serial"
+
+# CI: run everything, retry nothing. A flaky test is a red test.
+[profile.ci]
+fail-fast = false
+retries = 0
+slow-timeout = { period = "120s", terminate-after = 3, grace-period = "10s" }
+global-timeout = "2h"
+success-output = "never"
+failure-output = "immediate-final"
+status-level = "fail"
+final-status-level = "flaky"
+
+[profile.ci.junit]
+path = "junit.xml"
+store-failure-output = true
+
+# Opt-in diagnostic only: `cargo nextest run --profile flaky-hunt -E 'test(name)'` answers
+# "is this failure nondeterministic?"; it never launders a red test green.
+[profile.flaky-hunt]
+inherits = "ci"
+retries = { backoff = "exponential", count = 3, delay = "1s", max-delay = "10s", jitter = true }
+flaky-result = "fail"

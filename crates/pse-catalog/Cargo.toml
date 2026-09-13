@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-catalog"
+description = "Snapshot catalog (CatalogProviderList, SchemaProvider, TableProvider) and the artifact store (blueprint §3.2, §20)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+datafusion.workspace = true
+datafusion-catalog.workspace = true
+datafusion-common.workspace = true
+datafusion-execution.workspace = true
+datafusion-physical-plan.workspace = true
+datafusion-expr.workspace = true
+datafusion-physical-expr.workspace = true
+datafusion-optimizer.workspace = true
+object_store.workspace = true
+arrow.workspace = true
+arrow-ipc.workspace = true
+arrow-select.workspace = true
+arrow-cast.workspace = true
+arrow-ord.workspace = true
+parquet.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+pse-relations.workspace = true
+pse-ids.workspace = true
+pse-schema.workspace = true
+thiserror.workspace = true
+miette.workspace = true

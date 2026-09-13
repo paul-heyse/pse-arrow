@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+[package]
+name = "pse-runtime"
+description = "Run controller, case overlays, sweeps, result ingestion and lifecycle/cancellation (blueprint §3.2, §20)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+pse-compiler.workspace = true
+pse-catalog.workspace = true
+pse-backend-nl.workspace = true
+pse-backend-pyomo.workspace = true
+pse-diagnostics.workspace = true
+pse-buildinfo.workspace = true
+pse-ids.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+thiserror.workspace = true
+miette.workspace = true
+
+[dependencies.pse-backend-native]
+workspace = true
+
+[features]
+default = []
+# Propagates to the -sys crate's build-script probe; see pse-backend-native's manifest for
+# why phase 0 leaves it off.
+ipopt = ["pse-backend-native/ipopt"]

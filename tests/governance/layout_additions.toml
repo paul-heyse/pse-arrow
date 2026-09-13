@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+
+# Crate directories that exist under `crates/` but are NOT in the blueprint §3.2 code
+# block. Adding a row here is the mechanical half of amending §3.2; the other half is the
+# ADR named below. `every_crate_registered` fails on any directory that is in neither
+# place, so a crate cannot be introduced by accident.
+additions = ["pse-ipopt-sys", "pse-buildinfo"]
+reason = """
+ADR-0038 amends blueprint §3.2 with the workspace-layout additions the design implies but
+does not list: `pse-ipopt-sys` because a `links = "ipopt"` -sys crate must be separate from
+the safe driver (§18.3, one -sys crate per native library), and `pse-buildinfo` because the
+snapshot manifest's `toolchain.*` fields and the Python `build_info()` need build
+provenance that no design crate owns (§20, plan §5).
+"""
