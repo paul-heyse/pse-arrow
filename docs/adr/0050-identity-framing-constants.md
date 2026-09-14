@@ -8,7 +8,7 @@ level: decision
 principles: [DM-11, DM-15, DM-48]
 blueprint: [§4.3, §5.1, §5.3, §14.3]
 review: not-required: the constants make ADR-0045's and ADR-0007's accepted contracts implementable without changing them; the revision-5 review already carries the Accept verdict for the contracts themselves
-evidence: Proposed
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: any constant listed here has to change — that is a new version string and a superseding record, never an edit
@@ -61,6 +61,36 @@ Changing any of these constants is a new version string (`pse.canon.v3`, `pse:na
 ### Confirmation
 
 `just test-package pse-ids -p pse-relations` runs the golden vectors; `just test-package pse-tests-conformance -p pse-relations` runs the metamorphic and round-trip fixtures. Both are named in `verification:`.
+
+The vectors below are frozen by `crates/pse-ids/tests/golden_vectors.rs` (Tested,
+2026-09-13: `just test-package pse-ids -p pse-relations`, dev profile,
+`pse-relations/force-validate`, 87 passed, 0 failed). Inputs are the literals
+`A = [0x01; 16]`, `B = [0x02; 16]`, `C = [0x03; 16]`, `D = [0x04; 16]`, index tuple `(C, D)`,
+`Ordinal(7)`; the case frame uses registry fingerprint `[0x11; 32]`, parent
+`("model", [0x22; 32])` and members `("case/aaaa", "case", C, 1, [0x33; 32])`,
+`("case/bbbb", "case", D, 2, [0x44; 32])`. `derive_id(ctx, parts)` equals the first
+16 bytes of `derive_hash(ctx, parts)` because BLAKE3's `finalize` is the XOF prefix; a
+test records that equality so no later change separates the two.
+
+| Vector | Hex |
+|---|---|
+| `derive_id(NAMED, [NIL, "pse.schema"])` | `a409aa6be295e9f374cf4b829f193f49` |
+| `named_id(^, "relation:authored.stoichiometry@1")` | `4af05b3e65e854a58198776b3cddaa8d` |
+| `derive_hash(REGISTRY, [b"a", b"bc"])` | `e1745e73a5c5b0a583f4cf13428c2e7696e97101b6a4abb64a8ddfb83969a8b6` |
+| `symbol_instance_id(A, B, (C, D))` | `70dde4aa3dfe04a4886a7b59df389070` |
+| `equation_instance_id(A, B, (C, D))` | `a56c9c4f2710d4ee6160789909a9c33a` |
+| `law_term_id(A, B, (C, D))` | `bbacd7698075d85247763217db444ee3` |
+| `connection_equation_id(A, Ordinal(7), (C, D))` | `19ae7d5c7570254f981df87da0451540` |
+| `mesh_node_id(A, B, Ordinal(7))` | `eb00e870f92170e9ac71856dca721e01` |
+| `discretized_symbol_id(A, B)` | `7d39e0dbf3fea05cb118af04f299257a` |
+| `snapshot_id(case frame)` | `f778ddfdfc8864bd7c10168528f35bf164c14b184ae55d29b4ca8a76427693f8` |
+| `encoding_checksum(b"pse")` | `b183159a276933fcc7170f73b6e21ff751344a2769b9669736ff4ffa47c689ee` |
+| `canonical_f64_bits(NaN)` / `(-0.0)` | `0x7ff8000000000000` / `0x8000000000000000` |
+| `canonical_f32_bits(NaN)` / `(-0.0)` | `0x7fc00000` / `0x80000000` |
+
+No independent BLAKE3 implementation was available in the build environment, so the
+vectors are self-consistent rather than cross-checked; an external confirmation with
+`b3sum` is a wave-exit item.
 
 ## Pros and cons
 
