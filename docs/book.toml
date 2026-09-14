@@ -13,7 +13,10 @@ src = "."
 [build]
 build-dir = "book"
 create-missing = false
-use-default-preprocessors = true
+# The default `index` preprocessor renames every README.md chapter to index.html, which
+# breaks the `README.md` links the ADRs, plans and reviews carry (they must read on GitHub
+# and in the book alike). Only the `links` preprocessor is wanted.
+use-default-preprocessors = false
 
 [output.html]
 site-url = "/pse-arrow/"
@@ -32,3 +35,5 @@ level = 1
 enable = true
 limit-results = 30
 use-boolean-and = true
+
+[preprocessor.links]
