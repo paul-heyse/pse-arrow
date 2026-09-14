@@ -79,6 +79,7 @@
 - [Review: blueprint revision 1](design_review/reviews/design_review_arrow-native-idaes-core-blueprint_2026-09-13.md)
 - [Review: blueprint revision 2](design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md)
 - [Review: blueprint revision 4 and library contracts](design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+  - [Revision-4 library evidence: probe receipts](design_review/evidence/blueprint-rev4-2026-09-13/README.md)
 - [Review: blueprint revision 5 contracts](design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md)
 
 # Capability maps
