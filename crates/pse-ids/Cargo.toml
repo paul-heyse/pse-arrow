@@ -16,8 +16,14 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Read-only timing observations; admission and reservations remain mandatory.
+bench-instrumentation = []
+
 [dependencies]
 blake3.workspace = true
+bytes.workspace = true
+serde.workspace = true
 arrow.workspace = true
 arrow-array.workspace = true
 arrow-schema.workspace = true

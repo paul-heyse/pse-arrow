@@ -44,7 +44,7 @@ pse_quantity::closed_enum! {
     /// The spellings are the IDAES ones: `undefined`, `liquidPhase`, `vaporPhase`,
     /// `solidPhase`, `aqueousPhase`.
     pub enum PhaseType {
-        /// No phase type was declared; the phase is valid for any species.
+        /// An explicitly declared undefined phase type, distinct from missing input facts.
         Undefined => "undefined",
         /// A liquid phase.
         Liquid => "liquidPhase",

@@ -1,0 +1,12 @@
+{
+  "invariant": "normalized.phase_species:unique:pk",
+  "rows": {
+    "normalized.phase_species": [
+      {
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

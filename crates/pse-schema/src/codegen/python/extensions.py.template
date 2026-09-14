@@ -1,0 +1,82 @@
+"""Passive Arrow registration and strict versioned extension metadata codecs."""
+
+import contextlib
+from typing import Never, Self
+
+import msgspec
+import msgspec.json
+import pyarrow as pa
+
+
+class _VersionMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    v: int
+
+
+class _EnumMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    v: int
+    enum_id: str
+
+
+class _OrdinalMetadata(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    v: int
+    target_relation_id: str
+
+
+def _reject(message: str) -> Never:
+    raise ValueError(message)
+
+
+def _identity(value: str | None) -> str:
+    if value is None or len(value) != 32 or any(char not in "0123456789abcdef" for char in value):
+        _reject("extension binding must be a 32-character lowercase hexadecimal identity")
+    return value
+
+
+class _PseExtensionType(pa.ExtensionType):
+    _extension_name = ""
+    _storage_type: pa.DataType = pa.null()
+    _metadata_version = 1
+    _binding_key: str | None = None
+    _prototype_binding: str | None = None
+
+    def __init__(self, binding_id: str | None = None) -> None:
+        if self._binding_key is None:
+            if binding_id is not None:
+                _reject("this extension has no identity parameter")
+            self.binding_id = None
+        else:
+            self.binding_id = _identity(binding_id)
+        super().__init__(self._storage_type, self._extension_name)
+
+    def __arrow_ext_serialize__(self) -> bytes:
+        if self._binding_key == "enum_id":
+            return msgspec.json.encode(_EnumMetadata(self._metadata_version, _identity(self.binding_id)))
+        if self._binding_key == "target_relation_id":
+            return msgspec.json.encode(_OrdinalMetadata(self._metadata_version, _identity(self.binding_id)))
+        return msgspec.json.encode(_VersionMetadata(self._metadata_version))
+
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type: pa.DataType, serialized: bytes) -> Self:
+        if storage_type != cls._storage_type:
+            _reject(f"{cls._extension_name} storage does not match its declared physical fields")
+        try:
+            if cls._binding_key == "enum_id":
+                enum_metadata = msgspec.json.decode(serialized, type=_EnumMetadata)
+                version = enum_metadata.v
+                binding: str | None = _identity(enum_metadata.enum_id)
+            elif cls._binding_key == "target_relation_id":
+                ordinal_metadata = msgspec.json.decode(serialized, type=_OrdinalMetadata)
+                version = ordinal_metadata.v
+                binding = _identity(ordinal_metadata.target_relation_id)
+            else:
+                version = msgspec.json.decode(serialized, type=_VersionMetadata).v
+                binding = None
+        except msgspec.MsgspecError as exc:
+            message = "malformed or unknown extension metadata"
+            raise ValueError(message) from exc
+        if version != cls._metadata_version:
+            _reject(f"unsupported extension metadata generation {version}")
+        result = cls(binding)
+        if result.__arrow_ext_serialize__() != serialized:
+            _reject("extension metadata must use the canonical encoding without duplicate keys")
+        return result

@@ -1,0 +1,26 @@
+{
+  "invariant": "reference.bases:unique:pk",
+  "rows": {
+    "reference.bases": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "composition_basis": "[\"enum\",\"mole_fraction\"]",
+        "kind": "[\"enum\",\"molar\"]",
+        "rate_basis": "[\"enum\",\"per_volume\"]",
+        "reference_conditions_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "composition_basis": "[\"enum\",\"mole_fraction\"]",
+        "kind": "[\"enum\",\"molar\"]",
+        "rate_basis": "[\"enum\",\"per_volume\"]",
+        "reference_conditions_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

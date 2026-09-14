@@ -1,0 +1,28 @@
+{
+  "invariant": "provenance.pass_records:check:terminal_duration",
+  "rows": {
+    "provenance.pass_records": [
+      {
+        "duration_ms": "[\"f64\",\"bff0000000000000\"]",
+        "engine_profile_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "failure_class": "[\"null\",null]",
+        "finding_count": "[\"u64\",0]",
+        "findings": "[\"list\",[]]",
+        "pass_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "pass_run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "plan_evidence": "[\"list\",[]]",
+        "plan_explain": "[\"list\",[]]",
+        "rules_fired": "[\"list\",[]]",
+        "snapshot_in": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "snapshot_out": "[\"null\",null]",
+        "status": "[\"enum\",\"ok\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

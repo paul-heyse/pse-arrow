@@ -20,6 +20,7 @@
 //! - [`document`] — authoring document shapes.
 
 pub mod cell;
+mod cell_codec;
 pub mod document;
 pub mod enums;
 pub mod extension;
@@ -28,12 +29,16 @@ pub mod logical_type;
 pub mod manifest;
 pub mod migration;
 pub mod pass;
+pub mod pass_status;
 pub mod relation;
 pub mod rule;
 pub mod rule_expr;
+pub(crate) mod rule_validation;
 
-pub use crate::model::cell::Cell;
-pub use crate::model::document::{DocumentKind, DocumentSection, DocumentSpec};
+pub use crate::model::cell::{Cell, RuleLiteralKind};
+pub use crate::model::document::{
+    DocumentKind, DocumentSection, DocumentSpec, DslSyntax, SourceColumn,
+};
 pub use crate::model::enums::{
     Authority, ColumnRole, DerivationGranularity, EnumDecl, EnumMember, EnumSpec, InvariantKind,
     Namespace, Severity, SnapshotClass, Stability,
@@ -44,12 +49,14 @@ pub use crate::model::logical_type::{ExtensionUse, LogicalType, LogicalTypeRow, 
 pub use crate::model::manifest::{ManifestField, ManifestSpec, ManifestType};
 pub use crate::model::migration::{MigrationSpec, MigrationStep};
 pub use crate::model::pass::{Determinism, InputPort, OutputPort, PassDecl, PassSpec, PortSource};
+pub use crate::model::pass_status::PassStatus;
 pub use crate::model::relation::{
     ColumnSpec, ForeignKey, QuantityContract, RelationDecl, RelationKey, RelationSpec,
 };
 pub use crate::model::rule::{
     AggregateEmptyPolicy, AggregateNullPolicy, ConflictPolicy, DependencyMode, DepthBound,
     EmptyListPolicy, NON_DERIVABLE_NAMESPACES, NegationPolicy, NullEquality, NullListPolicy,
-    RuleAggregate, RuleAggregateFn, RuleDecl, RuleDependency, RuleHead, RulePlan, RuleSpec,
+    RuleAggregate, RuleAggregateFn, RuleDecl, RuleDependency, RuleHead, RuleHeadKind, RulePlan,
+    RulePlanOp, RuleSpec,
 };
-pub use crate::model::rule_expr::{CmpOp, RuleExpr};
+pub use crate::model::rule_expr::{CmpOp, RuleExpr, RuleExprOp};

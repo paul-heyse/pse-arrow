@@ -1,0 +1,42 @@
+{
+  "invariant": "normalized.predicate_nodes:foreign_key:source_id",
+  "rows": {
+    "normalized.expression_sources": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "family": "[\"enum\",\"template\"]",
+        "field_path": "[\"text\",\"value-1\"]",
+        "owner_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "root_id": "[\"u64\",1]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_key": "[\"list\",[]]",
+        "source_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]",
+        "syntax": "[\"enum\",\"expression\"]"
+      }
+    ],
+    "normalized.predicate_nodes": [
+      {
+        "boolean_value": "[\"bool\",true]",
+        "comparison": "[\"enum\",\"eq\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"text\",\"value-1\"]",
+        "domain_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"boolean\"]",
+        "left_enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "left_enum_member": "[\"text\",\"value-1\"]",
+        "left_expr": "[\"u64\",1]",
+        "left_kind": "[\"enum\",\"expression\"]",
+        "left_predicate": "[\"u64\",1]",
+        "predicate_id": "[\"u64\",1]",
+        "right_enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "right_enum_member": "[\"text\",\"value-1\"]",
+        "right_expr": "[\"u64\",1]",
+        "right_kind": "[\"enum\",\"expression\"]",
+        "right_predicate": "[\"u64\",1]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

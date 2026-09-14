@@ -1,0 +1,20 @@
+{
+  "invariant": "authored.observation_targets:check:target_shape",
+  "rows": {
+    "authored.observation_targets": [
+      {
+        "equation_decl_id": "[\"null\",null]",
+        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member_kind": "[\"enum\",\"symbol\"]",
+        "observation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]",
+        "port_name": "[\"null\",null]",
+        "port_template_id": "[\"null\",null]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "wildcard": "[\"bool\",false]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

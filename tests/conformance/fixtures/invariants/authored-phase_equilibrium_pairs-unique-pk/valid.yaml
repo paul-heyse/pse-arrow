@@ -1,0 +1,15 @@
+{
+  "invariant": "authored.phase_equilibrium_pairs:unique:pk",
+  "rows": {
+    "authored.phase_equilibrium_pairs": [
+      {
+        "form_method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_a_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_b_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_method_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

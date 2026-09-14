@@ -1,0 +1,15 @@
+{
+  "invariant": "normalized.contribution_expr_gathers:unique:pk",
+  "rows": {
+    "normalized.contribution_expr_gathers": [
+      {
+        "coordinate_map": "[\"list\",[]]",
+        "gather_state": "[\"enum\",\"resolved\"]",
+        "group_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index_nodes": "[\"list\",[]]",
+        "node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

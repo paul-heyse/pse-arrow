@@ -22,11 +22,11 @@
 //! §14.3 says so, and the peak reporting keeps the accounted peak and the process peak as
 //! two numbers for exactly that reason.
 //!
-//! # Phase 0
+//! # Foundation scope
 //!
-//! The error taxonomy and the resource budget are implemented. The shared runtime, the
-//! pool-backed reserver, peak reporting, cancellation and the session factory are declared
-//! and empty; each names the packet that fills it.
+//! The finite shared runtime, pool-backed reservations, peak reporting and cancellation
+//! are implemented. Session factories bind the same runtime and reservation adapter to
+//! admitted snapshots or explicitly unpublished candidate rows.
 
 pub mod budget;
 pub mod cancel;
@@ -38,3 +38,8 @@ pub mod session_factory;
 
 pub use crate::budget::ResourceBudget;
 pub use crate::error::RuntimeError;
+
+pub use crate::cancel::CancelSource;
+pub use crate::env::SharedRuntime;
+pub use crate::peak::ResourceReport;
+pub use crate::reserve::PoolReserver;

@@ -1,0 +1,28 @@
+{
+  "invariant": "inferred.ports:unique:pk",
+  "rows": {
+    "inferred.ports": [
+      {
+        "direction": "[\"enum\",\"inlet\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"material\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "port_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_instance_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "direction": "[\"enum\",\"inlet\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"material\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "port_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_instance_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

@@ -8,7 +8,8 @@ have different lifecycles, which is why they live in different directories.
 |---|---|---|---|
 | [01 — Repository configuration](01-repository-configuration.md) | Repository identity, layout and migration, the Rust workspace and supply chain, the solver container, Python packaging and tests, the CI job graph, decision records, GitHub setup, the agent environment, the docs site | ADR-0001 – ADR-0038 | in-progress |
 | [02 — Blueprint revision 5 contracts](02-blueprint-revision-5-contracts.md) | Design amendment for R4-01–R4-13 and L1–L9; separate Proposed implementation handoff | ADR-0039 – ADR-0048 | done (documentation; runtime handoff Proposed) |
-| [03 — Wave 1 foundations](03-wave-1-foundations.md) | Phase-0 foundations and load-bearing interfaces as parallel sub-agent packets | ADR-0039 – ADR-0051 | in-progress |
+| [03 — Wave 1 foundations](03-wave-1-foundations.md) | Phase-0 foundations, corrections and load-bearing interfaces in one combined execution | ADR-0039 – ADR-0059 | in-progress |
+| [04 — Wave 2 semantic compilation](04-wave-2-semantic-compilation.md) | Phase-1 compiler portion: real P4–P10, reference packages/templates, generated Rust manifest and immutable Python inspection | Existing contracts through ADR-0059; new contract decisions planned | draft (Proposed) |
 
 ## Norms
 

@@ -1,0 +1,24 @@
+{
+  "invariant": "authored.package_unit_sets:foreign_key:package_id",
+  "rows": {
+    "authored.package_unit_sets": [
+      {
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_set_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.packages": [
+      {
+        "content_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "dependencies": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "id_policy": "[\"enum\",\"explicit\"]",
+        "kind": "[\"enum\",\"reference\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

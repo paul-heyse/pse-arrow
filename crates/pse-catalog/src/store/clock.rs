@@ -73,6 +73,59 @@ fn is_leap_year(year: u64) -> bool {
     year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
 }
 
+/// Calendar-valid UTC form shared by physical manifest/ref admission: four-digit
+/// positive year, seconds 00–59, and optionally one through nine fractional digits.
+pub(crate) fn valid_rfc3339_utc(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if !(20..=30).contains(&bytes.len())
+        || bytes.last() != Some(&b'Z')
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+    {
+        return false;
+    }
+    if bytes.len() != 20
+        && (bytes.len() < 22
+            || bytes[19] != b'.'
+            || !bytes[20..bytes.len() - 1].iter().all(u8::is_ascii_digit))
+    {
+        return false;
+    }
+    let number = |range: std::ops::Range<usize>| {
+        bytes[range].iter().try_fold(0u64, |value, byte| {
+            byte.is_ascii_digit()
+                .then(|| value * 10 + u64::from(byte - b'0'))
+        })
+    };
+    let (Some(year), Some(month), Some(day), Some(hour), Some(minute), Some(second)) = (
+        number(0..4),
+        number(5..7),
+        number(8..10),
+        number(11..13),
+        number(14..16),
+        number(17..19),
+    ) else {
+        return false;
+    };
+    if year == 0
+        || !(1..=12).contains(&month)
+        || day == 0
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
+        return false;
+    }
+    let Some(month) = usize::try_from(month - 1).ok() else {
+        return false;
+    };
+    let days = u64::from(MONTH_LENGTHS[month]) + u64::from(month == 1 && is_leap_year(year));
+    day <= days
+}
+
 /// The number of days in `year`.
 fn days_in_year(year: u64) -> u64 {
     if is_leap_year(year) { 366 } else { 365 }

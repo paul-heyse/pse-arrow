@@ -19,8 +19,8 @@
 //! unregistered allocation. Arrow's own tracking pools have infallible reserve and cannot
 //! reject; the guarantee here covers accounted consumers only.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use crate::error::{CanonError, ReserveError};
 
@@ -62,6 +62,34 @@ pub trait Reservation: Send + std::fmt::Debug {
 
     /// Returns everything to the budget, leaving the reservation open at zero.
     fn release(&mut self);
+}
+
+/// A fixed reservation retained by every immutable buffer that shares its allocation.
+///
+/// The mutex makes the single `Send` reservation safely shareable; it is never locked
+/// after construction. Only dropping the last lease owner releases the reservation.
+/// Cloning a lease does not open or grow another reservation.
+#[derive(Debug)]
+pub struct ReservationLease {
+    /// Must outlive all buffer owners. The original allocation is dropped before this
+    /// lease in `owned_buffer::LeasedBuffer`.
+    _reservation: Mutex<Box<dyn Reservation>>,
+    bytes: usize,
+}
+
+impl ReservationLease {
+    /// Freezes an existing reservation for immutable buffer ownership.
+    pub fn new(reservation: Box<dyn Reservation>) -> Arc<Self> {
+        Arc::new(Self {
+            bytes: reservation.size(),
+            _reservation: Mutex::new(reservation),
+        })
+    }
+
+    /// The fixed accounted extent shared by all holders.
+    pub const fn size(&self) -> usize {
+        self.bytes
+    }
 }
 
 /// The shared state of a [`FixedBudget`], which outlives the handle it was opened from.

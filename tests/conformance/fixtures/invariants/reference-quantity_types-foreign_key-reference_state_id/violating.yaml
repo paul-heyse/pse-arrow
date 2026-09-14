@@ -1,0 +1,35 @@
+{
+  "invariant": "reference.quantity_types:foreign_key:reference_state_id",
+  "rows": {
+    "reference.quantity_types": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "canonical_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "nominal_magnitude": "[\"f64\",\"3ff0000000000000\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reference_state_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "scale_kind": "[\"enum\",\"point\"]",
+        "shape": "[\"list\",[]]",
+        "subject_kind": "[\"enum\",\"species\"]"
+      }
+    ],
+    "reference.reference_states": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "include_enthalpy_of_formation": "[\"bool\",true]",
+        "kind": "[\"enum\",\"elemental_at_conditions\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "pressure": "[\"f64\",\"3ff0000000000000\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "temperature": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

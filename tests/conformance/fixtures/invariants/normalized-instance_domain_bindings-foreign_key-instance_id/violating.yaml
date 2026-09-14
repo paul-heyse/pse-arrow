@@ -1,0 +1,31 @@
+{
+  "invariant": "normalized.instance_domain_bindings:foreign_key:instance_id",
+  "rows": {
+    "authored.instances": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "feature_values": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "param_values": "[\"list\",[]]",
+        "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "normalized.instance_domain_bindings": [
+      {
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"text\",\"value-1\"]",
+        "instance_id": "[\"id\",\"02020202020202020202020202020202\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"02020202020202020202020202020202\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "invariant": "normalized.method_selections:unique:pk",
+  "rows": {
+    "normalized.method_selections": [
+      {
+        "family": "[\"enum\",\"state_definition\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "options": "[\"list\",[]]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_ids": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "scope_kind": "[\"enum\",\"package\"]"
+      },
+      {
+        "family": "[\"enum\",\"state_definition\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "options": "[\"list\",[]]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_ids": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "scope_kind": "[\"enum\",\"package\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"enum\",\"package\"]",
+      "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+      "[\"enum\",\"state_definition\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

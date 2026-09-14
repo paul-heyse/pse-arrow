@@ -1,0 +1,14 @@
+{
+  "invariant": "authored.case_activations:unique:pk",
+  "rows": {
+    "authored.case_activations": [
+      {
+        "activation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "active": "[\"bool\",true]",
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target": "[\"text\",\"/fixture.symbol\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

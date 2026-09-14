@@ -295,16 +295,21 @@ pub enum DepthBound {
     /// Iterate to the least fixed point. Termination comes from the deduplication, not
     /// from a counter.
     FixedPoint,
+    /// The number of rows in the admitted seed is a finite iteration bound.
+    SeedRows,
     /// Stop after this many iterations and report; a closure that has not settled is a
     /// finding, not a hang.
     Bounded(u32),
 }
 
 impl DepthBound {
+    /// One representative of every depth policy; the numeric bound is a typed payload.
+    pub const ALL: [Self; 3] = [Self::FixedPoint, Self::SeedRows, Self::Bounded(1)];
     /// The wire spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::FixedPoint => "fixed_point",
+            Self::SeedRows => "seed_rows",
             Self::Bounded(_) => "bounded",
         }
     }
@@ -312,7 +317,7 @@ impl DepthBound {
     /// The bound, when there is one.
     pub const fn limit(self) -> Option<u32> {
         match self {
-            Self::FixedPoint => None,
+            Self::FixedPoint | Self::SeedRows => None,
             Self::Bounded(limit) => Some(limit),
         }
     }
@@ -339,11 +344,17 @@ pub struct RuleAggregate {
 /// The bounded relational algebra a rule body is written in (blueprint §14.2).
 #[derive(Clone, Debug, PartialEq)]
 pub enum RulePlan {
+    /// Reference the nearest lexical recursive binder with this name. This is not an
+    /// external relation scan and is illegal outside that binder's step.
+    RecursiveRef {
+        /// The lexical recursive binding.
+        name: &'static str,
+    },
     /// Read a relation through a named input port. The port, not an implicit latest
     /// producer, is the binding (§6.11).
     Scan {
         /// The qualified relation.
-        relation: &'static str,
+        relation: String,
         /// The `pass_input_ports` port this scan binds to.
         port: &'static str,
     },
@@ -426,23 +437,24 @@ impl RulePlan {
     /// The `RulePlanOp` enumeration member this node is.
     pub const fn op(&self) -> &'static str {
         match self {
-            Self::Scan { .. } => "scan",
-            Self::Filter { .. } => "filter",
-            Self::Project { .. } => "project",
-            Self::EquiJoin { .. } => "equi_join",
-            Self::AntiJoin { .. } => "anti_join",
-            Self::Union(_) => "union",
-            Self::Distinct(_) => "distinct",
-            Self::Aggregate { .. } => "aggregate",
-            Self::Unnest { .. } => "unnest",
-            Self::Recursive { .. } => "recursive",
+            Self::RecursiveRef { .. } => RulePlanOp::RecursiveRef.as_str(),
+            Self::Scan { .. } => RulePlanOp::Scan.as_str(),
+            Self::Filter { .. } => RulePlanOp::Filter.as_str(),
+            Self::Project { .. } => RulePlanOp::Project.as_str(),
+            Self::EquiJoin { .. } => RulePlanOp::EquiJoin.as_str(),
+            Self::AntiJoin { .. } => RulePlanOp::AntiJoin.as_str(),
+            Self::Union(_) => RulePlanOp::Union.as_str(),
+            Self::Distinct(_) => RulePlanOp::Distinct.as_str(),
+            Self::Aggregate { .. } => RulePlanOp::Aggregate.as_str(),
+            Self::Unnest { .. } => RulePlanOp::Unnest.as_str(),
+            Self::Recursive { .. } => RulePlanOp::Recursive.as_str(),
         }
     }
 
     /// This node's children, in the order the `rule_plan_edges` ordinals follow.
     pub fn children(&self) -> Vec<&RulePlan> {
         match self {
-            Self::Scan { .. } => Vec::new(),
+            Self::Scan { .. } | Self::RecursiveRef { .. } => Vec::new(),
             Self::Filter { input, .. }
             | Self::Project { input, .. }
             | Self::Aggregate { input, .. }
@@ -461,17 +473,17 @@ impl RulePlan {
     /// A scan under an [`RulePlan::AntiJoin`]'s right input is a
     /// [`DependencyMode::Negate`]; everywhere else it is a [`DependencyMode::Read`]. That
     /// distinction is what stratification is checked against.
-    pub fn dependencies(&self) -> Vec<(&'static str, &'static str, DependencyMode)> {
+    pub fn dependencies(&self) -> Vec<(&str, &'static str, DependencyMode)> {
         let mut out = Vec::new();
         self.collect_dependencies(DependencyMode::Read, &mut out);
         out
     }
 
     /// Appends this plan's dependencies to `out` under `mode`.
-    fn collect_dependencies(
-        &self,
+    fn collect_dependencies<'a>(
+        &'a self,
         mode: DependencyMode,
-        out: &mut Vec<(&'static str, &'static str, DependencyMode)>,
+        out: &mut Vec<(&'a str, &'static str, DependencyMode)>,
     ) {
         match self {
             Self::Scan { relation, port } => out.push((relation, port, mode)),
@@ -492,20 +504,27 @@ impl RulePlan {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RuleHead {
     /// Rows of a declared relation.
-    Relation(&'static str),
+    Relation(String),
     /// The violating keys of an invariant, which is what a `reference.schema_invariants`
     /// row points at.
     Violations {
         /// The qualified relation the invariant constrains.
-        of: &'static str,
+        of: String,
         /// The key columns the violations are reported by.
         key_columns: Vec<&'static str>,
     },
 }
 
 impl RuleHead {
+    /// Whether the head writes rows or reports invariant evidence.
+    pub const fn kind(&self) -> RuleHeadKind {
+        match self {
+            Self::Relation(_) => RuleHeadKind::Relation,
+            Self::Violations { .. } => RuleHeadKind::Violations,
+        }
+    }
     /// The qualified relation this head reads or writes.
-    pub const fn relation(&self) -> &'static str {
+    pub fn relation(&self) -> &str {
         match self {
             Self::Relation(relation) | Self::Violations { of: relation, .. } => relation,
         }
@@ -518,7 +537,7 @@ pub struct RuleSpec {
     /// `named_id(REGISTRY_PACKAGE_ID, "rule:<name>@<v>")` (ADR-0050).
     pub id: SemanticId,
     /// The rule name, for example `phase_species_valid`.
-    pub name: &'static str,
+    pub name: String,
     /// The rule version.
     pub version: &'static str,
     /// The stratum. Strata run in order; within one, rules reach a least fixed point.
@@ -546,7 +565,7 @@ impl RuleSpec {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuleDecl {
     /// See [`RuleSpec::name`].
-    pub name: &'static str,
+    pub name: String,
     /// See [`RuleSpec::version`].
     pub version: &'static str,
     /// See [`RuleSpec::stratum`].
@@ -565,15 +584,15 @@ pub struct RuleDecl {
 
 impl RuleDecl {
     /// A monotonic, non-negating rule that rejects conflicts.
-    pub const fn new(
-        name: &'static str,
+    pub fn new(
+        name: impl Into<String>,
         version: &'static str,
         stratum: u16,
         head: RuleHead,
         plan: RulePlan,
     ) -> Self {
         Self {
-            name,
+            name: name.into(),
             version,
             stratum,
             head,
@@ -602,10 +621,12 @@ impl RuleDecl {
 /// One derived `reference.rule_dependencies` fact (blueprint §6.11).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RuleDependency {
-    /// The rule, as `<name>@<version>`.
-    pub rule: &'static str,
+    /// The exact versioned rule identity, never an ambiguous bare name.
+    pub rule_id: SemanticId,
     /// The qualified relation.
-    pub relation: &'static str,
+    pub relation: String,
+    /// The resolved relation version bound by this registry.
+    pub relation_id: SemanticId,
     /// The input port the read or negation is bound to; absent for a write.
     pub input_port: Option<&'static str>,
     /// How the rule touches it.
@@ -620,3 +641,82 @@ pub struct RuleDependency {
 /// is a change set (§22.2, decision D2), and a pass that could write one would make
 /// "author causes, derive consequences" unenforceable.
 pub const NON_DERIVABLE_NAMESPACES: [Namespace; 2] = [Namespace::Authored, Namespace::Reference];
+
+/// The declared `RulePlanOp` wire vocabulary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RulePlanOp {
+    /// `scan`.
+    Scan,
+    /// `filter`.
+    Filter,
+    /// `project`.
+    Project,
+    /// `equi_join`.
+    EquiJoin,
+    /// `anti_join`.
+    AntiJoin,
+    /// `union`.
+    Union,
+    /// `distinct`.
+    Distinct,
+    /// `aggregate`.
+    Aggregate,
+    /// `unnest`.
+    Unnest,
+    /// `recursive`.
+    Recursive,
+    /// `recursive_ref`.
+    RecursiveRef,
+}
+impl RulePlanOp {
+    /// Every admitted spelling, in declaration order.
+    pub const ALL: [Self; 11] = [
+        Self::Scan,
+        Self::Filter,
+        Self::Project,
+        Self::EquiJoin,
+        Self::AntiJoin,
+        Self::Union,
+        Self::Distinct,
+        Self::Aggregate,
+        Self::Unnest,
+        Self::Recursive,
+        Self::RecursiveRef,
+    ];
+    /// The wire spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Scan => "scan",
+            Self::Filter => "filter",
+            Self::Project => "project",
+            Self::EquiJoin => "equi_join",
+            Self::AntiJoin => "anti_join",
+            Self::Union => "union",
+            Self::Distinct => "distinct",
+            Self::Aggregate => "aggregate",
+            Self::Unnest => "unnest",
+            Self::Recursive => "recursive",
+            Self::RecursiveRef => "recursive_ref",
+        }
+    }
+}
+
+/// The declared `RuleHeadKind` wire vocabulary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RuleHeadKind {
+    /// `relation`.
+    Relation,
+    /// `violations`.
+    Violations,
+}
+impl RuleHeadKind {
+    /// Every admitted spelling, in declaration order.
+    pub const ALL: [Self; 2] = [Self::Relation, Self::Violations];
+    /// The wire spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Relation => "relation",
+            Self::Violations => "violations",
+        }
+    }
+}

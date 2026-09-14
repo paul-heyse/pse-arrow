@@ -1,0 +1,21 @@
+{
+  "invariant": "compiled.init_stages:unique:pk",
+  "rows": {
+    "compiled.init_stages": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "failure_policy": "[\"enum\",\"abort\"]",
+        "kind": "[\"enum\",\"solve_subset\"]",
+        "ordinal": "[\"u64\",1]",
+        "overlay_case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "plan_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "solver_profile_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "stage_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_ids": "[\"list\",[]]",
+        "target_kind": "[\"enum\",\"instance\"]",
+        "tolerance": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

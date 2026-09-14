@@ -70,6 +70,59 @@ mod tag {
 }
 
 impl Cell {
+    /// Decode the tagged literal without losing integer ranges, float bits or nested shapes.
+    /// Enum spellings resolve to this registry; use field admission for the expected enum.
+    ///
+    /// # Errors
+    /// Invalid JSON, unknown tags, invalid ranges or undeclared enum member spellings.
+    pub fn from_literal_spec(
+        text: &str,
+        registry: &crate::Registry,
+    ) -> Result<Self, crate::SchemaError> {
+        super::cell_codec::parse(text, registry)
+    }
+
+    /// The value's concrete variant, including the distinction between text and enum.
+    pub const fn literal_kind(&self) -> RuleLiteralKind {
+        match self {
+            Self::Null => RuleLiteralKind::Null,
+            Self::Bool(_) => RuleLiteralKind::Bool,
+            Self::I64(_) => RuleLiteralKind::I64,
+            Self::U64(_) => RuleLiteralKind::U64,
+            Self::F64(_) => RuleLiteralKind::F64,
+            Self::Text(_) => RuleLiteralKind::Text,
+            Self::Id(_) => RuleLiteralKind::Id,
+            Self::Hash(_) => RuleLiteralKind::Hash,
+            Self::Enum(_) => RuleLiteralKind::Enum,
+            Self::List(_) => RuleLiteralKind::List,
+            Self::Struct(_) => RuleLiteralKind::Struct,
+        }
+    }
+
+    /// A lossless, tagged JSON literal, used by migration plan text. Float payloads use
+    /// hexadecimal bits to preserve signed zero, nonfinite values and NaN payloads.
+    pub fn literal_spec(&self) -> String {
+        let value = match self {
+            Self::Null => "null".to_owned(),
+            Self::Bool(value) => value.to_string(),
+            Self::I64(value) => value.to_string(),
+            Self::U64(value) => value.to_string(),
+            Self::F64(value) => format!("\"{:016x}\"", value.to_bits()),
+            Self::Text(value) => json_string(value),
+            Self::Enum(value) => json_string(value),
+            Self::Id(value) => json_string(&value.to_hex()),
+            Self::Hash(value) => json_string(&value.to_string()),
+            Self::List(values) | Self::Struct(values) => format!(
+                "[{}]",
+                values
+                    .iter()
+                    .map(Self::literal_spec)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+        };
+        format!("[\"{}\",{value}]", self.literal_kind().as_str())
+    }
     /// A text cell from anything that renders as one.
     pub fn text(value: impl Into<String>) -> Self {
         Self::Text(value.into())
@@ -137,6 +190,26 @@ impl Cell {
     }
 }
 
+fn json_string(value: &str) -> String {
+    let mut result = String::from("\"");
+    for character in value.chars() {
+        match character {
+            '"' => result.push_str("\\\""),
+            '\\' => result.push_str("\\\\"),
+            '\n' => result.push_str("\\n"),
+            '\r' => result.push_str("\\r"),
+            '\t' => result.push_str("\\t"),
+            character if character < '\u{20}' => {
+                use std::fmt::Write as _;
+                let _ = write!(result, "\\u{:04x}", u32::from(character));
+            }
+            character => result.push(character),
+        }
+    }
+    result.push('"');
+    result
+}
+
 /// A tag byte followed by `bytes`, as one part's payload.
 fn tagged(tag: u8, bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len() + 1);
@@ -154,6 +227,65 @@ fn frame_sequence(elements: &[Cell], hasher: &mut FramedHasher) {
     hasher.u64(u64::try_from(elements.len()).unwrap_or(u64::MAX));
     for element in elements {
         element.frame(hasher);
+    }
+}
+
+/// The declared `RuleLiteralKind` wire vocabulary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RuleLiteralKind {
+    /// `null`.
+    Null,
+    /// `bool`.
+    Bool,
+    /// `i64`.
+    I64,
+    /// `u64`.
+    U64,
+    /// `f64`.
+    F64,
+    /// `text`.
+    Text,
+    /// `id`.
+    Id,
+    /// `hash`.
+    Hash,
+    /// `enum`.
+    Enum,
+    /// `list`.
+    List,
+    /// `struct`.
+    Struct,
+}
+impl RuleLiteralKind {
+    /// Every admitted spelling, in declaration order.
+    pub const ALL: [Self; 11] = [
+        Self::Null,
+        Self::Bool,
+        Self::I64,
+        Self::U64,
+        Self::F64,
+        Self::Text,
+        Self::Id,
+        Self::Hash,
+        Self::Enum,
+        Self::List,
+        Self::Struct,
+    ];
+    /// The wire spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Null => "null",
+            Self::Bool => "bool",
+            Self::I64 => "i64",
+            Self::U64 => "u64",
+            Self::F64 => "f64",
+            Self::Text => "text",
+            Self::Id => "id",
+            Self::Hash => "hash",
+            Self::Enum => "enum",
+            Self::List => "list",
+            Self::Struct => "struct",
+        }
     }
 }
 

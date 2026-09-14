@@ -1,0 +1,121 @@
+{
+  "evidence": "Tested",
+  "date": "2026-09-14",
+  "command": "gcc -O2 -DBLAKE3_TESTING -DBLAKE3_NO_SSE2 -DBLAKE3_NO_SSE41 -DBLAKE3_NO_AVX2 -DBLAKE3_NO_AVX512 -DBLAKE3_USE_NEON=0 \"$PSE_BLAKE3_C/main.c\" \"$PSE_BLAKE3_C/blake3.c\" \"$PSE_BLAKE3_C/blake3_dispatch.c\" \"$PSE_BLAKE3_C/blake3_portable.c\" -o /tmp/pse-identity-c-oracle/blake3-c",
+  "compiler": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "source_crate": "blake3-1.8.7",
+  "source_files_sha256": {
+    "main.c": "2638e68647ba36dcacf9dbdb4d87d53a94356c34ee8ee41f32030b25418bebea",
+    "blake3.c": "b118ddf7cf9e6e5ef3fded72dcb1acf9dfdc4ea923cbe4605900ad6ee9afe1af",
+    "blake3_dispatch.c": "134f21550138c0af6312925c988aeee35df287e4119e8ad1d206fccdb2238fe3",
+    "blake3_portable.c": "2bc25b0dad67b4329d0b49cfa075ab2b0d04e424addbddc4e9c389c52a192524",
+    "blake3.h": "81bbb11ad1909341565dce4914cc0e5c29718eca27e6950b28f9226a91aaf8c5",
+    "blake3_impl.h": "d388dca3574602c8849805ea3c8c0a12d082ac0e428756f305e111942f099af4"
+  },
+  "vectors": [
+    {
+      "label": "registry_package_id",
+      "context": "pse:named:v1",
+      "preimage_hex": "1000000000000000000000000000000000000000000000000a000000000000007073652e736368656d61",
+      "length": 16,
+      "expected": "a409aa6be295e9f374cf4b829f193f49",
+      "actual": "a409aa6be295e9f374cf4b829f193f49",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "authored_stoichiometry_id",
+      "context": "pse:named:v1",
+      "preimage_hex": "1000000000000000a409aa6be295e9f374cf4b829f193f49210000000000000072656c6174696f6e3a617574686f7265642e73746f696368696f6d657472794031",
+      "length": 16,
+      "expected": "4af05b3e65e854a58198776b3cddaa8d",
+      "actual": "4af05b3e65e854a58198776b3cddaa8d",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "registry_hash_a_bc",
+      "context": "pse:registry:v1",
+      "preimage_hex": "01000000000000006102000000000000006263",
+      "length": 32,
+      "expected": "e1745e73a5c5b0a583f4cf13428c2e7696e97101b6a4abb64a8ddfb83969a8b6",
+      "actual": "e1745e73a5c5b0a583f4cf13428c2e7696e97101b6a4abb64a8ddfb83969a8b6",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "symbol_instance",
+      "context": "pse:symbol:v1",
+      "preimage_hex": "10000000000000000101010101010101010101010101010110000000000000000202020202020202020202020202020220000000000000000303030303030303030303030303030304040404040404040404040404040404",
+      "length": 16,
+      "expected": "70dde4aa3dfe04a4886a7b59df389070",
+      "actual": "70dde4aa3dfe04a4886a7b59df389070",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "equation_instance",
+      "context": "pse:equation:v1",
+      "preimage_hex": "10000000000000000101010101010101010101010101010110000000000000000202020202020202020202020202020220000000000000000303030303030303030303030303030304040404040404040404040404040404",
+      "length": 16,
+      "expected": "a56c9c4f2710d4ee6160789909a9c33a",
+      "actual": "a56c9c4f2710d4ee6160789909a9c33a",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "law_term",
+      "context": "pse:term:v1",
+      "preimage_hex": "10000000000000000101010101010101010101010101010110000000000000000202020202020202020202020202020220000000000000000303030303030303030303030303030304040404040404040404040404040404",
+      "length": 16,
+      "expected": "bbacd7698075d85247763217db444ee3",
+      "actual": "bbacd7698075d85247763217db444ee3",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "connection_equation",
+      "context": "pse:conn:v1",
+      "preimage_hex": "1000000000000000010101010101010101010101010101010800000000000000070000000000000020000000000000000303030303030303030303030303030304040404040404040404040404040404",
+      "length": 16,
+      "expected": "19ae7d5c7570254f981df87da0451540",
+      "actual": "19ae7d5c7570254f981df87da0451540",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "mesh_node",
+      "context": "pse:node:v1",
+      "preimage_hex": "10000000000000000101010101010101010101010101010110000000000000000202020202020202020202020202020208000000000000000700000000000000",
+      "length": 16,
+      "expected": "eb00e870f92170e9ac71856dca721e01",
+      "actual": "eb00e870f92170e9ac71856dca721e01",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "discretized_symbol",
+      "context": "pse:symbol:v1",
+      "preimage_hex": "100000000000000001010101010101010101010101010101100000000000000002020202020202020202020202020202",
+      "length": 16,
+      "expected": "7d39e0dbf3fea05cb118af04f299257a",
+      "actual": "7d39e0dbf3fea05cb118af04f299257a",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "case_snapshot",
+      "context": null,
+      "preimage_hex": "0f000000000000007073652e736e617073686f742e76321111111111111111111111111111111111111111111111111111111111111111040000000000000063617365010000000000000005000000000000006d6f64656c222222222222222222222222222222222222222222222222222222222222222202000000000000000900000000000000636173652f61616161040000000000000063617365030303030303030303030303030303030100000033333333333333333333333333333333333333333333333333333333333333330900000000000000636173652f6262626204000000000000006361736504040404040404040404040404040404020000004444444444444444444444444444444444444444444444444444444444444444",
+      "length": 32,
+      "expected": "f778ddfdfc8864bd7c10168528f35bf164c14b184ae55d29b4ca8a76427693f8",
+      "actual": "f778ddfdfc8864bd7c10168528f35bf164c14b184ae55d29b4ca8a76427693f8",
+      "portable_dispatch_checks": 128
+    },
+    {
+      "label": "encoding_checksum_pse",
+      "context": null,
+      "preimage_hex": "707365",
+      "length": 32,
+      "expected": "b183159a276933fcc7170f73b6e21ff751344a2769b9669736ff4ffa47c689ee",
+      "actual": "b183159a276933fcc7170f73b6e21ff751344a2769b9669736ff4ffa47c689ee",
+      "portable_dispatch_checks": 128
+    }
+  ],
+  "passed": 11,
+  "failed": 0,
+  "baseline": 0,
+  "source_git_commit": "f3149ec5bb5449af877ba20377a11008ff499fa2",
+  "c_version_string": "1.8.7"
+}

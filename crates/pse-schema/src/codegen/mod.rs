@@ -14,10 +14,8 @@
 //! `HashMap` reaching output would make `codegen --check` fail intermittently, which reads
 //! as a flaky test rather than as the nondeterminism it is (ADR-0051).
 //!
-//! Phase 0 emits nothing: packet A-6 fills [`rust`], packet A-6's Python sibling fills
-//! [`python`], and [`markdown`] and [`jsonschema`] follow. The roots are already correct,
-//! so the xtask arm that removes stale files is exercised before there is anything to
-//! remove.
+//! Rust rows and authoring decoders, Python contracts, Markdown reference pages and
+//! authoring JSON Schema are generated from the same admitted registry.
 
 pub mod jsonschema;
 pub mod markdown;
@@ -94,13 +92,12 @@ impl GeneratedTree {
 /// # Errors
 ///
 /// [`SchemaError::Codegen`] once the generators can fail to render a declaration.
-#[expect(
-    clippy::unnecessary_wraps,
-    reason = "the fallible signature is the contract packets A-6 and R-1 code against; making it infallible now would break every caller on the day the first generator rejects a declaration"
-)]
 pub fn generate(reg: &Registry, language: Language) -> Result<GeneratedTree, SchemaError> {
-    let _ = reg;
-    Ok(GeneratedTree::empty(language.roots()))
+    match language {
+        Language::Rust => rust::generate(reg),
+        Language::Python => python::generate(reg),
+        Language::Markdown => markdown::generate(reg),
+    }
 }
 
 #[cfg(test)]
@@ -109,16 +106,11 @@ mod tests {
     use crate::registry;
 
     #[test]
-    fn every_language_declares_its_roots_and_writes_nothing_yet() {
+    fn every_language_declares_its_roots() {
         let reg = registry().expect("the registry assembles");
         for language in Language::ALL {
-            let tree = generate(reg, language).expect("phase 0 emits nothing");
+            let tree = generate(reg, language).expect("generator renders");
             assert_eq!(tree.roots, language.roots());
-            assert!(
-                tree.files.is_empty(),
-                "{} emitted files before its generator exists",
-                language.as_str()
-            );
         }
     }
 

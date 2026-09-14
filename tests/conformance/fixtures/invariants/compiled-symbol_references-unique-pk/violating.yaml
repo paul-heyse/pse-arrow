@@ -1,0 +1,22 @@
+{
+  "invariant": "compiled.symbol_references:unique:pk",
+  "rows": {
+    "compiled.symbol_references": [
+      {
+        "alias_symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"reference\"]",
+        "target_symbol_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "alias_symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"reference\"]",
+        "target_symbol_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

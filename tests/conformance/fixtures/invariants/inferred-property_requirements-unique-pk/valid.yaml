@@ -1,0 +1,16 @@
+{
+  "invariant": "inferred.property_requirements:unique:pk",
+  "rows": {
+    "inferred.property_requirements": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requested_by": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

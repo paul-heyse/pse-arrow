@@ -1,14 +1,68 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Invariant declaration helpers shared by the invariant catalog (blueprint §4.1).
-//!
-//! Packet A-5 fills this module. It is declared and wired into
-//! [`crate::catalog::assemble`] now so that the assembly order is fixed before the
-//! declarations arrive: a module inserted later would reorder the call list, and the
-//! call list is the one thing about assembly a reader can check at a glance.
+//! Declarative invariant constructors; no second row-wise implementation.
+use crate::RegistryBuilder;
+use crate::model::{
+    AggregateEmptyPolicy, AggregateNullPolicy, InvariantDecl, InvariantKind, RuleAggregate,
+    RuleAggregateFn, RuleDecl, RuleExpr, RuleHead, RulePlan,
+};
 
-use crate::builder::RegistryBuilder;
-
-/// Declares nothing yet; packet A-5 fills it.
-pub fn declare(_builder: &mut RegistryBuilder) {}
+pub(super) fn scan(relation: impl Into<String>, port: &'static str) -> RulePlan {
+    RulePlan::Scan {
+        relation: relation.into(),
+        port,
+    }
+}
+pub(super) fn project(input: RulePlan, keys: &[&'static str]) -> RulePlan {
+    RulePlan::Project {
+        input: Box::new(input),
+        columns: keys.iter().map(|key| (*key, RuleExpr::Col(key))).collect(),
+    }
+}
+pub(super) fn filter(input: RulePlan, predicate: RuleExpr) -> RulePlan {
+    RulePlan::Filter {
+        input: Box::new(input),
+        predicate,
+    }
+}
+pub(super) fn count(output_name: &'static str) -> RuleAggregate {
+    RuleAggregate {
+        function: RuleAggregateFn::Count,
+        input: None,
+        output_name,
+        order_by: vec![],
+        null_policy: AggregateNullPolicy::Reject,
+        empty_policy: AggregateEmptyPolicy::Zero,
+    }
+}
+pub(super) fn declare(
+    builder: &mut RegistryBuilder,
+    relation: &str,
+    name: &str,
+    kind: InvariantKind,
+    keys: &[&'static str],
+    plan: RulePlan,
+    doc: &'static str,
+) {
+    let rule_name = format!("{name}:{relation}");
+    let rule = RuleDecl::new(
+        rule_name.clone(),
+        "1",
+        1,
+        RuleHead::Violations {
+            of: relation.to_owned(),
+            key_columns: keys.to_vec(),
+        },
+        plan,
+    )
+    .stratified_negation();
+    builder.declare_rule(rule);
+    builder.declare_invariant(InvariantDecl::error(
+        relation,
+        name,
+        kind,
+        format!("{rule_name}@1"),
+        doc,
+    ));
+}

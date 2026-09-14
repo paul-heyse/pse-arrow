@@ -14,14 +14,18 @@ installs a structure-hook factory that rebuilds every attrs hook with
 match the contract is an error at the boundary, never a default further in.
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from datetime import UTC, datetime
 from typing import TypeVar
 
 import attrs
 import cattrs
 import msgspec
 import msgspec.json
-from cattrs.gen import make_dict_structure_fn
+from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
+
+from pse.contracts.manifest import Manifest
+from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
 
 __all__ = [
     "Manifest",
@@ -34,26 +38,6 @@ __all__ = [
 
 T = TypeVar("T")
 S = TypeVar("S", bound=msgspec.Struct)
-
-
-class Manifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
-    """The artifact manifest a snapshot is published with (blueprint §21.5).
-
-    Phase 0 carries only the fingerprint fields the Python side verifies; the
-    generator grows this struct from the registry in phase 1.
-
-    Attributes:
-        schema_version: The manifest generation, so a reader can refuse a
-            future one instead of guessing.
-        artifact_id: The snapshot's semantic identity, in short form.
-        content_hash: blake3 digest over the snapshot's relations.
-        lockfile_hash: The toolchain fingerprint the snapshot was produced with.
-    """
-
-    schema_version: int
-    artifact_id: str
-    content_hash: str
-    lockfile_hash: str
 
 
 def converter() -> cattrs.Converter:
@@ -70,9 +54,61 @@ def converter() -> cattrs.Converter:
     conv = cattrs.Converter()
     conv.register_structure_hook_factory(
         attrs.has,
-        lambda cls: make_dict_structure_fn(cls, conv, _cattrs_forbid_extra_keys=True),
+        lambda cls: make_dict_structure_fn(
+            cls,
+            conv,
+            _cattrs_forbid_extra_keys=True,
+            _cattrs_use_linecache=True,
+            _cattrs_prefer_attrib_converters="from_converter",
+            _cattrs_detailed_validation="from_converter",
+            _cattrs_use_alias="from_converter",
+            _cattrs_include_init_false=False,
+            **{
+                attribute: override(rename=wire)
+                for attribute, wire in _wire_names(cls).items()
+            },
+        ),
     )
+    conv.register_unstructure_hook_factory(
+        attrs.has,
+        lambda cls: make_dict_unstructure_fn(
+            cls,
+            conv,
+            _cattrs_omit_if_default=False,
+            _cattrs_use_linecache=True,
+            _cattrs_use_alias="from_converter",
+            _cattrs_include_init_false=False,
+            **{
+                attribute: override(rename=wire)
+                for attribute, wire in _wire_names(cls).items()
+            },
+        ),
+    )
+    conv.register_structure_hook(SemanticId, _structure_id)
+    conv.register_structure_hook(ContentHash, _structure_hash)
+    conv.register_structure_hook(int, _structure_int)
+    conv.register_structure_hook(float, _structure_float)
+    conv.register_structure_hook(str, _structure_text)
+    conv.register_structure_hook(bool, _structure_bool)
+    conv.register_structure_hook(datetime, _structure_datetime)
+    conv.register_unstructure_hook(SemanticId, bytes)
+    conv.register_unstructure_hook(ContentHash, bytes)
+    conv.register_unstructure_hook(datetime, datetime.isoformat)
     return conv
+
+
+def _wire_names(cls: type) -> dict[str, str]:
+    """Read the exact generated field mapping, refusing ambiguous metadata."""
+    result: dict[str, str] = {}
+    used: set[str] = set()
+    for field in attrs.fields(cls):
+        wire = field.metadata.get(FIELD_NAME_METADATA, field.name)
+        if not isinstance(wire, str) or wire in used:
+            message = "generated field names must be unique declared text names"
+            raise ValueError(message)
+        result[field.name] = wire
+        used.add(wire)
+    return result
 
 
 def structure_rows(rows: Iterable[Mapping[str, object]], cls: type[T]) -> list[T]:
@@ -135,3 +171,66 @@ def encode_json(obj: msgspec.Struct) -> bytes:
         The encoded document, as bytes.
     """
     return msgspec.json.encode(obj)
+
+
+def _structure_id(value: object, _cls: type[SemanticId]) -> SemanticId:
+    if isinstance(value, bytes):
+        return SemanticId(value)
+    if isinstance(value, str):
+        return SemanticId.from_hex(value)
+    message = "identity must be sixteen bytes or explicit hexadecimal text"
+    raise ValueError(message)
+
+
+def _structure_hash(value: object, _cls: type[ContentHash]) -> ContentHash:
+    if isinstance(value, bytes):
+        return ContentHash(value)
+    if isinstance(value, str):
+        return ContentHash.from_prefixed(value)
+    message = "digest must be thirty-two bytes or blake3-prefixed text"
+    raise ValueError(message)
+
+
+def _structure_int(value: object, _cls: type[int]) -> int:
+    if type(value) is int:
+        return value
+    message = "integer fields do not coerce text, floats or booleans"
+    raise ValueError(message)
+
+
+def _structure_float(value: object, _cls: type[float]) -> float:
+    if type(value) is float:
+        return value
+    if type(value) is int:
+        result = float(value)
+        if int(result) == value:
+            return result
+    message = "Float64 fields require an exactly representable numeric value"
+    raise ValueError(message)
+
+
+def _structure_text(value: object, construct: Callable[[str], str]) -> str:
+    if isinstance(value, str):
+        return construct(value)
+    message = "text fields do not coerce other value kinds"
+    raise ValueError(message)
+
+
+def _structure_bool(value: object, _cls: type[bool]) -> bool:
+    if type(value) is bool:
+        return value
+    message = "boolean fields do not coerce numbers or text"
+    raise ValueError(message)
+
+
+def _structure_datetime(value: object, _cls: type[datetime]) -> datetime:
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value)
+    if (
+        isinstance(value, datetime)
+        and value.tzinfo is not None
+        and value.utcoffset() == UTC.utcoffset(None)
+    ):
+        return value
+    message = "timestamps require an aware UTC datetime or RFC3339 value"
+    raise ValueError(message)

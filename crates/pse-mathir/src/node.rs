@@ -9,9 +9,7 @@
 //! not even for commutative operators, because §7.4 step 1 forbids reassociating a graph
 //! whose evaluation order is observable.
 //!
-//! [`arity`] is the keel's copy of the arity column of §7.2's table. Packet M-1's
-//! `OPERATOR_TABLE` carries the complete operator contract and cross-checks against this
-//! function, so the two cannot disagree silently.
+//! [`arity`] projects the single `OPERATOR_TABLE`; no second arity declaration exists.
 
 use pse_ids::SemanticId;
 use pse_quantity::{Opcode, QuantityTypeId};
@@ -101,51 +99,7 @@ impl core::fmt::Display for Arity {
 /// assert_eq!(arity(Opcode::WeightedMean), Arity::Payload);
 /// ```
 pub const fn arity(opcode: Opcode) -> Arity {
-    match opcode {
-        Opcode::Const
-        | Opcode::SymbolRef
-        | Opcode::WeightedMean
-        | Opcode::KernelCall
-        | Opcode::ImplicitRef
-        | Opcode::PiecewiseLinear => Arity::Payload,
-        Opcode::Add
-        | Opcode::Sub
-        | Opcode::Mul
-        | Opcode::Div
-        | Opcode::Pow
-        | Opcode::SmoothMax
-        | Opcode::SmoothMin
-        | Opcode::Conditional => Arity::Fixed(2),
-        Opcode::Neg
-        | Opcode::Abs
-        | Opcode::Exp
-        | Opcode::Log
-        | Opcode::Log10
-        | Opcode::Sqrt
-        | Opcode::Sin
-        | Opcode::Cos
-        | Opcode::Tan
-        | Opcode::Asin
-        | Opcode::Acos
-        | Opcode::Atan
-        | Opcode::Sinh
-        | Opcode::Cosh
-        | Opcode::Tanh
-        | Opcode::Erf
-        | Opcode::SmoothAbs
-        | Opcode::SafeSqrt
-        | Opcode::SafeLog
-        | Opcode::SumOver
-        | Opcode::ProdOver
-        | Opcode::MinOver
-        | Opcode::MaxOver
-        | Opcode::Gather
-        | Opcode::Broadcast
-        | Opcode::Derivative
-        | Opcode::Integral
-        | Opcode::UnitConvert => Arity::Fixed(1),
-        Opcode::Affine => Arity::Variadic,
-    }
+    crate::opspec::operator_spec(opcode).arity
 }
 
 /// One node of the expression DAG (blueprint §6.9 `compiled.math_expr_nodes`).
@@ -213,7 +167,7 @@ mod tests {
             Opcode::WeightedMean,
             Opcode::KernelCall,
             Opcode::ImplicitRef,
-            Opcode::PiecewiseLinear,
+            Opcode::Gather,
         ] {
             assert_eq!(arity(opcode), Arity::Payload);
             assert!(arity(opcode).admits(0));

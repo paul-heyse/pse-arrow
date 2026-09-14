@@ -82,11 +82,24 @@ impl MigrationSpec {
         let mut rendered = Vec::with_capacity(self.steps.len());
         for step in &self.steps {
             rendered.push(match step {
-                MigrationStep::AddColumn { name, .. } => format!("add_column {name}"),
-                MigrationStep::DropColumn(name) => format!("drop_column {name}"),
-                MigrationStep::RenameColumn { from, to } => format!("rename_column {from} {to}"),
+                MigrationStep::AddColumn { name, default } => format!(
+                    "add_column {} {}",
+                    Cell::text(*name).literal_spec(),
+                    default.literal_spec()
+                ),
+                MigrationStep::DropColumn(name) => {
+                    format!("drop_column {}", Cell::text(*name).literal_spec())
+                }
+                MigrationStep::RenameColumn { from, to } => format!(
+                    "rename_column {} {}",
+                    Cell::text(*from).literal_spec(),
+                    Cell::text(*to).literal_spec()
+                ),
                 MigrationStep::ChangeNullable { name, nullable } => {
-                    format!("change_nullable {name} {nullable}")
+                    format!(
+                        "change_nullable {} {nullable}",
+                        Cell::text(*name).literal_spec()
+                    )
                 }
             });
         }

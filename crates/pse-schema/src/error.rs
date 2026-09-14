@@ -11,6 +11,15 @@
 /// A declaration the registry refuses to accept.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
 pub enum SchemaError {
+    /// A declaration is structurally present but violates its semantic contract.
+    #[error("invalid {context}: {reason}")]
+    #[diagnostic(code(schema::invalid_declaration))]
+    InvalidDeclaration {
+        /// The declaration or operator being admitted.
+        context: String,
+        /// The actual violated requirement, independent of content identity.
+        reason: String,
+    },
     /// Two declarations claim the same name.
     #[error("{kind} `{name}` is declared twice")]
     #[diagnostic(

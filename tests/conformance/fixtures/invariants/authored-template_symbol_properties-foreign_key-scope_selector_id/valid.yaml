@@ -1,0 +1,19 @@
+{
+  "invariant": "authored.template_symbol_properties:foreign_key:scope_selector_id",
+  "rows": {
+    "authored.scopes": [
+      {
+        "root_term_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.template_symbol_properties": [
+      {
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_selector_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

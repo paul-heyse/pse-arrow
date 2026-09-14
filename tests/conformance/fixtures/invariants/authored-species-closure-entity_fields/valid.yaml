@@ -1,0 +1,31 @@
+{
+  "invariant": "authored.species:closure:entity_fields",
+  "rows": {
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"species\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"null\",null]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]"
+      }
+    ],
+    "authored.species": [
+      {
+        "charge": "[\"i64\",1]",
+        "component_type": "[\"enum\",\"Component\"]",
+        "dissociation_species": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "formula": "[\"text\",\"value-1\"]",
+        "mw": "[\"f64\",\"3ff0000000000000\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "valid_phase_types": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,33 @@
+{
+  "invariant": "normalized.equation_nodes:foreign_key:source_id",
+  "rows": {
+    "normalized.equation_nodes": [
+      {
+        "else_equation": "[\"u64\",1]",
+        "equation_id": "[\"u64\",1]",
+        "guard_predicate": "[\"u64\",1]",
+        "kind": "[\"enum\",\"relation\"]",
+        "left_expr": "[\"u64\",1]",
+        "right_expr": "[\"u64\",1]",
+        "sense": "[\"enum\",\"eq\"]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "then_equation": "[\"u64\",1]"
+      }
+    ],
+    "normalized.expression_sources": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "family": "[\"enum\",\"template\"]",
+        "field_path": "[\"text\",\"value-1\"]",
+        "owner_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "root_id": "[\"u64\",1]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_key": "[\"list\",[]]",
+        "source_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]",
+        "syntax": "[\"enum\",\"expression\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

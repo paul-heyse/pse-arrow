@@ -1,0 +1,25 @@
+{
+  "invariant": "inferred.instance_features:unique:pk",
+  "rows": {
+    "inferred.instance_features": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "value": "[\"text\",\"value-1\"]"
+      },
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "value": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

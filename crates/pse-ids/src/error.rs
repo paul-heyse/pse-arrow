@@ -210,6 +210,72 @@ pub enum CanonError {
     Internal(String),
 }
 
+impl CanonError {
+    /// Copies the diagnostic class and payload when an engine retains shared ownership.
+    ///
+    /// Arrow errors can contain non-cloneable foreign sources; only that source is
+    /// rendered into a new external Arrow error. The platform diagnostic class remains
+    /// `runtime::infrastructure`. This is a reporting copy, not a new validation result.
+    #[must_use]
+    pub fn copy_for_reporting(&self) -> Self {
+        match self {
+            Self::UnsupportedLayout { path, what } => Self::UnsupportedLayout {
+                path: path.clone(),
+                what: what.clone(),
+            },
+            Self::ContractMismatch {
+                path,
+                expected,
+                actual,
+            } => Self::ContractMismatch {
+                path: path.clone(),
+                expected: expected.clone(),
+                actual: actual.clone(),
+            },
+            Self::UnregisteredMetadata { path, key } => Self::UnregisteredMetadata {
+                path: path.clone(),
+                key: key.clone(),
+            },
+            Self::InvalidKey { column, reason } => Self::InvalidKey {
+                column: column.clone(),
+                reason: reason.clone(),
+            },
+            Self::NullKey { column, row } => Self::NullKey {
+                column: column.clone(),
+                row: *row,
+            },
+            Self::DuplicateKey { first, second } => Self::DuplicateKey {
+                first: *first,
+                second: *second,
+            },
+            Self::DictionaryOutOfBounds { path, code, len } => Self::DictionaryOutOfBounds {
+                path: path.clone(),
+                code: *code,
+                len: *len,
+            },
+            Self::EnumMember { path, value } => Self::EnumMember {
+                path: path.clone(),
+                value: value.clone(),
+            },
+            Self::Envelope {
+                what,
+                limit,
+                actual,
+            } => Self::Envelope {
+                what: *what,
+                limit: *limit,
+                actual: *actual,
+            },
+            Self::Reservation(error) => Self::Reservation(error.clone()),
+            Self::Cancelled => Self::Cancelled,
+            Self::Arrow(error) => Self::Arrow(arrow_schema::ArrowError::ExternalError(
+                error.to_string().into(),
+            )),
+            Self::Internal(message) => Self::Internal(message.clone()),
+        }
+    }
+}
+
 /// A snapshot frame could not be named (blueprint §5.3 step 7).
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
 #[non_exhaustive]

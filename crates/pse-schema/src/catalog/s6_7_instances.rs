@@ -1,14 +1,375 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Instances, flowsheets, scopes and connectivity (blueprint §6.7).
-//!
-//! Packet A-2 fills this module. It is declared and wired into
-//! [`crate::catalog::assemble`] now so that the assembly order is fixed before the
-//! declarations arrive: a module inserted later would reorder the call list, and the
-//! call list is the one thing about assembly a reader can check at a glance.
+//! §6.7 instance.
 
+use super::declarations::{column, relation, structure};
 use crate::builder::RegistryBuilder;
+use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
 
-/// Declares nothing yet; packet A-2 fills it.
-pub fn declare(_builder: &mut RegistryBuilder) {}
+/// Declares the §6.7 instance contracts.
+pub fn declare(builder: &mut RegistryBuilder) {
+    declare_authored_instances(builder);
+    declare_authored_instance_domain_bindings(builder);
+    declare_authored_flowsheets(builder);
+    declare_authored_scopes(builder);
+    declare_authored_selector_terms(builder);
+    declare_authored_connections(builder);
+    declare_inferred_instance_tree(builder);
+    declare_inferred_instance_features(builder);
+    declare_inferred_instances(builder);
+    declare_inferred_ports(builder);
+    declare_inferred_port_members(builder);
+    declare_inferred_connection_equations(builder);
+    declare_inferred_initialization_order(builder);
+    declare_inferred_scope_members(builder);
+    declare_inferred_boundary_crossings(builder);
+    declare_inferred_topology_edges(builder);
+    declare_inferred_undecided(builder);
+    declare_tri_state_vocabulary(builder);
+    declare_selector_op_vocabulary(builder);
+    declare_crossing_vocabulary(builder);
+}
+
+fn declare_authored_instances(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "instances",
+        S::Model,
+        &["instance_id"],
+        vec![
+            column("instance_id", T::id()),
+            column("parent_instance_id", T::id())
+                .optional()
+                .with_fk("authored.instances", "instance_id"),
+            column("template_id", T::id()).with_fk("authored.templates", "template_id"),
+            column("name", T::Text),
+            column(
+                "param_values",
+                T::list(structure(vec![("name", T::Text), ("value", T::Text)])),
+            ),
+            column(
+                "feature_values",
+                T::list(structure(vec![("name", T::Text), ("value", T::Text)])),
+            ),
+            column("property_package_id", T::id()).optional(),
+            column("reaction_package_id", T::id()).optional(),
+            column("doc", T::Text),
+        ],
+        "blueprint §6.7 instance: instances.",
+    );
+}
+
+fn declare_authored_flowsheets(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "flowsheets",
+        S::Model,
+        &["instance_id"],
+        vec![
+            column("instance_id", T::id()).with_fk("authored.instances", "instance_id"),
+            column("time_domain_id", T::id()),
+            column("dynamic", T::enumeration("TriState")),
+            column("default_property_package_id", T::id()).optional(),
+        ],
+        "blueprint §6.7 instance: flowsheets.",
+    );
+}
+
+fn declare_authored_scopes(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "scopes",
+        S::Model,
+        &["scope_id"],
+        vec![column("scope_id", T::id()), column("root_term_id", T::id())],
+        "blueprint §6.7 instance: scopes.",
+    );
+}
+
+fn declare_authored_selector_terms(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "selector_terms",
+        S::Model,
+        &["term_id"],
+        vec![
+            column("term_id", T::id()),
+            column("scope_id", T::id()).with_fk("authored.scopes", "scope_id"),
+            column("parent_term_id", T::id())
+                .optional()
+                .with_fk("authored.selector_terms", "term_id"),
+            column("ordinal", T::U16),
+            column("op", T::enumeration("SelectorOp")),
+            column("entity_id", T::id()).optional(),
+            column("entity_kind", T::enumeration("EntityKind")).optional(),
+            column("tag", T::Text).optional(),
+        ],
+        "blueprint §6.7 instance: selector_terms.",
+    );
+}
+
+fn declare_authored_connections(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "connections",
+        S::Model,
+        &["connection_id"],
+        vec![
+            column("connection_id", T::id()),
+            column("from_port_id", T::id()),
+            column("to_port_id", T::id()),
+            column("rule_template_id", T::id()),
+            column("tear_cost", T::F64).optional(),
+            column("doc", T::Text),
+        ],
+        "blueprint §6.7 instance: connections.",
+    );
+}
+
+fn declare_inferred_instance_tree(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "instance_tree",
+        S::Derived,
+        &["ancestor_id", "descendant_id"],
+        vec![
+            column("ancestor_id", T::id()),
+            column("descendant_id", T::id()),
+            column("depth", T::U16),
+            column("derivation_id", T::id()),
+        ],
+        "blueprint §6.7 instance: instance_tree.",
+    );
+}
+
+fn declare_inferred_instance_features(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "instance_features",
+        S::Derived,
+        &["instance_id", "name"],
+        vec![
+            column("instance_id", T::id()),
+            column("name", T::Text),
+            column("value", T::Text),
+            column("derivation_id", T::id()),
+        ],
+        "blueprint §6.7 instance: instance_features.",
+    );
+}
+
+fn declare_inferred_instances(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "instances",
+        S::Derived,
+        &["instance_id"],
+        vec![
+            column("instance_id", T::id()),
+            column("parent_instance_id", T::id()),
+            column("template_id", T::id()),
+            column("path", T::Text),
+            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)),
+            column("derivation_id", T::id()),
+        ],
+        "blueprint §6.7 instance: instances.",
+    );
+}
+
+fn declare_inferred_ports(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "ports",
+        S::Derived,
+        &["port_id"],
+        vec![
+            column("port_id", T::id()),
+            column("instance_id", T::id()),
+            column("name", T::Text),
+            column("kind", T::enumeration("PortKind")),
+            column("direction", T::enumeration("Direction")),
+            column("state_instance_id", T::id()),
+        ],
+        "blueprint §6.7 instance: ports.",
+    );
+}
+
+fn declare_inferred_port_members(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "port_members",
+        S::Derived,
+        &["port_id", "ordinal"],
+        vec![
+            column("port_id", T::id()),
+            column("ordinal", T::U16),
+            column("symbol_group", T::Text),
+            column("symbol_decl_id", T::id()),
+            column("quantity_type_id", T::id()),
+            column("derivation_id", T::id()),
+        ],
+        "blueprint §6.7 instance: port_members.",
+    );
+}
+
+fn declare_inferred_scope_members(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "scope_members",
+        S::Derived,
+        &["scope_id", "entity_id"],
+        vec![
+            column("scope_id", T::id()),
+            column("entity_id", T::id()),
+            column("derivation_id", T::id()),
+        ],
+        "blueprint §6.7 instance: scope_members.",
+    );
+}
+
+fn declare_inferred_connection_equations(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "connection_equations",
+        S::Derived,
+        &["connection_id", "member_ordinal", "index"],
+        vec![
+            column("connection_id", T::id()).with_fk("authored.connections", "connection_id"),
+            column("member_ordinal", T::U16),
+            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)),
+            column("equation_id", T::id()),
+        ],
+        "blueprint §12.3: generated equation identity for each actual connection member and ordered index tuple.",
+    );
+}
+
+fn declare_inferred_initialization_order(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "initialization_order",
+        S::Derived,
+        &["instance"],
+        vec![column("instance", T::id()), column("ordinal", T::U16)],
+        "blueprint §17.3: instance and plug-in preparation order; finalization traverses this order in reverse. Ordinal follows the §6.11 init_stages UInt16 convention.",
+    );
+}
+
+fn declare_inferred_boundary_crossings(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "boundary_crossings",
+        S::Derived,
+        &["scope_id", "connection_id"],
+        vec![
+            column("scope_id", T::id()),
+            column("connection_id", T::id()),
+            column("classification", T::enumeration("Crossing")),
+            column("derivation_id", T::id()),
+        ],
+        "blueprint §6.7 instance: boundary_crossings.",
+    );
+}
+
+fn declare_inferred_topology_edges(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "topology_edges",
+        S::Derived,
+        &["from_instance_id", "to_instance_id", "connection_id"],
+        vec![
+            column("from_instance_id", T::id()),
+            column("to_instance_id", T::id()),
+            column("connection_id", T::id()),
+        ],
+        "blueprint §6.7 instance: topology_edges.",
+    );
+}
+
+fn declare_inferred_undecided(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Inferred,
+        "undecided",
+        S::Derived,
+        &["undecided_id"],
+        vec![
+            column("undecided_id", T::id()),
+            column("rule_id", T::id()),
+            column("head_relation_id", T::id()),
+            column("key", T::Text),
+            column("truth", T::enumeration("TruthValue")),
+            column("reason", T::Text),
+            column(
+                "supporting",
+                T::list(structure(vec![
+                    ("relation_id", T::id()),
+                    ("row_key", T::Text),
+                ])),
+            ),
+            column("derivation_id", T::id()),
+        ],
+        "blueprint §6.7 instance: undecided.",
+    );
+}
+
+fn declare_tri_state_vocabulary(builder: &mut RegistryBuilder) {
+    super::declarations::enumeration(builder, "TriState", ["true", "false", "inherit"]);
+}
+
+fn declare_selector_op_vocabulary(builder: &mut RegistryBuilder) {
+    super::declarations::enumeration(
+        builder,
+        "SelectorOp",
+        [
+            "descendant_of",
+            "kind_is",
+            "tagged_with",
+            "union",
+            "intersection",
+            "difference",
+            "include",
+            "exclude",
+        ],
+    );
+}
+
+fn declare_crossing_vocabulary(builder: &mut RegistryBuilder) {
+    super::declarations::enumeration(
+        builder,
+        "Crossing",
+        ["internal", "external", "inbound", "outbound"],
+    );
+}
+
+/// Explicit authored domain realization for a template-local domain name (ADR-0053).
+fn declare_authored_instance_domain_bindings(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "instance_domain_bindings",
+        S::Model,
+        &["instance_id", "domain_name"],
+        vec![
+            column("instance_id", T::id()).with_fk("authored.instances", "instance_id"),
+            column("domain_name", T::Text),
+            column("domain_id", T::id()).with_fk("authored.domains", "domain_id"),
+        ],
+        "Actual domain bound to an instance's declared template-local domain name.",
+    );
+}

@@ -1,0 +1,26 @@
+{
+  "invariant": "normalized.guard_expr_broadcasts:unique:pk",
+  "rows": {
+    "normalized.guard_expr_broadcasts": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"text\",\"value-1\"]",
+        "node_id": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"text\",\"value-1\"]",
+        "node_id": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"u64\",1]"
+    ]
+  ]
+}

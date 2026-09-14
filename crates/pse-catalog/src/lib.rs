@@ -18,9 +18,9 @@
 //! # Three rules this crate exists to keep
 //!
 //! - **Logical content and physical bytes have different identities** (ADR-0045). A
-//!   `logical_hash` says two relations mean the same thing; an `encoding_checksum` says
-//!   one stored object is intact. The manifest records both and neither substitutes for
-//!   the other, so a corrupt artifact and a mislabelled one are different failures.
+//!   `logical_hash` identifies admitted logical content; `encoding_checksum` checks
+//!   stored bytes. Neither certifies schema, values, contextual invariants or producer
+//!   semantics: these are checked directly before admission or reuse.
 //! - **A snapshot never contains itself** (§5.3 step 7). Refs, manifests and stage records
 //!   are sidecars; [`store::layout::SIDECAR_DIRECTORIES`] names them and
 //!   [`store::manifest::Manifest::validate`] refuses a manifest that points into one.
@@ -34,12 +34,12 @@
 //! majors in one graph make `downcast_ref` return `None` with no compile error, and the
 //! resulting bug reads like a logic error somewhere else entirely (§3.1).
 //!
-//! # Phase 0
+//! # Implemented foundation boundaries
 //!
-//! The error taxonomy, the failure mapping, the relation contract, the snapshot types,
-//! the store layout, the manifest codec and the clock are implemented. The store's
-//! encoding, verification, ref and publication modules, the providers and the session
-//! builder are declared and empty; each names the packet that fills it.
+//! The store admits complete actual relations and explicit parent contexts, writes
+//! finished artifacts, and publishes conditional refs. Sealed providers and sessions
+//! retain those admitted inputs. Plan protobufs are diagnostic artifacts. Optional
+//! evidence helpers and undeclared run producers remain outside this foundation.
 
 pub mod contract;
 pub mod error;
@@ -62,6 +62,9 @@ pub use crate::store::layout::{
     stage_path,
 };
 pub use crate::store::manifest::{
-    ArtifactRef, CompilerRef, EncodingRecord, EvidenceRecord, KernelRef, MANIFEST_VERSION,
-    Manifest, PackageRef, PassRef, RelationMember, ToolchainRef,
+    CompilerRef, EncodingRecord, EngineProfileRef, EvidenceRecord, KernelRef, MANIFEST_VERSION,
+    Manifest, NumericalPolicyRef, PackageRef, PassRef, RelationMember, ToolchainRef,
 };
+
+/// Immutable artifact catalog with active row admission.
+pub use crate::store::open::Catalog;

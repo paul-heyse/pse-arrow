@@ -1,0 +1,45 @@
+{
+  "invariant": "authored.stoichiometry:closure:stoichiometry_species_in_phase",
+  "rows": {
+    "authored.phase_species": [],
+    "authored.phases": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "is_solvent_phase": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_type": "[\"enum\",\"liquidPhase\"]"
+      }
+    ],
+    "authored.species": [
+      {
+        "charge": "[\"i64\",1]",
+        "component_type": "[\"enum\",\"Component\"]",
+        "dissociation_species": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "formula": "[\"text\",\"value-1\"]",
+        "mw": "[\"f64\",\"3ff0000000000000\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "valid_phase_types": "[\"list\",[[\"enum\",\"vaporPhase\"]]]"
+      }
+    ],
+    "authored.stoichiometry": [
+      {
+        "coefficient": "[\"f64\",\"3ff0000000000000\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

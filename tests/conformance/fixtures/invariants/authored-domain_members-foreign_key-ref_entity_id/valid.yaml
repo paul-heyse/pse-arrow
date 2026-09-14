@@ -1,0 +1,27 @@
+{
+  "invariant": "authored.domain_members:foreign_key:ref_entity_id",
+  "rows": {
+    "authored.domain_members": [
+      {
+        "coordinate": "[\"f64\",\"3ff0000000000000\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "label": "[\"text\",\"value-1\"]",
+        "member_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]",
+        "ref_entity_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"package\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

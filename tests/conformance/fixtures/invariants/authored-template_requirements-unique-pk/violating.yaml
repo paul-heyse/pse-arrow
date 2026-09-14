@@ -1,0 +1,23 @@
+{
+  "invariant": "authored.template_requirements:unique:pk",
+  "rows": {
+    "authored.template_requirements": [
+      {
+        "detail": "[\"text\",\"value-1\"]",
+        "requirement": "[\"enum\",\"material_flow_terms\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "detail": "[\"text\",\"value-1\"]",
+        "requirement": "[\"enum\",\"material_flow_terms\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"enum\",\"material_flow_terms\"]"
+    ]
+  ]
+}

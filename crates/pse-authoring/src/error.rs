@@ -15,6 +15,36 @@ use crate::span::SourceSpan;
 /// A document, identity, reference or package resolution that does not hold.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum AuthoringError {
+    /// Shared platform memory could not be reserved before construction.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Resource(#[from] pse_ids::ReserveError),
+    /// Cancellation or checked allocation extent failure.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Allocation(#[from] pse_ids::CanonError),
+    /// Actual generated row validation failed during owned construction.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Relation(#[from] pse_relations::RelationError),
+    /// A package document could not be read within its declared filesystem boundary.
+    #[error("document `{path}`: {reason}")]
+    #[diagnostic(code(authoring::parse::document_io))]
+    DocumentIo {
+        /// Package-relative source path.
+        path: String,
+        /// Concrete read or boundary failure.
+        reason: String,
+    },
+    /// Actual candidate values violate a declared schema, key or reference contract.
+    #[error("authoring contract: {reason}")]
+    #[diagnostic(code(authoring::reference::contract))]
+    Contract {
+        /// Source location, if the failure belongs to one document row.
+        at: Option<SourceSpan>,
+        /// The violated semantic requirement.
+        reason: String,
+    },
     /// The document does not parse.
     #[error("{expected} expected at byte {offset}, found {found}")]
     #[diagnostic(

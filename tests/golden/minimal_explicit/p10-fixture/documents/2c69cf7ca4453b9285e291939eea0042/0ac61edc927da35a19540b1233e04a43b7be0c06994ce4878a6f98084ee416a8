@@ -1,0 +1,8 @@
+[package]
+package_id = "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a"
+name = "p10_fixture"
+version = "1.0.0"
+kind = "model"
+id_policy = "explicit"
+dependencies = []
+doc = "Complete physical P10 predecessor fixture"

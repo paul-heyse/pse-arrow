@@ -1,0 +1,18 @@
+{
+  "invariant": "normalized.template_params:unique:pk",
+  "rows": {
+    "normalized.template_params": [
+      {
+        "default": "[\"text\",\"value-1\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "domain_spec": "[\"text\",\"value-1\"]",
+        "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "logical_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "required": "[\"bool\",true]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

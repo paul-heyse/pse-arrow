@@ -26,6 +26,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_enums(builder);
     declare_invariants(builder);
     declare_migrations(builder);
+    declare_document_contracts(builder);
 }
 
 /// A `reference` relation at stability `stable`, in the `model` snapshot class.
@@ -304,6 +305,93 @@ fn declare_migrations(builder: &mut RegistryBuilder) {
                 "The migration steps, one per line, in application order.",
             ),
             ColumnSpec::label("doc", LogicalType::Text, "Why the schema changed."),
+        ]),
+    );
+}
+
+/// Document selection and its exact authoring semantics (ADR-0059).
+fn declare_document_contracts(builder: &mut RegistryBuilder) {
+    builder.declare_relation(
+        reference(
+            "schema_documents",
+            "Declared authoring document surfaces (ADR-0059).",
+        )
+        .pk(&["document_name"])
+        .columns(vec![
+            ColumnSpec::key(
+                "document_name",
+                LogicalType::Text,
+                "Document declaration name.",
+            ),
+            ColumnSpec::label("kind", LogicalType::Text, "DocumentKind spelling."),
+            ColumnSpec::label(
+                "path_glob",
+                LogicalType::Text,
+                "Package-relative file selection.",
+            ),
+            ColumnSpec::label("doc", LogicalType::Text, "Document meaning."),
+        ]),
+    );
+    builder.declare_relation(
+        reference(
+            "schema_document_sections",
+            "Exact identity and row projections (ADR-0059).",
+        )
+        .pk(&["document_name", "ordinal"])
+        .columns(vec![
+            ColumnSpec::key(
+                "document_name",
+                LogicalType::Text,
+                "Owning document declaration.",
+            )
+            .with_fk("reference.schema_documents", "document_name"),
+            ColumnSpec::key("ordinal", LogicalType::U32, "Section declaration ordinal."),
+            ColumnSpec::label("key", LogicalType::Text, "Authoring section key."),
+            ColumnSpec::reference("relation_id", LogicalType::id(), "Exact target relation.")
+                .with_fk("reference.schema_relations", "relation_id"),
+            ColumnSpec::payload(
+                "repeated",
+                LogicalType::Bool,
+                "Sequence rather than singleton.",
+            ),
+            ColumnSpec::label(
+                "identity_column",
+                LogicalType::Text,
+                "Explicit identity alias.",
+            )
+            .optional(),
+            ColumnSpec::label(
+                "entity_kind",
+                LogicalType::Text,
+                "Registered EntityKind member.",
+            )
+            .optional(),
+            ColumnSpec::label("name_column", LogicalType::Text, "Entity local name.").optional(),
+            ColumnSpec::label(
+                "naming_scope_column",
+                LogicalType::Text,
+                "Owning entity foreign key.",
+            )
+            .optional(),
+            ColumnSpec::label(
+                "expression_owner_column",
+                LogicalType::Text,
+                "Explicit source expression owner.",
+            )
+            .optional(),
+            ColumnSpec::label("doc", LogicalType::Text, "Section meaning."),
+            ColumnSpec::payload(
+                "expression_fields",
+                LogicalType::list(LogicalType::Struct(vec![
+                    ("path", LogicalType::Text, false),
+                    (
+                        "syntax",
+                        LogicalType::enumeration("ExpressionSyntax"),
+                        false,
+                    ),
+                ])),
+                "Complete exact DSL field grammar mapping.",
+            ),
         ]),
     );
 }

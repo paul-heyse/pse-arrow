@@ -14,7 +14,10 @@
 //! The split is deliberate. `pse-ids` sits below `pse-schema` and must not know what a
 //! DataFusion `Constraints` is; this crate does, and translates. Nothing here infers: a
 //! key is a key because the registry said so, and this type only resolves the names the
-//! caller passes into ordinals and refuses the ones that cannot mean what they claim.
+//! registry declared into ordinals and refuses the ones that cannot mean what they claim.
+//! Primary keys have exactly one declaration, in the canonical contract.
+
+mod registry;
 
 use std::sync::Arc;
 
@@ -47,8 +50,6 @@ pub struct RelationContract {
     pub namespace: String,
     /// The relation's declared name.
     pub name: String,
-    /// Primary-key column ordinals, in key order.
-    pub key_columns: Vec<usize>,
     /// Ordinals of the dictionary-encoded enum columns, ascending.
     pub enum_columns: Vec<usize>,
     /// Column ordinals of each validated `unique` invariant, in declaration order.
@@ -74,19 +75,11 @@ impl RelationContract {
         canonical: CanonicalContract,
         namespace: &str,
         name: &str,
-        key_columns: &[&str],
         enum_columns: &[&str],
         unique_sets: &[&[&str]],
         encodings: EncodingPolicy,
     ) -> Result<Self, CatalogError> {
-        let mut keys: Vec<usize> = Vec::with_capacity(key_columns.len());
-        for column in key_columns {
-            let ordinal = key_ordinal(&canonical, column)?;
-            if keys.contains(&ordinal) {
-                return Err(invalid_key(column, "named twice in the key"));
-            }
-            keys.push(ordinal);
-        }
+        validate_primary_key(&canonical)?;
 
         let mut enums: Vec<usize> = Vec::with_capacity(enum_columns.len());
         for column in enum_columns {
@@ -127,7 +120,6 @@ impl RelationContract {
             canonical,
             namespace: namespace.to_owned(),
             name: name.to_owned(),
-            key_columns: keys,
             enum_columns: enums,
             unique_sets: uniques,
             encodings,
@@ -142,7 +134,7 @@ impl RelationContract {
     #[must_use]
     pub fn constraints(&self) -> Constraints {
         let mut declared: Vec<Constraint> = Vec::with_capacity(1 + self.unique_sets.len());
-        declared.push(Constraint::PrimaryKey(self.key_columns.clone()));
+        declared.push(Constraint::PrimaryKey(self.canonical.primary_key.clone()));
         for set in &self.unique_sets {
             declared.push(Constraint::Unique(set.clone()));
         }
@@ -175,11 +167,7 @@ impl RelationContract {
     /// The key columns as declared names, in key order.
     #[must_use]
     pub fn key_column_names(&self) -> Vec<&str> {
-        self.key_columns
-            .iter()
-            .filter_map(|ordinal| self.canonical.schema.fields().get(*ordinal))
-            .map(|field| field.name().as_str())
-            .collect()
+        self.canonical.key_column_names()
     }
 
     /// The relation as `namespace.name`, which is how a message names it.
@@ -205,27 +193,41 @@ fn ordinal_of(canonical: &CanonicalContract, column: &str) -> Result<usize, Cata
         })
 }
 
-/// The ordinal of a key column, refusing an unknown or floating one.
-fn key_ordinal(canonical: &CanonicalContract, column: &str) -> Result<usize, CatalogError> {
-    let Some(ordinal) = canonical
-        .schema
-        .fields()
-        .iter()
-        .position(|field| field.name() == column)
-    else {
-        return Err(invalid_key(column, "no such column in the declared schema"));
-    };
-    if canonical
-        .layouts
-        .get(ordinal)
-        .is_some_and(Layout::is_floating)
-    {
-        return Err(invalid_key(
-            column,
-            "a floating-point column is never a key (ADR-0030)",
-        ));
+/// Check key declarations even when a caller constructed a canonical contract directly.
+fn validate_primary_key(canonical: &CanonicalContract) -> Result<(), CatalogError> {
+    if canonical.primary_key.is_empty() {
+        return Err(invalid_key("", "a relation requires a primary key"));
     }
-    Ok(ordinal)
+    let mut seen = Vec::with_capacity(canonical.primary_key.len());
+    for &ordinal in &canonical.primary_key {
+        let Some(field) = canonical.schema.fields().get(ordinal) else {
+            return Err(invalid_key(
+                &ordinal.to_string(),
+                "no such column in the declared schema",
+            ));
+        };
+        if seen.contains(&ordinal) {
+            return Err(invalid_key(field.name(), "named twice in the primary key"));
+        }
+        if field.is_nullable() {
+            return Err(invalid_key(
+                field.name(),
+                "a primary-key column cannot be nullable",
+            ));
+        }
+        if canonical
+            .layouts
+            .get(ordinal)
+            .is_some_and(Layout::is_floating)
+        {
+            return Err(invalid_key(
+                field.name(),
+                "a floating-point column is never a key (ADR-0030)",
+            ));
+        }
+        seen.push(ordinal);
+    }
+    Ok(())
 }
 
 /// A key column that cannot order a relation.
@@ -291,7 +293,7 @@ mod tests {
             SchemaVersion(1),
             ContentHash::from_bytes([0x11; 32]),
             schema,
-            &["unit_id"],
+            &["unit_id", "stage"],
             &domains,
         );
         let Ok(built) = built else {
@@ -305,7 +307,6 @@ mod tests {
             contract(),
             "authored",
             "unit_stages",
-            &["unit_id", "stage"],
             &["phase"],
             &[&["unit_id"][..], &["stage", "phase"][..]],
             EncodingPolicy::IpcFileAndParquet,
@@ -319,7 +320,7 @@ mod tests {
     #[test]
     fn columns_resolve_to_declared_ordinals() {
         let contract = relation();
-        assert_eq!(contract.key_columns, vec![0, 1]);
+        assert_eq!(contract.canonical.primary_key, vec![0, 1]);
         assert_eq!(contract.enum_columns, vec![3]);
         assert_eq!(contract.unique_sets, vec![vec![0], vec![1, 3]]);
         assert_eq!(contract.key_column_names(), vec!["unit_id", "stage"]);
@@ -329,11 +330,12 @@ mod tests {
 
     #[test]
     fn an_unknown_key_column_is_refused() {
+        let mut canonical = contract();
+        canonical.primary_key = vec![99];
         let refused = RelationContract::try_new(
-            contract(),
+            canonical,
             "authored",
             "unit_stages",
-            &["no_such_column"],
             &[],
             &[],
             EncodingPolicy::IpcFile,
@@ -346,12 +348,13 @@ mod tests {
     }
 
     #[test]
-    fn a_float_key_is_refused_by_adr_0030() {
+    fn a_nullable_key_is_refused() {
+        let mut canonical = contract();
+        canonical.primary_key = vec![2];
         let refused = RelationContract::try_new(
-            contract(),
+            canonical,
             "authored",
             "unit_stages",
-            &["duty"],
             &[],
             &[],
             EncodingPolicy::IpcFile,
@@ -359,17 +362,18 @@ mod tests {
         assert!(matches!(
             refused,
             Err(CatalogError::Canon(CanonError::InvalidKey { ref column, ref reason }))
-                if column == "duty" && reason.contains("ADR-0030")
+                if column == "duty" && reason.contains("nullable")
         ));
     }
 
     #[test]
     fn a_repeated_key_column_is_refused() {
+        let mut canonical = contract();
+        canonical.primary_key = vec![0, 0];
         let refused = RelationContract::try_new(
-            contract(),
+            canonical,
             "authored",
             "unit_stages",
-            &["unit_id", "unit_id"],
             &[],
             &[],
             EncodingPolicy::IpcFile,
@@ -382,12 +386,28 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_primary_key_is_refused() {
+        let mut canonical = contract();
+        canonical.primary_key.clear();
+        assert!(matches!(
+            RelationContract::try_new(
+                canonical,
+                "authored",
+                "unit_stages",
+                &[],
+                &[],
+                EncodingPolicy::IpcFile
+            ),
+            Err(CatalogError::Canon(CanonError::InvalidKey { .. }))
+        ));
+    }
+
+    #[test]
     fn a_non_enum_column_cannot_be_declared_an_enum() {
         let refused = RelationContract::try_new(
             contract(),
             "authored",
             "unit_stages",
-            &["unit_id"],
             &["stage"],
             &[],
             EncodingPolicy::IpcFile,
@@ -404,7 +424,6 @@ mod tests {
             contract(),
             "authored",
             "unit_stages",
-            &["unit_id"],
             &[],
             &[&["no_such_column"][..]],
             EncodingPolicy::IpcFile,
@@ -421,7 +440,6 @@ mod tests {
             contract(),
             "authored",
             "unit_stages",
-            &["unit_id"],
             &[],
             &[&[][..]],
             EncodingPolicy::IpcFile,
@@ -451,7 +469,6 @@ mod tests {
             contract(),
             "authored",
             "unit_stages",
-            &["unit_id"],
             &[],
             &[],
             EncodingPolicy::IpcFile,

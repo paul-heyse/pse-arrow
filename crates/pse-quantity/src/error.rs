@@ -124,6 +124,16 @@ pub enum QuantityError {
         detail: String,
     },
 
+    /// An operation lacks an established semantic prerequisite.
+    #[error("quantity inference rule `{rule}` rejected the operation: {detail}")]
+    #[diagnostic(code(compile::math::quantity_operation_unsupported))]
+    InferencePrecondition {
+        /// Named prerequisite that was not established.
+        rule: &'static str,
+        /// Specific absent or conflicting facts.
+        detail: String,
+    },
+
     /// Dimension arithmetic failed.
     #[error(transparent)]
     #[diagnostic(code(validation::invariant))]

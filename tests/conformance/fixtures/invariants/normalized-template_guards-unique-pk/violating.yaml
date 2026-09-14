@@ -1,0 +1,24 @@
+{
+  "invariant": "normalized.template_guards:unique:pk",
+  "rows": {
+    "normalized.template_guards": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "predicate": "[\"text\",\"1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "predicate": "[\"text\",\"1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

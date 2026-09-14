@@ -1,0 +1,13 @@
+{
+  "invariant": "compiled.block_members:unique:pk",
+  "rows": {
+    "compiled.block_members": [
+      {
+        "block_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"equation\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

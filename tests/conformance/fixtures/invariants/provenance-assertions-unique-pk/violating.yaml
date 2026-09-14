@@ -1,0 +1,26 @@
+{
+  "invariant": "provenance.assertions:unique:pk",
+  "rows": {
+    "provenance.assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expected": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"text\",\"value-1\"]",
+        "status": "[\"enum\",\"pass\"]"
+      },
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expected": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"text\",\"value-1\"]",
+        "status": "[\"enum\",\"pass\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

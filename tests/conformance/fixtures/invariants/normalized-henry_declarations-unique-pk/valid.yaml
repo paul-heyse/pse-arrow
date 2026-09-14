@@ -1,0 +1,14 @@
+{
+  "invariant": "normalized.henry_declarations:unique:pk",
+  "rows": {
+    "normalized.henry_declarations": [
+      {
+        "henry_type": "[\"enum\",\"Hcp\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,12 @@
+{
+  "invariant": "normalized.scopes:unique:pk",
+  "rows": {
+    "normalized.scopes": [
+      {
+        "root_term_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

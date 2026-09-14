@@ -1,0 +1,33 @@
+{
+  "invariant": "authored.template_equations:closure:entity_fields",
+  "rows": {
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"equation_declaration\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]"
+      }
+    ],
+    "authored.template_equations": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression": "[\"text\",\"1\"]",
+        "family_hint": "[\"enum\",\"BOUND\"]",
+        "filter": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "role_hint": "[\"enum\",\"HARD_FEASIBILITY\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

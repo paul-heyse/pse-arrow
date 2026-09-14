@@ -1,0 +1,16 @@
+{
+  "invariant": "authored.cases:foreign_key:parent_case_id",
+  "rows": {
+    "authored.cases": [
+      {
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "kind": "[\"enum\",\"base\"]",
+        "model_revision_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "parent_case_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

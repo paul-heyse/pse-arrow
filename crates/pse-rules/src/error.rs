@@ -11,6 +11,47 @@
 /// A rule that will not compile, or an execution that failed.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum RuleError {
+    /// Add exact rule/phase attribution while forwarding the underlying diagnostic class.
+    #[error("rule `{rule}` failed during {phase}: {source}")]
+    #[diagnostic(forward(source))]
+    Execution {
+        /// Actual registered rule being executed.
+        rule: String,
+        /// Precondition check, decided head or unknown candidate execution.
+        phase: &'static str,
+        /// Original typed failure; no class or related diagnostic is discarded.
+        #[source]
+        source: Box<Self>,
+    },
+
+    /// Actual violating or unresolved error-severity keys prevent publication.
+    #[error("{count} invariant violations prevent publication")]
+    #[diagnostic(code(validation::invariant))]
+    InvariantViolations {
+        /// Every error severity result, including undecided predicates.
+        count: usize,
+        /// Full typed diagnostic rows retained for inspection, with resource owners.
+        findings: Vec<datafusion::arrow::array::RecordBatch>,
+    },
+
+    /// Preserve checked relation, cancellation and allocation failures at output boundaries.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Relation(#[from] pse_relations::RelationError),
+
+    /// Preserve every platform failure and its original diagnostic classification.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Catalog(#[from] pse_catalog::CatalogError),
+
+    /// Several independently reported engine failures.
+    #[error("{} rule execution failures", errors.len())]
+    #[diagnostic(code(internal::invariant))]
+    Collection {
+        /// Every classified leaf failure; none is silently discarded.
+        #[related]
+        errors: Vec<Self>,
+    },
     /// A rule plan keys on a floating-point column (blueprint §14.2 rule 7).
     #[error("rule `{rule}` keys on the `Float64` column `{column}`")]
     #[diagnostic(

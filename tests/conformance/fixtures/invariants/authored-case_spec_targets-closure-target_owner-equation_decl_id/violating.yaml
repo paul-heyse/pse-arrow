@@ -1,0 +1,54 @@
+{
+  "invariant": "authored.case_spec_targets:closure:target_owner:equation_decl_id",
+  "rows": {
+    "authored.case_spec_targets": [
+      {
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member_kind": "[\"enum\",\"symbol\"]",
+        "ordinal": "[\"u64\",1]",
+        "port_name": "[\"text\",\"value-1\"]",
+        "port_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "spec_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "wildcard": "[\"bool\",true]"
+      }
+    ],
+    "authored.instances": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "feature_values": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "param_values": "[\"list\",[]]",
+        "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.template_equations": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression": "[\"text\",\"1\"]",
+        "family_hint": "[\"enum\",\"BOUND\"]",
+        "filter": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "role_hint": "[\"enum\",\"HARD_FEASIBILITY\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "template_id": "[\"id\",\"02020202020202020202020202020202\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

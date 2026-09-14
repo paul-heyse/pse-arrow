@@ -1,0 +1,17 @@
+{
+  "invariant": "normalized.guard_expr_symbol_refs:unique:pk",
+  "rows": {
+    "normalized.guard_expr_symbol_refs": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"symbol\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "node_id": "[\"u64\",1]",
+        "symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

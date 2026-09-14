@@ -92,15 +92,9 @@ const UNNAMED_CONFIG_KEY: &str = "datafusion";
 /// it there on the way *into* the engine (a `TableProvider` or a UDF returning a typed
 /// failure), and re-classifying its own error would discard the class it already chose.
 ///
-/// # The one asymmetry
-///
-/// `Shared` holds an `Arc`. When this is the last reference the inner error is unpacked
-/// by value and classified exactly as if it had arrived directly. When other references
-/// remain it is classified from its rendering instead: the class is the same for every
-/// variant, but the `#[source]` chain becomes a message and an `External` payload cannot
-/// be recovered, so it degrades to `internal::invariant`. Preferring that to cloning is
-/// deliberate — `DataFusionError` is not `Clone`, and inventing a copy would invent a
-/// failure that never happened.
+/// Shared failures keep their platform class and diagnostic fields regardless of the
+/// number of owners. When the error cannot be moved, non-cloneable infrastructure
+/// sources are retained as rendered diagnostics; ownership never changes the class.
 ///
 /// ```
 /// use datafusion::error::DataFusionError;
@@ -166,6 +160,14 @@ fn classify_borrowed(error: &DataFusionError, origin: PlanOrigin) -> Vec<Catalog
             classify_borrowed(inner, origin)
         }
         DataFusionError::Shared(shared) => classify_borrowed(shared, origin),
+        DataFusionError::External(source) => {
+            vec![source.downcast_ref::<CatalogError>().map_or_else(
+                || CatalogError::Internal {
+                    message: source.to_string(),
+                },
+                copy_platform_diagnostic,
+            )]
+        }
         DataFusionError::ResourcesExhausted(message) => vec![resource_limit(message)],
         DataFusionError::Configuration(message) => vec![CatalogError::ConfigInvalid {
             key: config_keys_in(message)
@@ -184,6 +186,102 @@ fn classify_borrowed(error: &DataFusionError, origin: PlanOrigin) -> Vec<Catalog
         other => vec![CatalogError::Internal {
             message: other.to_string(),
         }],
+    }
+}
+
+/// Preserve the typed platform result when a shared engine wrapper cannot be consumed.
+/// The only non-cloneable payloads are infrastructure source errors; their rendering is
+/// retained while the platform variant and all its context remain unchanged.
+fn copy_platform_diagnostic(error: &CatalogError) -> CatalogError {
+    match error {
+        CatalogError::Semantic(source) => CatalogError::Semantic(Arc::clone(source)),
+        CatalogError::Multiple { errors } => CatalogError::Multiple {
+            errors: errors.iter().map(copy_platform_diagnostic).collect(),
+        },
+        CatalogError::ResourceLimit {
+            consumer,
+            config_keys,
+            detail,
+        } => CatalogError::ResourceLimit {
+            consumer: consumer.clone(),
+            config_keys: config_keys.clone(),
+            detail: detail.clone(),
+        },
+        CatalogError::Cancelled => CatalogError::Cancelled,
+        CatalogError::Infrastructure { op, source } => CatalogError::Infrastructure {
+            op: op.clone(),
+            source: source.to_string().into(),
+        },
+        CatalogError::CorruptObject {
+            path,
+            expected,
+            actual,
+        } => CatalogError::CorruptObject {
+            path: path.clone(),
+            expected: expected.clone(),
+            actual: actual.clone(),
+        },
+        CatalogError::RefConflict { name } => CatalogError::RefConflict { name: name.clone() },
+        CatalogError::ManifestInvalid { reason } => CatalogError::ManifestInvalid {
+            reason: reason.clone(),
+        },
+        CatalogError::UnknownRegistry { fingerprint } => CatalogError::UnknownRegistry {
+            fingerprint: *fingerprint,
+        },
+        CatalogError::UnknownVersion { field, value } => CatalogError::UnknownVersion {
+            field: field.clone(),
+            value: value.clone(),
+        },
+        CatalogError::Admission { path, reason } => CatalogError::Admission {
+            path: path.clone(),
+            reason: reason.clone(),
+        },
+        CatalogError::ForeignSource { table } => CatalogError::ForeignSource {
+            table: table.clone(),
+        },
+        CatalogError::Sealed => CatalogError::Sealed,
+        CatalogError::LogicalHashMismatch {
+            relation,
+            expected,
+            actual,
+        } => CatalogError::LogicalHashMismatch {
+            relation: relation.clone(),
+            expected: *expected,
+            actual: *actual,
+        },
+        CatalogError::Membership { reason } => CatalogError::Membership {
+            reason: reason.clone(),
+        },
+        CatalogError::ConfigInvalid { key, reason } => CatalogError::ConfigInvalid {
+            key: key.clone(),
+            reason: reason.clone(),
+        },
+        CatalogError::UserModel { message } => CatalogError::UserModel {
+            message: message.clone(),
+        },
+        CatalogError::EvaluationError { message } => CatalogError::EvaluationError {
+            message: message.clone(),
+        },
+        CatalogError::CompileProperty { message } => CatalogError::CompileProperty {
+            message: message.clone(),
+        },
+        CatalogError::Canon(error) => CatalogError::Canon(error.copy_for_reporting()),
+        CatalogError::Snapshot(error) => CatalogError::Snapshot(error.clone()),
+        CatalogError::Reserve(error) => CatalogError::Reserve(error.clone()),
+        CatalogError::Internal { message } => CatalogError::Internal {
+            message: message.clone(),
+        },
+    }
+}
+
+/// Collapse classified engine leaves into one return value without discarding any
+/// diagnostic. One leaf stays transparent; several (or an empty engine collection) are
+/// a related diagnostic group without an invented replacement class.
+pub fn collapse_classified(mut errors: Vec<CatalogError>) -> CatalogError {
+    if errors.len() == 1 {
+        errors.remove(0)
+    } else {
+        CatalogError::Multiple { errors }
     }
 }
 
@@ -537,6 +635,89 @@ mod tests {
             one(wrapped, PlanOrigin::KernelUdf),
             CatalogError::Sealed
         ));
+    }
+
+    #[test]
+    fn shared_external_platform_errors_keep_class_and_fields_through_all_wrappers() {
+        use miette::Diagnostic;
+
+        let inputs = vec![
+            CatalogError::Semantic(Arc::new(pse_ids::CanonError::Cancelled)),
+            CatalogError::Cancelled,
+            CatalogError::Sealed,
+            CatalogError::Admission {
+                path: "authored.units".to_owned(),
+                reason: "duplicate key".to_owned(),
+            },
+            CatalogError::ConfigInvalid {
+                key: "limit".to_owned(),
+                reason: "zero".to_owned(),
+            },
+            CatalogError::Canon(pse_ids::CanonError::InvalidKey {
+                column: "id".to_owned(),
+                reason: "nullable".to_owned(),
+            }),
+            CatalogError::Canon(pse_ids::CanonError::Arrow(ArrowError::ParseError(
+                "bad IPC".to_owned(),
+            ))),
+            CatalogError::Infrastructure {
+                op: "read".to_owned(),
+                source: io::Error::other("disk").into(),
+            },
+        ];
+        for error in inputs {
+            let expected_class = error.code().expect("class is declared").to_string();
+            let expected_message = error.to_string();
+            let shared = Arc::new(
+                DataFusionError::Context(
+                    "outer".to_owned(),
+                    Box::new(DataFusionError::Collection(vec![
+                        DataFusionError::External(Box::new(error)),
+                    ])),
+                )
+                .with_diagnostic(datafusion::common::Diagnostic::new_error("wrapped", None)),
+            );
+            let other_holder = Arc::clone(&shared);
+            let classified = one(DataFusionError::Shared(shared), PlanOrigin::Analytics);
+            assert_eq!(
+                classified.code().expect("class survives").to_string(),
+                expected_class
+            );
+            // Arrow's owned reporting copy wraps the rendered foreign source once.
+            if !matches!(
+                classified,
+                CatalogError::Canon(pse_ids::CanonError::Arrow(_))
+            ) {
+                assert_eq!(classified.to_string(), expected_message);
+            }
+            drop(other_holder);
+        }
+    }
+
+    #[test]
+    fn collapsed_collections_retain_every_typed_related_diagnostic() {
+        use miette::Diagnostic;
+        let error = collapse_classified(classify(
+            DataFusionError::Collection(vec![
+                DataFusionError::External(Box::new(CatalogError::Semantic(Arc::new(
+                    pse_ids::CanonError::Cancelled,
+                )))),
+                DataFusionError::External(Box::new(CatalogError::Sealed)),
+            ]),
+            PlanOrigin::Analytics,
+        ));
+        assert!(error.code().is_none());
+        let codes = error
+            .related()
+            .expect("related diagnostic group")
+            .map(|error| error.code().expect("leaf code").to_string())
+            .collect::<Vec<_>>();
+        assert_eq!(codes, vec!["runtime::cancelled", "schema::sealed"]);
+        let shared = Arc::new(DataFusionError::External(Box::new(error)));
+        let retained = Arc::clone(&shared);
+        let copied = one(DataFusionError::Shared(shared), PlanOrigin::Analytics);
+        assert_eq!(copied.related().expect("group preserved").count(), 2);
+        drop(retained);
     }
 
     #[test]

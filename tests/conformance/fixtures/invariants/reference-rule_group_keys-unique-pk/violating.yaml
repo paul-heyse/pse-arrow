@@ -1,0 +1,23 @@
+{
+  "invariant": "reference.rule_group_keys:unique:pk",
+  "rows": {
+    "reference.rule_group_keys": [
+      {
+        "column": "[\"text\",\"value-1\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]"
+      },
+      {
+        "column": "[\"text\",\"value-1\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

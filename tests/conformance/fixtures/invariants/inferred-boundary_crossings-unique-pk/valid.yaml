@@ -1,0 +1,14 @@
+{
+  "invariant": "inferred.boundary_crossings:unique:pk",
+  "rows": {
+    "inferred.boundary_crossings": [
+      {
+        "classification": "[\"enum\",\"internal\"]",
+        "connection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

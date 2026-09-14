@@ -1,0 +1,24 @@
+{
+  "invariant": "reference.aliases:unique:pk",
+  "rows": {
+    "reference.aliases": [
+      {
+        "alias_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "deprecated_in": "[\"text\",\"value-1\"]",
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "old_qualified_name": "[\"text\",\"value-1\"]"
+      },
+      {
+        "alias_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "deprecated_in": "[\"text\",\"value-1\"]",
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "old_qualified_name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

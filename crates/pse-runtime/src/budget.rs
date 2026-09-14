@@ -73,6 +73,38 @@ impl ResourceBudget {
     /// configuration error before any.
     pub fn validate(&self) -> Result<(), RuntimeError> {
         self.threads.validate()?;
+        if isize::try_from(self.memory_limit_bytes.get()).is_err() {
+            return Err(RuntimeError::ConfigInvalid {
+                key: "datafusion.runtime.memory_limit".to_owned(),
+                reason: "the memory limit must fit the platform allocation envelope".to_owned(),
+            });
+        }
+        for (key, invalid) in [
+            (
+                "datafusion.execution.batch_size",
+                self.execution.batch_size == 0,
+            ),
+            (
+                "datafusion.execution.max_spill_file_size_bytes",
+                self.execution.max_spill_file_size_bytes == 0,
+            ),
+            (
+                "datafusion.execution.spill_compression",
+                self.execution.spill_compression != "uncompressed",
+            ),
+            (
+                "datafusion.execution.time_zone",
+                self.execution.time_zone != "UTC",
+            ),
+        ] {
+            if invalid {
+                return Err(RuntimeError::ConfigInvalid {
+                    key: key.to_owned(),
+                    reason: "the setting is outside the declared phase-0 execution contract"
+                        .to_owned(),
+                });
+            }
+        }
 
         let metadata =
             std::fs::metadata(&self.spill_dir).map_err(|error| RuntimeError::ConfigInvalid {

@@ -23,6 +23,7 @@ use crate::model::{
 
 /// Declares every platform vocabulary.
 pub fn declare(builder: &mut RegistryBuilder) {
+    super::declarations::enumeration(builder, "BoundKind", ["finite", "unbounded"]);
     declare_schema_vocabularies(builder);
     declare_rule_vocabularies(builder);
     declare_identity_vocabularies(builder);
@@ -210,6 +211,7 @@ fn declare_column_and_invariant_vocabularies(builder: &mut RegistryBuilder) {
 /// The vocabularies the rule algebra is written in (blueprint §6.11, §14.2).
 fn declare_rule_vocabularies(builder: &mut RegistryBuilder) {
     declare_plan_vocabularies(builder);
+    declare_expression_vocabularies(builder);
     declare_policy_vocabularies(builder);
     declare_null_vocabularies(builder);
 }
@@ -219,19 +221,10 @@ fn declare_plan_vocabularies(builder: &mut RegistryBuilder) {
     builder
         .declare_enum(EnumDecl::platform(
             "RulePlanOp",
-            vec![
-                member("scan", "Read a relation through a named input port."),
-                member("filter", "Keep the rows a Kleene predicate accepts."),
-                member("project", "Compute named output columns."),
-                member("equi_join", "An inner join on equal keys."),
-                member("anti_join", "Stratified negation."),
-                member("union", "The union of several inputs."),
-                member("distinct", "Deduplication by the full row."),
-                member("aggregate", "Grouping."),
-                member("unnest", "Expand one declared list column."),
-                member("kernel_call", "Evaluate a bound kernel in batch."),
-                member("recursive", "A fixed-point closure."),
-            ],
+            crate::model::RulePlanOp::ALL
+                .iter()
+                .map(|op| member(op.as_str(), "Declared rule-plan operator."))
+                .collect(),
         ))
         .declare_enum(EnumDecl::platform(
             "RuleAggregate",
@@ -460,6 +453,12 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
                 member("dimension", "A base or derived dimension."),
                 member("quantity_type", "A quantity type."),
                 member("unit", "A unit of measure."),
+                member("unit_set", "A coherent selection of base units."),
+                member("quantity_kind", "A physical quantity kind."),
+                member("constant", "A named physical constant."),
+                member("symbol_declaration", "A template symbol declaration."),
+                member("equation_declaration", "A template equation declaration."),
+                member("contribution_declaration", "A template contribution declaration."),
                 member("element", "A chemical element."),
                 member("domain", "An index set or continuous domain."),
                 member("species", "A chemical species."),
@@ -561,5 +560,44 @@ fn declare_failure_classes(builder: &mut RegistryBuilder) {
                 "An authored assertion or user equation failed.",
             ),
         ],
+    ));
+}
+
+/// Typed rule payload vocabularies come from their owning model declarations.
+fn declare_expression_vocabularies(builder: &mut RegistryBuilder) {
+    builder.declare_enum(EnumDecl::platform(
+        "RuleHeadKind",
+        crate::model::RuleHeadKind::ALL
+            .iter()
+            .map(|value| member(value.as_str(), "Declared rule semantic value."))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::platform(
+        "RuleExprOp",
+        crate::model::RuleExprOp::ALL
+            .iter()
+            .map(|value| member(value.as_str(), "Declared rule semantic value."))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::platform(
+        "RuleCmpOp",
+        crate::model::CmpOp::ALL
+            .iter()
+            .map(|value| member(value.as_str(), "Declared rule semantic value."))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::platform(
+        "RuleLiteralKind",
+        crate::model::RuleLiteralKind::ALL
+            .iter()
+            .map(|value| member(value.as_str(), "Declared rule semantic value."))
+            .collect(),
+    ));
+    builder.declare_enum(EnumDecl::platform(
+        "DepthBound",
+        crate::model::DepthBound::ALL
+            .iter()
+            .map(|value| member(value.as_str(), "Declared rule semantic value."))
+            .collect(),
     ));
 }

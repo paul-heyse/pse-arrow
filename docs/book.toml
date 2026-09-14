@@ -35,5 +35,8 @@ level = 1
 enable = true
 limit-results = 30
 use-boolean-and = true
+# Index section-sized passages so generated inventories do not duplicate long heading
+# ancestry in every relation/rule search entry. All chapter content remains searchable.
+heading-split-level = 2
 
 [preprocessor.links]

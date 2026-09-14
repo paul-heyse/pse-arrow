@@ -3382,12 +3382,14 @@ dependencies = [
 name = "pse-authoring"
 version = "0.0.1"
 dependencies = [
+ "arrow-array",
  "insta",
  "miette",
  "proptest",
  "pse-ids",
  "pse-relations",
  "pse-schema",
+ "semver",
  "serde",
  "serde-saphyr",
  "thiserror 2.0.20",
@@ -3447,11 +3449,7 @@ version = "0.0.1"
 name = "pse-catalog"
 version = "0.0.1"
 dependencies = [
- "arrow",
- "arrow-cast",
- "arrow-ipc",
- "arrow-ord",
- "arrow-select",
+ "bytes",
  "datafusion",
  "datafusion-catalog",
  "datafusion-common",
@@ -3463,7 +3461,7 @@ dependencies = [
  "datafusion-proto",
  "miette",
  "object_store",
- "parquet",
+ "pse-buildinfo",
  "pse-ids",
  "pse-relations",
  "pse-schema",
@@ -3489,6 +3487,7 @@ dependencies = [
  "pse-rules",
  "pse-schema",
  "rayon",
+ "serde_json",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
@@ -3518,8 +3517,10 @@ dependencies = [
  "arrow-row",
  "arrow-schema",
  "blake3",
+ "bytes",
  "miette",
  "proptest",
+ "serde",
  "thiserror 2.0.20",
 ]
 
@@ -3643,7 +3644,6 @@ dependencies = [
 name = "pse-rules"
 version = "0.0.1"
 dependencies = [
- "arrow",
  "datafusion",
  "datafusion-common",
  "datafusion-expr",
@@ -3651,8 +3651,10 @@ dependencies = [
  "miette",
  "pse-catalog",
  "pse-ids",
+ "pse-quantity",
  "pse-relations",
  "pse-schema",
+ "serde_json",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
@@ -3687,8 +3689,12 @@ dependencies = [
  "prettyplease",
  "proc-macro2",
  "pse-ids",
+ "pse-material",
+ "pse-mathir",
+ "pse-quantity",
  "quote",
  "serde",
+ "serde_json",
  "syn 3.0.5",
  "thiserror 2.0.20",
 ]
@@ -3736,6 +3742,9 @@ dependencies = [
  "pse-rules",
  "pse-runtime",
  "pse-schema",
+ "serde",
+ "serde-saphyr",
+ "serde_json",
  "tempfile",
  "tokio",
 ]
@@ -3745,7 +3754,9 @@ name = "pse-tests-engine"
 version = "0.0.1"
 dependencies = [
  "arrow",
+ "async-trait",
  "datafusion",
+ "futures-core",
  "insta",
  "object_store",
  "parquet",
@@ -3771,6 +3782,7 @@ version = "0.0.1"
 dependencies = [
  "cargo_metadata",
  "ignore",
+ "pse-schema",
  "regex",
  "semver",
  "serde",
@@ -3784,6 +3796,7 @@ dependencies = [
  "arrow",
  "async-trait",
  "datafusion",
+ "futures-core",
  "insta",
  "object_store",
  "parquet",
@@ -5007,10 +5020,15 @@ dependencies = [
  "pse-authoring",
  "pse-catalog",
  "pse-compiler",
+ "pse-ids",
+ "pse-relations",
+ "pse-rules",
+ "pse-runtime",
  "pse-schema",
  "regex",
  "semver",
  "serde",
+ "serde_json",
  "sha2",
  "tempfile",
  "tokio",

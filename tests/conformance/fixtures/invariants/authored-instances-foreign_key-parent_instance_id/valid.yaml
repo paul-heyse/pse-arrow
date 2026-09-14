@@ -1,0 +1,19 @@
+{
+  "invariant": "authored.instances:foreign_key:parent_instance_id",
+  "rows": {
+    "authored.instances": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "feature_values": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "param_values": "[\"list\",[]]",
+        "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

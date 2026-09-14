@@ -1,0 +1,21 @@
+{
+  "invariant": "authored.case_specs:unique:pk",
+  "rows": {
+    "authored.case_specs": [
+      {
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "initial": "[\"f64\",\"3ff0000000000000\"]",
+        "lower": "[\"struct\",[[\"enum\",\"unbounded\"],[\"null\",null]]]",
+        "priority": "[\"i64\",1]",
+        "scaling_factor": "[\"f64\",\"3ff0000000000000\"]",
+        "spec_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target": "[\"text\",\"/fixture.symbol\"]",
+        "treatment": "[\"enum\",\"fixed\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "upper": "[\"struct\",[[\"enum\",\"unbounded\"],[\"null\",null]]]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

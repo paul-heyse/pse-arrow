@@ -25,7 +25,9 @@ pub mod error;
 pub mod mathir_relations;
 pub mod memo;
 pub mod passes;
+pub mod quantity_relations;
 pub mod records;
+pub mod validator;
 
 pub use crate::error::CompilerError;
 pub use crate::passes::{

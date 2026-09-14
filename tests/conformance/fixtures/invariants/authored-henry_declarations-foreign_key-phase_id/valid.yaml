@@ -1,0 +1,24 @@
+{
+  "invariant": "authored.henry_declarations:foreign_key:phase_id",
+  "rows": {
+    "authored.henry_declarations": [
+      {
+        "henry_type": "[\"enum\",\"Hcp\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.phases": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "is_solvent_phase": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_type": "[\"enum\",\"undefined\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

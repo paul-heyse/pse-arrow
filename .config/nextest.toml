@@ -22,6 +22,15 @@ threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 2 }
 
 [[profile.default.overrides]]
+# Actual commit, three execution modes, durable reopening and producer-refusal control
+# took 148.035s with a 512 MiB, single-thread runtime (CI diagnostic, baseline zero).
+# Changed-source commits, reuse and a fresh complete execution took 209.859s under
+# the same limits. Keep the allowance scoped to these measured integration tests.
+filter = 'package(pse-tests-engine) & (test(actual_p3_outputs_match_in_process_durable_and_uncached_execution) | test(changed_species_commit_invalidates_p3_and_matches_a_clean_complete_run))'
+test-group = "serial"
+slow-timeout = { period = "120s", terminate-after = 3 }
+
+[[profile.default.overrides]]
 filter = 'package(pse-tests-engine) | package(pse-catalog) | test(/object_store/)'
 test-group = "serial"
 

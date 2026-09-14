@@ -1,0 +1,14 @@
+{
+  "invariant": "normalized.display_expr_piecewise_linear:unique:pk",
+  "rows": {
+    "normalized.display_expr_piecewise_linear": [
+      {
+        "breakpoints": "[\"list\",[]]",
+        "input_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"u64\",1]",
+        "output_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

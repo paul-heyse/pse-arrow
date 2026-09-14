@@ -1,0 +1,28 @@
+{
+  "invariant": "authored.henry_declarations:foreign_key:species_id",
+  "rows": {
+    "authored.henry_declarations": [
+      {
+        "henry_type": "[\"enum\",\"Hcp\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.species": [
+      {
+        "charge": "[\"i64\",1]",
+        "component_type": "[\"enum\",\"Component\"]",
+        "dissociation_species": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "formula": "[\"text\",\"value-1\"]",
+        "mw": "[\"f64\",\"3ff0000000000000\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "valid_phase_types": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

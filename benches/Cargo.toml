@@ -20,7 +20,7 @@ workspace = true
 [dev-dependencies]
 criterion.workspace = true
 # The canonicalization group measures pse-ids over Arrow batches it builds itself.
-pse-ids.workspace = true
+pse-ids = { workspace = true, features = ["bench-instrumentation"] }
 arrow.workspace = true
 
 [[bench]]

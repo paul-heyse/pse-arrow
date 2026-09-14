@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+serde_json.workspace = true
 pse-schema.workspace = true
 pse-relations.workspace = true
 pse-authoring.workspace = true
@@ -31,3 +32,6 @@ tokio.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[dev-dependencies]
+pse-quantity = { workspace = true, features = ["fixtures"] }

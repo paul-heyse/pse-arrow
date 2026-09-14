@@ -1,0 +1,31 @@
+{
+  "invariant": "reference.quantity_kinds:closure:entity_fields",
+  "rows": {
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"quantity_kind\"]",
+        "name": "[\"text\",\"different name\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"null\",null]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]"
+      }
+    ],
+    "reference.quantity_kinds": [
+      {
+        "addition_kind": "[\"enum\",\"additive\"]",
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "extensive": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

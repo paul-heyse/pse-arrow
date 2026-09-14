@@ -19,7 +19,8 @@
 //!   values and row multiplicities against an otherwise identical `Unsupported` provider,
 //!   and rechecking returned rows cannot detect a lost match.
 //!
-//! Phase 0 lands the shared future type. The providers themselves are packet B-providers.
+//! Snapshot providers refuse ambiguous relation names when distinct output ports share
+//! a schema; callers must bind the exact producer port before query construction.
 
 pub mod catalog;
 pub mod list;

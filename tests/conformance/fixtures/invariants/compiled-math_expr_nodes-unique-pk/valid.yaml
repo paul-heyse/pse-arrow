@@ -1,0 +1,15 @@
+{
+  "invariant": "compiled.math_expr_nodes:unique:pk",
+  "rows": {
+    "compiled.math_expr_nodes": [
+      {
+        "node_id": "[\"u64\",1]",
+        "opcode": "[\"enum\",\"Const\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "subtree_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,28 @@
+{
+  "invariant": "authored.case_sets:unique:pk",
+  "rows": {
+    "authored.case_sets": [
+      {
+        "base_case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "case_set_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "generator_kind": "[\"enum\",\"grid\"]",
+        "generator_params": "[\"list\",[]]",
+        "sample_count": "[\"u64\",1]",
+        "seed": "[\"u64\",1]"
+      },
+      {
+        "base_case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "case_set_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "generator_kind": "[\"enum\",\"grid\"]",
+        "generator_params": "[\"list\",[]]",
+        "sample_count": "[\"u64\",1]",
+        "seed": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

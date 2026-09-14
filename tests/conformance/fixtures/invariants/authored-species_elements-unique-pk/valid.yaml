@@ -1,0 +1,13 @@
+{
+  "invariant": "authored.species_elements:unique:pk",
+  "rows": {
+    "authored.species_elements": [
+      {
+        "count": "[\"f64\",\"3ff0000000000000\"]",
+        "element_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

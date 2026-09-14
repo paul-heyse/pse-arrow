@@ -158,7 +158,7 @@ Each of these is a real incident, not a hypothetical.
 |---|---|---|
 | `just ci-fast` | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
 | `just test` | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
-| `just codegen-check` | the generated trees have no unstaged/staged/untracked changes (phase 0) | no regeneration equivalence while generators remain deferred |
+| `just codegen-check` | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051) | nothing about runtime behavior of the generated interfaces |
 | `just family-check` | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
 | `just governance` | the workspace-level invariants hold (pins, crates registered, MSRV, unsafe allowlist, error taxonomy) | nothing about runtime behaviour |
 | `just quality` | Python format/lint/types/import boundaries and repo config are clean | that the code works |
@@ -250,6 +250,6 @@ loads these through its native path rules; Codex follows this routing table:
 | Generated paths | `.claude/rules/generated.md` |
 | GitHub configuration and workflows | `.claude/rules/ci.md` |
 
-In phase 0, model generators and API-reference doc lint are deferred. A clean
-`just codegen-check` proves generated-tree hygiene, not regeneration equivalence.
-Parity currently exercises environment preflight, not numerical IDAES equivalence.
+Wave 1 supplies registry model generators and regeneration equivalence under ADR-0051.
+API-reference doc lint remains deferred. Parity covers the environment and the explicitly
+exercised compatibility names; it does not establish numerical IDAES equivalence.

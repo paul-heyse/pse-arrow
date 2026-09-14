@@ -9,16 +9,19 @@
 //! has them all — so the order below is about readability and about being able to see, in
 //! one screen, everything the platform declares.
 //!
-//! Modules that packets A-1 to A-6 fill are present and empty. They are wired in now
-//! rather than added later because the list is what a reviewer checks, and a module that
-//! appears halfway through the wave is a change nobody diffed.
+//! Section modules declare the production registry. Cross-section references resolve
+//! together during registry construction.
 
+mod declarations;
 pub mod documents;
 pub mod enums_platform;
 pub mod expr_family;
 pub mod inv;
+mod invariant_closure;
+mod invariant_domain;
 pub mod invariants;
 pub mod manifest;
+mod normalization;
 pub mod s14_passes;
 pub mod s22_change_sets;
 pub mod s4_schema;
@@ -38,6 +41,7 @@ pub mod s6_7_instances;
 pub mod s6_8_symbols;
 pub mod s6_9_math;
 pub mod s7_operators;
+mod terminal_attempts;
 
 use crate::builder::{Registry, RegistryBuilder};
 use crate::error::SchemaError;
@@ -52,30 +56,35 @@ use crate::error::SchemaError;
 pub fn assemble() -> Result<Registry, SchemaError> {
     let mut builder = RegistryBuilder::new();
 
-    enums_platform::declare(&mut builder);
-    s4_schema::declare(&mut builder);
-    s6_1_identity::declare(&mut builder);
-    s5_2_revisions::declare(&mut builder);
-    s6_2_physical::declare(&mut builder);
-    s6_3_domains::declare(&mut builder);
-    s6_4_material::declare(&mut builder);
-    s6_5_property::declare(&mut builder);
-    s6_6_templates::declare(&mut builder);
-    s6_7_instances::declare(&mut builder);
-    s6_8_symbols::declare(&mut builder);
-    s6_9_math::declare(&mut builder);
-    s7_operators::declare(&mut builder);
-    expr_family::declare(&mut builder);
-    s6_10_cases::declare(&mut builder);
-    s6_11_numerical::declare(&mut builder);
-    s6_12_derived::declare(&mut builder);
-    s6_13_runtime::declare(&mut builder);
-    s6_14_idaes_enums::declare(&mut builder);
-    s14_passes::declare(&mut builder);
-    s22_change_sets::declare(&mut builder);
-    invariants::declare(&mut builder);
-    documents::declare(&mut builder);
-    manifest::declare(&mut builder);
-
+    declare(&mut builder);
     builder.build()
+}
+
+/// Add the complete platform declarations to a builder before explicit fixture extensions.
+pub fn declare(builder: &mut RegistryBuilder) {
+    enums_platform::declare(builder);
+    s4_schema::declare(builder);
+    s6_1_identity::declare(builder);
+    s5_2_revisions::declare(builder);
+    s6_2_physical::declare(builder);
+    s6_3_domains::declare(builder);
+    s6_4_material::declare(builder);
+    s6_5_property::declare(builder);
+    s6_6_templates::declare(builder);
+    s6_7_instances::declare(builder);
+    s6_8_symbols::declare(builder);
+    s6_9_math::declare(builder);
+    s7_operators::declare(builder);
+    s6_10_cases::declare(builder);
+    s6_11_numerical::declare(builder);
+    s6_12_derived::declare(builder);
+    s6_13_runtime::declare(builder);
+    s6_14_idaes_enums::declare(builder);
+    s22_change_sets::declare(builder);
+    normalization::declare(builder);
+    expr_family::declare(builder);
+    documents::declare(builder);
+    invariants::declare(builder);
+    s14_passes::declare(builder);
+    manifest::declare(builder);
 }

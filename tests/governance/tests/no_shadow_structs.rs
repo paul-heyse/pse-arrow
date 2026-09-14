@@ -14,9 +14,7 @@
 //! same row shape is how a contract silently forks — one of them gets a field, the other
 //! does not, and both compile.
 //!
-//! `crates/pse-relations/src/generated/` does not exist in phase 0, so this passes by
-//! having nothing to compare against. It is written now so it is already in the gate on
-//! the day the generator first emits into that directory.
+//! A missing or empty generated tree is a failure, never a vacuous pass.
 
 mod common;
 
@@ -28,11 +26,7 @@ use regex::Regex;
 fn no_hand_written_struct_shadows_a_generated_one() {
     let root = common::workspace_root();
     let generated_dir = root.join("crates/pse-relations/src/generated");
-    if !generated_dir.is_dir() {
-        // Documented no-op; `blueprint_crates_all_exist` and codegen --check cover the
-        // day the directory appears.
-        return;
-    }
+    assert!(generated_dir.is_dir(), "run just codegen before governance");
 
     let struct_re =
         Regex::new(r"(?m)^\s*pub(?:\([^)]*\))?\s+struct\s+(\w+)").expect("static regex");

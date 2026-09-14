@@ -1,0 +1,32 @@
+{
+  "invariant": "reference.constants:closure:entity_fields",
+  "rows": {
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"constant\"]",
+        "name": "[\"text\",\"different name\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"null\",null]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]"
+      }
+    ],
+    "reference.constants": [
+      {
+        "constant_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

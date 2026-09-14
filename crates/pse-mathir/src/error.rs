@@ -125,6 +125,28 @@ pub enum MathIrError {
         binding: SemanticId,
     },
 
+    /// A normalized declaration or predicate still requires its explicit lowering pass.
+    #[error("node {node} still names an unresolved {kind} reference")]
+    #[diagnostic(code(compile::math::quantity_operation_unsupported))]
+    UnresolvedValue {
+        /// Expression using the unresolved reference.
+        node: NodeId,
+        /// Explicit normalized reference category.
+        kind: &'static str,
+    },
+
+    /// A template-local domain has not been resolved by instance binding.
+    #[error("node {node} still names template {template_id} domain `{domain_name}`")]
+    #[diagnostic(code(compile::math::quantity_operation_unsupported))]
+    UnresolvedDomain {
+        /// Expression requiring an actual domain.
+        node: NodeId,
+        /// Owning template declaration.
+        template_id: SemanticId,
+        /// Exact local domain name.
+        domain_name: String,
+    },
+
     /// A graph was built that does not satisfy the node model.
     #[error("malformed expression node: {detail}")]
     #[diagnostic(code(internal::invariant))]

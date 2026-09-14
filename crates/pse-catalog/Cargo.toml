@@ -17,6 +17,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pse-buildinfo.workspace = true
 datafusion.workspace = true
 datafusion-catalog.workspace = true
 datafusion-common.workspace = true
@@ -27,12 +28,7 @@ datafusion-physical-expr.workspace = true
 datafusion-optimizer.workspace = true
 datafusion-proto.workspace = true
 object_store.workspace = true
-arrow.workspace = true
-arrow-ipc.workspace = true
-arrow-select.workspace = true
-arrow-cast.workspace = true
-arrow-ord.workspace = true
-parquet.workspace = true
+bytes.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 serde.workspace = true

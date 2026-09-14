@@ -1,12 +1,12 @@
 ---
 status: proposed
-revision: 6
-date: 2026-09-13
+revision: 31
+date: 2026-09-14
 ---
 
 # Arrow-native IDAES core: detailed design architecture blueprint
 
-**Status:** Proposed design blueprint, revision 6 (2026-09-13); implementation and numerical acceptance remain open. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
+**Status:** Proposed design blueprint, revision 31 (2026-09-14); implementation and numerical acceptance remain open. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
 **Reviews:** revisions 1 and 2 have historical reviews under `docs/design_review/reviews/`. The [revision-4 library-contract review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md) overturned several earlier enforcement claims. Revision 5 incorporates R4-01–R4-13 and L1–L9; §26 records disposition and [plan 02](../plans/02-blueprint-revision-5-contracts.md) names the remaining implementation gates. Library characterization is evidence about the pinned libraries, not acceptance of the skeletal platform.
 **Follows:** `docs/authoritative_design/proposal.md` (the proposal this document makes concrete)
 **Governing doctrine:** `docs/design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01–DM-60, gates G1–G7) applied through `AGENT_DESIGN_DIRECTIVE.md`. The P-numbered principles cited in §2.1 and §22.2 come from the doctrine texts this document was drafted against (*semantic_design_principles_holistic*, *Inference-Complete Process Metamodel Design Principles*, *semantic_math_basis*), which are not part of this repository.
@@ -60,6 +60,34 @@ date: 2026-09-13
 | 4 | 2026-09-13 | Repository conventions: MSRV = pinned toolchain (ADR-0018); layout additions (ADR-0038); document paths under `docs/` (ADR-0033). | repository setup history |
 | 5 | 2026-09-13 | **Proposed:** active semantic admission and complete quantity operations; normalized demand seeds and stage bundles; conservative complete cache keys; guarded kernel/numeric policies; canonical logical identity separated from encoded integrity (`pse.canon.v2`); noncanonical plan evidence; shared accounted budgets; standard predicate, aggregate, unnest, buffer and explicit-schema reader bindings. Addresses R4-01–R4-13 and L1–L9 under ADR-0039–ADR-0048. | this design revision; maintainer PR acceptance pending |
 | 6 | 2026-09-13 | Wave-1 implementation conventions: direct pins for `serde_json` and `uuid` (ADR-0049); identity framing constants, canonical frames and the phase-1 envelope (ADR-0050); generated-tree additions and regeneration-equivalence check (ADR-0051); small contract clarifications listed under §3.1, §4.2, §4.4, §6.1, §6.9, §7.2, §7.7, §22.2 and Appendix B. | wave-1 keel |
+
+| 7 | 2026-09-14 | Proposed Wave 1 corrections: semantic validation before identity/reuse (ADR-0052); typed pre/post change rows and complete rule/migration contracts (ADR-0053); physical typing and operator inputs (ADR-0054); safe reservation-carrying Arrow owners (ADR-0055); closed executable scope (ADR-0056). | authorized implementation; formal decision PR pending |
+
+| 8 | 2026-09-14 | Self-contained equation family/role dictionaries, conservative classification predicates and explicit UNCLASSIFIED state (ADR-0057). | authorized Wave 1 design completion |
+
+| 9 | 2026-09-14 | Separate representation-unit normalization from physical-reference conversion; datum-bearing units carry an explicit reference restriction and cannot double-apply a datum (ADR-0058). | authorized Wave 1 correction |
+| 10 | 2026-09-14 | Bind physical UnitConvert edges to persisted named conversion selections and validate their complete source, destination, coefficients and parameter dependencies (ADR-0054). | authorized Wave 1 correction |
+| 11 | 2026-09-14 | Declare authoring identity, entity membership, name and owning scope explicitly; preserve relationship keys and project the complete document contract into registry rows (ADR-0059). | authorized Wave 1 correction |
+| 12 | 2026-09-14 | Give Affine constants explicit physical contracts and require parameterized physical conversions to resolve and validate complete kernel bindings (ADR-0054). | authorized Wave 1 correction |
+| 13 | 2026-09-14 | Resolve case targets to real declaration keys; represent unpublished findings without snapshot identity; require semantic validation before store admission and state primitive pass boundaries explicitly (ADR-0052, ADR-0053, ADR-0056). | authorized Wave 1 correction |
+| 14 | 2026-09-14 | Bind authored instance domain names to actual domains before indexed-target resolution; require actual member/domain compatibility and refuse missing bindings (ADR-0053). | authorized Wave 1 correction |
+| 15 | 2026-09-14 | Declare independent expression owners for authoring sections and share complete lexical/identity source binding between P3 and atomic rename (ADR-0059). | authorized Wave 1 correction |
+| 16 | 2026-09-14 | Preserve generic rule keys with a reversible typed value codec; keep prepublication derivation snapshot references absent (ADR-0052, ADR-0053). | authorized Wave 1 correction |
+| 17 | 2026-09-14 | Preserve template-local domain composite keys in normalized expression payloads; require instantiated domain identities before P10 (ADR-0054). | authorized Wave 1 correction |
+| 18 | 2026-09-14 | Atomic commit refs bind exact typed revision sidecars; prepublication pass records have absent snapshot fields (ADR-0053). | authorized Wave 1 correction |
+| 19 | 2026-09-14 | Leave derivation fingerprints absent when no actual execution stage fingerprint exists; preserve typed candidate support without inventing identity (ADR-0053). | authorized Wave 1 correction |
+| 20 | 2026-09-14 | Preserve complete normalized expression sources, typed predicate/equation graphs and unresolved declaration references; explicitly select package unit sets and persist derived representation units (ADR-0054, ADR-0059). | authorized Wave 1 correction |
+| 21 | 2026-09-14 | Durable change-set receipts preserve exact typed staging artifacts and original/replacement source references under atomic revision refs (ADR-0053). | authorized Wave 1 completion |
+| 22 | 2026-09-14 | ADR-0053: preassigned commit revision IDs, exact authored case binding and actual predecessor-chain validation. | authorized Wave 1 correction |
+| 23 | 2026-09-14 | Persist compound authored unit-expression definitions from actual component units before representation conversion (ADR-0054). | authorized Wave 1 correction |
+| 24 | 2026-09-14 | Preserve unresolved unit conversion requests, scoped demand guards and integral filters explicitly before physical typing (ADR-0054). | authorized Wave 1 correction |
+| 25 | 2026-09-14 | ADR-0052: durable stage reuse compares complete typed declarations, sources, policies and engine semantics, plus exact input lineage. | authorized Wave 1 correction |
+| 26 | 2026-09-14 | Declare exact authoring DSL grammar for every exposed field, including nested DSL values (ADR-0059). | authorized Wave 1 correction |
+| 27 | 2026-09-14 | Continuous domains require exactly one matching detail and an explicit equal unit; discrete domains have no continuous detail, and member ordinals are unique within actual domains (§6.3, ADR-0053). | authorized bounded correction; formal decision PR pending |
+| 28 | 2026-09-14 | Normalized pending Gather retains ordered index-expression references until actual template/member resolution; compiled numerical payloads remain complete (§6.9, §7.7, ADR-0054). | authorized bounded correction; formal decision PR pending |
+| 29 | 2026-09-14 | Preserve unit-bearing smoothing tolerances until complete physical admission; define resolved epsilon coordinates and exact tolerance type selection (§6.9, §7.2, §8.2, ADR-0054). | authorized bounded correction; formal decision PR pending |
+| 30 | 2026-09-14 | Bind enum literals through the actual compared declaration and retain tagged enum operands in normalized predicates (§7.7, §22.1, ADR-0059). | authorized bounded correction; formal decision PR pending |
+| 31 | 2026-09-14 | Persist complete typed terminal findings in each pass attempt record; define failed/cancelled recording and explicit recording failure (§6.13, §14.3, §23.2, ADR-0056). | authorized bounded correction; formal decision PR pending |
 
 ## 0. Purpose, scope, and how to read this document
 
@@ -297,6 +325,8 @@ Every pass declares its complete input ports; memoization is keyed by their logi
 
 ### 3.1 Version anchors
 
+> Decision: ADR-0055
+
 > Decision: ADR-0049
 
 **Engine and runtime (Rust).** Every crate in both families is pinned with `=`; `Cargo.lock` is committed and CI asserts one version per family (`cargo tree` grouped by family) — `=` pins bind direct dependencies only, and `cargo tree -d` does not report a mixed family because it is not a duplicate.
@@ -315,6 +345,7 @@ Every pass declares its complete input ports; memoization is keyed by their logi
 | Crate | Pin | Owning crate | Note |
 |---|---|---|---|
 | `serde` | 1.0.229 | all | `derive`, `rc` |
+| `bytes` | 1.12.1 | `pse-ids` | Direct promotion of the resolved pin for safe reservation-carrying Arrow ownership via `Bytes::from_owner` (ADR-0055). |
 | `serde_json` | 1.0.151 | `pse-catalog`, `pse-relations`, `xtask` | manifest and extension-metadata JSON codec; never a hash input and never relation data (ADR-0049) |
 | `serde_arrow` | 0.15.0 | `pse-relations` (adapters) | feature `arrow-59`; `SchemaLike::from_type`/`from_samples` banned on platform paths; any `SERDE_ARROW:*` field-metadata key is a contract violation (§5.3) |
 | `syn` / `quote` / `proc-macro2` / `prettyplease` | 3.0.5 / 1.0.47 / 1.0.107 / 0.3.0 | `pse-schema` | `syn 3`, not the ecosystem's `syn 2`; `proc-macro2` `span-locations`; a `prettyplease` upgrade is a regeneration commit |
@@ -433,6 +464,8 @@ Explicitly not added: a second dataframe engine, a graph database, a vector data
 
 ### 4.1 What is declared once
 
+> Decision: ADR-0059
+
 > Decision: ADR-0039, ADR-0040
 
 A relation is declared exactly once as a `RelationSpec`. The registry itself is stored as relations in `reference.schema_*` so that the platform can query its own schema, diff versions, and generate migrations.
@@ -494,6 +527,8 @@ A relation schema has one meaning and may occur at several immutable compiler st
 
 ### 4.2 What is generated from it
 
+> Decision: ADR-0059
+
 > Decision: ADR-0051
 
 `pse-schema` runs as a build step (a non-macro `syn`/`quote`/`prettyplease` pipeline; emitted source is committed under `pse-relations/src/generated/` and diffed in CI) and produces, for every relation:
@@ -515,6 +550,10 @@ Two further artifacts are generated into committed trees: `crates/pse-authoring/
 Nothing hand-written may duplicate a column list. A hand-written struct that mirrors a relation is a governance failure (`tests/governance/tests/no_shadow_structs.rs` greps generated symbol names against hand-written code).
 
 ### 4.3 Metadata conventions
+
+> Decision: ADR-0052
+
+Hashes identify content or detect encoded corruption; they never discharge schema, key, foreign-key, physical-type, domain or lifecycle validation. Each admission boundary validates its declared scope. Trusted immutable validation evidence remains usable only while the validator contract, assumptions and complete dependencies remain unchanged; untrusted restores are revalidated.
 
 > Decision: ADR-0039, ADR-0044, ADR-0050
 
@@ -631,6 +670,8 @@ Consequence: re-running compilation on an unchanged snapshot reproduces identica
 
 ### 5.2 Model revision, case revision, run
 
+Commit callers may preassign the new model and case revision semantic IDs before authoring case rows; otherwise the driver assigns fresh UUIDv7 IDs. The selected IDs must be distinct, nonzero and absent from the actual predecessor chain. Every `authored.cases.model_revision_id` must equal the selected model revision; the driver never rewrites an authored revision binding. New revision parent fields name the actual observed predecessor revisions, including the previous model revision carried by the case receipt. Before CAS, walk the explicit receipt chain with a visited-ID set and validate each row/link and exact base/output reference; a content hash is not evidence of revision acyclicity. This is the revision-22 clarification of ADR-0053.
+
 ```text
 authored.model_revisions @1
   model_revision_id  : pse.semantic_id  PK
@@ -669,6 +710,10 @@ Equal declared logical content hashes identically across row/batch layout, null 
 
 ### 5.4 The snapshot catalog
 
+> Decision: ADR-0052
+
+P2 findings about unpublished candidates have a null subject_snapshot and prepublication provenance.derivations rows have a null snapshot_id; no snapshot identity is invented before acceptance. Store publication and reopening execute applicable declared semantic invariants over the actual rows and explicit parent context through the catalog validator interface implemented by the rule engine. Missing validation implementation is a typed refusal. P2 consumes unpublished schema-admitted candidate batches, which may contain violating keys. Candidates have no snapshot identity, memo entry, trusted constraints or functional dependencies. Only zero-error P2 results proceed to canonical key validation and publication. Provider constraints derive from the single canonical key declaration and are exposed only for validated immutable snapshots.
+
 > Decision: ADR-0048
 
 The catalog is a DataFusion `CatalogProviderList` whose catalogs are snapshots (named by `snapshot_id`, with mutable aliases such as `head` resolved to a snapshot at session creation), whose schemas are the seven namespaces, and whose tables are relations:
@@ -701,6 +746,8 @@ This section is the schema catalog. Every relation is declared in the registry (
 
 ### 6.1 Identity and packages (`authored`, `reference`)
 
+> Decision: ADR-0059
+
 ```text
 authored.packages @1
   package_id : sid PK · name : text · version : text (semver) · kind : enum(PackageKind)
@@ -725,9 +772,15 @@ normalized.package_graph @1                     -- P0 output; exact version requ
   dependency_package_ids : list<sid> · derivation_id : sid
 ```
 
-Every other authored relation's primary key is also present in `authored.entities`; the invariant `closure:entity_registered` enforces it.
+Only relations whose authoring declaration explicitly supplies an entity identity and EntityKind project rows into `authored.entities`; `closure:entity_registered` validates their exact identity, package, kind, name and parent correspondence. Composite relationship keys remain complete relationship keys; scalar semantic-ID records without an entity declaration are not implicitly entities. Foreign-key closure is validated separately. The entity-kind vocabulary is declared once and document mappings reference its registered members.
 
 ### 6.2 Physical types (`reference`, extendable by packages)
+
+> Decision: ADR-0058
+
+> Decision: ADR-0054
+
+The quantity registry takes an explicit neutral-dimensionless type binding and validates its complete scalar contract, without basis, reference state or subject. Dimension equality alone never selects a physical kind. Conversion coefficients are persisted: scale rules require finite scale and absent offset; affine rules require finite scale and offset; kernel rules require a kernel identity and neither coefficient. Unit-definition normalization is separate.
 
 > Decision: ADR-0039
 
@@ -737,7 +790,9 @@ reference.dimensions @1
 
 reference.units @1
   unit_id : sid PK · symbol : text · name : text · dimension : pse.dimension_vector
-  scale_to_canonical : f64 · offset_to_canonical : f64 · is_affine : bool · system : text · doc : text
+  scale_to_canonical : f64 · offset_to_canonical : f64 · is_affine : bool
+  reference_state_id : sid [n]  -- restricts datum-bearing unit spelling to this complete quantity reference
+  system : text · doc : text
   -- canonical units are SI base units; USD_<year> units have dimension currency and scale by CE index (§19.5)
 
 reference.unit_sets @1
@@ -777,6 +832,7 @@ reference.conversion_rules @1
   kind : enum(ConversionKind)                                     -- scale|affine|kernel
   kernel_id : sid [n]                                             -- e.g. molar↔mass via molecular weight
   required_parameters : list<text>                                -- e.g. ["mw"]
+  scale : f64 [n] · offset : f64 [n]                              -- explicit scale/affine coefficients; absent for kernel
 
 reference.quantity_operations @1  -- physical composition policy, distinct from dimension arithmetic (§8.3)
   operation_id : sid PK · opcode : enum(Opcode)
@@ -802,6 +858,10 @@ reference.constants @1
 ```
 
 ### 6.3 Domains, index sets, coordinates
+
+> Decision: ADR-0053
+
+A domain with `continuous = true` requires exactly one `authored.continuous_domains` row for its actual domain ID and a non-null domain `unit_id` equal to that detail's unit. A domain with `continuous = false` has no continuous detail. The nullable unit on a discrete domain remains explicit optional context. Missing continuous units are errors; domain kind or identity does not supply one. Member ordinals are unique within each actual domain. P2 checks these facts relationally, including on unpublished candidates.
 
 ```text
 authored.domains @1
@@ -839,6 +899,8 @@ compiled.quadrature_rules @1
 
 ### 6.4 Material systems (`authored`; elements are `reference`)
 
+> Decision: ADR-0054
+
 ```text
 reference.elements @1
   element_id : sid PK · symbol : text · name : text · atomic_mass : f64 (kg/mol)
@@ -848,7 +910,7 @@ authored.species @1
   mw : f64 [n] (kg/mol) · component_type : enum(ComponentType)
   -- Component|Solute|Solvent|Ion|Anion|Cation|Apparent (a platform enum mirroring the IDAES class hierarchy)
   charge : i64 · dissociation_species : list<struct<species_id: sid, coefficient: f64>> [n]   -- ions / apparent species
-  valid_phase_types : list<enum(PhaseType)>                        -- IDAES valid_phase_types
+  valid_phase_types : list<enum(PhaseType)> [n]                    -- null selects the §14.2 default; empty explicitly admits no phases
   doc : text
 
 authored.species_elements @1
@@ -942,7 +1004,7 @@ authored.default_scaling @1
   property_package_id : sid · property_kind_id : sid · index : pse.index_tuple · scaling_factor : f64
 
 inferred.property_requirements @1   -- explicit demand closure (§9.6)
-  requirement_id : sid PK · state_scope_id : sid · property_kind_id : sid · index : pse.index_tuple
+  requirement_id : sid PK · state_scope_id : sid · property_kind_id : sid · index : pse.index_tuple [n]
   requested_by : sid                                                    -- equation_id or requirement_id (transitive)
   derivation_id : sid
 
@@ -1046,12 +1108,15 @@ authored.template_property_requirements @1
 normalized.property_demand_seeds @1
   seed_id : sid PK · source_id : sid · source_kind : enum(DemandSource)
   scope_id : sid · property_kind_id : sid · index : pse.index_tuple
-  guard_node_id : u64 [n] · derivation_id : sid
+  guard_node_id : u64 [n] · derivation_id : sid · guard_source_id : sid [n]
+  source_symbol_decl_id : sid [n] FK authored.template_symbols
 ```
 
 P3 derives expression demands directly from its parsed graphs and normalizes these opaque-operation declarations into the same seed schema. P4/P5 decide guards and bind scope/index identities before P6. The seed set contains no P7 equation or P15 stage identifier.
 
 ### 6.7 Instances, flowsheets, connectivity
+
+> Decision: ADR-0053
 
 ```text
 authored.instances @1
@@ -1097,8 +1162,9 @@ inferred.topology_edges @1        -- unit-level directed graph: from_instance_id
 inferred.tear_candidates @1       -- cycle-breaking edges for sequential initialization (§17.4)
 
 inferred.undecided @1             -- rule outcomes that are unknown or in conflict (§14.2 rule 3); head relations hold only decided-true rows
-  undecided_id : sid PK · rule_id : sid · head_relation_id : sid · key : pse.index_tuple · truth : enum(TruthValue)   -- unknown|conflict
+  undecided_id : sid PK · rule_id : sid · head_relation_id : sid · key : text · truth : enum(TruthValue)   -- unknown|conflict
   reason : text · supporting : list<struct<relation_id: sid, row_key: text>> · derivation_id : sid
+  -- key is ["pse.rule-key.v1", [[column_name, tagged_cell], ...]]; exact declared key names/order/types/values are checked by the shared reversible Cell codec (ADR-0053)
 ```
 
 ### 6.8 Symbols (`compiled`)
@@ -1124,6 +1190,10 @@ compiled.symbol_group_members @1  -- group_id, tuple, symbol_id
 
 ### 6.9 Mathematics (`compiled.math_*`)
 
+> Decision: ADR-0054
+
+`PiecewiseLinear` has one expression child in `math_expr_args`; `Gather` has only its group/coordinate payload. Kernel-binding input-node references, guards, filters, bounds and all ordered payload references participate in validation, traversal, structural identity and remapping. Indexed residual types may be null before P10 and must be resolved at its output.
+
 ```text
 compiled.math_expr_nodes @1
   node_id : u64 PK · opcode : enum(Opcode) · quantity_type_id : sid [n]   -- null until unit inference has run; never null after P10
@@ -1136,7 +1206,7 @@ compiled.math_expr_args @1
 compiled.math_symbol_refs @1        node_id, symbol_id
 compiled.math_float_constants @1    node_id, value : f64, unit_id : sid
 compiled.math_int_constants @1      node_id, value : i64
-compiled.math_affine @1             node_id, constant : f64, terms : list<struct<coefficient: f64, child_node_id: u64>>  -- ordered; children need not be linear
+compiled.math_affine @1             node_id, constant : f64, constant_quantity_type_id? : sid, constant_unit_id? : sid, terms : list<struct<coefficient: f64, child_node_id: u64>>  -- ordered; children need not be linear
 compiled.math_weighted_means @1     node_id, pairs : list<struct<weight_node_id: u64, value_node_id: u64>>,
                                     normalization : enum(WeightNormalization) (divide_by_sum|certified_unit_sum), unit_sum_invariant_id : sid [n]
 compiled.math_reductions @1         node_id, kind : enum(ReductionKind) (sum|prod|min|max), domain_id : sid,
@@ -1145,7 +1215,7 @@ compiled.math_gathers @1            node_id, group_id : sid, coordinate_map : li
 compiled.math_broadcasts @1         node_id, domain_id : sid, bound_index_id : sid
 compiled.math_derivatives @1        node_id, wrt_domain_id : sid, order : u8
 compiled.math_integrals @1          node_id, domain_id : sid, quadrature_policy_id : sid [n]
-compiled.math_smooth_ops @1         node_id, eps : f64                     -- smooth_max, smooth_min, smooth_abs, safe_sqrt, safe_log
+compiled.math_smooth_ops @1         node_id, eps : f64                     -- resolved canonical input-coordinate tolerance; §8.2
 compiled.math_conditionals @1       node_id, guard_node_id : u64            -- piecewise with explicit guard; lowered per backend (§7.2)
 compiled.math_kernel_calls @1       node_id, kernel_binding_id : sid, output_ordinal : u16
 compiled.math_implicit_refs @1      node_id, implicit_system_id : sid, unknown_ordinal : u16
@@ -1161,6 +1231,7 @@ compiled.math_quantity_selections @1  -- the P10 derivation of the §8.3 selecti
 compiled.math_indexed_equations @1   -- one row per (instance, equation declaration): the indexed form produced by P7–P9 and consumed by P12
   indexed_equation_id : sid PK · owner_instance_id : sid · equation_decl_id : sid [n] · qualified_name : text
   product_id : sid [n] · filter_node_id : u64 [n] · body_node_id : u64 · sense : enum(Sense) · lower_node_id : u64 [n] · upper_node_id : u64 [n]
+  residual_quantity_type_id : sid [n]
   law_instance_id : sid [n] · derivation_id : sid
 
 compiled.math_free_indices @1        -- the free indices of an indexed equation; P12 binds them to domain members
@@ -1172,7 +1243,7 @@ compiled.math_equations @1           -- scalar: one row per valid index tuple, p
   body_node_id : u64 · sense : enum(Sense)                                -- eq|le|ge|range|definition
   lower_node_id : u64 [n] · upper_node_id : u64 [n]
   residual_quantity_type_id : sid
-  family : enum(EquationFamily) · role : enum(EquationRole)               -- semantic_math_basis §1.2, §1.3
+  family : enum(EquationFamily) · role : enum(EquationRole)               -- the self-contained dictionary and semantics of §7.5
   differentiability : enum(Differentiability) · convexity : enum(Convexity) · monotonicity : enum(Monotonicity)
   default_active : bool · group_id : sid [n]
   law_instance_id : sid [n] · derivation_id : sid
@@ -1213,9 +1284,13 @@ authored.case_specs @1
   scaling_factor : f64 [n]
   priority : i32                                               -- overlay precedence within a case
 
+authored.instance_domain_bindings @1
+  instance_id : sid PK (FK authored.instances.instance_id) · domain_name : text PK · domain_id : sid (FK authored.domains.domain_id)
+
 authored.case_spec_targets @1    -- resolved by P1 at commit from case_specs.target; rename-stable because it references identities
   spec_id : sid · ordinal : u16 · instance_id : sid · member_kind : enum(TargetKind)   -- symbol|port|group|equation|instance_wildcard
-  symbol_decl_id : sid [n] · port_decl_id : sid [n] · index : pse.index_tuple [n] · wildcard : bool
+  symbol_decl_id : sid [n] · equation_decl_id : sid [n] · port_template_id : sid [n] · port_name : text [n] · index : pse.index_tuple [n] · wildcard : bool
+  -- symbol/group selects symbol_decl_id; equation selects equation_decl_id; port selects both port key fields; instance_wildcard selects none
 
 authored.case_activations @1     activation_id PK, case_id, target : pse.target_path, active : bool   -- resolved rows: case_activation_targets (same shape as case_spec_targets)
 authored.case_objectives @1      case_id, objective_id, active : bool, weight : f64
@@ -1231,9 +1306,16 @@ authored.case_sets @1            case_set_id, base_case_id, generator_kind : enu
 authored.case_set_samples @1     case_set_id, sample_ordinal, case_id
 ```
 
+P1 resolves indexed targets through the explicit `(instance_id, domain_name) → domain_id` binding. The name must be declared by the instance template; the domain kind/continuity and owner must match that declared instance context. A concrete selector names an actual member ID, unambiguous label or exact finite coordinate in that domain. Persist member IDs in the symbol/equation `indexed_by` order. Missing bindings, duplicate dimensions, wrong arity and unknown/ambiguous members are typed failures. Wildcards preserve the declared indexed shape; neither a label nor a coordinate is hashed into an identity.
+
+
 Tabular observation imports use a declared schema with Arrow CSV/JSON `ReaderBuilder::new(schema)`, strict unknown-column handling and CSV header validation. Required columns, missing-value spellings, units, target resolution and source-row spans are specified by a versioned import descriptor; schema inference is disabled. Missing measurements remain rows with null values and never become zero. Structural/type/finite-value/FK validation precedes a change set. This applies to the §19.4 observation interface, not to the YAML/TOML modeling language or IDAES state-file format.
 
 ### 6.11 Numerical infrastructure (`reference`, `authored`, `compiled`)
+
+> Decision: ADR-0053
+
+Rule declarations preserve complete typed expression trees, head kind and violation-key columns, join null equality, union bag/set choice, recursive name/target/distinct/depth options and typed migration defaults. Rule dependencies bind exact versioned rule identities. Violation heads describe findings about a relation, not writes to that relation. `schema_migrations.plan_spec` is a lossless versioned typed rendering including defaults and escaped names. The following rule schema additions are semantic inputs, not diagnostic evidence.
 
 > Decision: ADR-0040, ADR-0043, ADR-0047, ADR-0048, ADR-0041
 
@@ -1276,7 +1358,7 @@ compiled.kernel_bindings @1
 reference.pass_specs @1          -- §14.1; ports supply the only input/output declarations
   pass_id : sid PK · name : text · version : text
   preconditions : list<sid> · postconditions : list<sid>       -- invariant_ids
-  determinism : enum(Determinism) · diagnostics : list<enum(FailureClass)>
+  determinism : enum(Determinism) · diagnostics : list<enum(FailureClass)> · executes_plans : bool
   -- every input port is keyed initially; no separate incomplete cache_key_inputs list
 reference.pass_input_ports @1
   pass_id : sid · port : text · relation_id : sid
@@ -1293,15 +1375,26 @@ compiled.stage_bundles @1                                    -- sidecar catalog 
 reference.rule_specs @1          -- §14.2; the body is the typed plan below, never text
   rule_id : sid PK · version : text · stratum : u16 · head_relation_id : sid · root_node_id : sid
   negation : enum(NegationPolicy) · monotonic : bool · conflict_policy : enum(ConflictPolicy)
+  head_kind : enum(RuleHeadKind) (relation|violations) · head_key_columns : list<text>
 
 reference.rule_plan_nodes @1     -- the RulePlanSpec algebra as rows (one relation, typed payload columns)
   node_id : sid PK · rule_id : sid · op : enum(RulePlanOp)
-  -- scan|filter|project|equi_join|anti_join|union|distinct|aggregate|unnest|kernel_call|recursive
+  -- scan|filter|project|equi_join|anti_join|union|distinct|aggregate|unnest|kernel_call|recursive|recursive_ref
   relation_id : sid [n]                                        -- required for scan
   input_port : text [n]                                       -- required for scan; names its pass_input_ports binding, never an implicit latest producer
   join_keys : list<struct<left: text, right: text>> [n]         -- equi/anti join; key columns must be key-role (never Float64, rule 7)
   predicate_expr_id : sid [n]                                  -- reference.rule_expr_* graph (same schema as math_* restricted to boolean ops)
   projection : list<struct<name: text, expr_id: sid>> [n] · kernel_binding_id : sid [n] · doc : text
+  null_equality : enum(NullEquality) [n]
+  recursive_name : text [n] · recursive_target_node_id : sid [n]
+  is_distinct : bool [n] · depth_bound : enum(DepthBound) [n] · depth_limit : u32 [n]
+reference.rule_expr_nodes @1
+  expr_id : sid PK · rule_id : sid · op : enum(RuleExprOp)
+  column_name : text [n] · comparison_op : enum(RuleCmpOp) [n] · field_name : text [n]
+  literal_kind : enum(RuleLiteralKind) [n]  -- null|bool|i64|u64|f64|text|id|hash|enum|list|struct
+  bool_value : bool [n] · i64_value : i64 [n] · u64_value : u64 [n] · f64_bits : u64 [n]
+  text_value : text [n] · id_value : sid [n] · hash_value : hash [n]
+reference.rule_expr_edges @1     parent_expr_id : sid · ordinal : u32 · child_expr_id : sid
 reference.rule_aggregates @1    node_id, ordinal : u16, function : enum(RuleAggregate) (count|sum|min|max|collect_ordered),
                                  input_expr_id : sid [n], output_name : text, order_by : list<struct<column: text, ascending: bool>>,
                                  null_policy : enum(AggregateNullPolicy) (reject|skip_missing), empty_policy : enum(AggregateEmptyPolicy) (zero|empty_list|error)
@@ -1402,7 +1495,7 @@ runtime.duals @1                 run_id, equation_id, dual : f64, bound_multipli
 runtime.residuals @1             run_id, equation_id, residual : f64, scaled_residual : f64, relative_residual : f64 [n]
 runtime.iterations @1            run_id, iteration : u32, objective, inf_pr, inf_du, mu, step_size, regularization, restoration : bool
 runtime.solver_events @1         run_id, ordinal, kind : enum(SolverEvent), message : text
-runtime.diagnostics_findings @1  finding_id, subject_snapshot : hash, run_id [n], check_id : sid, severity : enum(FindingSeverity), subjects : list<sid>, values : text (JSON), message, next_steps : list<text>
+runtime.diagnostics_findings @1  finding_id, subject_snapshot : hash [n], run_id [n], check_id : sid, severity : enum(FindingSeverity), subjects : list<sid>, values : text (JSON), message, next_steps : list<text>
 runtime.kernel_evaluations @1    evaluation_id, kernel_binding_id, input_hash, output_batch_hash  -- batch evaluations outside solves
 runtime.kernel_evaluation_outcomes @1  -- mandatory for tolerant batch evaluation, one row per requested input/output coordinate
   evaluation_id : sid · row_ordinal : u64 · output_ordinal : u16
@@ -1416,12 +1509,13 @@ runtime.host_capabilities @1     -- written by the explicit `probe_host` operati
 
 provenance.derivations @1
   derivation_id : sid PK · relation_id : sid · row_key : text · rule_id : sid [n] · pass_id : sid [n]
-  supporting : list<struct<relation_id: sid, row_key: text>> · snapshot_id : hash · fingerprint : hash
+  supporting : list<struct<relation_id: sid, row_key: text>> · snapshot_id : hash [n] · fingerprint : hash [n]
 
-provenance.pass_records @1       pass_run_id, pass_id, version, snapshot_in : hash, snapshot_out : hash, engine_profile_hash : hash [n],
+provenance.pass_records @1       pass_run_id, pass_id, version, snapshot_in : hash [n], snapshot_out : hash [n], engine_profile_hash : hash [n],
                                  plan_evidence : list<struct<encoding_checksum: hash, encoding: text, codec_version: text>> (noncanonical diagnostic bytes — §14.2 rule 5),
                                  plan_explain : list<text> (EXPLAIN in pgjson format), rules_fired : list<struct<plan_ordinal: u16, rule_name: text, ordinal: u16>>,
-                                 duration_ms, finding_count, status
+                                 duration_ms, finding_count, status : enum(PassStatus),
+                                 findings : list<struct<diagnostic fields>>, failure_class : enum(FailureClass) [n]
 provenance.assertions @1         assertion_id, package_id, expected : text (typed JSON), status : enum(AssertionStatus) (pass|fail|obsolete), reason
 provenance.refs @1               name : text PK, snapshot_id : hash, manifest_checksum : hash, updated_at : ts
 ```
@@ -1472,6 +1566,10 @@ These enumerations are closed dictionaries whose members carry `idaes_name` for 
 
 ### 7.2 Operator catalog
 
+> Decision: ADR-0054
+
+One typed operator table owns arity and operator semantics; registry rows project it. Scope is diagnostic and excluded from structural identity. Conflicting scopes collapse to `None`, which is absorbing independent of insertion order.
+
 | Opcode | Arity / payload | Dimensional rule | Derivative rule | Domain restriction | Smoothness | Native | NL | Pyomo | DataFusion |
 |---|---|---|---|---|---|---|---|---|---|
 | `Const` | payload value, unit | given | 0 | — | C∞ | ✓ | ✓ | ✓ | ✓ |
@@ -1494,7 +1592,7 @@ These enumerations are closed dictionaries whose members carry `idaes_name` for 
 | `Integral` | body + domain + quadrature | body dimension × domain unit | linear | continuous domain | — | via quadrature (P11) | via P11 | via P11 | ✗ |
 | `KernelCall` | binding + output ordinal | kernel's output type | from `KernelSpec.derivative_bindings` | kernel validity | kernel's | ✓ | ✓ only with `nl_external_function` binding | ✓ `ExternalFunction` or expression expansion | ✓ generated UDF |
 | `ImplicitRef` | implicit system + unknown ordinal | unknown's type | implicit function theorem `dz/du = −G_z⁻¹ G_u` on the selected branch | G_z nonsingular | branchwise C¹ | ✓ | ✗ (must remain equations) | ✗ (must remain equations) | ✗ |
-| `UnitConvert` | 1 + scale, offset | from → to | scale | offset ≠ 0 only when a point quantity is converted from an affine unit (°C, psig) to its canonical unit; inserted by P3/P9, so no node carries an affine unit after P10 | C∞ | ✓ | ✓ | ✓ | ✓ |
+| `UnitConvert` | 1 + scale, offset | from → to | scale | representation conversions preserve the complete physical type; a physical affine/scale conversion additionally requires its named conversion rule in math_quantity_selections, checked against both complete types and parameters; inserted by P3/P9 and verified by P10 (ADR-0054, ADR-0058) | C∞ | ✓ | ✓ | ✓ | ✓ |
 | `PiecewiseLinear` | breakpoints payload | given | slopes | — | C⁰ | ✓ | ✓ (SOS2 lowering) | ✓ (`Piecewise`) | ✓ |
 
 Phase 0 admits as a `Conditional` guard only a `SymbolRef` whose kind is the registered boolean kind or an `IntConst` 0/1 decided by feature selection; comparison and logical opcodes are a later amendment.
@@ -1503,19 +1601,22 @@ Phase 0 admits as a `Conditional` guard only a `SymbolRef` whose kind is the reg
 
 ### 7.3 Operator contract record
 
+> Decision: ADR-0054
+
 > Decision: ADR-0047
 
 Each opcode has a row in `reference.operator_specs` (generated from the `pse-mathir` operator table so that the code and the relation cannot drift):
 
 ```text
 reference.operator_specs @1
-  opcode : enum(Opcode) PK · arity : enum(Arity) (fixed n|variadic|payload)
+  opcode : enum(Opcode) PK · arity : enum(Arity) (fixed|variadic|payload) · fixed_arity : u8 [n]
   quantity_operation_ids : list<sid> · shape_rule : text · derivative_rule : text
   argument_evaluation : enum(ArgumentEvaluation) · failure_classes : list<enum(KernelFailure)>
   domain_restrictions : list<struct<argument: u16, relation: enum(RelationOp), bound: f64>>
+  domain_rule : text  -- payload/dependent restrictions beyond simple scalar bounds
   smoothness : enum(Differentiability) · convexity_rule : text · monotonicity_rule : text
   sparsity_rule : text · rewrite_conditions : list<text>
-  lowering : list<enum(BackendBinding)>
+  lowering : list<enum(BackendBinding)> · family : enum(OperatorFamily) · foldable : bool
 ```
 
 The operator table is the authority for evaluation order, quantity rules, derivatives and lowerings. P10 always preserves ordered guarded floating-point semantics, so the model graph is independent of case policy. `x/x → 1` is not an unconditional rewrite: the relevant contract must establish finite nonzero inputs and preserve observable failure/signed-zero behavior. `log(exp(x)) → x` is disabled by default because intermediate overflow/underflow and rounding can change behavior; any future rule requires a checked interval/error bound under the selected policy.
@@ -1536,7 +1637,9 @@ The `pse.canon.v2` relation serializer preserves this ordered IR. Reordering ari
 
 ### 7.5 Equation records
 
-`compiled.math_equations` follows the `EquationRecord` shape of `semantic_math_basis.md` §1.1. Family and role are derived by P14 on the **case-bound view**: the canonical graph with fixed and parameter symbols replaced by recorded `case_bound_substitutions` values from `bound_values`. A coefficient is *constant* when it is a literal or a recorded fixed/parameter substitution; `math_static_analysis.parameter_dependence` records which fixed/parameter substitutions the classification used, so the same canonical graph may classify differently in a case that estimates a parameter (§19.4) than in one that fixes it, and the derivation says why:
+> Decision: ADR-0057
+
+`compiled.math_equations` follows §6.9. Its family is derived by P14 on the **case-bound view**: the canonical graph with fixed and parameter symbols replaced by recorded `case_bound_substitutions` values from `bound_values`. A coefficient is *constant* when it is a literal or a recorded fixed/parameter substitution; `math_static_analysis.parameter_dependence` records which fixed/parameter substitutions the classification used, so the same canonical graph may classify differently in a case that estimates a parameter (§19.4) than in one that fixes it, and the derivation says why:
 
 | Detection | Family |
 |---|---|
@@ -1544,13 +1647,20 @@ The `pse.canon.v2` relation serializer preserves this ordered IR. Reordering ari
 | body proved affine in active decision variables, `eq` | `AFFINE_EQUALITY`; if every coefficient ∈ {−1, +1} and the symbols are flows sharing a quantity type: `NETWORK_BALANCE` |
 | body proved affine in active decision variables, `le`/`ge`/`range` | `AFFINE_INEQUALITY` |
 | affine-in-variables sum of fractions with constant 1 | `SIMPLEX_ALLOCATION` (sum of mole fractions) |
-| product of two symbol-dependent subtrees | `BILINEAR` (flow × composition, flow × enthalpy) |
-| transcendental of symbol-dependent subtree | `SMOOTH_TRANSCENDENTAL` (Antoine, Arrhenius, ideal-gas cp) |
+| a product of factors established affine in disjoint active-variable groups, with coefficients independent of both groups | `BILINEAR` (qualified flow × composition or flow × enthalpy); arbitrary symbol dependence does not establish bilinearity |
+| supported transcendental dependence whose complete expression is smooth on the admitted domain | `SMOOTH_TRANSCENDENTAL`; mere presence of a transcendental opcode does not establish smoothness |
 | contains `SmoothMax`/`SmoothMin` | `NONSMOOTH_CONVEX` approximated; recorded as `SMOOTH_TRANSCENDENTAL` with a `smooth_approximation` flag |
 | contains `KernelCall` without expression expansion | `BLACK_BOX` with derivative contract reference |
 | `definition` sense | `REPORTING_DEFINITION` when no active equation depends on it, else `DEFINITION` |
 
 Roles (`HARD_FEASIBILITY`, `DEFINITION`, `LINKING` for connection equations, `DOMAIN_GUARD`, `REPORTING`, `APPROXIMATION`) are assigned by the pass that created the equation and are part of the derivation.
+
+The closed `EquationFamily` dictionary is: `BOUND`, `AFFINE_EQUALITY`, `AFFINE_INEQUALITY`, `NETWORK_BALANCE`, `SIMPLEX_ALLOCATION`, `BILINEAR`, `SMOOTH_TRANSCENDENTAL`, `NONSMOOTH_CONVEX`, `BLACK_BOX`, `DEFINITION`, `REPORTING_DEFINITION`, `GENERAL_NONLINEAR`, `UNCLASSIFIED`. `UNCLASSIFIED` means classification has not been established, including before P14. `GENERAL_NONLINEAR` requires established nonlinearity outside the supported specialized classes; it does not mean unknown. `NONSMOOTH_CONVEX` requires established convexity over the entire admitted domain, not simply an Abs/Min/Max opcode. Other families require the complete residual and bound expressions to satisfy their stated condition. `NETWORK_BALANCE` additionally requires declared conservation semantics; `SIMPLEX_ALLOCATION` requires nonnegative allocation variables and an established sum-to-one constraint.
+
+Family precedence is conservative: classify a definition by dependency use first; then an opaque unexpanded kernel as BLACK_BOX; then prove BOUND, specialized affine (NETWORK_BALANCE or SIMPLEX_ALLOCATION), general affine, BILINEAR, NONSMOOTH_CONVEX or SMOOTH_TRANSCENDENTAL in that order. If no specialized predicate holds, establish GENERAL_NONLINEAR or retain UNCLASSIFIED. No classifier may use an authored hint as proof, rewrite arithmetic to manufacture a category, or infer validity from a hash. Classification derivations bind the active-variable set, actual fixed/parameter substitutions, domain/quantity facts and classifier contract; changed assumptions invalidate them even when a category stays the same.
+
+The closed `EquationRole` dictionary and meanings are: HARD_FEASIBILITY (a required model constraint), DEFINITION (defines a quantity consumed by model equations), LINKING (couples declared model interfaces), DOMAIN_GUARD (enforces a declared validity restriction), REPORTING (report-only relation), APPROXIMATION (an explicitly selected approximation replacing a declared relation). The producing pass assigns the role from the declaration and records provenance; P14 checks and preserves it. Role is independent of algebraic shape and of constraint activation. Hints are expectations checked against established facts, not overrides. Wave 1 implements these dictionaries and preserves hints; classification behavior belongs to P14 and remains unimplemented in this wave.
+
 
 ### 7.6 Null, bound, and unknown semantics
 
@@ -1566,6 +1676,20 @@ Roles (`HARD_FEASIBILITY`, `DEFINITION`, `LINKING` for connection equations, `DO
 | Inference predicate could not decide | a row in `inferred.undecided` (`truth = unknown` or `conflict`) plus a diagnostic; the head relation holds only decided-true rows, so an undecided fact can never be consumed as true, and the closure report (§14.5) stays open until the row is resolved |
 
 ### 7.7 The expression DSL
+
+> Decision: ADR-0054
+
+**Complete P3 source contract (revision 20).** `normalized.expression_sources` is keyed by a derived source identity and stores expression family (`template|instance|display|contribution|guard`), original relation identity, complete ordered typed primary-key parts, exact field path, template owner, syntax kind (`expression|predicate|equation`), root ordinal, derivation and original source span. A key part records its column and registry logical-type identity, with exactly one matching value slot (`semantic_id`, `content_hash`, `text`, `signed_integer`, `unsigned_integer`, `boolean`, or `index_tuple`). The declared logical type distinguishes widths, enums, timestamps and ordinal targets. Keys are decoded and compared against actual source rows; a digest or display string is not a key substitute. `source_id = named_id(document_id, "pse:p3:source:v1:" + field_path)`; stable source identity does not certify source validity or reuse. Nodes shared by different sources remain connected through these explicit roots.
+
+`normalized.predicate_nodes` is keyed by `(source_id, predicate_id)` and stores one exact predicate kind: `boolean`, `null`, `atom`, `compare`, `in`, `and`, `or`, `not`. Its nullable payload slots are Boolean value, comparison (`eq|not_eq|lt|le|gt|ge`), arithmetic left/right node ordinals, predicate left/right ordinals, and an actual-or-template domain reference. Only slots required by that kind are present. An atom refers to an arithmetic declaration/value node; unknown Boolean values remain explicit nulls. Expression operands are tagged explicitly: `left_kind` and `right_kind` use `PredicateOperandKind(expression|enum_literal)` where that operand is present. The expression alternative uses the existing left/right expression ordinal. An enum literal instead carries the corresponding `left_enum_id`/`left_enum_member` or `right_enum_id`/`right_enum_member`; its expression ordinal is null. Enum member text is admitted against that exact registered enum declaration, never a dictionary code or globally guessed member name. Equality and inequality can infer this literal context only from the actual compared template feature or parameter row's nonnull `enum_id`, on either side. Two enum-valued declarations must name the same enum. An unresolved bare single-segment member must belong to that enum, and a name that also resolves as a declaration or lexical value is ambiguous and refused. Ordered enum comparisons are refused because this contract declares no enum ordering. Enum literals are not mathematical nodes and cannot enter arithmetic, an untyped predicate atom, or ordinary domain membership. `in` retains its existing actual-or-template domain contract; no enum-valued scalar or enum name is implicitly a set. Conjunction/disjunction operand order and conditional evaluation regions are preserved. `normalized.equation_nodes`, keyed by `(source_id,equation_id)`, stores either `relation` with exact sense (`eq|le|ge`) and arithmetic left/right nodes, or `conditional` with predicate guard and two equation-node ordinals. No residual-only rewrite discards an equation sense or branch. Every root/reference resolves in the same source/family; graphs are acyclic and all persisted nodes are reachable from their source roots or guard/payload references.
+
+Normalized arithmetic uses the existing 43 numerical opcodes. Its `SymbolRef` payload is a tagged value reference: a declared symbol identity; a template parameter/feature/port composite declaration key; an explicitly declared actual/template domain value; or a lexical index identity backed by its declared binding. Normalized value-reference payloads persist the tags and complete keys. `GuardRef` is either an actual mathematical node or `(source_id,predicate_id)` in the normalized predicate graph. A normalized conditional or reduction stores exactly one guard alternative. These unresolved references are structural facts, not inferred physical types. P4–P9 resolve them; compiled relations and P10 refuse unresolved declaration/domain/index/predicate alternatives. A pseudo semantic ID, placeholder Boolean or dummy arithmetic node never stands in for them. Let bindings are lowered by lexical substitution without capturing names; source text and exact bound path inventory retain their authoring provenance.
+
+Expression-derived property requirements use the single explicit `authored.template_symbol_properties(symbol_decl_id : sid PK FK template_symbols, property_kind_id : sid FK reference.property_kinds, scope_selector_id : sid FK authored.scopes)` mapping. Symbol names never imply property kinds. Both this mapping and `template_property_requirements.scope_selector_id` name the existing authored logical scope/selector graph; P3 seed `scope_id` is that declared logical scope identity, and P4/P5 resolve its members later. Selector root, ownership, arity and references must already be admitted.
+
+P3 checks the complete original source inventory and generated source rows against its bound input rows before lowering. It emits every declared output, including explicit empties. Actual primary keys, node closure, payload exclusivity, original bindings and primitive values establish validity before identities or memo candidates are considered.
+
+Normalized expression-family node tables project the mathematical node contract and add `derivation_id : sid` and `source_span : pse.source_span`. The span is the exact authored byte range; it is regenerated after rename rendering. Payload tables share the single mathematical field declarations.
 
 Authored equations are written in a small textual language. The text, stored in `pse.expr_dsl` columns, is the authored fact and the only form a change set may edit; its parsed graph is a derived `normalized.*_expr_*` relation produced by P3 with a derivation to the source span (§6.6), and a parse → render → parse round trip is the identity on the graph (a test in §24.1).
 
@@ -1610,6 +1734,8 @@ The parser (`winnow`) produces nodes with unresolved paths; P3 (canonicalization
 
 ---
 
+Template-local domain references in P3 graphs retain `(template_id, domain_name)` from `authored.template_domains`; they are not invented domain identities. Normalized reduction, broadcast, derivative and integral payloads contain either the actual domain field or the paired `template_id` and `domain_name` fields, exclusively. An actual instance resolves the composite through `authored.instance_domain_bindings`. P10 requires actual domain identities and refuses unresolved template references before physical inference (ADR-0054).
+
 ## 8. Physical typing
 
 ### 8.1 QuantityType
@@ -1627,12 +1753,56 @@ A `quantity_type_id` resolves to the tuple (quantity kind, dimension vector, bas
 
 ### 8.2 Units and unit sets
 
-- Units are SI-anchored: `scale_to_canonical`, `offset_to_canonical`, and a dimension vector. Units with offsets (°C, °F, psig) carry `is_affine = true`: a point conversion applies the offset, while a difference conversion applies scale only. P3 normalizes authored constants to package canonical units. P9 explicitly converts to and from each kernel's natural-unit ports; P10 checks those declared `UnitConvert` edges, including affine ports, instead of banning the conversion needed by the kernel.
+> Decision: ADR-0054
+
+A normalized `UnitConvert` has exactly one payload alternative. A resolved conversion retains the existing complete from/to/multiply/add contract. A pending conversion retains only its requested destination unit; it has no asserted source unit or coefficients. The normalized unit-convert relation appends `conversion_state : enum {resolved, pending}` and makes `from_unit_id`, `scale` and `offset` nullable. Pending rows require all three absent and `to_unit_id` present; resolved rows require all present. `PendingUnitConvert { to }` is the untyped payload under the existing `UnitConvert` opcode, not an additional numerical opcode. P10 resolves the request only from the child's admitted complete physical type, actual unit definitions and `convert_spec_for_type`; unresolved template context is a typed refusal. Compiled unit-convert rows retain their existing non-null complete contract.
+
+A normalized `Gather` likewise has exactly one payload alternative. A resolved lexical
+coordinate map retains the existing ordered `(bound_index_id, group_dimension)` fields.
+A pending selection retains the actual template symbol declaration ID and an ordered list
+of index-expression node IDs, with arity exactly equal to that declaration's `indexed_by`.
+Its index expressions are ordinary reachable nodes in the same expression graph; numeric
+literals and expressions such as `i + 1` are preserved without creating fictitious binders
+or domain members. The normalized gather relation appends `gather_state : enum {resolved,
+pending}` and `index_nodes : list<NodeId>?`; `coordinate_map` becomes nullable. Resolved
+requires a map and absent index_nodes; pending requires absent map and present index_nodes.
+`PendingGather { group, indices }` uses the existing Gather opcode. P4/P5 must resolve
+pending template selections from actual domain bindings and members; P10 refuses any
+remaining pending selection. Compiled Gather payload/storage does not change. All index
+references participate in graph admission, traversal, remapping and structural identity.
+
+
+A smoothing epsilon is a positive finite scalar tolerance. The resolved `math_smooth_ops.eps` value is explicitly measured in the first actual operand's canonical representation coordinate; this is also the language meaning of bare `eps=` and of a selected bare numerical-policy default. No unit is selected by name or dimension. `SmoothMax`, `SmoothMin`, `SmoothAbs` and `SafeSqrt` use an input-coordinate tolerance; `SafeLog` additionally requires dimensionless input. This interpretation does not change the operator, its ordered arguments or its numerical formula.
+
+For a unit-bearing epsilon, P3 preserves `PendingSmoothOp { eps, unit }` under the existing smooth/safe opcode. The normalized smooth relation appends `epsilon_state : enum {coordinate, pending_unit}` and nullable `eps_unit_id`; coordinate requires an absent unit, pending_unit requires a declared unit. Every alternative requires positive finite `eps`. Compiled storage admits only resolved coordinate epsilon. P10 resolves a pending epsilon only after the first child has an admitted complete quantity type. It forms the exact scalar tolerance type key by preserving that child's kind, basis, reference state and subject kind; an origin-sensitive kind requires `scale_kind = difference`, otherwise the child's scale kind is preserved. A matching quantity type must actually exist in `reference.quantity_types`; neither dimension compatibility nor an unrelated type with matching storage can supply it. The complete tolerance key applies equally when validating a resolved coordinate epsilon. Missing or ambiguous context is a typed refusal.
+
+P10 converts the declared epsilon unit to the first child's actual canonical unit using the existing `convert_spec_for_type` and `convert_value` with that tolerance key. The unit dimensions must match the actual input dimension; origin-sensitive tolerances use difference conversion, so Celsius/Fahrenheit offsets and gauge datums are not added to a tolerance. Datum restrictions still require compatible complete context. The converted epsilon must remain positive and finite. It is then emitted as resolved `SmoothOp { eps }`; graph identity covers the pending unit/value before resolution and the resolved numeric value afterwards. P3 and P10 dependencies include the actual unit definitions and complete quantity declarations. Missing epsilon still requires an actual selected numerical-policy default; omission never supplies one.
+
+Every document section exposing `pse.expr_dsl` declares `expression_fields : list<struct<path:text, syntax:enum{expression,predicate,equation}>>`. Paths start at an exact relation column, use `[]` for a list element and `.field` for a struct field. Registry admission requires one unique mapping for every exposed DSL leaf, none for non-DSL fields, and identical mappings wherever documents expose the same relation. `reference.schema_document_sections` persists the complete mapping. The generic extension remains a DSL text carrier; loading, P1, shared binding, P3 and generated source JSON Schema use the declared grammar without parse-any fallback. A Boolean atom in a predicate field is a predicate; equation fields require equations and arithmetic fields cannot silently accept equations. Grammar changes alter the actual registry projection and invalidate prior interpretation independently of any digest comparison.
+
+An Integral persists its lexical `bound_index_id` with its declared domain, so its body and optional guard have an explicit binder owner. An Integral may retain an optional filter using the same explicit `GuardRef` alternatives as Reduction. Normalized filters preserve `(source_id, predicate_id)` together; instantiated filters require an actual Boolean mathematical guard. A consumer that cannot evaluate a guarded integral refuses it explicitly before physical admission. A missing filter is distinct from a false filter. Property-demand seeds append nullable `guard_source_id`, paired with `guard_node_id`; when present they identify a predicate in `normalized.predicate_nodes` by its complete composite key. No source-local node number stands alone. Expression demand seeds append `source_symbol_decl_id : sid [n] FK authored.template_symbols`, identifying the exact declaration supplying their property signature. The seed `index` is nullable: null is a deferred template-index binding whose ordered axes come from that symbol declaration; an empty tuple is an actual scalar; a populated tuple contains concrete actual domain/member identities. Opaque demands expand their explicit actual domain bindings over checked finite member inventories. P4/P5 must resolve every deferred index before P6 admission. A seed guard records its inline conditional/reduction/integral evaluation region. P4 additionally joins the seed source to expression_sources, its complete typed source row key and field, and the normalized declaration row to apply every enclosing guard_id and equation filter. Those guard/filter fields resolve through their own exact source-expression roots. All conditions are conjoined before demand activation; an inline guard never overrides an enclosing declaration condition. No condition may become unreachable or be assumed true because an identity matches. Omitted smoothing epsilon can use only an actual selected numerical-policy default; when no such declared value is bound, P3 reports that epsilon is required.
+
+P3 obtains a package's representation units only from `authored.package_unit_sets(package_id : sid PK FK authored.packages, unit_set_id : sid FK reference.unit_sets)`. The optional `unit_sets` repeated section in `package.toml` carries zero or one exact binding row; generated row keys enforce this bound. A package containing a unit-bearing expression requires the binding. Neither the first property package nor the first unit-set row supplies a default. The base-unit definitions and full dimension product are checked through the quantity registry. P3 reuses an existing unit only when exactly one admitted row matches the derived dimension, exact scale bits, zero offset, non-affine state and absent reference restriction; ambiguous matches are errors. With no matching row it emits `normalized.units`, a derived projection of the full reference unit contract plus package and unit-set identities. Its identity namespace is `named_id(package_id, "pse:p3:units:v1:" + unit_set_id.hex)` and its local name is the lower-case hexadecimal canonical dimension bytes. The row's dimension and ordered base-scale computation establish its meaning independently of that ID. Unit conversion uses the single `convert_spec`/`convert_spec_for_type` and `convert_value` implementations; reference-state changes remain separate physical operations. A compound authored unit spelling first resolves as an exact admitted unit symbol. Otherwise P3 parses its ordered multiplication, division and rational powers against actual unit definitions; every resulting dimension exponent and positive finite scale is checked. Affine or reference-restricted units cannot be used inside a product or power. The derived input representation is persisted as a full `normalized.units` row with the same package and selected unit set. Its identity is `named_id(package_id, "pse:p3:unit-expression:v1:" + exact_unit_expression)`; changing a component definition must revalidate and recompute the full row even when this ID is unchanged. The source definition is provided to `convert_spec` only after those checks; no dummy unit identity is used. Equivalent spellings may have different derivation identities while sharing the same validated representation facts.
+
+P3 applies only unconstrained zero-offset multiplicative representation conversions. Affine or reference-restricted literals retain their authored units until P10 has the expected complete quantity type; an affine spelling does not decide point versus difference. Unitless literals require no package selector.
+
+> Decision: ADR-0058
+
+Representation normalization preserves the quantity reference. A unit with `reference_state_id` is admissible only under that complete quantity reference; bare unit-only conversion involving it is refused. Unrestricted units such as Pa/psi do not erase the quantity reference. The standard psig spelling has psi scale, zero representation offset and the explicit gauge-reference restriction. psig to gauge Pa scales once; the named gauge-to-absolute quantity conversion adds the datum once. Changing reference conventions always uses the declared quantity conversion and its dependencies.
+
+- Units are SI-anchored: `scale_to_canonical`, `offset_to_canonical`, and a dimension vector. Units with representation offsets (°C, °F) carry `is_affine = true`: a point conversion applies the offset, while a difference conversion applies scale only. P3 normalizes authored constants to package canonical units. P9 explicitly converts to and from each kernel's natural-unit ports; P10 checks those declared `UnitConvert` edges, including affine ports, instead of banning the conversion needed by the kernel.
 - A property package selects a `unit_set` (IDAES `UnitSet`: time, length, mass, amount, temperature, plus optional current, luminous intensity, currency). Every symbol declared by templates bound to that package is stored in the canonical unit of the set; the `unit_id` column of `compiled.symbols` records it.
+- A `UnitConvert` edge with no conversion selection changes representation only and must match the context-aware unit conversion coefficients. A physical type change uses an explicit `math_quantity_selections` row on that edge, with `builtin_rule = unit_convert` and exactly one `(operand = 0, conversion_id)` reference. P10 treats predecessor selections as claims: it verifies the actual child type against the named rule source, its result against the named destination, the finite scale/offset coefficients, and every required parameter fact. Automatically inserted physical conversions persist the same selection. Kernel conversions use resolved `KernelCall` bindings rather than an affine edge. All selected rules and parameter facts are declared semantic dependencies; neither a matching type ID nor a hash establishes validity (ADR-0054).
+- An explicit Affine constant declares `constant_quantity_type_id` and `constant_unit_id` together. Nonzero constants require both; untyped zero is neutral. The supplied unit must be canonical for the complete type, including scale kind and reference. The constant is inference operand zero; preserve signed zero and term order. Noncanonical constants use explicit ordered Add/UnitConvert nodes. An asserted parent result cannot supply a missing constant type (ADR-0054).
+- Scale/affine physical rules reject nonempty required parameters because their persisted finite coefficients define the transform. A parameterized kernel conversion resolves an explicit predecessor kernel binding and validates its kernel, actual input node, complete source/destination types, and all parameter values and units. Its resulting KernelCall persists that binding and a conversion selection; a binding lookup callback locates evidence and does not establish validity (ADR-0054).
 - Method natural units: a correlation kernel (Antoine in bar and °C, a Perry's cp in J/(kmol·K)) declares its own input/output units in `KernelSpec`; P9 inserts `UnitConvert` nodes to and from the package canonical units. This reproduces the IDAES generic framework behavior of mixing methods written in different units, but every conversion is a visible node.
 - Currency units (`USD_2018`, `USD_2023`, …) have dimension `currency`; conversion between years is a scale by the ratio of Chemical Engineering cost indices from `reference.cost_indices`, standardized through the CE=500 basis exactly as IDAES `register_idaes_currency_units` does (§19.5).
 
 ### 8.3 Unit inference algorithm (P10 step 4)
+
+> Decision: ADR-0054
+
+Resolve literal meaning per occurrence under the expected complete physical contract before typed consing. A shared source literal may specialize into separate point and difference nodes. Exact typed structure determines equivalence; a digest only indexes candidates. Conditional checks follow each evaluation region, so a guarded visit never suppresses an unguarded domain failure.
 
 > Decision: ADR-0039
 
@@ -2303,17 +2473,21 @@ Second derivatives use `adotdot` (collocation) or the standard three-point stenc
 
 ### 14.1 Pass pipeline and contracts
 
+> Decision: ADR-0056
+
+The table is the complete design inventory, not current executable availability. Wave 1 registers a closed P0–P3 production graph with complete schemas, ports and invariants. P10 is qualified separately with a fixture registry containing a complete pinned predecessor producer/bundle. P4–P9/P11–P16 registration waits for complete producer contracts; unavailable requests fail explicitly. Complete declared relation schemas remain in the inventory.
+
 > Decision: ADR-0040, ADR-0041
 
-Every pass is a `reference.pass_specs` row with `pass_input_ports` and `pass_output_ports`. The driver derives its DAG from named stage/port edges; reading a relation schema without an input binding is invalid. P0 resolves package headers from an input document bundle; P1 stages authored rows and change operations; P2 validates the candidate snapshot for atomic commit (§22.2). P1 does not mutate an existing committed snapshot. Compilation of a committed P2-valid snapshot starts at P3; P3 onward cannot output authored/reference relations.
+Every pass is a `reference.pass_specs` row with `pass_input_ports` and `pass_output_ports`. The driver derives its DAG from named stage/port edges; reading a relation schema without an input binding is invalid. P0 resolves package headers from an input document bundle; P1 stages authored rows, declared reference-package document sections, authored provenance assertions and change operations; P2 validates unpublished candidate batches for atomic commit (§22.2). P1 does not mutate an existing committed snapshot. Compilation of a committed P2-valid snapshot starts at P3; P3 onward cannot output authored/reference relations.
 
 An output bundle contains all declared output ports, including explicit empty relations. One port has one producer. The same `compiled.math_*` schema can appear in P7's template bundle, P8's law-completed bundle, P9's method-completed bundle and P10's typed bundle. Each stage reads its predecessor explicitly, preserves unaffected rows and publishes a complete immutable replacement bundle; it does not overwrite another stage's artifact. Sidecar pass records and stage catalog rows describe these outputs and are excluded from the bundle they describe. Runtime operations similarly publish a complete named result bundle. All read dependencies, including registry and reference data, enter initial stage keys.
 
 | Pass | Name | Reads (namespaces) | Writes | Preconditions → postconditions | Determinism | Main diagnostics |
 |---|---|---|---|---|---|---|
 | P0 | Package and schema resolution | package headers in the input document bundle, pinned `reference.schema_*` | `normalized.package_graph` | dependency versions satisfiable → every referenced package pinned by content hash | deterministic | `pkg.unresolved`, `pkg.version_conflict`, `schema.version_mismatch` |
-| P1 | Authoring parse | package documents | `authored.*` (via change sets, §22.2), including the identity-based target rows (`case_spec_targets`, `case_activation_targets`, `observation_targets`) | documents parse → every entity registered with an `id` (explicit policy) or a name-derived id (named policy); every `pse.expr_dsl` syntactically valid with a source span; every `pse.target_path` resolved to entity identities | deterministic | `parse.syntax`, `parse.unknown_key`, `parse.missing_id`, `parse.unresolved_target` |
-| P2 | Primitive-fact validation | `authored.*`, `reference.*` | `provenance.pass_records`, findings | — → all invariants of `reference.schema_invariants` hold | deterministic | one class per invariant kind |
+| P1 | Authoring parse | package documents | `authored.*`, DocumentSpec reference-package sections and authored provenance assertions (via change sets, §22.2), including the identity-based target rows (`case_spec_targets`, `case_activation_targets`, `observation_targets`) | documents parse → every entity registered with an `id` (explicit policy) or a name-derived id (named policy); every `pse.expr_dsl` syntactically valid with a source span; every `pse.target_path` resolved to entity identities | deterministic | `parse.syntax`, `parse.unknown_key`, `parse.missing_id`, `parse.unresolved_target` |
+| P2 | Primitive-fact validation | staged primitive facts including authored provenance assertions, pinned `reference.*` | `provenance.pass_records`, findings | — → all invariants of `reference.schema_invariants` hold | deterministic | one class per invariant kind |
 | P3 | Canonicalization | `authored.*` | `normalized.*`, including parsed `normalized.*_expr_*`, finite candidate scopes and `property_demand_seeds` | validated → aliases resolved, defaults materialized, authored constants normalized to package unit sets; natural-unit kernel conversions remain explicit P9 edges, expression paths resolved against template scopes, derived IDs assigned | deterministic | `canon.unresolved_path`, `canon.unit_mismatch` |
 | P4 | Type and capability closure | `normalized.*` | `inferred.phase_species`, `inferred.instance_features`, method compatibility | — → every feature resolved; every method selection compatible with its scope | deterministic (fixed point) | `feature.rule_violation`, `method.incompatible` |
 | P5 | Topology and containment closure | `normalized.*`, `inferred.instance_features` | `inferred.instances`, `instance_tree`, `ports`, `port_members`, `topology_edges`, `scope_members`, `boundary_crossings`, `tear_candidates` | — → every port bound; every connection endpoint exists | deterministic | `conn.member_mismatch`, `topology.dangling_port` |
@@ -2335,6 +2509,10 @@ P12 is the pass that scalarizes indexed equation domains: P7–P11 keep every eq
 
 ### 14.2 The rule compiler
 
+> Decision: ADR-0053
+
+`RecursiveRef` binds to the nearest matching lexical recursive node, only within its step; it is illegal in that node's seed and is not an external relation dependency. Serialized references name the resolved recursive node. Phase-0 UNION ALL recursion requires a finite iteration bound; pending rows beyond the bound are a failure, never successful truncation. Expression/key checking uses actual operator output schemas, qualified join sides and aliases, not a global same-name column scan.
+
 > Decision: ADR-0039, ADR-0044, ADR-0048
 
 Set-oriented inference (P4–P6, P8's contribution matching, P5's scope closure) is written as `reference.rule_specs`, not as Rust loops over rows. A rule body is a typed `RulePlanSpec` (a bounded algebra: scan, filter, project, equi-join, anti-join for stratified negation, union, distinct, aggregate and unnest) compiled to a DataFusion `LogicalPlan` through `LogicalPlanBuilder`, optimized, and executed against the snapshot session. Example (rule for valid phase–species pairs):
@@ -2353,7 +2531,7 @@ Execution rules:
 1. **Strata run in order**; within a stratum rules are evaluated to a least fixed point. Recursive closures (containment, subtype, reachability) use the generic fixed-point executor: seed, evaluate delta plans, deduplicate by semantic key, append, repeat until no new rows. DataFusion's recursive CTE support may be used for closures whose provenance can be reconstructed from the result; where per-row derivations are required the external loop is used.
 2. **Negation is stratified**: a rule may negate only relations fully computed in a lower stratum.
 3. **Four-valued predicates.** Matching predicates return `true | false | unknown | conflict`. `true` rows are written to the head relation. `unknown` and `conflict` rows are written to `inferred.undecided` with the rule, the key, a reason and the supporting rows, and produce diagnostics; a candidate is never silently dropped (metamodel P18), and no consumer can mistake an undecided fact for a true one because head relations hold only decided-true rows. Inside a plan, `Expr::IsUnknown`/`IsNotUnknown` cover the three SQL truth values; `conflict` (two rules asserting incompatible values for one key under `conflict_policy = reject`) is detected by the executor after the stratum's fixed point.
-4. **Every head row carries a derivation** (`provenance.derivations`: rule id, supporting rows, fingerprint) at the granularity the registry declares for the head relation (`schema_relations.derivation_granularity`): `row` for inference, law expansion and method resolution, where negative completeness is the deliverable; `rule` for mechanically expanded relations (index expansion, discretization, connection equations), where the derivation is the rule plus the ID formula of §5.1 and is reconstructed on demand rather than stored per row. A benchmark in §24.3 measures derivation rows and bytes per equation so the granularity assignment is evidence-based.
+4. **Every head row carries a derivation** (`provenance.derivations`: rule id, supporting rows, fingerprint) at the granularity the registry declares for the head relation (`schema_relations.derivation_granularity`): `row` for inference, law expansion and method resolution, where negative completeness is the deliverable; `rule` for mechanically expanded relations (index expansion, discretization, connection equations), where the derivation is the rule plus the ID formula of §5.1 and is reconstructed on demand rather than stored per row. A benchmark in §24.3 measures derivation rows and bytes per equation so the granularity assignment is evidence-based. A derivation fingerprint is diagnostic execution attribution: use the existing stage or plan-evidence fingerprint only when supplied by that actual execution. Standalone prepublication validation records null; it never manufactures a snapshot or fingerprint, and neither field proves a rule result. Phase 0 support preserves checked subject keys and the complete declared dependency binding inventory; negative claims refer to those complete bindings rather than an asserted absence certificate.
 5. **Determinism, and the engine as a declared input.** Output relations are sorted by primary key before hashing (arrival order across partitions is nondeterministic and never assumed). The DataFusion session is built from a `reference.engine_profiles` row (§6.11): the DataFusion and Arrow crate versions; the ordered analyzer rule list installed with `Analyzer::with_rules` and the ordered optimizer rule list installed with `Optimizer::with_rules` (never the engine defaults, whose pipeline changes between releases; `Analyzer::add_function_rewrite` is never called after construction); the physical-optimizer rule list; and the semantic settings as an **explicit, versioned key allow-list** — every `datafusion.optimizer.*` and `datafusion.sql_parser.*` key, `datafusion.execution.time_zone`, `datafusion.execution.skip_physical_aggregate_schema_check` (asserted `false`) and `datafusion.execution.enable_ansi_mode` (asserted `false`) — read back from `information_schema.df_settings`; a namespace match would miss the two `execution.*` keys. Platform policy that can change a plan (bound kernel outcome-policy identifiers and the null policy of §14.2 rule 3) is exposed as a `ConfigExtension` under `datafusion.pse.*`, so it appears in `df_settings` and enters the same hash. These entries are generated views of the bound contract values; a session setting cannot independently override kernel null/strictness semantics. The profile artifact's logical hash, the function registry hash (kernel digests) and the catalog snapshot are part of every rule-executing pass's memo key (§14.3). **The plan fingerprint is not part of the memo key**: the plan is a pure function of the rule plan, the catalog snapshot and the engine profile, all of which are already in the key, so hashing the plan adds no information to reuse validity. Plan bytes are noncanonical diagnostic evidence under ADR-0044. Store `logical_plan_to_bytes_with_extension_codec` output with its physical `encoding_checksum`, engine version and platform codec version. The codec identifies snapshot providers by `(snapshot_id, relation_id, schema_version, logical_hash)` and UDFs by the complete kernel binding digest; decoding resolves only admitted pinned objects. Sorted HashMap insertion does not make encoding deterministic, and no two-process byte-equality assertion is allowed for equivalent plans. `pgjson` EXPLAIN and ordered analyzer/optimizer observations accompany the artifact for attribution. They are outside semantic stage outputs and memo inputs. Round-trip and attribution tests, rather than byte-equality tests, validate the diagnostic route.
 6. **Head semantic admission.** Before execution the rule compiler infers complete field/quantity contracts for the typed expression graph, including UDF arguments and returns. Losing semantic metadata is not permission to reconstruct meaning from storage alone: the compiler must retain the source-to-expression typing derivation. At output admission compare the inferred contract and actual arrays with the generated head schema. Exact type, nullability and semantics are the default. A declared numeric conversion may use Arrow casting only after exact representability checks (including fractional-to-integer and large-integer-to-float cases); physical unit/basis/reference conversion invokes its named conversion and dependencies. `can_cast_types` and `CastOptions { safe: false }` do not prove losslessness. Attach the destination metadata only after these checks; validate nested values and required-field nulls, then execute the head invariants. Failure is `rule.head_schema_mismatch`, never silent relabeling.
 7. **Key discipline.** Distinct, union-dedup and join keys in a rule plan are key-role columns (semantic IDs, ordinals, enums) — never `Float64`, because the engine's value equality merges `-0.0` with `+0.0` and treats NaN as self-equal (§5.3). Null-bearing key comparisons use `distinct`/`not_distinct` semantics and Kleene booleans (`and_kleene`/`or_kleene`) so that a null-versus-null candidate is neither dropped nor matched by accident. The rule compiler rejects a violating `rule_plan_nodes` row (`rule.float_key`).
@@ -2371,6 +2549,14 @@ Generated `ScalarUDFImpl` wrappers for kernels (§18.5) are registered in the se
 
 ### 14.3 The pass engine
 
+Durable stage hints carry a typed semantic context alongside their lookup key: the complete registry rows in the existing lossless tagged Cell representation, original source inventory (package/document IDs, paths and text), selected policy identities and actual rows, and applicable actual engine profile/settings/function inventory/versions. A hit requires equality of these values, every explicit input role/absence and exact manifest references, current preconditions, and full output re-admission. Hints without this context force recomputation. The existing control-artifact/resource bounds apply. Each reused attempt has a new pass record; no output lineage is silently backdated (ADR-0052, revision 25).
+
+> Decision: ADR-0052, ADR-0055
+
+Qualify uncached execution first. A digest lookup returns a memo candidate only: reuse requires the complete exact dependency descriptor and applicable validation scope. Changing any rule, contract, policy, setting, optional-input presence or input invalidates the old result, even when output values would be equal. Differential tests compare actual values and ordered IR.
+
+Reservation lifetime follows the final immutable allocation owner. The safe `pse-ids` adapter uses `Bytes::from_owner` to retain an Arrow buffer and lease, recursively covering data/validity/dictionary/child buffers. Clones share one charge. IPC decoding requires alignment; otherwise first create a reserved aligned copy. Phase-0 public DataFusion results use an explicitly reserved copy when mixed shared/new ownership cannot be transferred safely. Reserve before allocating and account for coexisting input, normalization, encoded, decoded and result buffers. This bounds accounted platform allocations, not whole-process OOM. No unsafe owner construction or pointer-deduplication ledger is used.
+
 > Decision: ADR-0041, ADR-0042, ADR-0044, ADR-0046, ADR-0050
 
 - **Complete stage memo.** Key a pass by ID/version, every named input port's schema and logical hash or explicit absence, registry/operator/quantity contracts, relevant package/domain/binding/provider-candidate artifacts, kernel implementation digests, and selected policies. Plan-executing passes also key the complete engine profile and generated function registry. The driver binds this immutable environment; undeclared file/catalog/config reads fail the contract. A changed candidate universe or absent optional relation is a changed input. Initially P7 and every other stage are cached as complete bundles, not per-instance tuples. Attempt metadata is excluded from semantic output membership; changed semantic lineage remains in the stage snapshot. Reusing equal relation storage does not authorize skipping a dependent stage whose complete inputs changed.
@@ -2378,6 +2564,13 @@ Generated `ScalarUDFImpl` wrappers for kernels (§18.5) are registered in the se
 - **Snapshot sessions, shared runtime.** Each snapshot has a sealed catalog and its own `SessionContext`, extension/UDF registries and ordered engine profile. The process driver injects a shared `RuntimeEnv` with `SessionStateBuilder::with_runtime_env`; compatible snapshots share one deployment `FairSpillPool` and `DiskManager`. Limits, spill settings, time provider and thread budget are explicit. Passes obtain sessions from the driver and cannot create private full-budget pools.
 - **Accounted allocation.** Platform canonicalization, binding, transfer and result buffers register a `MemoryConsumer` and call `MemoryReservation::try_grow` before allocation; estimates include temporary/coexisting copies and serialization buffers. Shared immutable buffers have one reservation owner for their lifetime, so readers do not double-charge them. Reserve before replacement, release with the final owner, and release temporary reservations on failure/cancellation. `TrackConsumersPool` and `PeakRecordingPool` provide attribution; Arrow tracking pools have infallible reserve/resize and cannot enforce a rejection limit. DataFusion `grow` and unregistered/native/solver allocations are outside the fallible guarantee. Pool accounting is reported alongside measured process peaks; no whole-process OOM immunity is claimed.
 - **Failure and parallelism.** Independent DAG stages may run concurrently within the shared memory/thread budget (§18.8). Reservation exhaustion becomes typed `ResourcesExhausted`/`runtime.resource_limit` naming the affected consumer and configuration; the supported relation envelope is §5.3. A pass publishes all its output ports after validation or none. Failed/cancelled attempts record terminal findings separately and cannot be mistaken for an empty successful result.
+
+
+**Complete terminal attempt records (revision 31).** `PassStatus` is `ok | failed | cancelled | reused`. A pass attempt mints its `pass_run_id` before it begins. The `findings` field of `provenance.pass_records` contains the complete typed findings, projected from the one diagnostic-field declaration also used by `runtime.diagnostics_findings`; it is not rendered text or an encoding checksum. The nested `check_id` is nullable only for an execution failure that has no invariant/check origin, and the enclosing record supplies pass-attempt attribution. `finding_count` equals the actual list length. `failure_class` is present exactly for `failed` or `cancelled`, names a declared §23.2 class, and cancellation uses `runtime.cancelled`. Successful and reused attempts have no failure class. A failed/cancelled attempt has no output snapshot; it cannot create a successful stage hint. Existing structured rule findings and subjects are retained. A failure without rule findings produces a typed execution finding carrying its actual diagnostic class and message, without inventing a check identity. An aggregate retains every actual leaf diagnostic as a finding. It is cancelled only when every leaf is cancellation; otherwise it is failed and selects the first non-cancellation leaf class in stable diagnostic traversal order as its primary failure class.
+
+The complete finding list and terminal metadata are one immutable sidecar artifact, published through the existing admitted sidecar path after bounded reservation. `plan_evidence` remains exclusively plan-codec evidence. Cancellation stops the stage work; a separate bounded cleanup operation records the cancellation. If the store or budget prevents terminal recording, the driver returns both the original execution failure and the explicit recording failure. It never reports a successful empty result or claims that a record exists when it does not. Failed output publication leaves no success memo/hint. Once complete output and its successful terminal record exist, a subsequent hint/index write failure is an explicit auxiliary infrastructure error carrying that successful attempt identity and output; it does not create a contradictory failed attempt record. P0/P1/P2 preparation and validation, stage preconditions, execution and publication all use this attempt rule. For a commit, the complete immutable output/change receipt and successful P2 terminal record precede the mutable ref CAS (§20.1). Terminal-record failure therefore leaves the old ref unchanged. The final CAS is a distinct commit-publication operation: its failure retains the successful P2 attempt/output and actual publication error, without rewriting the completed validation attempt as failed.
+
+> Decision: ADR-0056
 
 ### 14.4 Incrementality
 
@@ -2774,6 +2967,10 @@ First-order propagation (IDAES `uncertainty_propagation`) is sensitivities `ds/d
 
 ### 20.1 Artifact store
 
+> Decision: ADR-0052, ADR-0055
+
+Envelope, encoded-integrity, canonical-identity and row/registry semantic checks are distinct admission gates. Consistently recomputed checksums cannot authorize invalid content. Expose only a complete validated membership and install the ref last. Returned arrays retain reservation owners after snapshots and sessions drop.
+
 > Decision: ADR-0045, ADR-0046
 
 ```text
@@ -2905,6 +3102,8 @@ A nullable Arrow column converted to a bare `ndarray` turns null into NaN, colla
 
 ### 22.1 Package layout
 
+> Decision: ADR-0059
+
 ```text
 <package>/
   package.toml            -- id, version, kind, dependencies
@@ -2920,19 +3119,32 @@ A nullable Arrow column converted to a bare `ndarray` turns null into NaN, colla
 
 P1 parses every document into `authored` rows via a change set; the document's content hash is recorded on each row's source span. YAML documents are parsed by `serde-saphyr` (typed errors with line and column, hostile input refused without a panic, a parsing `budget` on nesting, aliases and allocation) and TOML by `toml` with `Spanned<T>`, so every row's `pse.source_span` comes from the parser. Every entity declared under `id_policy = explicit` carries an `id:` field; `pse authoring assign-ids` inserts missing ones and P1 rejects a document that still lacks one (§5.1). YAML is one surface; the same change sets can be produced by Python builders (`pse.authoring`) and by agents.
 
+Each `DocumentSection` declares optional `identity_column`, `entity_kind`, `name_column` and `naming_scope_column`. The identity column must be the sole nonnullable semantic-ID primary key; `id` aliases only that exact column and cannot coexist with its column spelling. Entity kind requires identity and a text name column. Naming scope, when present, is an explicit owning semantic-ID foreign key; the actual parent qualified name prefixes the local name. Absent scope means the declaring package. Resolve owners independently of document order and reject missing/cyclic owners, duplicate identities or qualified names, and named-policy identity mismatches. Unnamed semantic-ID records always require an explicit persisted ID. Package ID is explicitly stored. No identity or scope is guessed from column order. The loader injects only this declared identity/name mapping, declared package context and parser source spans into a transient syntax tree before decoding generated strict DTOs.
+
+`expression_owner_column` independently names an explicit template-identity foreign key for a DSL-bearing document section. All current template DSL rows declare `template_id`, including nameless guards/display rows and nested binding values. A shared source binder checks each parsed path against the actual owning template, instance/entity references and lexical domain/let binders before P3 lowering or full rename. Unknown or ambiguous bindings are typed failures; neither consumer guesses an owner from FK order.
+
+`reference.schema_documents` stores `(document_name: text PK, kind: text, path_glob: text, doc: text)`. `reference.schema_document_sections` stores `(document_name: text PK, ordinal: u32 PK, key: text, relation_id: sid, repeated: bool, identity_column: text [n], entity_kind: text [n], name_column: text [n], naming_scope_column: text [n], expression_owner_column: text [n], doc: text)`. Registry admission checks every mapping and emits these complete rows into its existing fingerprint frame; the fingerprint identifies the admitted declaration and is not an admission check.
+
 ### 22.2 The change-set model
+
+> Decision: ADR-0052, ADR-0053
+
+A staged reference names one typed row in a durable sidecar envelope. Each operation/role port contains one schema-valid row, keeping pre/post rows with equal keys separate from canonical snapshot membership. `row_key` selects the existing row's primary key; nullable `row` supplies its replacement. Insert shares one reference for both, delete has no replacement, update preserves the key, and key changes are delete plus insert. Validate references, schemas and exact-base preconditions before applying. P2 candidates remain unpublished and unmemoized.
+
+Full explicit-policy rename resolves every target and expression reference against the exact base identity inventory, rewrites all bound texts, renders document bytes and regenerates hashes/spans atomically. Missing or unresolved inventory is a typed refusal. Named-policy rename remains delete/insert. Ordinary changes may commit at P2 and fail P3; rename requires binding to satisfy its stronger preservation contract.
 
 > Decision: ADR-0027
 
 ```text
 authored.change_sets @1     change_set_id, base_revision_id, author, message, created_at
-authored.change_ops @1      change_set_id, ordinal, op : enum (insert|update|delete|rename), relation_id, row_key,
-                            row : struct<staged_port: text, staged_ordinal: u64>, precondition : text [n]
+authored.change_ops @1      change_set_id, ordinal, op : enum (insert|update|delete|rename), relation_id,
+                            row_key : struct<staged_port: text, staged_ordinal: u64>,
+                            row : struct<staged_port: text, staged_ordinal: u64> [n], precondition : text [n]
                             -- row points into the change set's per-relation staged members, never at JSON text (D1)
                             -- rename: the staged row carries entity_id and the new name/qualified_name; rejected for named-policy entities (§5.1)
 ```
 
-A change set is validated (P2 on the resulting snapshot), applied atomically, and yields a new model or case revision. **The commit contract is P2-level validity**: a committed revision is structurally and referentially valid (every invariant of `reference.schema_invariants` holds, every target resolves to an identity, every expression parses); it may still fail P3–P10 (an unresolvable template path, a unit inconsistency). Publication as a *compiled problem* is gated separately by the closure report (§14.5), and every revision carries `last_closure_status` so a reader can tell a committed revision from a compilable one. There is no other write path into `authored` (decision D2 and doctrine P20). Attempts to write a derived relation are rejected; an "expected" derived fact goes to `provenance.assertions`.
+A change set is validated (P2 on unpublished resulting candidate batches), applied atomically, and yields a new model or case revision. **The commit contract is P2-level validity**: a committed revision is structurally and referentially valid (every invariant of `reference.schema_invariants` holds, every target resolves to an identity, every expression parses); it may still fail P3–P10 (an unresolvable template path, a unit inconsistency). Publication as a *compiled problem* is gated separately by the closure report (§14.5), and every revision carries `last_closure_status` so a reader can tell a committed revision from a compilable one. There is no other write path into `authored` (decision D2 and doctrine P20). Attempts to write a derived relation are rejected; an "expected" derived fact goes to `provenance.assertions`.
 
 `rename` changes an entity's `name` and `qualified_name` attributes and re-renders every retained `pse.target_path` and `pse.expr_dsl` text that serialized a reference to the old path from the identity-based rows (`case_spec_targets` and kin, `normalized.*_expr_*`); references by identity are untouched, every derived ID is unchanged, and the §22.4 diff report shows one rename row. A change op that edits a retained target text without the corresponding identity rows is rejected by P2 (`case.target_text_mismatch`): the text is a serialization, not a second authority.
 
@@ -2957,6 +3169,10 @@ This is the litmus test of the doctrine: new scope enters as semantics and plug-
 An agent proposes a change set (for example: replace the heat-transfer correlation on one exchanger, regenerate, compare). The platform compiles the resulting snapshot, produces a diff report (added and removed equations, changed sparsity, changed scaling, changed DOF, closure report), and the change is accepted or rejected as a whole. Agents never edit `build()`-style code.
 
 ---
+
+A commit ref updates the exact snapshot manifest reference and its exact typed revision sidecar receipt in one conditional write. The receipt contains revision identity, declared relation and encoding checksum; the catalog admits the actual row and verifies its target snapshot before exposing a commit base. General snapshot aliases may omit revision metadata. Immutable revision, change-set and pass-record artifacts are complete before the ref moves. For a model/case commit the ref points to the case tip with its admitted model parent. Before publication, pass records represent missing input/output snapshots as null, never as fabricated identities (ADR-0053).
+
+The object layout includes `changes/<encoding_checksum>.json` for immutable change-set receipts. Each receipt binds typed header/operation sidecars, every named single-row pre/post staging artifact, exact original/replacement document references, expected base revision and output revision. The atomic revision ref may attach this receipt. Staging artifacts admit actual fields, values and one-row keys without granting snapshot or planner-constraint authority. Control receipt checks establish exact inventory and reference consistency; applying operations and validating rename semantics remains C2's responsibility (ADR-0053).
 
 ## 23. Observability and failure semantics
 
@@ -3003,6 +3219,10 @@ DataFusion errors map into the taxonomy at one place, never per call site:
 
 ### 24.1 Test layers
 
+> Decision: ADR-0056
+
+Wave 1 checks P0–P3 and the complete P10 predecessor fixture separately, including consistently rehashed invalid inputs, uncached/incremental value comparisons, dependency mutation and retained-buffer accounting. B-evidence and R-3 bindgen regeneration are deferred in the register; bindings hygiene is not regeneration equivalence.
+
 > Decision: ADR-0048, ADR-0051
 
 | Layer | What it proves | Mechanism |
@@ -3047,6 +3267,10 @@ Compare complete stage reuse against any proposed finer input bundle before R-22
 ---
 
 ## 25. Delivery phases
+
+> Decision: ADR-0056
+
+Phase-0 executable availability follows §14.1. P10 fixture qualification does not establish P4–P9 implementations. Optional Wave 1 deferrals carry observable register triggers; foundation acceptance establishes no solver or whole-model scientific fidelity claim.
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
@@ -3175,9 +3399,9 @@ The left column is the IDAES mechanism (source path relative to `idaes-pse/idaes
 
 | Namespace | Relations |
 |---|---|
-| `reference` | `schema_relations`, `schema_columns`, `schema_logical_types`, `schema_enums`, `schema_invariants`, `schema_migrations`, `dimensions`, `units`, `unit_sets`, `quantity_kinds`, `bases`, `reference_states`, `quantity_types`, `conversion_rules`, `quantity_operations`, `constants`, `elements`, `property_kinds`, `method_specs`, `kernel_specs`, `pass_specs`, `pass_input_ports`, `pass_output_ports`, `numerical_policies`, `rule_specs`, `operator_specs`, `rule_plan_nodes`, `rule_plan_edges`, `rule_aggregates`, `rule_group_keys`, `rule_unnest`, `rule_dependencies`, `rule_expr_*`, `engine_profiles`, `aliases`, `diagnostic_thresholds`, `cost_indices`, `location_factors` |
-| `authored` | `packages`, `documents`, `entities`, `model_revisions`, `case_revisions`, `change_sets`, `change_ops`, `domains`, `domain_members`, `continuous_domains`, `species`, `species_elements`, `phases`, `phase_species`, `henry_declarations`, `material_systems`, `reactions`, `stoichiometry`, `reaction_methods`, `reaction_packages`, `parameter_values`, `property_packages`, `state_bounds`, `phase_equilibrium_pairs`, `method_selections`, `default_scaling`, `templates`, `template_params`, `template_features`, `template_property_requirements`, `template_feature_rules`, `template_guards`, `template_domains`, `template_symbols`, `template_equations`, `template_submodels`, `template_ports`, `template_contributions`, `template_law_instances`, `template_requirements`, `template_display`, `template_scaling_defaults`, `instances`, `instance_equations`, `flowsheets`, `scopes`, `selector_terms`, `connections`, `cases`, `case_specs`, `case_spec_targets`, `case_activations`, `case_activation_targets`, `case_objectives`, `case_policies`, `discretization_policies`, `solver_profiles`, `datasets`, `observations`, `observation_targets`, `measurement_models`, `scenarios`, `case_sets`, `case_set_samples`, `tags` |
-| `normalized` | `package_graph`, `domain_products`, `property_demand_seeds`, the parsed expression graphs `template_expr_*`, `instance_expr_*`, `display_expr_*`, `contribution_expr_*`, `guard_expr_*` (one family per `pse.expr_dsl` column), canonical copies of authored relations after P3 |
+| `reference` | `schema_relations`, `schema_columns`, `schema_logical_types`, `schema_enums`, `schema_invariants`, `schema_migrations`, `schema_documents`, `schema_document_sections`, `dimensions`, `units`, `unit_sets`, `quantity_kinds`, `bases`, `reference_states`, `quantity_types`, `conversion_rules`, `quantity_operations`, `constants`, `elements`, `property_kinds`, `method_specs`, `kernel_specs`, `pass_specs`, `pass_input_ports`, `pass_output_ports`, `numerical_policies`, `rule_specs`, `operator_specs`, `rule_plan_nodes`, `rule_plan_edges`, `rule_aggregates`, `rule_group_keys`, `rule_unnest`, `rule_dependencies`, `rule_expr_*`, `engine_profiles`, `aliases`, `diagnostic_thresholds`, `cost_indices`, `location_factors` |
+| `authored` | `packages`, `package_unit_sets`, `documents`, `entities`, `model_revisions`, `case_revisions`, `change_sets`, `change_ops`, `domains`, `domain_members`, `continuous_domains`, `species`, `species_elements`, `phases`, `phase_species`, `henry_declarations`, `material_systems`, `reactions`, `stoichiometry`, `reaction_methods`, `reaction_packages`, `parameter_values`, `property_packages`, `state_bounds`, `phase_equilibrium_pairs`, `method_selections`, `default_scaling`, `templates`, `template_params`, `template_features`, `template_property_requirements`, `template_feature_rules`, `template_guards`, `template_domains`, `template_symbols`, `template_equations`, `template_submodels`, `template_ports`, `template_contributions`, `template_law_instances`, `template_requirements`, `template_display`, `template_scaling_defaults`, `instances`, `instance_equations`, `flowsheets`, `scopes`, `selector_terms`, `connections`, `cases`, `case_specs`, `case_spec_targets`, `case_activations`, `case_activation_targets`, `case_objectives`, `case_policies`, `discretization_policies`, `solver_profiles`, `datasets`, `observations`, `observation_targets`, `measurement_models`, `scenarios`, `case_sets`, `case_set_samples`, `tags` |
+| `normalized` | `package_graph`, `domain_products`, `property_demand_seeds`, `units`, `expression_sources`, `predicate_nodes`, `equation_nodes`, `expression_index_bindings`, the parsed expression graphs `template_expr_*`, `instance_expr_*`, `display_expr_*`, `contribution_expr_*`, `guard_expr_*` (one family per `pse.expr_dsl` column), canonical copies of authored relations after P3 |
 | `inferred` | `valid_index_tuples`, `phase_species`, `phase_equilibrium_species`, `state_flash_required`, `property_requirements`, `method_resolutions`, `instance_tree`, `instance_features`, `instances`, `ports`, `port_members`, `scope_members`, `boundary_crossings`, `topology_edges`, `tear_candidates`, `connection_equations`, `initialization_order`, `undecided`, law negative-completeness rows |
 | `compiled` | `meshes`, `mesh_nodes`, `stencils`, `quadrature_rules`, `symbols`, `symbol_references`, `symbol_groups`, `symbol_group_members`, `math_expr_nodes`, `math_expr_args`, `math_symbol_refs`, `math_float_constants`, `math_int_constants`, `math_affine`, `math_weighted_means`, `math_reductions`, `math_gathers`, `math_broadcasts`, `math_derivatives`, `math_integrals`, `math_smooth_ops`, `math_conditionals`, `math_kernel_calls`, `math_implicit_refs`, `math_unit_converts`, `math_piecewise_linear`, `math_quantity_selections`, `math_indexed_equations`, `math_free_indices`, `math_equations`, `math_objectives`, `math_implicit_systems`, `math_complementarity`, `math_alternative_sets`, `math_alternatives`, `math_dae_links`, `math_static_analysis`, `kernel_bindings`, `scaling_plans`, `variable_scales`, `equation_scales`, `initialization_plans`, `init_stages`, `solve_plans`, `problems`, `variable_order`, `equation_order`, `bound_values`, `case_bound_substitutions`, `stage_bundles`, `incidence`, `dm_partition`, `blocks`, `block_members`, `sparsity_patterns`, `evaluation_programs`, `backend_bindings` |
 | `runtime` | `runs`, `solutions`, `duals`, `residuals`, `iterations`, `solver_events`, `diagnostics_findings`, `kernel_evaluations`, `kernel_evaluation_outcomes`, `host_capabilities`, `sweep_results`, `profile_results`, `run_state` |

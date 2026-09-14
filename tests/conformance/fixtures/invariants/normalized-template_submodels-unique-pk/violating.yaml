@@ -1,0 +1,31 @@
+{
+  "invariant": "normalized.template_submodels:unique:pk",
+  "rows": {
+    "normalized.template_submodels": [
+      {
+        "bindings": "[\"list\",[]]",
+        "child_from_param": "[\"text\",\"value-1\"]",
+        "child_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "multiplicity_domain": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "bindings": "[\"list\",[]]",
+        "child_from_param": "[\"text\",\"value-1\"]",
+        "child_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "multiplicity_domain": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

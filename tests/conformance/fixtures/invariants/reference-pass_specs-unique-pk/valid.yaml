@@ -1,0 +1,18 @@
+{
+  "invariant": "reference.pass_specs:unique:pk",
+  "rows": {
+    "reference.pass_specs": [
+      {
+        "determinism": "[\"enum\",\"deterministic\"]",
+        "diagnostics": "[\"list\",[]]",
+        "executes_plans": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "pass_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "postconditions": "[\"list\",[]]",
+        "preconditions": "[\"list\",[]]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

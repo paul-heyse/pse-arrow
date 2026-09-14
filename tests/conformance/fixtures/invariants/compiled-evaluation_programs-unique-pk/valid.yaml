@@ -1,0 +1,15 @@
+{
+  "invariant": "compiled.evaluation_programs:unique:pk",
+  "rows": {
+    "compiled.evaluation_programs": [
+      {
+        "artifact_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "instruction_count": "[\"u64\",1]",
+        "problem_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "program_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "workspace_size": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

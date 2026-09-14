@@ -23,11 +23,12 @@
 
 use pse_ids::SemanticId;
 use pse_quantity::{
-    BoundIndexId, DomainId, InvariantId, QuantityTypeId, ReductionKind, UnitConvertSpec, UnitId,
+    BoundIndexId, InvariantId, QuantityTypeId, ReductionKind, UnitConvertSpec, UnitId,
     WeightNormalization,
 };
 
 use crate::node::NodeId;
+use crate::{DomainRef, GuardRef, ValueRef};
 
 /// One ordered term of an [`Payload::Affine`] node (blueprint §6.9 `math_affine.terms`).
 ///
@@ -62,7 +63,7 @@ pub enum Payload {
     /// A reference to a symbol (`math_symbol_refs`); the symbol supplies the type.
     SymbolRef {
         /// The symbol's identity.
-        symbol: SemanticId,
+        symbol: ValueRef,
     },
 
     /// A floating-point literal with the unit it was written in
@@ -85,6 +86,10 @@ pub enum Payload {
     Affine {
         /// The additive constant.
         constant: f64,
+        /// Complete constant type; paired with its unit and required for a nonzero value.
+        constant_quantity_type: Option<QuantityTypeId>,
+        /// Canonical unit of the complete constant type; never inferred from the parent.
+        constant_unit: Option<UnitId>,
         /// The ordered terms; their children are the node's children, in the same order.
         terms: Vec<AffineTerm>,
     },
@@ -105,11 +110,11 @@ pub enum Payload {
         /// Which reduction; it must agree with the node's opcode.
         kind: ReductionKind,
         /// The domain reduced over.
-        domain: DomainId,
+        domain: DomainRef,
         /// The binder introduced by the reduction.
         bound_index: BoundIndexId,
         /// An optional filter on the bound index.
-        filter: Option<NodeId>,
+        filter: Option<GuardRef>,
     },
 
     /// A read of a group member at an explicit coordinate map (`math_gathers`).
@@ -120,10 +125,18 @@ pub enum Payload {
         coordinate_map: Vec<(BoundIndexId, u16)>,
     },
 
+    /// Normalized indexed source read awaiting actual instance/domain lowering.
+    PendingGather {
+        /// Actual declared group identity before instance expansion.
+        group: SemanticId,
+        /// Ordered index expressions; none may be discarded or replaced by a hash.
+        indices: Vec<NodeId>,
+    },
+
     /// An explicit broadcast over a domain (`math_broadcasts`).
     Broadcast {
         /// The domain broadcast over.
-        domain: DomainId,
+        domain: DomainRef,
         /// The binder introduced by the broadcast.
         bound_index: BoundIndexId,
     },
@@ -131,7 +144,7 @@ pub enum Payload {
     /// A derivative with respect to a continuous domain (`math_derivatives`).
     Derivative {
         /// The continuous domain differentiated with respect to.
-        wrt_domain: DomainId,
+        wrt_domain: DomainRef,
         /// The order of the derivative.
         order: u8,
     },
@@ -139,9 +152,21 @@ pub enum Payload {
     /// An integral over a continuous domain (`math_integrals`).
     Integral {
         /// The continuous domain integrated over.
-        domain: DomainId,
+        domain: DomainRef,
+        /// Lexical binder introduced for the integration variable.
+        bound_index: BoundIndexId,
         /// The quadrature policy, when the case pins one.
         quadrature_policy: Option<SemanticId>,
+        /// Optional guarded integration domain predicate.
+        filter: Option<GuardRef>,
+    },
+
+    /// Normalized unit-bearing tolerance awaiting the child's complete physical context.
+    PendingSmoothOp {
+        /// Positive finite authored tolerance value.
+        eps: f64,
+        /// Actual declared representation unit; never inferred from the operand name.
+        unit: UnitId,
     },
 
     /// The smoothing parameter of a smooth or safe operator (`math_smooth_ops`).
@@ -154,7 +179,7 @@ pub enum Payload {
     Conditional {
         /// The guard node. Phase 0 admits a boolean-kind `SymbolRef` or an `IntConst` 0/1
         /// decided by feature selection (§7.2).
-        guard: NodeId,
+        guard: GuardRef,
     },
 
     /// A call into a kernel binding (`math_kernel_calls`).
@@ -176,6 +201,12 @@ pub enum Payload {
     /// A declared unit-conversion edge (`math_unit_converts`).
     UnitConvert(UnitConvertSpec),
 
+    /// Normalized target-unit request, resolved only with a complete operand quantity.
+    PendingUnitConvert {
+        /// Explicit requested representation unit.
+        to: UnitId,
+    },
+
     /// A piecewise-linear interpolation over declared breakpoints
     /// (`math_piecewise_linear`).
     PiecewiseLinear {
@@ -189,6 +220,27 @@ pub enum Payload {
 }
 
 impl Payload {
+    /// Optional predicate dependency, preserving normalized predicate identity.
+    pub fn guard(&self) -> Option<GuardRef> {
+        match self {
+            Self::Conditional { guard } => Some(*guard),
+            Self::Reduction { filter, .. } | Self::Integral { filter, .. } => *filter,
+            _ => None,
+        }
+    }
+    /// Domain operand, when this operator carries one.
+    pub fn domain(&self) -> Option<&DomainRef> {
+        match self {
+            Self::Reduction { domain, .. }
+            | Self::Broadcast { domain, .. }
+            | Self::Integral { domain, .. }
+            | Self::Derivative {
+                wrt_domain: domain, ..
+            } => Some(domain),
+            _ => None,
+        }
+    }
+
     /// The relation name of §6.9 this payload is stored in, or `None` for
     /// [`Payload::None`].
     ///
@@ -203,17 +255,73 @@ impl Payload {
             Self::Affine { .. } => Some("math_affine"),
             Self::WeightedMean { .. } => Some("math_weighted_means"),
             Self::Reduction { .. } => Some("math_reductions"),
-            Self::Gather { .. } => Some("math_gathers"),
+            Self::Gather { .. } | Self::PendingGather { .. } => Some("math_gathers"),
             Self::Broadcast { .. } => Some("math_broadcasts"),
             Self::Derivative { .. } => Some("math_derivatives"),
             Self::Integral { .. } => Some("math_integrals"),
-            Self::SmoothOp { .. } => Some("math_smooth_ops"),
+            Self::SmoothOp { .. } | Self::PendingSmoothOp { .. } => Some("math_smooth_ops"),
             Self::Conditional { .. } => Some("math_conditionals"),
             Self::KernelCall { .. } => Some("math_kernel_calls"),
             Self::ImplicitRef { .. } => Some("math_implicit_refs"),
-            Self::UnitConvert(_) => Some("math_unit_converts"),
+            Self::UnitConvert(_) | Self::PendingUnitConvert { .. } => Some("math_unit_converts"),
             Self::PiecewiseLinear { .. } => Some("math_piecewise_linear"),
         }
+    }
+
+    /// Remap every payload-held node reference while retaining order and all values.
+    ///
+    /// # Errors
+    /// Propagates a missing or invalid node reported by the supplied mapping.
+    pub fn map_node_references(
+        &mut self,
+        mut map: impl FnMut(NodeId) -> Result<NodeId, crate::MathIrError>,
+    ) -> Result<(), crate::MathIrError> {
+        match self {
+            Self::PendingGather { indices, .. } => {
+                for index in indices {
+                    *index = map(*index)?;
+                }
+            }
+            Self::Affine { terms, .. } => {
+                for term in terms {
+                    term.child = map(term.child)?;
+                }
+            }
+            Self::WeightedMean { pairs, .. } => {
+                for pair in pairs {
+                    pair.weight = map(pair.weight)?;
+                    pair.value = map(pair.value)?;
+                }
+            }
+            Self::Reduction {
+                filter: Some(node), ..
+            }
+            | Self::Integral {
+                filter: Some(node), ..
+            }
+            | Self::Conditional { guard: node } => {
+                if let GuardRef::Math(id) = node {
+                    *id = map(*id)?;
+                }
+            }
+            Self::None
+            | Self::SymbolRef { .. }
+            | Self::FloatConst { .. }
+            | Self::IntConst { .. }
+            | Self::Reduction { filter: None, .. }
+            | Self::Gather { .. }
+            | Self::Broadcast { .. }
+            | Self::Derivative { .. }
+            | Self::Integral { filter: None, .. }
+            | Self::SmoothOp { .. }
+            | Self::PendingSmoothOp { .. }
+            | Self::KernelCall { .. }
+            | Self::ImplicitRef { .. }
+            | Self::UnitConvert(_)
+            | Self::PendingUnitConvert { .. }
+            | Self::PiecewiseLinear { .. } => {}
+        }
+        Ok(())
     }
 
     /// Every node this payload references, in a deterministic order.
@@ -224,13 +332,16 @@ impl Payload {
     /// [`ExprGraph::insert`]: crate::ExprGraph::insert
     pub fn referenced_nodes(&self) -> Vec<NodeId> {
         match self {
+            Self::PendingGather { indices, .. } => indices.clone(),
             Self::Affine { terms, .. } => terms.iter().map(|term| term.child).collect(),
             Self::WeightedMean { pairs, .. } => pairs
                 .iter()
                 .flat_map(|pair| [pair.weight, pair.value])
                 .collect(),
-            Self::Reduction { filter, .. } => filter.iter().copied().collect(),
-            Self::Conditional { guard } => vec![*guard],
+            Self::Reduction { filter, .. } | Self::Integral { filter, .. } => {
+                filter.iter().filter_map(|guard| guard.math()).collect()
+            }
+            Self::Conditional { guard } => guard.math().into_iter().collect(),
             Self::None
             | Self::SymbolRef { .. }
             | Self::FloatConst { .. }
@@ -238,11 +349,12 @@ impl Payload {
             | Self::Gather { .. }
             | Self::Broadcast { .. }
             | Self::Derivative { .. }
-            | Self::Integral { .. }
             | Self::SmoothOp { .. }
+            | Self::PendingSmoothOp { .. }
             | Self::KernelCall { .. }
             | Self::ImplicitRef { .. }
             | Self::UnitConvert(_)
+            | Self::PendingUnitConvert { .. }
             | Self::PiecewiseLinear { .. } => Vec::new(),
         }
     }
@@ -273,6 +385,8 @@ mod tests {
     fn an_affine_payload_references_its_term_children() {
         let payload = Payload::Affine {
             constant: 1.0,
+            constant_quantity_type: Some(pse_quantity::QuantityTypeId::from_id(SemanticId::NIL)),
+            constant_unit: Some(pse_quantity::UnitId::from_id(SemanticId::NIL)),
             terms: vec![
                 AffineTerm {
                     coefficient: 2.0,
@@ -304,15 +418,15 @@ mod tests {
     fn a_reduction_references_only_its_filter() {
         let with_filter = Payload::Reduction {
             kind: ReductionKind::Sum,
-            domain: DomainId::from_id(SemanticId::NIL),
+            domain: DomainId::from_id(SemanticId::NIL).into(),
             bound_index: BoundIndexId::from_id(SemanticId::NIL),
-            filter: Some(NodeId(9)),
+            filter: Some(NodeId(9).into()),
         };
         assert_eq!(with_filter.referenced_nodes(), vec![NodeId(9)]);
 
         let without = Payload::Reduction {
             kind: ReductionKind::Sum,
-            domain: DomainId::from_id(SemanticId::NIL),
+            domain: DomainId::from_id(SemanticId::NIL).into(),
             bound_index: BoundIndexId::from_id(SemanticId::NIL),
             filter: None,
         };
@@ -321,7 +435,9 @@ mod tests {
 
     #[test]
     fn a_conditional_references_its_guard() {
-        let payload = Payload::Conditional { guard: NodeId(5) };
+        let payload = Payload::Conditional {
+            guard: NodeId(5).into(),
+        };
         assert_eq!(payload.referenced_nodes(), vec![NodeId(5)]);
     }
 }

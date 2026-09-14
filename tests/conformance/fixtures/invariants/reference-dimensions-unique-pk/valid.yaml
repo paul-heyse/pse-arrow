@@ -1,0 +1,12 @@
+{
+  "invariant": "reference.dimensions:unique:pk",
+  "rows": {
+    "reference.dimensions": [
+      {
+        "name": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

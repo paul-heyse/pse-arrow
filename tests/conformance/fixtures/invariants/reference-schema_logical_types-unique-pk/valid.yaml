@@ -1,0 +1,15 @@
+{
+  "invariant": "reference.schema_logical_types:unique:pk",
+  "rows": {
+    "reference.schema_logical_types": [
+      {
+        "arrow_storage": "[\"text\",\"value-1\"]",
+        "extension_name": "[\"text\",\"value-1\"]",
+        "logical_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "metadata_schema": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,21 @@
+{
+  "invariant": "authored.domains:foreign_key:parent_domain_id",
+  "rows": {
+    "authored.domains": [
+      {
+        "continuous": "[\"bool\",true]",
+        "doc": "[\"text\",\"value-1\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"time\"]",
+        "owner_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_domain_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

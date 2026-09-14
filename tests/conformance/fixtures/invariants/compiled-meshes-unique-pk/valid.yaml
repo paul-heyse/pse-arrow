@@ -1,0 +1,15 @@
+{
+  "invariant": "compiled.meshes:unique:pk",
+  "rows": {
+    "compiled.meshes": [
+      {
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "mesh_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_count": "[\"u64\",1]",
+        "nodes": "[\"list\",[]]",
+        "policy_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

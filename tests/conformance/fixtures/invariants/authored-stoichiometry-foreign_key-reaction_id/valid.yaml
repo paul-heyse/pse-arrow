@@ -1,0 +1,26 @@
+{
+  "invariant": "authored.stoichiometry:foreign_key:reaction_id",
+  "rows": {
+    "authored.reactions": [
+      {
+        "basis": "[\"enum\",\"molar\"]",
+        "concentration_form": "[\"enum\",\"molarity\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "kind": "[\"enum\",\"rate\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_phase_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.stoichiometry": [
+      {
+        "coefficient": "[\"f64\",\"3ff0000000000000\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

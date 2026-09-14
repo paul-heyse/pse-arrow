@@ -3,17 +3,20 @@
 
 //! The `pse.canon.v2` canonicalizer (blueprint §5.3, ADR-0045).
 //!
-//! Only the frozen constants are declared here. `canonicalize`, `logical_hash` and the
-//! `stages` module — admission and ordering, recursive normalization, the canonical
-//! metadata relation, framing and hashing — are packet B-canon's; this module is the seam
-//! they land in, so that the constants the rest of the workspace cites already exist and
-//! have exactly one declaration.
-//!
-//! The three constants below are part of the hashing contract, not tuning parameters.
-//! Alignment alone changes the bytes — 872 against 1032 for identical rows — so changing
-//! any of them is a new canonicalization version and invalidates every stored logical
-//! hash. That is why they are `v2` rather than `v1`: ADR-0045 found that v1's ignored-null
-//! payload and its stream/file ambiguity could not be repaired while keeping the name.
+//! Direct contract/value admission precedes ordering, recursive normalization and two
+//! separately finished Arrow IPC streams. Registry-context admission remains the
+//! caller's prerequisite for publication and reuse; a hash does not establish it.
+
+mod api;
+mod normalize;
+mod preflight;
+mod stages;
+
+/// Timings of actual canonical construction stages with all production checks enabled.
+#[cfg(feature = "bench-instrumentation")]
+pub mod benchmark;
+
+pub use api::{CanonicalOutput, CanonicalizeOptions, canonicalize, logical_hash};
 
 /// The frozen canonicalization contract version; the first component of the preimage.
 pub const CANON_VERSION: &str = "pse.canon.v2";

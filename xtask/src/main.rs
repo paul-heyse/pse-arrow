@@ -15,9 +15,8 @@
 //! `cargo xtask` — everything that needs Rust APIs, structured data, or cross-platform
 //! behaviour. The justfile is the one-line surface; this is the logic (plan §3).
 //!
-//! Phase 0 implements `family-check`, `codegen --check`, `governance` and `probe-host`.
-//! `codegen` (generate) and `doc-lint` are placeholders until `pse-schema` and the
-//! extracted API facts exist; `release` lands with the release tooling ADR.
+//! Schema generation writes deterministic output and checks regeneration equivalence.
+//! `doc-lint` waits for extracted API facts; `release` lands with its tooling ADR.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -27,6 +26,17 @@ use anyhow::{Context, Result, anyhow, bail};
 use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use serde::Deserialize;
+
+mod codegen;
+mod golden;
+#[path = "../../scripts/workspace.rs"]
+mod workspace;
+
+/// Committed evidence is checked by both public dependency-family entry points.
+const EVIDENCE_LOCKS: &[&str] = &[
+    "docs/capability-maps/evidence/rust/apisurface-Cargo.lock",
+    "docs/capability-maps/evidence/rust/support-Cargo.lock",
+];
 
 /// Workspace driver for pse-arrow.
 #[derive(Debug, Parser)]
@@ -42,6 +52,15 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
+    /// Publish or semantically compare a complete admitted golden store.
+    Golden {
+        /// The checked source fixture.
+        #[arg(value_enum)]
+        name: golden::Name,
+        /// Compare admitted rows and queries against a fresh run in scratch space.
+        #[arg(long)]
+        check: bool,
+    },
     /// Assert one resolved version per dependency family, equal to the declared pin.
     FamilyCheck {
         /// Additional `Cargo.lock` files whose shared packages must agree with ours.
@@ -53,9 +72,9 @@ enum Cmd {
         #[arg(long)]
         evidence_families_only: bool,
     },
-    /// Regenerate committed generated sources (phase 0: report only), or diff them.
+    /// Regenerate declared sources or check byte-for-byte regeneration equivalence.
     Codegen {
-        /// Fail if any generated path differs from the index or is untracked.
+        /// Regenerate in scratch space and reject differing or untracked output.
         #[arg(long)]
         check: bool,
         /// Restrict to one generator.
@@ -92,41 +111,22 @@ enum Target {
     Bindgen,
 }
 
-impl Target {
-    /// Repository-relative path the generator owns.
-    const fn path(self) -> &'static str {
-        match self {
-            Self::Relations => "crates/pse-relations/src/generated",
-            Self::Python => "python/pse/contracts",
-            Self::Docs => "docs/generated",
-            Self::Bindgen => "crates/pse-ipopt-sys/src/bindings.rs",
-        }
-    }
-
-    /// What phase-0 `codegen` would run, once the generator exists.
-    const fn generator(self) -> &'static str {
-        match self {
-            Self::Relations => "pse_schema::codegen::generate(Language::Rust)",
-            Self::Python => "pse_schema::codegen::generate(Language::Python)",
-            Self::Docs => "pse_schema::codegen::generate(Language::Markdown)",
-            Self::Bindgen => {
-                "bindgen $IPOPT_DIR/include/coin-or/IpStdCInterface.h (solver container)"
-            }
-        }
-    }
-
-    /// All of them, in generation order.
-    const ALL: [Self; 4] = [Self::Relations, Self::Python, Self::Docs, Self::Bindgen];
-}
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
     let root = workspace_root()?;
     match cli.command {
+        Cmd::Golden { name, check } => golden::run(&root, name, check),
         Cmd::FamilyCheck {
             evidence,
             evidence_families_only,
-        } => family_check(&root, &evidence, evidence_families_only),
+        } => {
+            family_check(&root, &default_evidence(), true)?;
+            if evidence.is_empty() {
+                Ok(())
+            } else {
+                family_check(&root, &evidence, evidence_families_only)
+            }
+        }
         Cmd::Codegen { check, only } => codegen(&root, check, only),
         Cmd::Governance => governance(&root),
         Cmd::DocLint => {
@@ -148,14 +148,14 @@ fn main() -> Result<()> {
     }
 }
 
-/// The workspace root, derived from this crate's manifest directory rather than the
-/// current directory: `cargo xtask` must behave the same from any subdirectory.
+/// Resolve the runtime checkout, never the location baked into a cached executable.
 fn workspace_root() -> Result<PathBuf> {
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest_dir
-        .parent()
-        .map(Path::to_path_buf)
-        .ok_or_else(|| anyhow!("xtask manifest directory has no parent"))
+    let start = std::env::current_dir().context("reading invocation directory")?;
+    workspace::find_workspace_root(&start).map_err(|error| anyhow!(error))
+}
+
+fn default_evidence() -> Vec<PathBuf> {
+    EVIDENCE_LOCKS.iter().map(PathBuf::from).collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -415,72 +415,8 @@ fn version_matches(resolved: &str, declared: &str, kind: &str) -> Result<bool> {
 // codegen
 // ---------------------------------------------------------------------------
 
-/// Phase 0: the generators do not exist yet, so `codegen` reports and `codegen --check`
-/// does the half that is real today — proving the committed generated trees are exactly
-/// what is in the index, and that nothing new appeared beside them.
 fn codegen(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
-    let targets: Vec<Target> = only.map_or_else(|| Target::ALL.to_vec(), |t| vec![t]);
-    let paths: Vec<&str> = targets.iter().map(|t| t.path()).collect();
-
-    if !check {
-        println!("codegen: phase 0 has no generator yet (pse-schema is a declared boundary).");
-        println!("Would regenerate:");
-        for target in &targets {
-            println!("  {:<40} <- {}", target.path(), target.generator());
-        }
-        println!("\nRun `cargo xtask codegen --check` to diff the committed trees.");
-        return Ok(());
-    }
-
-    let mut failures: Vec<String> = Vec::new();
-
-    let status = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["diff", "HEAD", "--exit-code", "--stat", "--"])
-        .args(&paths)
-        .status()
-        .context("running git diff")?;
-    if !status.success() {
-        failures.push(format!(
-            "generated sources differ from HEAD; run `cargo xtask codegen` and commit \
-             the result ({})",
-            paths.join(" ")
-        ));
-    }
-
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["status", "--porcelain", "--"])
-        .args(&paths)
-        .output()
-        .context("running git status --porcelain")?;
-    if !output.status.success() {
-        bail!("git status --porcelain failed");
-    }
-    let untracked: Vec<String> = String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .filter(|line| line.starts_with("??"))
-        .map(|line| line[2..].trim().to_owned())
-        .collect();
-    if !untracked.is_empty() {
-        failures.push(format!(
-            "untracked file(s) under a generated path — generated sources are committed \
-             (blueprint §3.1): {}",
-            untracked.join(", ")
-        ));
-    }
-
-    if failures.is_empty() {
-        println!("codegen --check: OK ({} path(s))", paths.len());
-        Ok(())
-    } else {
-        for failure in &failures {
-            eprintln!("codegen --check: {failure}");
-        }
-        bail!("codegen --check failed with {} problem(s)", failures.len())
-    }
+    codegen::run(root, check, only)
 }
 
 // ---------------------------------------------------------------------------
@@ -498,6 +434,10 @@ fn governance(root: &Path) -> Result<()> {
             "run",
             "-p",
             "pse-tests-governance",
+            "-p",
+            "pse-relations",
+            "--features",
+            "pse-relations/force-validate",
             "--no-fail-fast",
             "--locked",
         ])
@@ -508,7 +448,7 @@ fn governance(root: &Path) -> Result<()> {
         bail!("pse-tests-governance failed");
     }
     codegen(root, true, None)?;
-    family_check(root, &[], false)
+    family_check(root, &default_evidence(), true)
 }
 
 // ---------------------------------------------------------------------------

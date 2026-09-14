@@ -18,13 +18,13 @@ pub struct InvariantSpec {
     /// `named_id(REGISTRY_PACKAGE_ID, "invariant:<relation>:<name>")` (ADR-0050).
     pub id: SemanticId,
     /// The invariant's name inside its relation, for example `entity_registered`.
-    pub name: &'static str,
+    pub name: String,
     /// The qualified relation the invariant constrains, for example `authored.entities`.
-    pub relation: &'static str,
+    pub relation: String,
     /// What kind of statement it makes.
     pub kind: InvariantKind,
     /// The declared rule whose head is the violating keys, as `<name>@<version>`.
-    pub rule: &'static str,
+    pub rule: String,
     /// Whether a violation stops a commit.
     pub severity: Severity,
     /// What the invariant means and why it holds.
@@ -42,13 +42,13 @@ impl InvariantSpec {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InvariantDecl {
     /// See [`InvariantSpec::name`].
-    pub name: &'static str,
+    pub name: String,
     /// See [`InvariantSpec::relation`].
-    pub relation: &'static str,
+    pub relation: String,
     /// See [`InvariantSpec::kind`].
     pub kind: InvariantKind,
     /// See [`InvariantSpec::rule`].
-    pub rule: &'static str,
+    pub rule: String,
     /// See [`InvariantSpec::severity`].
     pub severity: Severity,
     /// See [`InvariantSpec::doc`].
@@ -57,18 +57,18 @@ pub struct InvariantDecl {
 
 impl InvariantDecl {
     /// An invariant that stops a commit when it is violated.
-    pub const fn error(
-        relation: &'static str,
-        name: &'static str,
+    pub fn error(
+        relation: impl Into<String>,
+        name: impl Into<String>,
         kind: InvariantKind,
-        rule: &'static str,
+        rule: impl Into<String>,
         doc: &'static str,
     ) -> Self {
         Self {
-            name,
-            relation,
+            name: name.into(),
+            relation: relation.into(),
             kind,
-            rule,
+            rule: rule.into(),
             severity: Severity::Error,
             doc,
         }

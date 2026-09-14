@@ -1,0 +1,36 @@
+{
+  "invariant": "reference.numerical_policies:unique:pk",
+  "rows": {
+    "reference.numerical_policies": [
+      {
+        "absolute_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "fma": "[\"enum\",\"disabled\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "nonfinite": "[\"enum\",\"evaluation_error\"]",
+        "policy_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reassociation": "[\"enum\",\"preserve_order\"]",
+        "relative_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "rewrite_mode": "[\"enum\",\"guarded_floating\"]",
+        "signed_zero_equal": "[\"bool\",true]",
+        "version": "[\"text\",\"value-1\"]"
+      },
+      {
+        "absolute_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "fma": "[\"enum\",\"disabled\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "nonfinite": "[\"enum\",\"evaluation_error\"]",
+        "policy_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reassociation": "[\"enum\",\"preserve_order\"]",
+        "relative_tolerance": "[\"f64\",\"3ff0000000000000\"]",
+        "rewrite_mode": "[\"enum\",\"guarded_floating\"]",
+        "signed_zero_equal": "[\"bool\",true]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

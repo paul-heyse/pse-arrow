@@ -1,0 +1,26 @@
+{
+  "invariant": "reference.rule_unnest:unique:pk",
+  "rows": {
+    "reference.rule_unnest": [
+      {
+        "column": "[\"text\",\"value-1\"]",
+        "empty_list_policy": "[\"enum\",\"no_members\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "null_list_policy": "[\"enum\",\"reject\"]",
+        "value_name": "[\"text\",\"value-1\"]"
+      },
+      {
+        "column": "[\"text\",\"value-1\"]",
+        "empty_list_policy": "[\"enum\",\"no_members\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "null_list_policy": "[\"enum\",\"reject\"]",
+        "value_name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

@@ -28,17 +28,21 @@ pub mod registry;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use pse_ids::{ContentHash, LogicalHash, SchemaVersion, SemanticId, SnapshotId};
+use pse_catalog::{LoadedRelation, Snapshot};
+use pse_ids::{
+    CancellationToken, ContentHash, LogicalHash, MemoryReserver, SchemaVersion, SemanticId,
+};
 use pse_relations::RecordBatch;
 use pse_schema::Registry;
 use pse_schema::model::PassSpec;
+use std::sync::Arc;
 
 use crate::error::CompilerError;
 
 /// One compiler stage (blueprint §14.1).
 pub trait Pass: Send + Sync {
     /// The declaration this pass implements.
-    fn spec(&self) -> &'static PassSpec;
+    fn spec(&self) -> &PassSpec;
 
     /// Runs the pass over its bound inputs.
     ///
@@ -46,8 +50,11 @@ pub trait Pass: Send + Sync {
     ///
     /// [`CompilerError`] — including the authoring, rule and registry errors it forwards
     /// transparently.
-    fn run(&self, ctx: &PassContext<'_>, inputs: &InputBundle)
-    -> Result<PassOutput, CompilerError>;
+    fn run<'a>(
+        &'a self,
+        ctx: &'a PassContext<'a>,
+        inputs: &'a InputBundle,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<PassOutput, CompilerError>>;
 }
 
 /// Everything a pass may read that is not one of its input ports (blueprint §14.3).
@@ -58,60 +65,82 @@ pub trait Pass: Send + Sync {
 #[derive(Debug)]
 pub struct PassContext<'a> {
     /// The registry every contract is read from.
-    pub registry: &'a Registry,
-    /// The policies in force, by name.
+    pub registry: &'a Arc<Registry>,
+    /// Original documents reopened from the exact bound snapshot source artifacts.
+    pub documents: &'a pse_authoring::document::OwnedDocumentSet,
+    /// Policies resolved to actual admitted rows.
     pub policies: &'a PolicySet,
-    /// The shared runtime. A handle, not a runtime: passes borrow the driver's, they do
-    /// not build their own (blueprint §14.3).
-    pub runtime: &'a tokio::runtime::Handle,
-    /// Inputs supplied from outside the snapshot.
+    /// Inputs supplied from outside the snapshot, explicitly for fixtures.
     pub external: &'a ExternalInputs,
+    /// Cooperative cancellation at every bounded work boundary.
+    pub cancel: &'a CancellationToken,
+    /// The reservation provider used by store and session.
+    pub reserver: &'a dyn MemoryReserver,
+    /// Sealed rule session, present for declared rule-executing passes.
+    pub session: Option<&'a pse_catalog::session::SnapshotSession>,
 }
 
-/// The policies in force, by name, each identified by its content hash.
-///
-/// A `BTreeMap` because the set is a stage-key input and has to frame in a fixed order.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct PolicySet(pub BTreeMap<String, ContentHash>);
+/// Policies selected from actual admitted rows.
+#[derive(Clone, Debug, Default)]
+pub struct PolicySet(pub BTreeMap<String, PolicyBinding>);
 
+/// A selected identity within a declared policy relation.
+#[derive(Clone, Debug)]
+pub struct PolicyBinding {
+    /// Selected semantic identity; admission checks actual membership.
+    pub policy_id: SemanticId,
+    /// Complete relation containing the selected policy.
+    pub input: BoundInput,
+}
 impl PolicySet {
-    /// An empty policy set.
+    /// No selected policies.
     pub fn new() -> Self {
         Self::default()
     }
-
-    /// The hash of the named policy, if it is in force.
-    pub fn get(&self, name: &str) -> Option<ContentHash> {
-        self.0.get(name).copied()
+    /// Actual selected policy binding.
+    pub fn get(&self, name: &str) -> Option<&PolicyBinding> {
+        self.0.get(name)
     }
 }
 
-/// Inputs supplied from outside the snapshot.
-///
-/// Empty in phase 0. It exists as a named place so that a test fixture binding an input
-/// directly is visibly *outside* the snapshot rather than indistinguishable from one that
-/// came from it.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// Explicit complete fixture input handles; production requests keep this empty.
+#[derive(Clone, Debug, Default)]
 pub struct ExternalInputs {
-    /// Bindings by port name, for test fixtures only.
-    pub bindings: BTreeMap<String, SnapshotId>,
+    /// Qualified pass/port to the actual admitted input.
+    pub bindings: BTreeMap<String, BoundInput>,
 }
 
-/// What one input port resolved to (blueprint §14.3).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// One exact immutable relation handle, minted only from an admitted snapshot.
+#[derive(Clone, Debug)]
 pub struct BoundInput {
-    /// The snapshot the relation was read from.
-    pub snapshot: SnapshotId,
-    /// The relation.
-    pub relation_id: SemanticId,
-    /// The schema version it was written under.
-    pub schema_version: SchemaVersion,
-    /// Its logical digest: what it means, independent of how it is stored.
-    pub logical_hash: LogicalHash,
+    pub(crate) snapshot: Arc<Snapshot>,
+    pub(crate) relation: Arc<LoadedRelation>,
+}
+impl BoundInput {
+    /// The exact admitted snapshot, including its manifest checksum and parents.
+    pub fn snapshot(&self) -> &Arc<Snapshot> {
+        &self.snapshot
+    }
+    /// Actual schema and rows retained for semantic dependency comparison.
+    pub fn relation(&self) -> &Arc<LoadedRelation> {
+        &self.relation
+    }
+    /// Declared relation identity.
+    pub fn relation_id(&self) -> SemanticId {
+        self.relation.contract().canonical.relation_id
+    }
+    /// Declared relation version.
+    pub fn schema_version(&self) -> SchemaVersion {
+        self.relation.contract().canonical.schema_version
+    }
+    /// Independently admitted logical content identity, used only as a lookup key.
+    pub fn logical_hash(&self) -> LogicalHash {
+        self.relation.member().logical_hash
+    }
 }
 
 /// Every declared input port of a pass, bound or explicitly absent.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default)]
 pub struct InputBundle {
     /// Port name to its binding. `None` is an explicit absence and enters the stage key.
     pub ports: BTreeMap<&'static str, Option<BoundInput>>,
@@ -163,27 +192,7 @@ pub struct PassRecordDraft {
     pub status: PassStatus,
 }
 
-/// How a pass attempt ended.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum PassStatus {
-    /// Every postcondition holds and every output port was written.
-    Ok,
-    /// The pass ran and reported findings that stop the pipeline.
-    Failed,
-    /// The stage key hit the memo; the outputs were reused, not recomputed.
-    Reused,
-}
-
-impl PassStatus {
-    /// The wire spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Ok => "ok",
-            Self::Failed => "failed",
-            Self::Reused => "reused",
-        }
-    }
-}
+pub use pse_schema::model::PassStatus;
 
 /// A stage memo key (blueprint §14.3, ADR-0041).
 ///

@@ -1,0 +1,16 @@
+{
+  "invariant": "reference.quantity_kinds:unique:pk",
+  "rows": {
+    "reference.quantity_kinds": [
+      {
+        "addition_kind": "[\"enum\",\"additive\"]",
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "extensive": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

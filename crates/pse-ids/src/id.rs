@@ -229,6 +229,32 @@ impl fmt::Display for ContentHash {
     }
 }
 
+impl serde::Serialize for SemanticId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_hex())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SemanticId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = <String as serde::Deserialize>::deserialize(deserializer)?;
+        Self::parse_hex(&text).map_err(serde::de::Error::custom)
+    }
+}
+
+impl serde::Serialize for ContentHash {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.to_prefixed())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ContentHash {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = <String as serde::Deserialize>::deserialize(deserializer)?;
+        Self::parse_prefixed(&text).map_err(serde::de::Error::custom)
+    }
+}
+
 /// Declares a role newtype over [`ContentHash`] with a `Display` that delegates.
 macro_rules! hash_role {
     ($(#[$meta:meta])* $name:ident) => {

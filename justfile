@@ -35,7 +35,6 @@ taplo := bin / "taplo"
 typos := bin / "typos"
 # Arrow's `force_validate` is a feature, not a profile: every test invocation passes it.
 validate := "--features pse-relations/force-validate"
-evidence_locks := "--evidence docs/capability-maps/evidence/rust/apisurface-Cargo.lock --evidence docs/capability-maps/evidence/rust/support-Cargo.lock"
 solver_image := env("PSE_SOLVER_IMAGE", `python3 scripts/solver-images.py ref ci`)
 
 default:
@@ -140,7 +139,8 @@ test-package pkg *args:
 [group('local')]
 [doc('Doctests (nextest does not run them)')]
 doctest:
-    cargo test --doc --workspace --locked {{ validate }}
+    # Cargo cannot run doctests for the pse-py cdylib target.
+    cargo test --doc --workspace --exclude pse-py --locked {{ validate }}
 
 [group('local')]
 [doc('rustdoc for the workspace with warnings as errors')]
@@ -148,14 +148,14 @@ docs-rust:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
 [group('local')]
-[doc('Phase-zero generated-tree hygiene; regeneration equivalence remains deferred')]
+[doc('Regenerate schema targets in scratch space and compare both ways; bindgen remains hygiene-only')]
 codegen-check:
     cargo xtask codegen --check
 
 [group('local')]
 [doc('One resolved version per family, equal to the pins; shared packages match the evidence lockfiles')]
 family-check:
-    cargo xtask family-check {{ evidence_locks }} --evidence-families-only
+    cargo xtask family-check
 
 [group('local')]
 [doc('Governance tests + codegen-check + family-check')]
@@ -182,9 +182,9 @@ lint-py:
     "{{ ruff }}" check
 
 [group('local')]
-[doc('pyrefly type check')]
+[doc('pyrefly type check, including warnings (the baseline is zero)')]
 typecheck:
-    "{{ pyrefly }}" check
+    "{{ pyrefly }}" check --min-severity warn
 
 [group('local')]
 [doc('import-linter contracts (numpy/pyomo/idaes boundaries)')]
@@ -203,7 +203,8 @@ lint-repo:
     "{{ typos }}"
     "{{ reuse }}" lint
     actionlint
-    uvx zizmor .github/workflows
+    # repo-hygiene runs the authenticated online audits.
+    uvx zizmor --offline .github/workflows
     shellcheck scripts/*.sh .claude/hooks/*.sh
     ast-grep scan --config sgconfig.yml
 
@@ -310,8 +311,9 @@ floors-latest:
 
 [group('decisions')]
 [doc('New ADR from the template: just adr-new my-slug --title "..."')]
+[positional-arguments]
 adr-new slug *args:
-    python3 scripts/adr.py new {{ slug }} {{ args }}
+    python3 scripts/adr.py new "$@"
 
 [group('decisions')]
 [doc('Regenerate docs/adr/README.md and the SUMMARY.md ADR block')]
@@ -320,8 +322,9 @@ adr-index:
 
 [group('decisions')]
 [doc('Mark one ADR superseded by another (symmetric links, status history)')]
+[positional-arguments]
 adr-supersede old new:
-    python3 scripts/adr.py supersede {{ old }} {{ new }}
+    python3 scripts/adr.py supersede "$@"
 
 [group('decisions')]
 [doc('New implementation plan under docs/plans/NN-<slug>.md')]

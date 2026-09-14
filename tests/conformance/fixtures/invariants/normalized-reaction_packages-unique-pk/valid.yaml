@@ -1,0 +1,17 @@
+{
+  "invariant": "normalized.reaction_packages:unique:pk",
+  "rows": {
+    "normalized.reaction_packages": [
+      {
+        "default_arguments": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_ids": "[\"list\",[]]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_set_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

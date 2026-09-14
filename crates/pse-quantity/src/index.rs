@@ -176,17 +176,19 @@ impl IndexSet {
     }
 }
 
-impl FromIterator<BoundIndexRef> for IndexSet {
-    /// Collects binders, keeping the first entry when a binder identity repeats.
+impl IndexSet {
+    /// Collects binders without dropping conflicting identities.
     ///
-    /// Use [`IndexSet::insert`] when a repeated identity with a different domain must be
-    /// reported rather than dropped.
-    fn from_iter<T: IntoIterator<Item = BoundIndexRef>>(iter: T) -> Self {
+    /// # Errors
+    /// Returns the first [`BinderConflict`] encountered.
+    pub fn try_from_iter(
+        iter: impl IntoIterator<Item = BoundIndexRef>,
+    ) -> Result<Self, BinderConflict> {
         let mut out = Self::new();
         for entry in iter {
-            let _ = out.insert(entry);
+            out.insert(entry)?;
         }
-        out
+        Ok(out)
     }
 }
 
@@ -249,8 +251,8 @@ mod tests {
     fn union_collects_both_sides() {
         let species = binder(1, 9, DomainKind::Species);
         let phase = binder(2, 7, DomainKind::Phase);
-        let left: IndexSet = [species].into_iter().collect();
-        let right: IndexSet = [phase].into_iter().collect();
+        let left = IndexSet::try_from_iter([species]).expect("consistent binders");
+        let right = IndexSet::try_from_iter([phase]).expect("consistent binders");
         let both = left.union(&right).expect("disjoint binders unite");
         assert_eq!(both.len(), 2);
         assert!(both.contains(&species));
@@ -260,8 +262,10 @@ mod tests {
 
     #[test]
     fn union_refuses_a_binder_conflict() {
-        let left: IndexSet = [binder(1, 9, DomainKind::Species)].into_iter().collect();
-        let right: IndexSet = [binder(1, 8, DomainKind::Cell)].into_iter().collect();
+        let left = IndexSet::try_from_iter([binder(1, 9, DomainKind::Species)])
+            .expect("consistent binders");
+        let right =
+            IndexSet::try_from_iter([binder(1, 8, DomainKind::Cell)]).expect("consistent binders");
         assert!(left.union(&right).is_err());
     }
 
@@ -270,8 +274,9 @@ mod tests {
     fn difference_removes_by_binder_identity() {
         let species = binder(1, 9, DomainKind::Species);
         let phase = binder(2, 7, DomainKind::Phase);
-        let body: IndexSet = [species, phase].into_iter().collect();
-        let bound: IndexSet = [binder(1, 8, DomainKind::Cell)].into_iter().collect();
+        let body = IndexSet::try_from_iter([species, phase]).expect("consistent binders");
+        let bound =
+            IndexSet::try_from_iter([binder(1, 8, DomainKind::Cell)]).expect("consistent binders");
         let remaining = body.difference(&bound);
         assert_eq!(remaining.len(), 1);
         assert!(remaining.contains(&phase));
@@ -282,8 +287,8 @@ mod tests {
     fn subset_compares_complete_entries() {
         let species = binder(1, 9, DomainKind::Species);
         let phase = binder(2, 7, DomainKind::Phase);
-        let small: IndexSet = [species].into_iter().collect();
-        let large: IndexSet = [species, phase].into_iter().collect();
+        let small = IndexSet::try_from_iter([species]).expect("consistent binders");
+        let large = IndexSet::try_from_iter([species, phase]).expect("consistent binders");
         assert!(small.is_subset(&large));
         assert!(!large.is_subset(&small));
         assert!(IndexSet::new().is_subset(&small));
@@ -294,11 +299,35 @@ mod tests {
     fn iteration_order_is_binder_identity_order() {
         let first = binder(1, 9, DomainKind::Species);
         let second = binder(2, 7, DomainKind::Phase);
-        let forwards: IndexSet = [first, second].into_iter().collect();
-        let backwards: IndexSet = [second, first].into_iter().collect();
+        let forwards = IndexSet::try_from_iter([first, second]).expect("consistent binders");
+        let backwards = IndexSet::try_from_iter([second, first]).expect("consistent binders");
         let order: Vec<_> = forwards.iter().copied().collect();
         let reverse_order: Vec<_> = backwards.iter().copied().collect();
         assert_eq!(order, vec![first, second]);
         assert_eq!(order, reverse_order);
+    }
+}
+
+#[cfg(test)]
+mod construction_tests {
+    use super::*;
+    use pse_ids::SemanticId;
+    #[test]
+    fn collection_rejects_conflicts_in_both_orders() {
+        let a = BoundIndexRef::new(
+            BoundIndexId::from_id(SemanticId::NIL),
+            DomainId::from_id(SemanticId::NIL),
+            DomainKind::Species,
+        );
+        let b = BoundIndexRef {
+            kind: DomainKind::Cell,
+            ..a
+        };
+        assert!(IndexSet::try_from_iter([a, b]).is_err());
+        assert!(IndexSet::try_from_iter([b, a]).is_err());
+        assert_eq!(
+            IndexSet::try_from_iter([a, a]).expect("same binder").len(),
+            1
+        );
     }
 }

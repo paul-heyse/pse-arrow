@@ -1,0 +1,35 @@
+{
+  "invariant": "reference.schema_migrations:foreign_key:relation_id",
+  "rows": {
+    "reference.schema_migrations": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "from_version": "[\"u64\",1]",
+        "plan_spec": "[\"text\",\"value-1\"]",
+        "relation_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "to_version": "[\"u64\",1]"
+      }
+    ],
+    "reference.schema_relations": [
+      {
+        "authority": "[\"enum\",\"authored\"]",
+        "derivation_granularity": "[\"enum\",\"row\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"enum\",\"reference\"]",
+        "primary_key": "[\"list\",[]]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "snapshot_class": "[\"enum\",\"model\"]",
+        "stability": "[\"enum\",\"stable\"]",
+        "version": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"02020202020202020202020202020202\"]",
+      "[\"u64\",1]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

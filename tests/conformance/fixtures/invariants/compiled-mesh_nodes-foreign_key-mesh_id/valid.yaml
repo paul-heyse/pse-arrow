@@ -1,0 +1,24 @@
+{
+  "invariant": "compiled.mesh_nodes:foreign_key:mesh_id",
+  "rows": {
+    "compiled.mesh_nodes": [
+      {
+        "coordinate": "[\"f64\",\"3ff0000000000000\"]",
+        "kind": "[\"enum\",\"element_boundary\"]",
+        "mesh_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]"
+      }
+    ],
+    "compiled.meshes": [
+      {
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "mesh_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_count": "[\"u64\",1]",
+        "nodes": "[\"list\",[]]",
+        "policy_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

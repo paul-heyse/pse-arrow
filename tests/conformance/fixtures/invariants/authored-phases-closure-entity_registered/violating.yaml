@@ -1,0 +1,21 @@
+{
+  "invariant": "authored.phases:closure:entity_registered",
+  "rows": {
+    "authored.entities": [],
+    "authored.phases": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "is_solvent_phase": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_type": "[\"enum\",\"undefined\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

@@ -191,7 +191,7 @@ def _extension_type(name: str) -> pa.ExtensionType:
 
     for cls in extension_types._EXTENSION_TYPES:
         if cls._extension_name == name:
-            return cls()
+            return cls(cls._prototype_binding)
     pytest.fail(f"no extension class declares {name!r}", pytrace=False)
 
 

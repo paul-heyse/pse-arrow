@@ -1,0 +1,13 @@
+{
+  "invariant": "authored.case_set_samples:unique:pk",
+  "rows": {
+    "authored.case_set_samples": [
+      {
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "case_set_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sample_ordinal": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

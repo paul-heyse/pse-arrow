@@ -140,6 +140,30 @@ impl ExtensionUse {
 }
 
 impl LogicalType {
+    /// Whether this declared type admits exact relational key equality (blueprint §14.2).
+    /// Nested quantity and floating-point payloads never acquire key semantics from storage.
+    pub fn admits_exact_key(&self) -> bool {
+        matches!(
+            self,
+            LogicalType::I64
+                | LogicalType::I32
+                | LogicalType::U8
+                | LogicalType::U16
+                | LogicalType::U32
+                | LogicalType::U64
+                | LogicalType::Bool
+                | LogicalType::Text
+                | LogicalType::Timestamp
+                | LogicalType::Ext(
+                    ExtensionUse::SemanticId
+                        | ExtensionUse::ContentHash
+                        | ExtensionUse::Enum(_)
+                        | ExtensionUse::OrdinalRef { .. }
+                        | ExtensionUse::IndexTuple
+                )
+        )
+    }
+
     /// A list of `element`.
     pub fn list(element: Self) -> Self {
         Self::List(Box::new(element))

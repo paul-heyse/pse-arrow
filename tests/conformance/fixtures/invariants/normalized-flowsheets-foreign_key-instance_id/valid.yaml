@@ -1,0 +1,27 @@
+{
+  "invariant": "normalized.flowsheets:foreign_key:instance_id",
+  "rows": {
+    "authored.instances": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "feature_values": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "param_values": "[\"list\",[]]",
+        "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "normalized.flowsheets": [
+      {
+        "default_property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "dynamic": "[\"enum\",\"true\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "time_domain_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

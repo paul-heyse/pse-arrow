@@ -1,0 +1,24 @@
+{
+  "invariant": "authored.selector_terms:foreign_key:scope_id",
+  "rows": {
+    "authored.scopes": [
+      {
+        "root_term_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.selector_terms": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "entity_kind": "[\"enum\",\"package\"]",
+        "op": "[\"enum\",\"descendant_of\"]",
+        "ordinal": "[\"u64\",1]",
+        "parent_term_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "tag": "[\"text\",\"value-1\"]",
+        "term_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

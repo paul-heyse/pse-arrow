@@ -1,0 +1,25 @@
+{
+  "invariant": "reference.aliases:foreign_key:entity_id",
+  "rows": {
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"package\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]"
+      }
+    ],
+    "reference.aliases": [
+      {
+        "alias_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "deprecated_in": "[\"text\",\"value-1\"]",
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "old_qualified_name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

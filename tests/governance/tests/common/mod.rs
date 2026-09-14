@@ -17,15 +17,13 @@
 
 use std::path::{Path, PathBuf};
 
-/// The workspace root, from this crate's manifest directory
-/// (`<root>/tests/governance`) — never the current directory, which nextest does not
-/// promise.
+#[path = "../../../../scripts/workspace.rs"]
+pub(crate) mod workspace;
+
+/// Discover the runtime checkout so relocated/cached test binaries inspect their caller.
 pub(crate) fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .expect("tests/governance must be two levels below the workspace root")
-        .to_path_buf()
+    let start = std::env::current_dir().expect("reading invocation directory");
+    workspace::find_workspace_root(&start).unwrap_or_else(|error| panic!("{error}"))
 }
 
 /// Reads a file, or panics naming it.

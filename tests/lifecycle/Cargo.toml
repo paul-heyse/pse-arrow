@@ -18,6 +18,7 @@ publish = false
 workspace = true
 
 [dev-dependencies]
+futures-core.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
 pse-relations.workspace = true

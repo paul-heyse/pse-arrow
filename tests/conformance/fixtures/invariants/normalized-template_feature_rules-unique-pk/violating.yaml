@@ -1,0 +1,27 @@
+{
+  "invariant": "normalized.template_feature_rules:unique:pk",
+  "rows": {
+    "normalized.template_feature_rules": [
+      {
+        "antecedent": "[\"text\",\"value-1\"]",
+        "consequent": "[\"text\",\"value-1\"]",
+        "rule": "[\"enum\",\"implies\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "antecedent": "[\"text\",\"value-1\"]",
+        "consequent": "[\"text\",\"value-1\"]",
+        "rule": "[\"enum\",\"implies\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"enum\",\"implies\"]",
+      "[\"text\",\"value-1\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

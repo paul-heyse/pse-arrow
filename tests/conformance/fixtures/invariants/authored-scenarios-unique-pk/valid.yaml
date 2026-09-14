@@ -1,0 +1,14 @@
+{
+  "invariant": "authored.scenarios:unique:pk",
+  "rows": {
+    "authored.scenarios": [
+      {
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "scenario_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "weight": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,30 @@
+{
+  "invariant": "reference.schema_columns:foreign_key:logical_type_id",
+  "rows": {
+    "reference.schema_columns": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "fk_column": "[\"text\",\"value-1\"]",
+        "fk_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "logical_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "nullable": "[\"bool\",true]",
+        "ordinal": "[\"u64\",1]",
+        "per_row_quantity": "[\"bool\",true]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "role": "[\"enum\",\"key\"]"
+      }
+    ],
+    "reference.schema_logical_types": [
+      {
+        "arrow_storage": "[\"text\",\"value-1\"]",
+        "extension_name": "[\"text\",\"value-1\"]",
+        "logical_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "metadata_schema": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,13 @@
+{
+  "invariant": "compiled.math_derivatives:unique:pk",
+  "rows": {
+    "compiled.math_derivatives": [
+      {
+        "node_id": "[\"u64\",1]",
+        "order": "[\"u64\",1]",
+        "wrt_domain_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

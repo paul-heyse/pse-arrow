@@ -1,0 +1,16 @@
+{
+  "invariant": "reference.schema_enums:unique:pk",
+  "rows": {
+    "reference.schema_enums": [
+      {
+        "deprecated": "[\"bool\",true]",
+        "doc": "[\"text\",\"value-1\"]",
+        "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "member": "[\"text\",\"value-1\"]",
+        "member_ordinal": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

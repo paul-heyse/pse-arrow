@@ -1,0 +1,32 @@
+{
+  "invariant": "reference.engine_profiles:unique:pk",
+  "rows": {
+    "reference.engine_profiles": [
+      {
+        "analyzer_rules": "[\"list\",[]]",
+        "arrow_version": "[\"text\",\"value-1\"]",
+        "datafusion_version": "[\"text\",\"value-1\"]",
+        "engine_profile_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "optimizer_rules": "[\"list\",[]]",
+        "physical_rules": "[\"list\",[]]",
+        "semantic_settings": "[\"list\",[]]",
+        "setting_allow_list_version": "[\"text\",\"value-1\"]"
+      },
+      {
+        "analyzer_rules": "[\"list\",[]]",
+        "arrow_version": "[\"text\",\"value-1\"]",
+        "datafusion_version": "[\"text\",\"value-1\"]",
+        "engine_profile_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "optimizer_rules": "[\"list\",[]]",
+        "physical_rules": "[\"list\",[]]",
+        "semantic_settings": "[\"list\",[]]",
+        "setting_allow_list_version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

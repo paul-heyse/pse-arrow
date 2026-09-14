@@ -13,6 +13,11 @@ use pse_ids::ContentHash;
 /// A batch, field or metadata value that does not meet its declared contract.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum RelationError {
+    /// Accounted construction exceeded an envelope, was cancelled or failed ownership.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Canon(#[from] pse_ids::CanonError),
+
     /// The batch's `pse.contract.fingerprint` is not the one this view was generated for.
     #[error("relation `{relation}` expects fingerprint {expected} but the batch carries {actual}")]
     #[diagnostic(
@@ -112,7 +117,9 @@ pub enum RelationError {
     #[error("field `{field}` is declared {declared} and the batch is {actual}")]
     #[diagnostic(
         code(schema::nullability),
-        help("a hidden null under a masked parent is still a null (blueprint §5.3 step 2)")
+        help(
+            "required visible values must be non-null; null parents mask their payload (blueprint §5.3 step 2)"
+        )
     )]
     Nullability {
         /// The field path.
@@ -158,6 +165,42 @@ pub enum RelationError {
         /// How many rows the target has.
         rows: u64,
     },
+
+    /// A declared relation contract or metadata value does not match the offered data.
+    #[error("relation `{relation}` violates its contract: {reason}")]
+    #[diagnostic(code(schema::contract_mismatch))]
+    Contract {
+        /// The relation or field being admitted.
+        relation: String,
+        /// The specific mismatch.
+        reason: String,
+    },
+
+    /// A visible row value violates its declared logical meaning.
+    #[error("field `{field}` in row {row}: {reason}")]
+    #[diagnostic(code(validation::invariant))]
+    Value {
+        /// The complete field path.
+        field: String,
+        /// The containing row.
+        row: usize,
+        /// The violated invariant.
+        reason: String,
+    },
+
+    /// All violations found at an admission boundary.
+    #[error("relation admission found {} violations", .errors.len())]
+    #[diagnostic(code(schema::admission))]
+    Validation {
+        /// Independently actionable findings.
+        #[related]
+        errors: Vec<RelationError>,
+    },
+
+    /// The bound registry declaration could not produce its contract.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Schema(#[from] pse_schema::SchemaError),
 
     /// Arrow itself rejected the operation.
     #[error(transparent)]

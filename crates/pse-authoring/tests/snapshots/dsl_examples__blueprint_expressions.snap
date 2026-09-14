@@ -1,0 +1,1509 @@
+---
+source: crates/pse-authoring/tests/dsl_examples.rs
+expression: snapshots
+---
+[
+    (
+        "A + B*t + C*t^2 + D*t^3 + E/t^2 where t = T/1000{K}",
+        Expr {
+            kind: Let {
+                bindings: [
+                    (
+                        "t",
+                        Expr {
+                            kind: Binary {
+                                op: Div,
+                                lhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "T",
+                                                    indices: [],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 42,
+                                        end: 43,
+                                    },
+                                },
+                                rhs: Expr {
+                                    kind: Number(
+                                        Number {
+                                            value: 1000.0,
+                                            unit: Some(
+                                                "K",
+                                            ),
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 44,
+                                        end: 51,
+                                    },
+                                },
+                            },
+                            span: Span {
+                                start: 42,
+                                end: 51,
+                            },
+                        },
+                    ),
+                ],
+                body: Expr {
+                    kind: Binary {
+                        op: Add,
+                        lhs: Expr {
+                            kind: Binary {
+                                op: Add,
+                                lhs: Expr {
+                                    kind: Binary {
+                                        op: Add,
+                                        lhs: Expr {
+                                            kind: Binary {
+                                                op: Add,
+                                                lhs: Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "A",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 0,
+                                                        end: 1,
+                                                    },
+                                                },
+                                                rhs: Expr {
+                                                    kind: Binary {
+                                                        op: Mul,
+                                                        lhs: Expr {
+                                                            kind: Path(
+                                                                Path {
+                                                                    segments: [
+                                                                        PathSegment {
+                                                                            name: "B",
+                                                                            indices: [],
+                                                                        },
+                                                                    ],
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 4,
+                                                                end: 5,
+                                                            },
+                                                        },
+                                                        rhs: Expr {
+                                                            kind: Path(
+                                                                Path {
+                                                                    segments: [
+                                                                        PathSegment {
+                                                                            name: "t",
+                                                                            indices: [],
+                                                                        },
+                                                                    ],
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 6,
+                                                                end: 7,
+                                                            },
+                                                        },
+                                                    },
+                                                    span: Span {
+                                                        start: 4,
+                                                        end: 7,
+                                                    },
+                                                },
+                                            },
+                                            span: Span {
+                                                start: 0,
+                                                end: 7,
+                                            },
+                                        },
+                                        rhs: Expr {
+                                            kind: Binary {
+                                                op: Mul,
+                                                lhs: Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "C",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 10,
+                                                        end: 11,
+                                                    },
+                                                },
+                                                rhs: Expr {
+                                                    kind: Binary {
+                                                        op: Pow,
+                                                        lhs: Expr {
+                                                            kind: Path(
+                                                                Path {
+                                                                    segments: [
+                                                                        PathSegment {
+                                                                            name: "t",
+                                                                            indices: [],
+                                                                        },
+                                                                    ],
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 12,
+                                                                end: 13,
+                                                            },
+                                                        },
+                                                        rhs: Expr {
+                                                            kind: Number(
+                                                                Number {
+                                                                    value: 2.0,
+                                                                    unit: None,
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 14,
+                                                                end: 15,
+                                                            },
+                                                        },
+                                                    },
+                                                    span: Span {
+                                                        start: 12,
+                                                        end: 15,
+                                                    },
+                                                },
+                                            },
+                                            span: Span {
+                                                start: 10,
+                                                end: 15,
+                                            },
+                                        },
+                                    },
+                                    span: Span {
+                                        start: 0,
+                                        end: 15,
+                                    },
+                                },
+                                rhs: Expr {
+                                    kind: Binary {
+                                        op: Mul,
+                                        lhs: Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "D",
+                                                            indices: [],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 18,
+                                                end: 19,
+                                            },
+                                        },
+                                        rhs: Expr {
+                                            kind: Binary {
+                                                op: Pow,
+                                                lhs: Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "t",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 20,
+                                                        end: 21,
+                                                    },
+                                                },
+                                                rhs: Expr {
+                                                    kind: Number(
+                                                        Number {
+                                                            value: 3.0,
+                                                            unit: None,
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 22,
+                                                        end: 23,
+                                                    },
+                                                },
+                                            },
+                                            span: Span {
+                                                start: 20,
+                                                end: 23,
+                                            },
+                                        },
+                                    },
+                                    span: Span {
+                                        start: 18,
+                                        end: 23,
+                                    },
+                                },
+                            },
+                            span: Span {
+                                start: 0,
+                                end: 23,
+                            },
+                        },
+                        rhs: Expr {
+                            kind: Binary {
+                                op: Div,
+                                lhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "E",
+                                                    indices: [],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 26,
+                                        end: 27,
+                                    },
+                                },
+                                rhs: Expr {
+                                    kind: Binary {
+                                        op: Pow,
+                                        lhs: Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "t",
+                                                            indices: [],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 28,
+                                                end: 29,
+                                            },
+                                        },
+                                        rhs: Expr {
+                                            kind: Number(
+                                                Number {
+                                                    value: 2.0,
+                                                    unit: None,
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 30,
+                                                end: 31,
+                                            },
+                                        },
+                                    },
+                                    span: Span {
+                                        start: 28,
+                                        end: 31,
+                                    },
+                                },
+                            },
+                            span: Span {
+                                start: 26,
+                                end: 31,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 0,
+                        end: 31,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 51,
+            },
+        },
+    ),
+    (
+        "arrhenius_const * exp(-energy_activation / (R * state.temperature))",
+        Expr {
+            kind: Binary {
+                op: Mul,
+                lhs: Expr {
+                    kind: Path(
+                        Path {
+                            segments: [
+                                PathSegment {
+                                    name: "arrhenius_const",
+                                    indices: [],
+                                },
+                            ],
+                        },
+                    ),
+                    span: Span {
+                        start: 0,
+                        end: 15,
+                    },
+                },
+                rhs: Expr {
+                    kind: Call {
+                        function: Exp,
+                        args: [
+                            Expr {
+                                kind: Binary {
+                                    op: Div,
+                                    lhs: Expr {
+                                        kind: Neg(
+                                            Expr {
+                                                kind: Path(
+                                                    Path {
+                                                        segments: [
+                                                            PathSegment {
+                                                                name: "energy_activation",
+                                                                indices: [],
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                                span: Span {
+                                                    start: 23,
+                                                    end: 40,
+                                                },
+                                            },
+                                        ),
+                                        span: Span {
+                                            start: 22,
+                                            end: 40,
+                                        },
+                                    },
+                                    rhs: Expr {
+                                        kind: Binary {
+                                            op: Mul,
+                                            lhs: Expr {
+                                                kind: Path(
+                                                    Path {
+                                                        segments: [
+                                                            PathSegment {
+                                                                name: "R",
+                                                                indices: [],
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                                span: Span {
+                                                    start: 44,
+                                                    end: 45,
+                                                },
+                                            },
+                                            rhs: Expr {
+                                                kind: Path(
+                                                    Path {
+                                                        segments: [
+                                                            PathSegment {
+                                                                name: "state",
+                                                                indices: [],
+                                                            },
+                                                            PathSegment {
+                                                                name: "temperature",
+                                                                indices: [],
+                                                            },
+                                                        ],
+                                                    },
+                                                ),
+                                                span: Span {
+                                                    start: 48,
+                                                    end: 65,
+                                                },
+                                            },
+                                        },
+                                        span: Span {
+                                            start: 43,
+                                            end: 66,
+                                        },
+                                    },
+                                },
+                                span: Span {
+                                    start: 22,
+                                    end: 66,
+                                },
+                            },
+                        ],
+                        named: [],
+                    },
+                    span: Span {
+                        start: 18,
+                        end: 67,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 67,
+            },
+        },
+    ),
+    (
+        "sum(p in phase | control_volume.properties_out[t].enth_flow_phase[p])",
+        Expr {
+            kind: Reduce {
+                kind: Sum,
+                binder: Binder {
+                    var: "p",
+                    domain: Path {
+                        segments: [
+                            PathSegment {
+                                name: "phase",
+                                indices: [],
+                            },
+                        ],
+                    },
+                    filter: None,
+                },
+                body: Expr {
+                    kind: Path(
+                        Path {
+                            segments: [
+                                PathSegment {
+                                    name: "control_volume",
+                                    indices: [],
+                                },
+                                PathSegment {
+                                    name: "properties_out",
+                                    indices: [
+                                        Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "t",
+                                                            indices: [],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 47,
+                                                end: 48,
+                                            },
+                                        },
+                                    ],
+                                },
+                                PathSegment {
+                                    name: "enth_flow_phase",
+                                    indices: [
+                                        Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "p",
+                                                            indices: [],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 66,
+                                                end: 67,
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ),
+                    span: Span {
+                        start: 17,
+                        end: 68,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 69,
+            },
+        },
+    ),
+    (
+        "prod(j in species where j != excluded | composition[j]^order[j])",
+        Expr {
+            kind: Reduce {
+                kind: Prod,
+                binder: Binder {
+                    var: "j",
+                    domain: Path {
+                        segments: [
+                            PathSegment {
+                                name: "species",
+                                indices: [],
+                            },
+                        ],
+                    },
+                    filter: Some(
+                        Predicate {
+                            kind: Compare {
+                                op: NotEq,
+                                lhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "j",
+                                                    indices: [],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 24,
+                                        end: 25,
+                                    },
+                                },
+                                rhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "excluded",
+                                                    indices: [],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 29,
+                                        end: 37,
+                                    },
+                                },
+                            },
+                            span: Span {
+                                start: 24,
+                                end: 37,
+                            },
+                        },
+                    ),
+                },
+                body: Expr {
+                    kind: Binary {
+                        op: Pow,
+                        lhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "composition",
+                                            indices: [
+                                                Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "j",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 52,
+                                                        end: 53,
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 40,
+                                end: 54,
+                            },
+                        },
+                        rhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "order",
+                                            indices: [
+                                                Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "j",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 61,
+                                                        end: 62,
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 55,
+                                end: 63,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 40,
+                        end: 63,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 64,
+            },
+        },
+    ),
+    (
+        "integral(x in length | d(temperature[x])/dx)",
+        Expr {
+            kind: Reduce {
+                kind: Integral,
+                binder: Binder {
+                    var: "x",
+                    domain: Path {
+                        segments: [
+                            PathSegment {
+                                name: "length",
+                                indices: [],
+                            },
+                        ],
+                    },
+                    filter: None,
+                },
+                body: Expr {
+                    kind: Derivative {
+                        body: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "temperature",
+                                            indices: [
+                                                Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "x",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 37,
+                                                        end: 38,
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 25,
+                                end: 39,
+                            },
+                        },
+                        wrt: Path {
+                            segments: [
+                                PathSegment {
+                                    name: "x",
+                                    indices: [],
+                                },
+                            ],
+                        },
+                    },
+                    span: Span {
+                        start: 23,
+                        end: 43,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 44,
+            },
+        },
+    ),
+    (
+        "weighted_mean(w1, t1, w2, t2)",
+        Expr {
+            kind: Call {
+                function: WeightedMean,
+                args: [
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "w1",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 14,
+                            end: 16,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "t1",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 18,
+                            end: 20,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "w2",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 22,
+                            end: 24,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "t2",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 26,
+                            end: 28,
+                        },
+                    },
+                ],
+                named: [],
+            },
+            span: Span {
+                start: 0,
+                end: 29,
+            },
+        },
+    ),
+    (
+        "smooth_min(smooth_min(a, b, eps=1e-3{Pa}), c, eps=1e-3{Pa})",
+        Expr {
+            kind: Call {
+                function: SmoothMin,
+                args: [
+                    Expr {
+                        kind: Call {
+                            function: SmoothMin,
+                            args: [
+                                Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "a",
+                                                    indices: [],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 22,
+                                        end: 23,
+                                    },
+                                },
+                                Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "b",
+                                                    indices: [],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 25,
+                                        end: 26,
+                                    },
+                                },
+                            ],
+                            named: [
+                                NamedArg {
+                                    name: "eps",
+                                    value: Expr {
+                                        kind: Number(
+                                            Number {
+                                                value: 0.001,
+                                                unit: Some(
+                                                    "Pa",
+                                                ),
+                                            },
+                                        ),
+                                        span: Span {
+                                            start: 32,
+                                            end: 40,
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                        span: Span {
+                            start: 11,
+                            end: 41,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "c",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 43,
+                            end: 44,
+                        },
+                    },
+                ],
+                named: [
+                    NamedArg {
+                        name: "eps",
+                        value: Expr {
+                            kind: Number(
+                                Number {
+                                    value: 0.001,
+                                    unit: Some(
+                                        "Pa",
+                                    ),
+                                },
+                            ),
+                            span: Span {
+                                start: 50,
+                                end: 58,
+                            },
+                        },
+                    },
+                ],
+            },
+            span: Span {
+                start: 0,
+                end: 59,
+            },
+        },
+    ),
+    (
+        "if compressor then work*efficiency else work/efficiency",
+        Expr {
+            kind: Conditional {
+                guard: Predicate {
+                    kind: Atom(
+                        Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "compressor",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 3,
+                                end: 13,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        start: 3,
+                        end: 13,
+                    },
+                },
+                then: Expr {
+                    kind: Binary {
+                        op: Mul,
+                        lhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "work",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 19,
+                                end: 23,
+                            },
+                        },
+                        rhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "efficiency",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 24,
+                                end: 34,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 19,
+                        end: 34,
+                    },
+                },
+                otherwise: Expr {
+                    kind: Binary {
+                        op: Div,
+                        lhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "work",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 40,
+                                end: 44,
+                            },
+                        },
+                        rhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "efficiency",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 45,
+                                end: 55,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 40,
+                        end: 55,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 55,
+            },
+        },
+    ),
+    (
+        "kernel.cubic.compress_fact(A, B, eos_type)",
+        Expr {
+            kind: Kernel {
+                name: "cubic.compress_fact",
+                args: [
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "A",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 27,
+                            end: 28,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "B",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 30,
+                            end: 31,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "eos_type",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 33,
+                            end: 41,
+                        },
+                    },
+                ],
+            },
+            span: Span {
+                start: 0,
+                end: 42,
+            },
+        },
+    ),
+    (
+        "2{mol/(m^3*s)} * concentration[t, species.CO2]",
+        Expr {
+            kind: Binary {
+                op: Mul,
+                lhs: Expr {
+                    kind: Number(
+                        Number {
+                            value: 2.0,
+                            unit: Some(
+                                "mol/(m^3*s)",
+                            ),
+                        },
+                    ),
+                    span: Span {
+                        start: 0,
+                        end: 14,
+                    },
+                },
+                rhs: Expr {
+                    kind: Path(
+                        Path {
+                            segments: [
+                                PathSegment {
+                                    name: "concentration",
+                                    indices: [
+                                        Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "t",
+                                                            indices: [],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 31,
+                                                end: 32,
+                                            },
+                                        },
+                                        Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "species",
+                                                            indices: [],
+                                                        },
+                                                        PathSegment {
+                                                            name: "CO2",
+                                                            indices: [],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 34,
+                                                end: 45,
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ),
+                    span: Span {
+                        start: 17,
+                        end: 46,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 46,
+            },
+        },
+    ),
+    (
+        "(-x)^2",
+        Expr {
+            kind: Binary {
+                op: Pow,
+                lhs: Expr {
+                    kind: Neg(
+                        Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "x",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 2,
+                                end: 3,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        start: 0,
+                        end: 4,
+                    },
+                },
+                rhs: Expr {
+                    kind: Number(
+                        Number {
+                            value: 2.0,
+                            unit: None,
+                        },
+                    ),
+                    span: Span {
+                        start: 5,
+                        end: 6,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 6,
+            },
+        },
+    ),
+    (
+        "-(x^2)",
+        Expr {
+            kind: Neg(
+                Expr {
+                    kind: Binary {
+                        op: Pow,
+                        lhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "x",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 2,
+                                end: 3,
+                            },
+                        },
+                        rhs: Expr {
+                            kind: Number(
+                                Number {
+                                    value: 2.0,
+                                    unit: None,
+                                },
+                            ),
+                            span: Span {
+                                start: 4,
+                                end: 5,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 1,
+                        end: 6,
+                    },
+                },
+            ),
+            span: Span {
+                start: 0,
+                end: 6,
+            },
+        },
+    ),
+    (
+        "x^y^z",
+        Expr {
+            kind: Binary {
+                op: Pow,
+                lhs: Expr {
+                    kind: Path(
+                        Path {
+                            segments: [
+                                PathSegment {
+                                    name: "x",
+                                    indices: [],
+                                },
+                            ],
+                        },
+                    ),
+                    span: Span {
+                        start: 0,
+                        end: 1,
+                    },
+                },
+                rhs: Expr {
+                    kind: Binary {
+                        op: Pow,
+                        lhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "y",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 2,
+                                end: 3,
+                            },
+                        },
+                        rhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "z",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 4,
+                                end: 5,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 2,
+                        end: 5,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 5,
+            },
+        },
+    ),
+    (
+        "x^-2",
+        Expr {
+            kind: Binary {
+                op: Pow,
+                lhs: Expr {
+                    kind: Path(
+                        Path {
+                            segments: [
+                                PathSegment {
+                                    name: "x",
+                                    indices: [],
+                                },
+                            ],
+                        },
+                    ),
+                    span: Span {
+                        start: 0,
+                        end: 1,
+                    },
+                },
+                rhs: Expr {
+                    kind: Neg(
+                        Expr {
+                            kind: Number(
+                                Number {
+                                    value: 2.0,
+                                    unit: None,
+                                },
+                            ),
+                            span: Span {
+                                start: 3,
+                                end: 4,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        start: 2,
+                        end: 4,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 4,
+            },
+        },
+    ),
+    (
+        "min(a, b)",
+        Expr {
+            kind: Call {
+                function: Min,
+                args: [
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "a",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 4,
+                            end: 5,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "b",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 7,
+                            end: 8,
+                        },
+                    },
+                ],
+                named: [],
+            },
+            span: Span {
+                start: 0,
+                end: 9,
+            },
+        },
+    ),
+    (
+        "max(a, b)",
+        Expr {
+            kind: Call {
+                function: Max,
+                args: [
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "a",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 4,
+                            end: 5,
+                        },
+                    },
+                    Expr {
+                        kind: Path(
+                            Path {
+                                segments: [
+                                    PathSegment {
+                                        name: "b",
+                                        indices: [],
+                                    },
+                                ],
+                            },
+                        ),
+                        span: Span {
+                            start: 7,
+                            end: 8,
+                        },
+                    },
+                ],
+                named: [],
+            },
+            span: Span {
+                start: 0,
+                end: 9,
+            },
+        },
+    ),
+]

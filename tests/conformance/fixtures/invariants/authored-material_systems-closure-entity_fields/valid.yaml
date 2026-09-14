@@ -1,0 +1,27 @@
+{
+  "invariant": "authored.material_systems:closure:entity_fields",
+  "rows": {
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"material_system\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"null\",null]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]"
+      }
+    ],
+    "authored.material_systems": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_ids": "[\"list\",[]]",
+        "species_ids": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

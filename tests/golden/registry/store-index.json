@@ -1,0 +1,25 @@
+{
+  "snapshots": [
+    {
+      "label": "model",
+      "reference": {
+        "snapshot_id": "blake3:75c68b0f34df5ed596cb346058ef6da0190fec8619288a446ffd4e5021989313",
+        "manifest_checksum": "blake3:25846a23424493f42bc9876720acff7498142e1881e5904cc0b1852386a38821"
+      },
+      "parents": {},
+      "stage_pass": null
+    },
+    {
+      "label": "case",
+      "reference": {
+        "snapshot_id": "blake3:91564b87fec3938d221fadd4dd6287a8c267c702cd8d8fec7dfdcbb302258b3d",
+        "manifest_checksum": "blake3:0f45ab32cef04169cb8b066fe71856e7eff9461c5498e2ca2c88b203614f047c"
+      },
+      "parents": {
+        "model": "model"
+      },
+      "stage_pass": null
+    }
+  ],
+  "sources": {}
+}

@@ -1,0 +1,14 @@
+{
+  "invariant": "reference.schema_documents:unique:pk",
+  "rows": {
+    "reference.schema_documents": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "document_name": "[\"text\",\"value-1\"]",
+        "kind": "[\"text\",\"value-1\"]",
+        "path_glob": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

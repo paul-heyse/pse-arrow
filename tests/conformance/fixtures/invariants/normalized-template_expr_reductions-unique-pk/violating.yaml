@@ -1,0 +1,34 @@
+{
+  "invariant": "normalized.template_expr_reductions:unique:pk",
+  "rows": {
+    "normalized.template_expr_reductions": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"text\",\"value-1\"]",
+        "filter_node_id": "[\"u64\",1]",
+        "filter_predicate_id": "[\"u64\",1]",
+        "filter_source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"sum\"]",
+        "node_id": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"text\",\"value-1\"]",
+        "filter_node_id": "[\"u64\",1]",
+        "filter_predicate_id": "[\"u64\",1]",
+        "filter_source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"sum\"]",
+        "node_id": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"u64\",1]"
+    ]
+  ]
+}

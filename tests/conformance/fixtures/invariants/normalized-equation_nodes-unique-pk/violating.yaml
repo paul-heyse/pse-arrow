@@ -1,0 +1,35 @@
+{
+  "invariant": "normalized.equation_nodes:unique:pk",
+  "rows": {
+    "normalized.equation_nodes": [
+      {
+        "else_equation": "[\"u64\",1]",
+        "equation_id": "[\"u64\",1]",
+        "guard_predicate": "[\"u64\",1]",
+        "kind": "[\"enum\",\"relation\"]",
+        "left_expr": "[\"u64\",1]",
+        "right_expr": "[\"u64\",1]",
+        "sense": "[\"enum\",\"eq\"]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "then_equation": "[\"u64\",1]"
+      },
+      {
+        "else_equation": "[\"u64\",1]",
+        "equation_id": "[\"u64\",1]",
+        "guard_predicate": "[\"u64\",1]",
+        "kind": "[\"enum\",\"relation\"]",
+        "left_expr": "[\"u64\",1]",
+        "right_expr": "[\"u64\",1]",
+        "sense": "[\"enum\",\"eq\"]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "then_equation": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

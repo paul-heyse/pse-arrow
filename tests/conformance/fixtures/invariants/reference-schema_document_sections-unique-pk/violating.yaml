@@ -1,0 +1,41 @@
+{
+  "invariant": "reference.schema_document_sections:unique:pk",
+  "rows": {
+    "reference.schema_document_sections": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "document_name": "[\"text\",\"value-1\"]",
+        "entity_kind": "[\"text\",\"value-1\"]",
+        "expression_fields": "[\"list\",[]]",
+        "expression_owner_column": "[\"text\",\"value-1\"]",
+        "identity_column": "[\"text\",\"value-1\"]",
+        "key": "[\"text\",\"value-1\"]",
+        "name_column": "[\"text\",\"value-1\"]",
+        "naming_scope_column": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "repeated": "[\"bool\",true]"
+      },
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "document_name": "[\"text\",\"value-1\"]",
+        "entity_kind": "[\"text\",\"value-1\"]",
+        "expression_fields": "[\"list\",[]]",
+        "expression_owner_column": "[\"text\",\"value-1\"]",
+        "identity_column": "[\"text\",\"value-1\"]",
+        "key": "[\"text\",\"value-1\"]",
+        "name_column": "[\"text\",\"value-1\"]",
+        "naming_scope_column": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "repeated": "[\"bool\",true]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"text\",\"value-1\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

@@ -313,12 +313,14 @@ fn reduce(num: i64, den: i64) -> Result<Ratio, DimensionError> {
     // `den != 0`, so `divisor >= 1` and both divisions are exact.
     let magnitude = num.unsigned_abs() / divisor;
     let denominator = den.unsigned_abs() / divisor;
-    let (Ok(magnitude), Ok(denominator)) = (i16::try_from(magnitude), i16::try_from(denominator))
-    else {
-        return Err(DimensionError::Overflow { num, den });
-    };
+    // Apply the sign before narrowing: -32768 is representable although +32768 is not.
+    let signed = i64::try_from(magnitude).map_err(|_| DimensionError::Overflow { num, den })?;
+    let signed = if negative { -signed } else { signed };
+    let numerator = i16::try_from(signed).map_err(|_| DimensionError::Overflow { num, den })?;
+    let denominator =
+        i16::try_from(denominator).map_err(|_| DimensionError::Overflow { num, den })?;
     Ok(Ratio {
-        num: if negative { -magnitude } else { magnitude },
+        num: numerator,
         den: denominator,
     })
 }
@@ -686,5 +688,22 @@ mod tests {
         }
         assert_eq!(BaseDimension::from_ordinal(8), None);
         assert_eq!(BaseDimension::parse("mols"), None);
+    }
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    use super::Ratio;
+    #[test]
+    fn minimum_signed_numerator_is_valid_but_its_negation_overflows() {
+        let minimum = Ratio::new(-32768, 1).expect("minimum i16");
+        assert_eq!(Ratio::from_parts(i16::MIN, 1), Ok(minimum));
+        assert_eq!(minimum.checked_mul(Ratio::ONE), Ok(minimum));
+        assert!(Ratio::new(32768, 1).is_err());
+        assert!(
+            minimum
+                .checked_mul(Ratio::new(-1, 1).expect("minus one"))
+                .is_err()
+        );
     }
 }

@@ -1,0 +1,20 @@
+{
+  "invariant": "compiled.math_conditionals:unique:pk",
+  "rows": {
+    "compiled.math_conditionals": [
+      {
+        "guard_node_id": "[\"u64\",1]",
+        "node_id": "[\"u64\",1]"
+      },
+      {
+        "guard_node_id": "[\"u64\",1]",
+        "node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"u64\",1]"
+    ]
+  ]
+}

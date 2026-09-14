@@ -1,0 +1,104 @@
+{
+  "snapshots": [
+    {
+      "label": "model",
+      "reference": {
+        "snapshot_id": "blake3:bb5685e80931ed60ce46d8b8c4f02e71ede7f1b46a93b215d20d334cb3fec5a0",
+        "manifest_checksum": "blake3:3493aa1f1c3c0f6b4ff1139a05dc11009f3444e086212312da85e56dc2aa4cca"
+      },
+      "parents": {},
+      "stage_pass": null
+    },
+    {
+      "label": "importer",
+      "reference": {
+        "snapshot_id": "blake3:a906b8b49063f1189f2df3c9656c743d4fd5497a79a52a144232be523fa2d3c3",
+        "manifest_checksum": "blake3:da0100efbb485921b05187150f40dc01e61cd1b483f7176fa33969eaa618836a"
+      },
+      "parents": {
+        "bases": "model",
+        "continuous_domains": "model",
+        "conversion_rules": "model",
+        "domain_members": "model",
+        "domains": "model",
+        "instance_domain_bindings": "model",
+        "instances": "model",
+        "kernel_specs": "model",
+        "p10_fixture_context": "model",
+        "quantity_kinds": "model",
+        "quantity_operations": "model",
+        "quantity_types": "model",
+        "reference_states": "model",
+        "template_domains": "model",
+        "template_symbols": "model",
+        "unit_sets": "model",
+        "units": "model"
+      },
+      "stage_pass": "963914e159d2b1637fc07d71fe985f87"
+    },
+    {
+      "label": "P10",
+      "reference": {
+        "snapshot_id": "blake3:761b3bc509910aebc28f9f3e0777fb6010d3ab1cfb051277143f8ab2c167dc27",
+        "manifest_checksum": "blake3:8c79dc6899f7179b72b04f24ea7838e9ce4c3ef43278a11481a0e34ee8a5c209"
+      },
+      "parents": {
+        "bases": "model",
+        "continuous_domains": "model",
+        "conversion_rules": "model",
+        "domain_members": "model",
+        "domain_products": "importer",
+        "domains": "model",
+        "instance_domain_bindings": "model",
+        "instances": "model",
+        "kernel_bindings": "importer",
+        "kernel_specs": "model",
+        "math_affine": "importer",
+        "math_broadcasts": "importer",
+        "math_complementarity": "importer",
+        "math_conditionals": "importer",
+        "math_dae_links": "importer",
+        "math_derivatives": "importer",
+        "math_equations": "importer",
+        "math_expr_args": "importer",
+        "math_expr_nodes": "importer",
+        "math_float_constants": "importer",
+        "math_free_indices": "importer",
+        "math_gathers": "importer",
+        "math_implicit_refs": "importer",
+        "math_implicit_systems": "importer",
+        "math_indexed_equations": "importer",
+        "math_int_constants": "importer",
+        "math_integrals": "importer",
+        "math_kernel_calls": "importer",
+        "math_objectives": "importer",
+        "math_piecewise_linear": "importer",
+        "math_quantity_selections": "importer",
+        "math_reductions": "importer",
+        "math_smooth_ops": "importer",
+        "math_symbol_refs": "importer",
+        "math_unit_converts": "importer",
+        "math_weighted_means": "importer",
+        "normalized_units": "importer",
+        "p10_fixture_context": "model",
+        "quantity_kinds": "model",
+        "quantity_operations": "model",
+        "quantity_types": "model",
+        "reference_states": "model",
+        "symbol_group_members": "importer",
+        "symbol_groups": "importer",
+        "symbols": "importer",
+        "template_domains": "model",
+        "template_symbols": "model",
+        "unit_sets": "model",
+        "units": "model",
+        "valid_index_tuples": "importer"
+      },
+      "stage_pass": "e395c7e92093dbb58c949e3f45326d26"
+    }
+  ],
+  "sources": {
+    "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a/materials/physical.yaml": "{\n  \"units\": [\n    {\n      \"unit_id\": \"01010101010101010101010101010101\",\n      \"symbol\": \"m\",\n      \"name\": \"length\",\n      \"dimension\": [\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"02020202020202020202020202020202\",\n      \"symbol\": \"kg\",\n      \"name\": \"mass\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"03030303030303030303030303030303\",\n      \"symbol\": \"s\",\n      \"name\": \"time\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"04040404040404040404040404040404\",\n      \"symbol\": \"K\",\n      \"name\": \"temperature\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"05050505050505050505050505050505\",\n      \"symbol\": \"mol\",\n      \"name\": \"amount\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"06060606060606060606060606060606\",\n      \"symbol\": \"A\",\n      \"name\": \"current\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"07070707070707070707070707070707\",\n      \"symbol\": \"cd\",\n      \"name\": \"luminous_intensity\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"08080808080808080808080808080808\",\n      \"symbol\": \"USD_fixture\",\n      \"name\": \"currency\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 1,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"Fixture base\"\n    },\n    {\n      \"unit_id\": \"0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a\",\n      \"symbol\": \"dimensionless\",\n      \"name\": \"one\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"scale_to_canonical\": 1.0,\n      \"offset_to_canonical\": 0.0,\n      \"is_affine\": false,\n      \"reference_state_id\": null,\n      \"system\": \"SI\",\n      \"doc\": \"neutral storage\"\n    }\n  ],\n  \"unit_sets\": [\n    {\n      \"unit_set_id\": \"09090909090909090909090909090909\",\n      \"name\": \"base\",\n      \"time_unit_id\": \"03030303030303030303030303030303\",\n      \"length_unit_id\": \"01010101010101010101010101010101\",\n      \"mass_unit_id\": \"02020202020202020202020202020202\",\n      \"amount_unit_id\": \"05050505050505050505050505050505\",\n      \"temperature_unit_id\": \"04040404040404040404040404040404\",\n      \"current_unit_id\": \"06060606060606060606060606060606\",\n      \"luminous_intensity_unit_id\": \"07070707070707070707070707070707\",\n      \"currency_unit_id\": \"08080808080808080808080808080808\"\n    }\n  ],\n  \"quantity_kinds\": [\n    {\n      \"quantity_kind_id\": \"14141414141414141414141414141414\",\n      \"name\": \"length\",\n      \"dimension\": [\n        {\n          \"num\": 1,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"extensive\": false,\n      \"addition_kind\": \"additive\",\n      \"doc\": \"length kind\"\n    },\n    {\n      \"quantity_kind_id\": \"15151515151515151515151515151515\",\n      \"name\": \"neutral\",\n      \"dimension\": [\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        },\n        {\n          \"num\": 0,\n          \"den\": 1\n        }\n      ],\n      \"extensive\": false,\n      \"addition_kind\": \"additive\",\n      \"doc\": \"explicit neutral\"\n    }\n  ],\n  \"quantity_types\": [\n    {\n      \"quantity_type_id\": \"1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e\",\n      \"quantity_kind_id\": \"14141414141414141414141414141414\",\n      \"basis_id\": null,\n      \"reference_state_id\": null,\n      \"scale_kind\": \"point\",\n      \"shape\": [],\n      \"subject_kind\": null,\n      \"canonical_unit_id\": \"01010101010101010101010101010101\",\n      \"nominal_magnitude\": null,\n      \"doc\": \"length\"\n    },\n    {\n      \"quantity_type_id\": \"1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f\",\n      \"quantity_kind_id\": \"15151515151515151515151515151515\",\n      \"basis_id\": null,\n      \"reference_state_id\": null,\n      \"scale_kind\": \"point\",\n      \"shape\": [],\n      \"subject_kind\": null,\n      \"canonical_unit_id\": \"0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a\",\n      \"nominal_magnitude\": null,\n      \"doc\": \"neutral\"\n    }\n  ]\n}",
+    "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a/package.toml": "[package]\npackage_id = \"5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\"\nname = \"p10_fixture\"\nversion = \"1.0.0\"\nkind = \"model\"\nid_policy = \"explicit\"\ndependencies = []\ndoc = \"Complete physical P10 predecessor fixture\"\n"
+  }
+}

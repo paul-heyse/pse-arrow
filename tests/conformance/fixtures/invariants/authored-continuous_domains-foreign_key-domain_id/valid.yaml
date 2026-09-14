@@ -1,0 +1,27 @@
+{
+  "invariant": "authored.continuous_domains:foreign_key:domain_id",
+  "rows": {
+    "authored.continuous_domains": [
+      {
+        "discretization_policy_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "initial_points": "[\"list\",[]]",
+        "lower": "[\"f64\",\"3ff0000000000000\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "upper": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ],
+    "authored.domains": [
+      {
+        "continuous": "[\"bool\",true]",
+        "doc": "[\"text\",\"value-1\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"time\"]",
+        "owner_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

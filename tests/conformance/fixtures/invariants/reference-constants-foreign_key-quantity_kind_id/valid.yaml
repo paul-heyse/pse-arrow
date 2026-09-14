@@ -1,0 +1,27 @@
+{
+  "invariant": "reference.constants:foreign_key:quantity_kind_id",
+  "rows": {
+    "reference.constants": [
+      {
+        "constant_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ],
+    "reference.quantity_kinds": [
+      {
+        "addition_kind": "[\"enum\",\"additive\"]",
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "extensive": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

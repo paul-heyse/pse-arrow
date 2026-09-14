@@ -36,13 +36,16 @@
 //! - [`graph`] — [`ExprGraph`], the only builder.
 //! - [`error`] — [`MathIrError`] with its §23.2 classes.
 //!
-//! Declared here and filled by later packets: [`opspec`], [`catalog`], [`hash`],
-//! [`canonical`], [`topo`] (packet M-1); [`fold`] (packet M-3); [`index`], [`infer`],
-//! [`equation`], [`canonicalize`], [`walk`] (packet M-4); [`relations`] (packet M-5).
+//! [`opspec`] and [`catalog`] expose the authoritative operator table; [`hash`],
+//! [`canonical`] and [`topo`] implement ordered identity and structural admission.
+//! [`fold`] performs guarded ordered literal folding. Physical inference and relation
+//! adapters are implemented separately so neither supplied type IDs nor digests establish
+//! semantic correctness.
 
 pub mod canonical;
 pub mod canonicalize;
 pub mod catalog;
+pub mod domain;
 pub mod equation;
 pub mod error;
 pub mod fold;
@@ -53,14 +56,20 @@ pub mod infer;
 pub mod node;
 pub mod opspec;
 pub mod payload;
+pub mod reference;
 pub mod relations;
 pub mod topo;
 pub mod walk;
 
+pub use crate::canonical::{CanonicalGraph, CanonicalNode, number_typed_graph};
+pub use crate::canonicalize::{CanonicalizeInput, Policy, canonicalize};
+pub use crate::domain::DomainRef;
 pub use crate::error::MathIrError;
 pub use crate::graph::ExprGraph;
 pub use crate::node::{Arity, Node, NodeId, arity};
+pub use crate::opspec::{OPERATOR_TABLE, OperatorSpec, operator_spec};
 pub use crate::payload::{AffineTerm, Payload, WeightedPair};
+pub use crate::reference::{GuardRef, TemplateValueKind, ValueRef};
 
 /// The 43 operators of §7.2, re-exported from where they are declared.
 ///

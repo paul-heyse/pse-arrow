@@ -33,16 +33,37 @@ const DIR_EVIDENCE: &str = "evidence";
 const DIR_DOCUMENTS: &str = "documents";
 /// The directory holding the stage-key sidecar, which is never snapshot membership.
 const DIR_STAGES: &str = "stages";
+/// Complete durable change-set envelopes, outside semantic membership.
+const DIR_CHANGES: &str = "changes";
 
 /// The suffix of the JSON-encoded objects.
 const EXT_JSON: &str = "json";
 
+pub(super) fn local_temporary_name(process: u32, ordinal: u64) -> String {
+    format!(".pse-control-{process}-{ordinal}.pending")
+}
+
+/// Recognize only this protocol's unreachable temporary siblings after interruption.
+pub(super) fn is_local_temporary(name: &str) -> bool {
+    name.strip_prefix(".pse-control-")
+        .and_then(|name| name.strip_suffix(".pending"))
+        .and_then(|name| name.split_once('-'))
+        .is_some_and(|(process, ordinal)| {
+            process
+                .parse::<u32>()
+                .is_ok_and(|value| value.to_string() == process)
+                && ordinal
+                    .parse::<u64>()
+                    .is_ok_and(|value| value.to_string() == ordinal)
+        })
+}
+
 /// The store directories a snapshot member may never be published under (§5.3 step 7).
 ///
 /// Refs are mutable, manifests contain the membership being computed, and stages are
-/// pass-attempt bookkeeping. A member in any of the three would make a snapshot ID
+/// pass-attempt bookkeeping. A member in any of these directories would make a snapshot ID
 /// depend on something the snapshot contains, which is the self-reference §5.3 forbids.
-pub const SIDECAR_DIRECTORIES: [&str; 3] = [DIR_REFS, DIR_MANIFESTS, DIR_STAGES];
+pub const SIDECAR_DIRECTORIES: [&str; 4] = [DIR_REFS, DIR_MANIFESTS, DIR_STAGES, DIR_CHANGES];
 
 /// The maximum length of a [`RefName`], including the first character.
 const REF_NAME_MAX: usize = 64;
@@ -235,6 +256,15 @@ pub fn document_path(document_id: SemanticId, checksum: &EncodingChecksum) -> Pa
 #[must_use]
 pub fn stage_path(key: &ContentHash) -> Path {
     Path::from(format!("{DIR_STAGES}/{}.{EXT_JSON}", key.to_hex()))
+}
+
+/// `changes/<encoding_checksum>.json`, the exact complete operation/source receipt.
+#[must_use]
+pub fn change_set_path(checksum: &EncodingChecksum) -> Path {
+    Path::from(format!(
+        "{DIR_CHANGES}/{}.{EXT_JSON}",
+        checksum.content_hash().to_hex()
+    ))
 }
 
 /// Whether `path` lies under one of the [`SIDECAR_DIRECTORIES`].

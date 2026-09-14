@@ -1,0 +1,28 @@
+{
+  "invariant": "reference.operator_specs:unique:pk",
+  "rows": {
+    "reference.operator_specs": [
+      {
+        "argument_evaluation": "[\"enum\",\"eager\"]",
+        "arity": "[\"enum\",\"fixed\"]",
+        "convexity_rule": "[\"text\",\"value-1\"]",
+        "derivative_rule": "[\"text\",\"value-1\"]",
+        "domain_restrictions": "[\"list\",[]]",
+        "domain_rule": "[\"text\",\"value-1\"]",
+        "failure_classes": "[\"list\",[]]",
+        "family": "[\"enum\",\"leaf\"]",
+        "fixed_arity": "[\"u64\",1]",
+        "foldable": "[\"bool\",true]",
+        "lowering": "[\"list\",[]]",
+        "monotonicity_rule": "[\"text\",\"value-1\"]",
+        "opcode": "[\"enum\",\"Const\"]",
+        "quantity_operation_ids": "[\"list\",[]]",
+        "rewrite_conditions": "[\"list\",[]]",
+        "shape_rule": "[\"text\",\"value-1\"]",
+        "smoothness": "[\"enum\",\"c_infinity\"]",
+        "sparsity_rule": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

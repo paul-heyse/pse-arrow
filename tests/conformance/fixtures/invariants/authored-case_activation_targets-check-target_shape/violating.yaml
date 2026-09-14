@@ -1,0 +1,25 @@
+{
+  "invariant": "authored.case_activation_targets:check:target_shape",
+  "rows": {
+    "authored.case_activation_targets": [
+      {
+        "activation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member_kind": "[\"enum\",\"symbol\"]",
+        "ordinal": "[\"u64\",1]",
+        "port_name": "[\"null\",null]",
+        "port_template_id": "[\"null\",null]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "wildcard": "[\"bool\",false]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

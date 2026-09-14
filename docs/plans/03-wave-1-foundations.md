@@ -1,21 +1,23 @@
 ---
-title: Wave 1 — foundations, executed as parallel sub-agent packets
+title: Wave 1 — foundations completion and corrections
 status: in-progress
 date: 2026-09-13
-adrs: [ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0009, ADR-0027, ADR-0030, ADR-0031, ADR-0039, ADR-0040, ADR-0041, ADR-0042, ADR-0043, ADR-0044, ADR-0045, ADR-0046, ADR-0047, ADR-0048, ADR-0049, ADR-0050, ADR-0051]
+adrs: [ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0009, ADR-0027, ADR-0030, ADR-0031, ADR-0039, ADR-0040, ADR-0041, ADR-0042, ADR-0043, ADR-0044, ADR-0045, ADR-0046, ADR-0047, ADR-0048, ADR-0049, ADR-0050, ADR-0051, ADR-0052, ADR-0053, ADR-0054, ADR-0055, ADR-0056, ADR-0057, ADR-0058, ADR-0059]
 phase: 0
 ---
 
-# Wave 1 — foundations, executed as parallel sub-agent packets
+# Wave 1 — foundations completion and corrections
 
 ## Context
 
-The repository has finished design and planning (blueprint revision 5, ADR-0001–0048, two
-implementation plans, four capability maps with probes) but almost no implementation:
-21 of 23 `pse-*` crates are 8–16-line declared boundaries, the schema generator and every
+At the start of this plan, the repository had finished design and planning (blueprint
+revision 5, ADR-0001–0048, two implementation plans, four capability maps with probes)
+but had almost no implementation:
+21 of 23 `pse-*` crates were 8–16-line declared boundaries, the schema generator and every
 generated tree (`crates/pse-relations/src/generated/`, `docs/generated/`, the non-placeholder
-half of `python/pse/contracts/`) do not exist, `cargo xtask golden` does not exist, and four
-of the five test families hold one tautological placeholder each. What is real: the
+half of `python/pse/contracts/`) did not exist, `cargo xtask golden` did not exist, and four
+of the five test families held one tautological placeholder each. The implemented starting
+point was: the
 governance machine (workspace pins, `family-check`, 11 governance tests, `codegen --check`
 hygiene), the build-provenance chain (`pse-buildinfo` → `pse-py::build_info` →
 `pse._build`), the Python extension-type registrar, codec, `Any` lint, numpy boundary and
@@ -89,70 +91,109 @@ at 0.13.2, and a rename is never a commit).
 
 ## Plan
 
-### Stage 0 — landing (maintainer plus one agent, serial)
+### Approved completion sequence (2026-09-14)
 
-1. **Merge PR #1** (`chore/complete-repository-setup`, 9 commits ahead of `origin/main`).
-2. **Land the revision-5 amendment** from the current working tree (41 changed/untracked
-   files: blueprint, ADR-0039–0048, nine supersession edits, capability maps, plan 02, two
-   reviews, evidence) as one PR:
-   - branch `adr/0039-revision-5-contracts`; title
-     `adr: ADR-0039 enforce semantic admission and complete physical quantity operations`;
-     labels `adr`, `kind/design-decision`. `governance / adr-lint` requires the `adr` label
-     and that title form whenever any `docs/adr/NNNN-*.md` changes; it does not limit a PR
-     to one record.
-   - before committing, on each of ADR-0039–0048: `status: accepted`; `review:` →
-     `docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md#6-acceptance-gates`;
-     `evidence: Proposed` stays (the design is accepted, the runtime is not); append
-     `- 2026-09-13 — accepted (revision-5 review, Accept for bounded proposed scope).` to
-     `## Status history`. The records are not on `origin/main`, so the immutability lint
-     has nothing to compare.
-   - PR description states `PSE_DESIGN_EDIT=1` was used for the authorised blueprint
-     amendment and cites the revision-5 review (plan 02 open item).
-   - checks: `just adr-lint`, `just adr-index`, `just docs`, `just lint-repo`.
-3. This plan file (`docs/plans/03-wave-1-foundations.md`) gets its `docs/plans/README.md`
-   row and `docs/SUMMARY.md` entry in packet K-2.
+This sequence supersedes the historical worktree/PR topology and inconsistent interface
+notes below. The packet tables remain the scope inventory. Execute in one combined branch;
+independent agents may own disjoint modules, with one Cargo gate at a time. The maintainer
+approved narrow blueprint amendments, optional B-evidence/R-3 deferral, and a closed P0–P3
+production graph with P10 qualified against a complete predecessor fixture (ADR-0056).
 
-### Execution topology
+1. Repair environment and checkout-relative governance; preserve zero baseline.
+2. Correct K-1–K-5 defects: single key authority, manifest names/versions, diagnostic
+   classes, rational minimum, fallible index construction and scope reconciliation.
+3. Complete A-1–A-5 registry declarations and lossless rule/migration content. Reject
+   invalid declarations and unresolved executable producer/port graphs.
+4. Implement A-7 semantic admission, A-6/A-8/A-9 generation and R-1 regeneration checks.
+5. Implement E-1 owned reservations, B-canon and B-fixtures.
+6. Implement B-store/providers/session/faults/oracle and E-2 budget checks.
+7. Complete Q-1/Q-3/Q-4/Q-5/Q-material and M-1/M-3/M-4/M-5 with actual-value oracles.
+8. Complete C-dsl/C-1/C-2 and C-3 rules/P2 on unpublished candidates.
+9. Complete C-4 uncached P0–P3 and fixture P10, atomic full rename, guarded memo and R-2 goldens.
+10. Run W-exit, update implementation review and record the outcome only after terminal gates.
 
-- **Worktrees.** Each packet runs in its own worktree and branch
-  (`git worktree add ../pse-arrow-wt/<packet> -b wave1/<packet> main`; the Agent tool's
-  `isolation: "worktree"`). Packets own disjoint file sets; a packet that must touch a file
-  it does not own reports the conflict instead of editing (the `impl-plan-exec-subagent`
-  contract).
-- **One PR per packet** to `main`, Conventional-Commit title with the crate short name as
-  scope (`feat(ids): pse.canon.v2 canonicalizer`), the PR template's Evidence section
-  filled with §D labels naming tests and exact `just` commands with failure counts against
-  baseline zero, and "Not verified" filled honestly.
-- **Tiers.** A packet starts when every `depends-on` packet is merged to `main`. The
-  orchestrator rebases waiting worktrees onto `main` after each merge. Registry changes and
-  their regenerated trees land in the same PR (`just codegen` is an `ask` permission; the
-  packet reports the regeneration).
-- **Integration checks** before requesting a merge: `just ci-fast`, `just governance`,
-  `just codegen-check`, `just family-check`; `just quality` for Python-touching packets;
-  `just docs` for docs-touching packets. `just ci-pr` at every tier boundary.
-- **Roles.** `plan-scout` preflights each tier's packets against `main` before dispatch;
-  `impl-plan-exec-subagent` executes a packet; `precision-integrator` handles a packet that
-  must change a contract another packet consumes; `plan-auditor` audits each tier before the
-  next starts; `design-reviewer` reviews the implementation at wave exit;
-  `architecture-docs-writer` with the `adr` skill executes K-2's decision records.
-- **Reports.** Every packet returns packet ID, changed files, command/mode/failure counts,
-  unresolved dependencies, evidence labels, and discoveries outside scope (surfaced, not
-  acted on). A stub or a focused green check is never reported as terminal acceptance.
-- **Decision routing.** A packet that finds it must alter a D-decision, a crate boundary, a
-  dependency family or a SHOULD stops and routes through the `adr` skill; the orchestrator
-  decides whether to fork the packet.
+**Validation before identity and reuse:** ADR-0052 governs every stage. Hashes index
+content and check integrity; explicit schema/key/FK/quantity/domain/lifecycle validators
+establish validity. Complete declared dependencies determine invalidation. P2 runs before
+snapshot identity/publication and without planner constraints. Memo hits require complete
+exact dependency descriptors and current validation scope. Tests compare decoded values
+and ordered IR, include consistently rehashed invalid data, and mutate each dependency,
+including changes that happen to leave output values equal. Qualify uncached execution
+before enabling memoization; add no second validation/dependency framework.
 
-### Hand-off packet (what every dispatch prompt contains)
+**Current design scope:** authorized amendments now reach blueprint revision 31. ADR-0057
+replaces the missing `semantic_math_basis` dictionary dependency with the self-contained
+classification contract in blueprint §7.5. ADR-0058 governs explicit unit coordinates and
+quantity references; ADR-0059 governs the authoring identity projection. ADR-0052–0059
+remain proposed until the formal decision PR lifecycle completes. Their bounded reviews
+authorize the implementation scope; they are not numerical acceptance evidence.
 
-1. The packet row below (ID, title, blueprint sections, ADRs, owned files, deliverables,
-   acceptance) and the relevant excerpts of §"Interface contracts".
-2. The non-negotiables and superseded-behaviour lists above, verbatim.
-3. Prerequisite reading: `AGENTS.md`, `.claude/rules/rust.md` (or `python.md`), the cited
-   blueprint sections, the cited ADRs, the cited capability-map sections
-   (`just lib-outline` first).
-4. The exact acceptance commands and the report format.
-5. Commit authorisation: commit on the packet branch; never push to `main`; open the PR
-   with the Conventional-Commit title given in the row; do not merge.
+**Corrected interfaces:** ADR-0053 governs typed `row_key` and nullable `row` staged
+references, durable per-operation/role sidecars, exact rule versions, complete expression,
+join/union/recursive options and migration defaults. ADR-0054 governs finite persisted
+conversion coefficients, Piecewise input, payload-only Gather, indexed residual types,
+per-occurrence typing and absorbing unknown scope. ADR-0055 governs final-buffer-owner
+reservation lifetime and explicitly reserved result copies. Full rename is in this wave,
+including bound target/expression rewrites and regenerated document bytes/hashes/spans.
+Explicit case model-revision edits compose with a verified rename only after complete
+source reparse and renewed exact-input validation. Stage imports rerun their actual
+producer against admitted inputs and compare complete output rows; generic key/FK checks
+alone do not establish the meaning of an expression graph.
+Unit-bearing smoothing tolerances retain their declared coordinate until P10 checks the
+actual operand and registered tolerance type. Enum comparison literals obtain their
+dictionary only from the actual compared declaration; names alone never establish membership.
+Revision 31 completes typed terminal pass records: all findings are retained, cancellation
+recording uses bounded cleanup, and storage failure cannot become an empty success.
+
+### Execution evidence ledger
+
+**Workstation resource clarification (2026-09-14).** The maintainer requested generous
+budgeting for the 16-core/32-thread, 192 GB development workstation. Ordinary complete
+workflow fixtures and golden-store execution now share the ceiling declared once in
+`tests/support/workflow_budget.rs`; this is not eagerly allocated memory. Production
+`ResourceBudget` remains explicitly deployment-configured, with no fixed 512 MiB cap.
+Small local limits remain only where resource refusal, ownership or cancellation is
+the behavior under test. Existing lower-budget receipts below are historical test
+conditions, not deployment sizing recommendations. Serial reference-profile execution
+remains a reproducibility condition, not a workstation CPU-capacity claim.
+
+Evidence applies only to the named boundary. Every test baseline is zero.
+
+| Milestone | Label and result | Remaining gate |
+|---|---|---|
+| Starting native environment | Tested: `just py-sync`, dev editable build completed; doctor has no blocker | Refresh again after native changes |
+| Checkout/governance correction | Tested: `just test-package pse-tests-governance -p pse-relations --no-fail-fast`, default nextest with force-validate, 25 passed / 0 failed / 0 skipped; `just setup-test`, 14 passed / 0 failed; `just family-check`, four families and both evidence locks pass | Full integration gate |
+| Catalog keel corrections | Tested: `just test-package pse-catalog -p pse-relations`, default nextest with force-validate, 78 passed / 0 failed / 0 skipped | Full snapshot admission/store still pending |
+| Catalog, canonicalization and relation admission | Tested: `just test-package pse-catalog -p pse-relations -p pse-ids`, default nextest with force-validate, 220 passed / 0 failed / 0 skipped; includes semantic-validator refusal, exact durable change receipts, UTC calendar checks, and final buffer reservation trimming | Conformance/lifecycle acceptance and full integration gates |
+| Diagnostic plan and function admission | Tested: `just test-package pse-catalog -p pse-relations --test session_codec --test session_admission --test store_protocol`, default nextest with force-validate, 16 passed / 0 failed / 0 skipped; exact provider/schema round-trip, changed binding refusal, foreign same-name function refusal and actual builtin positive controls | Complete strict lint and wider engine acceptance |
+| Full registry IPC admission budget | Tested: `just test-package pse-catalog -p pse-relations --test encoding_admission`, default nextest with force-validate, 7 passed / 0 failed / 0 skipped. Every actual registry self-description relation is built with owned buffers, encoded, decoded and compared through admitted Cells under 512 MiB; all per-relation owners return to zero. Temporary validation counts visible data rather than repeated shared IPC backing capacity | Complete simultaneous snapshot/engine and terminal gates |
+| Local conditional publication | Tested: `just test-package pse-tests-lifecycle -p pse-catalog -p pse-relations --test local_refs --test publication_fault_matrix --test encoding_admission`, default nextest with force-validate, 13 passed / 0 failed / 0 skipped on Unix local filesystem. Independent catalogs race with one winner, stale actual bytes fail despite equal local ETags, lock cancellation preserves the old ref, and abandoned temporary siblings are excluded from refs. All observed-control and snapshot owners return to zero | Complete acceptance/strict gates; power-loss durability remains Interface-checked through file/directory synchronization, not a hardware test |
+| Initial quantity/math corrections | Tested: `just test-package pse-quantity -p pse-mathir -p pse-relations`, default nextest with force-validate, 83 passed / 0 failed / 0 skipped | Full Q/M contracts and P10 still pending |
+| Invariant fixture matrix | Tested: `just test-package pse-tests-conformance -p pse-compiler -p pse-mathir -p pse-rules -p pse-relations --test invariant_fixtures --test quantity_composition --test quantity_relations --test relation_roundtrip --test invariant_execution`, default force-validate, 21 passed / 1 failed / 0 skipped. All 588 actual invariant fixture pairs passed; the failure was an invalid diagnostic spelling in the P10 fixture, subsequently corrected and retested in the next row | New adapter changes and full terminal gates remain pending |
+| Actual-source P10 predecessor and P2 oracle | Tested: `just test-package pse-compiler -p pse-tests-engine -p pse-relations --test quantity_relations --test relational_expansion_p2`, default force-validate, 6 passed / 0 failed / 0 skipped (run `b2e3367f-554d-4dae-88bc-4bb78f9cbe32`) | Complete admitted importer/Driver P10 golden and new domain-binding regressions |
+| Integrated commit, revision binding and P3 reuse | Tested: `just test-package pse-tests-engine -p pse-relations --test commit_p0_p2 --test memo_dependencies --test pushdown_vs_unpruned --test stage_bundle_graph --no-fail-fast --profile ci`, force-validate, 6 passed / 1 failed / 0 skipped. Actual commit/case/reuse scenario passed in 263.858 seconds; only the new port fixture omitted required granularity | Scenario split, full rename, and mandatory producer revalidation added afterwards; rerun required |
+| Declared output-port identity | Tested: `just test-package pse-catalog -p pse-relations -p pse-tests-engine --test stage_bundle_graph --lib`, default force-validate, 91 passed / 0 failed / 0 skipped. Same-schema outputs retain distinct named ports, and changing the selected port invalidates memo reuse | Broader parent-selection and terminal gates |
+| Registry golden Python reader | Tested: `just py-test -k golden_registry`, host Python 3.14, 2 passed / 0 failed; actual IPC rows decoded through generated contracts, including equal-identity/wrong-value refusal | Regenerate both final goldens and refresh editable native extension |
+| Complete golden publication and reopening | Tested: `cargo run --quiet --package xtask --locked --features pse-relations/force-validate -- golden registry` and the corresponding `minimal_explicit` command, plus both `--check` invocations, 0 failures against baseline zero under a 512 MiB runtime at revision 31. Actual commit/Case/P3 and separate complete P10 fixture importer/Driver outputs were reopened and compared as complete rows, source bytes and SQL results. The one-byte control calls the production owned P3 boundary and refuses its workspace before decoding; an outdated raw-wrapper assertion was corrected before this final receipt | Full terminal gates |
+| Authoring, P3 and quantity adapters | Tested: `just test-package pse-authoring -p pse-compiler -p pse-relations -p xtask --features pse-authoring/arbitrary,pse-quantity/fixtures`, default force-validate, 72 passed / 0 failed / 0 skipped. Includes bounded AST/text round trips and full rename-source amendment controls | New smoothing/enum contracts, strict lint and integrated rename publication |
+| Revision 7–31 correction design | Proposed: ADR-0052–0059 and bounded design reviews; narrow blueprint amendments authorized by maintainer | Formal decision PR and complete implementation review |
+| Physical helpers, guarded Integral and admission reservations | Tested: `just test-package pse-material -p pse-mathir -p pse-quantity -p pse-catalog -p pse-relations --lib --test phase_validity --test indexed_driver --test physical_edges --test standard_package --test inference_contracts --test session_validation_budget --test session_admission --test session_codec --no-fail-fast`, default force-validate, 220 passed / 0 failed / 0 skipped. Actual molecular-weight/phase/element-balance behavior, dormant versus unconditional invalid Integral bodies, nested candidate decode and repeated plan reservations are exercised | Owned parser/driver integration and final workspace gates |
+| Catalog review corrections | Tested: `just test-package pse-catalog -p pse-ids -p pse-relations -p pse-tests-conformance -p pse-tests-lifecycle --features pse-ids/bench-instrumentation --test store_protocol --test canonical_properties --test canonicalization --test canonical_null_equivalence --test encoding_roundtrip_identity --test publication_fault_matrix --test publication_each_object --no-fail-fast`, default force-validate, 34 passed / 0 failed / 0 skipped; 384 generated cases across three property tests. Source/sidecar validation is required on publish/read; interruption at eight actual local object writes preserves the old ref | Final source/terminal integration and whole-workspace gates |
+| Canonicalization stage benchmarks and independent identity vectors | Tested: `just bench-smoke`, all 14 whole-operation/stage cases executed; no timing claim. Independently compiled official portable C BLAKE3 reproduced all 11 ADR-0050 vectors, 0 failures; exact bytes, source provenance and replay are in `docs/capability-maps/evidence/identity-vectors-adr0050.md` | Final benchmark gate and independent review of receipt |
+| Current narrow strict/doc gates | Interface-checked: `cargo clippy -p pse-ids -p pse-catalog -p pse-benches --all-targets --locked --features pse-ids/bench-instrumentation,pse-relations/force-validate -- -D warnings`, 0 warnings/errors. Tested: `just docs`, 0 failures; `just adr-lint`, 59 records and 30 register rows, 0 failures after regenerating the stale ADR index | Final complete strict/quality/docs gates |
+| Rule-head conversion and exact compiled contracts | Tested: `just test-package pse-schema -p pse-rules -p pse-relations --test compiled_contract --test head_conversion_exactness`, default force-validate, 6 passed / 0 failed / 0 skipped after fixing actual literal conversion metadata (initial run had 3 failures). `just test-package pse-catalog -p pse-ids -p pse-rules -p pse-relations --lib --test session_validation_budget --test head_conversion_exactness --test encoding_admission`, default force-validate, 190 passed / 0 failed / 0 skipped after moving the one shared validation allocation forecast into `pse-ids` | Generated adapter regeneration, owned authoring integration and full strict/terminal gates |
+| Owned source admission | Tested: `just test-package pse-authoring -p pse-relations --features pse-authoring/arbitrary --no-fail-fast`, final default force-validate run, 56 passed / 0 failed / 0 skipped; seven owned-loader integration controls plus exact registry-declaration/path-allocation unit controls. Includes original rows/spans, shared final-owner lifetime, tiny budgets, cancellation, alias expansion, qualified-name growth and a nonrepeatable clone iterator. The AST/text properties and complete owned/raw rename/target suite also pass | Final workspace gates |
+| Revision 31 semantic integration | Tested: `just test-package pse-tests-engine -p pse-tests-conformance -p pse-compiler -p pse-relations --test source_projection_admission --test invariant_fixtures --test normalization --test quantity_relations`, default force-validate, 21 passed / 0 failed / 0 skipped (run `2094b0a9-19c5-4532-b9ed-dcbc7f03d9bb`). All 595 current invariant pairs execute both actual valid and violating fixtures. Production source admission rejects mismatched rows at publication and reopening even when the artifact is correctly encoded and rehashed. P3 and the complete P10 predecessor fixture pass | Full Driver failure/cancellation matrix and final workspace gates |
+| Owned rename and complete terminal findings | Tested: `just test-package pse-authoring -p pse-compiler -p pse-relations --lib --test rename --no-fail-fast`, default force-validate, 19 passed / 0 failed / 0 skipped (run `8e4713f7-9558-4edc-9de5-7f5951212050`). Owned rename/amend preserves actual bindings and reservation lifetime; mixed failure aggregates retain all typed findings and stable failure classification. Generated admission rejects an altered declaration with an unchanged fingerprint | Public Driver recording/store/CAS controls and final strict/workspace gates |
+| Public terminal attempt lifecycle | Tested: `just test-package pse-tests-engine -p pse-relations --test terminal_attempts --no-fail-fast`, default force-validate, 8 passed / 0 failed / 0 skipped. Exercises pre/mid cancellation, complete pass findings, actual joined preconditions, P0/P2 refusal, shared-budget/store recording failures, old-ref preservation and successful P2 record before failed final CAS. The bounded fixture retains all seven production terminal rules and uses explicit additional fixture relations; it does not replace full-registry engine qualification | Complete changed-source and workspace gates |
+| Local sidecar and complete receipt admission | Tested: `just test-package pse-tests-engine -p pse-catalog -p pse-relations --test terminal_attempts --test sidecar_admission --test store_protocol --no-fail-fast`, default force-validate, 24 passed / 1 failed / 0 skipped. Both sidecar tests and all 15 store tests pass: seven terminal predicates reject actual violating rows on publish and rehashed restore; incomplete cross-artifact validation refuses; complete receipts reject mismatched headers. The remaining failure was the terminal precondition fixture's missing FK context, corrected in the next terminal-only run above. The earlier full commit regression also passes in the default mode (105.801 seconds) | Complete final workspace gate |
+| Complete strict and generation checks | Interface-checked: `just clippy`, workspace/all targets, default and no-default-features, 0 warnings/errors after reducing retained error payload sizes and correcting lint findings. Tested: `just fmt-check`, `git diff --check`, `just adr-lint` (59 records, 30 register rows), 0 failures. `just codegen` refreshed all three schema targets; optional bindgen remains explicitly deferred | Final regeneration equivalence and full quality/docs gates |
+| Actual changed-source incremental execution | Tested: `just test-package pse-tests-engine -p pse-relations --test incremental_equals_clean_p0_p3 --profile ci`, force-validate, 1 passed / 0 failed / 0 skipped in 209.859 seconds (run `911796f4-e072-46b3-9c42-23c79f4cf8d7`). Three commits and four P3 attempts compare complete source bytes and rows against a fresh store; changed species invalidate reuse and unchanged inputs reuse. The default timeout allowance is scoped to the two measured full P3 integration tests | Default whole-workspace and release modes |
+| First complete PR-gate attempt | Tested: `just ci-pr`, default workspace force-validate. Formatting, compilation and both Clippy configurations pass. Nextest stops after 573 passed / 2 failed / 0 skipped, with 77 not run. Failures identify the missing test-only futures-core exemption and incomplete Appendix B coverage; both are corrected, including four actual relation declarations and precise authority gaps for the remaining entries | Regenerated fixtures/goldens and a fresh full gate are required; this failed run is not acceptance |
+| Complete Appendix B correction | Tested: `just test-package pse-tests-governance -p pse-schema -p pse-tests-conformance -p pse-relations --test registry_governance --test pins_match_blueprint --test registry_assembles --test invariant_fixtures --no-fail-fast`, default force-validate, 20 passed / 0 failed / 0 skipped. All 600 actual invariant pairs pass after the four complete declarations are added; the exact eighteen unresolved contracts remain explicit | Full gate remains required |
+| Registry-complete golden stores | Tested: `cargo run --quiet --package xtask --locked --features pse-relations/force-validate -- golden registry` and `golden minimal_explicit`, each followed by the same command with `--check`, all four exit 0. Both checks admit committed and freshly executed rows/sources and compare SQL results. The registry store reopens two snapshots; the minimal store reopens three and includes separate complete P10 fixture execution | No later-pass production or numerical IDAES equivalence claim |
+| Second PR-gate attempt | Tested: `just ci-pr`, default workspace force-validate, 598 passed / 1 failed / 0 skipped, 55 unrun. The query-memory fixture expected a sort failure, but newly required actual-batch admission correctly refuses its 64 KiB headroom first. A separate doctor check also exposes a generated Python reserved-word field; the generator and codec must retain the actual wire name while emitting valid Python | Both corrections and a fresh full gate are required |
+| Wave exit | Proposed: terminal acceptance remains open | Required complete PR, feature-powerset, release and pinned-container parity gates |
 
 ### Tier 0 — keel
 
@@ -211,7 +252,7 @@ then K-3, K-4, K-5 in parallel. Fan-out begins when all five are on `main`.
 | **C-3** | Minimal rule compiler and P2 | §14.2 rules 3/5/6/7/9, §23.2, §6.11 · ADR-0030, 0044, 0048 | A-5, A-7, B-session, B-store | `crates/pse-rules/src/{plan/**,exec/**,invariants,derivations,errmap}.rs`, `crates/pse-rules/tests/**`, `tests/engine/tests/relational_expansion_p2.rs`, `tests/conformance/tests/invariant_fixtures.rs`, `tests/conformance/src/fixture.rs`, `tests/conformance/fixtures/invariants/<name>/{valid,violating}.yaml` | `compile(RuleSpec, PortBinding, &SnapshotSession)` lowering `scan/filter/project/equi_join/anti_join/union/distinct/aggregate(count)/unnest/recursive` (UNION ALL + depth column bounded by seed rows); `rule::float_key` at compile; exact head admission (`rule::head_schema_mismatch`); four-valued root rewrite → head/undecided split; PK sort; `errmap::classify` at one site; `run_invariants` (P2 body) producing findings/undecided/derivations/explain/`rules_fired`; every registry invariant has a valid+violating fixture pair (test iterates `registry().invariants()`). Deferred: strata scheduling across rules, `conflict`, non-count aggregates, `kernel_call`, per-row derivations of recursive results. `relational_expansion_reference` P2 subset vs an independent Rust reference; `invariant_fixtures`. `just test-package pse-rules -p pse-relations`; `just test-package pse-tests-engine -p pse-relations`; `just test-package pse-tests-conformance -p pse-relations`. | L |
 | **B-faults** | Publication fault matrix | §20.1, §24.1 "Lifecycle" · ADR-0045 | B-store | `tests/lifecycle/src/fault_store.rs`, `tests/lifecycle/tests/publication_fault_matrix.rs` | `FaultStore: ObjectStore` wrapper with `FaultPlan` (fail-before, truncate/flip-byte, one-shot precondition, cancel-at-step); cases: truncated/corrupt existing object under a correct name, failed writer finish, interruption before each object/manifest/ref, CAS conflict (retry and fail policies), cancellation mid-publish, untrusted restore of a corrupted artifact; assertions: old ref valid, no mixed snapshot visible, `reserved() == 0` after failure. `just test-package pse-tests-lifecycle -p pse-relations`. | M |
 | **B-oracle** | `pushdown_vs_unpruned` | §5.4, §24.1 "Pushdown truthfulness" · ADR-0013, 0048 | B-providers, B-store | `tests/engine/src/oracle.rs`, `tests/engine/tests/pushdown_vs_unpruned.rs` | `UnprunedTable` (same data, all `Unsupported`), `OverPruningTable`, `EmptyTable`, `ExtraRowTable`; multiset comparison via `RowConverter` rows; query matrix: key equality, `IN` (2 and 20), `OR`, `AND` with residual, `IS [NOT] NULL` on a nullable reference column, enum equality (dictionary), projection omitting the filter column, `LIMIT`, aliases; the three negative wrappers must fail the oracle. `just test-package pse-tests-engine -p pse-relations`. | M |
-| **E-2** | Budget fixtures and session factory | §14.3, §24.1 "Resource envelope" · ADR-0046 | E-1, B-session, B-store, B-canon | `crates/pse-runtime/src/session_factory.rs`, `tests/lifecycle/tests/{query_memory_budget,canonicalization_memory_budget,result_memory_budget}.rs` | `SessionFactory::open_session` (the only path handing a `RuntimeEnv` to `pse-catalog`); `query_memory_budget` (64 KiB pool; `ORDER BY` over a published 200k-row relation → `ResourceLimit` naming consumer and keys; two concurrent sessions share one pool; cancel one → its reservations return to zero; report shows pool peak beside process peak); `canonicalization_memory_budget` (reserver below the preflight estimate fails before allocation; `publish_bundle` under budget publishes no ref; `reserved() == 0` after failure/cancel); `result_memory_budget`. `just test-package pse-tests-lifecycle -p pse-relations`. | M |
+| **E-2** | Budget fixtures and session factory | §14.3, §24.1 "Resource envelope" · ADR-0046 | E-1, B-session, B-store, B-canon | `crates/pse-runtime/src/session_factory.rs`, `tests/lifecycle/tests/{query_memory_budget,canonicalization_memory_budget,result_memory_budget}.rs` | `SessionFactory::open_session` (the only path handing a `RuntimeEnv` to `pse-catalog`); `query_memory_budget` (the published 200k-row snapshot is already charged to the shared finite pool; an explicit competing consumer leaves 64 KiB of additional query headroom; `ORDER BY` → `ResourceLimit` naming consumer and keys; two sessions retain the same pool and snapshot owners; failed/cancelled query claims return to the observed live-owner baseline, and dropping all owners returns to zero; report shows pool peak beside process peak); `canonicalization_memory_budget` (reserver below the preflight estimate fails before allocation; `publish_bundle` under budget publishes no ref; `reserved() == 0` after failure/cancel); `result_memory_budget`. `just test-package pse-tests-lifecycle -p pse-relations`. | M |
 | **B-evidence** (optional) | Plan evidence codec and round trip | §14.2 rule 5, §20.2, §6.13 · ADR-0044 | B-session, B-store | `crates/pse-catalog/src/evidence.rs`, `tests/engine/tests/plan_evidence_roundtrip.rs` | `PsePlanCodec` (`try_encode_table_provider` writes `snapshot_id ‖ relation_id ‖ version ‖ logical_hash`; decode resolves only pinned snapshots; extension nodes/UDFs unsupported in phase 0), `PlanEvidence` with checksum, codec/engine versions, `pgjson` EXPLAIN and `rules_fired`, `write_evidence` under `evidence/<checksum>` marked `canonical: false`. `plan_evidence_roundtrip` asserts nothing about bytes. `just test-package pse-tests-engine -p pse-relations`. | M |
 | **A-6 (final)** | Full-tree regeneration after A-5 | — | A-5, A-7, A-8, A-9 | as A-6 | `just codegen` over all four targets; `just codegen-check` clean; `just ci-fast`; `just governance`. | S |
 
@@ -221,8 +262,8 @@ then K-3, K-4, K-5 in parallel. Fan-out begins when all five are on `main`.
 |---|---|---|---|---|---|---|
 | **Q-5** | `quantity_composition` conformance fixture | §8.3, §24.1 · ADR-0039 | Q-4, M-4 | `tests/conformance/tests/quantity_composition.rs` | Composed expressions through `canonicalize` against `standard_registry()`: heater energy balance, `F·h` preserving the enthalpy reference state, `F·x` preserving basis, `R·T`, `P/(R·T)`, `T/1000{K}` polynomial, `Ea/(R·T)` in `exp`, `T + α·ΔT`, `WeightedMean` of temperatures, gauge/absolute mix rejected, molar/mass mix rejected, unregistered `length×mass` rejected although dimensions combine. `just test-package pse-tests-conformance -p pse-relations`. | M |
 | **M-5** | Relation sink/source, snapshots, proptests, `numerical_policy_conformance` (P10 subset) | §6.9, §7.3, §24.1 · ADR-0047, 0030 | M-4 | `crates/pse-mathir/src/relations/{mod,vec_sink}.rs`, `crates/pse-mathir/tests/{hash_consing_props,canonical_snapshots}.rs`, `crates/pse-mathir/tests/snapshots/`, `tests/conformance/tests/numerical_policy_conformance.rs` | `MathRelationSink/Source`, `emit`, `emit_untyped`, `load_untyped`, `load_canonical`, `VecSink`; shuffled insertion orders → identical listings and hashes; emit→load→emit identical; excluded-branch `Div(1,0)`/`Log(0)` never folded or flagged; no reassociation; signed zero survives; NaN refused; `Policy::Strict` is the only value. `just test-package pse-mathir -p pse-relations`; `just test-package pse-tests-conformance -p pse-relations`; `just snapshots-accept` once, reviewed. | M |
-| **C-4** | Compiler skeleton and driver: DAG, stage keys, memo, atomic commit, P0–P3 + P10 adapters | §14.1, §14.3, §14.4, §20.1 · ADR-0040, 0041, 0042, 0044 | A-4, C-2, C-3, B-store, B-session, M-5, Q-4 | `crates/pse-compiler/src/{passes/{dag,key,bundle,registry,p0,p1,p2,p3,p10}.rs,driver.rs,memo.rs,records.rs,mathir_relations.rs}`, `crates/pse-compiler/tests/**`, `tests/engine/tests/{stage_bundle_graph,incremental_equals_clean_p0_p3,demand_seed_closure_seeds}.rs` | `StageDag::{build, validate, topo_order}` (acyclic; one producer per port; every derived input names an existing output; no P3+ output to authored/reference; P2 reads only authored/reference + registry); `stage_key` (`pse:stage_key:v1`: pass id/version, registry fingerprint, every port sorted with logical hash or explicit absence, policies, engine profile + function registry hashes; plan bytes never); `Driver::commit` (P0 → P1 → publish model/case bundle without ref → P2 → ref CAS only on zero error findings, ADR-0027) and `Driver::run` (memo via stage sidecar; every output batch validated; all-or-nothing publication with parents = input bindings; `pass_records`); P3 adapter (normalized copies, parsed `normalized.*_expr_*` via `MathRelationSink` adapter, constants to package units via `convert_spec`, demand seeds) and P10 adapter (`canonicalize`); `PipelineRequest.external_bindings` for tests only. `stage_bundle_graph`; `incremental_equals_clean` phase-0 (clean twice → equal hashes and keys; add a species → P1–P3 keys change, P0 reused; absent optional port changes the key; changed engine profile changes P2's key); `demand_seed_closure` seeds only. `just test-package pse-compiler -p pse-relations`; `just test-package pse-tests-engine -p pse-relations`. | L |
-| **R-2** | Golden stores and remaining governance tests | §24.1, §5.4, §25 · ADR-0004, 0027, 0031 | R-1, C-4, A-7, B-store | `xtask/src/golden.rs`, `tests/golden/{registry,minimal_explicit}/**`, `tests/governance/tests/{codegen_regeneration,registry_governance}.rs`, `tests/governance/appendix_b_deferred.toml`, `python/pse/tests/test_golden_registry.py` | `cargo xtask golden <name>` publishes a store from a fixture (registry snapshot; `minimal_explicit` package + case through P0–P3, P10) and `--check` compares logical hashes and snapshot ids (physical checksums may differ); `codegen_regeneration` (in `just test`); `registry_governance` (every Appendix B relation registered or listed with a reason; no authored/reference FK into compiled/runtime; no compiler output port to authored/reference; every relation has a snapshot class); Python reads the golden registry store through the generated contracts. `cargo xtask golden registry && cargo xtask golden minimal_explicit`; `just governance`; `just py-test`. | M |
+| **C-4** | Compiler skeleton and driver: DAG, stage keys, memo, atomic commit, P0–P3 + P10 adapters | §14.1, §14.3, §14.4, §20.1 · ADR-0040, 0041, 0042, 0044 | A-4, C-2, C-3, B-store, B-session, M-5, Q-4 | `crates/pse-compiler/src/{passes/{dag,key,bundle,registry,p0,p1,p2,p3,p10}.rs,driver.rs,memo.rs,records.rs,mathir_relations.rs}`, `crates/pse-compiler/tests/**`, `tests/engine/tests/{stage_bundle_graph,incremental_equals_clean_p0_p3,demand_seed_closure_seeds}.rs` | `StageDag::{build, validate, topo_order}` (acyclic; one producer per port; every derived input names an existing output; no P3+ output to authored/reference; P2 reads only authored/reference + registry); `stage_key` (`pse:stage_key:v1`: pass id/version, registry fingerprint, every port sorted with logical hash or explicit absence, policies, engine profile + function registry hashes; plan bytes never); `Driver::commit` (P0 → P1 → admit unpublished typed candidate → P2 → publish model/case bundle and ref CAS only on zero error findings, ADR-0027) and `Driver::run` (memo via stage sidecar; every output batch validated; all-or-nothing publication with parents = input bindings; `pass_records`); P3 adapter (normalized copies, parsed `normalized.*_expr_*` via `MathRelationSink` adapter, constants to package units via `convert_spec`, demand seeds) and P10 adapter (`canonicalize`); `PipelineRequest.external_bindings` for tests only. `stage_bundle_graph`; `incremental_equals_clean` phase-0 (clean twice → equal hashes and keys; add a species → package content and P0–P3 declared inputs change, so P0–P3 recompute; unchanged full declared inputs may reuse; absent optional port changes the key; changed engine profile changes P2's key); `demand_seed_closure` seeds only. `just test-package pse-compiler -p pse-relations`; `just test-package pse-tests-engine -p pse-relations`. | L |
+| **R-2** | Golden stores and remaining governance tests | §24.1, §5.4, §25 · ADR-0004, 0027, 0031 | R-1, C-4, A-7, B-store | `xtask/src/golden.rs`, `tests/golden/{registry,minimal_explicit}/**`, `tests/governance/tests/{codegen_regeneration,registry_governance}.rs`, `tests/governance/appendix_b_deferred.toml`, `python/pse/tests/test_golden_registry.py` | `cargo xtask golden <name>` publishes a store from a fixture (registry snapshot; `minimal_explicit` package + case through P0–P3, P10) and `--check` compares complete admitted decoded rows, actual source bytes and SQL results, with identities as additional checks (physical checksums may differ); `codegen_regeneration` (in `just test`); `registry_governance` (every Appendix B relation registered or listed with a reason; no authored/reference FK into compiled/runtime; no compiler output port to authored/reference; every relation has a snapshot class); Python reads the golden registry store through the generated contracts. `cargo xtask golden registry && cargo xtask golden minimal_explicit`; `just governance`; `just py-test`. | M |
 | **W-exit** | Wave verification, implementation design review, plan outcome | §25 · all | everything above | `docs/plans/03-wave-1-foundations.md` (Outcome), `docs/design_review/reviews/design_review_wave-1-foundations_<date>.md`, ADR evidence-label edits by supersession rules (status fields only) | Run the Verification table below in the stated modes; `design-reviewer` reviews the implementation against DM/G gates; `plan-auditor` verifies every packet landed with wiring, not symbols; record what was built, a mistake corrected, deliberate deviations; move `status: done`. | S |
 
 ## Interface contracts
@@ -316,8 +357,8 @@ pub mod codegen { pub enum Language { Rust, Python, Markdown } pub struct Genera
 
 ```rust
 // generated/<namespace>/<relation>.rs — the symbols no_shadow_structs greps
-pub const RELATION_ID: SemanticId; pub const NAME: &str; pub const NAMESPACE: Namespace; pub const VERSION: u32; pub const FINGERPRINT: [u8; 32];
-pub fn schema() -> SchemaRef; pub fn serde_arrow_fields() -> Vec<FieldRef>;   // the latter only after the serde_arrow_roundtrip spike passes
+pub const RELATION_ID: SemanticId; pub const NAME: &str; pub const NAMESPACE: Namespace; pub const VERSION: u32; pub const FINGERPRINT: ContentHash;
+pub fn schema() -> Result<SchemaRef, RelationError>; pub fn serde_arrow_fields() -> Vec<FieldRef>;   // the latter only after the serde_arrow_roundtrip spike passes
 pub struct <Name>Row { .. }  // serde derive; enums typed; nested <Name><Field>Item structs
 pub struct <Name>View<'a> { .. } impl <Name>View<'a> { pub fn try_from_batch(&'a RecordBatch) -> Result<Self, RelationError>; }   // fingerprint metadata + try_extension_type per ext column + validate_batch
 pub struct <Name>Builder; // new(), with_capacity(n), push(Row) -> Result<(), RelationError>, finish() -> Result<RecordBatch, RelationError>
@@ -344,7 +385,7 @@ pub trait Migration { relation_id, from_version, to_version, apply(&RecordBatch)
 pub enum CatalogError { ResourceLimit { consumer, config_keys }, Cancelled, Infrastructure { op, source }, CorruptObject { path, expected, actual }, RefConflict { name }, ManifestInvalid, UnknownRegistry, UnknownVersion, Admission { path, reason }, ForeignSource { table }, Sealed, LogicalHashMismatch, Membership, ConfigInvalid { key, reason }, UserModel, EvaluationError, CompileProperty, Canon(#[from]), Snapshot(#[from]), Reserve(#[from]), Internal }
 pub enum PlanOrigin { RuleCompiler, Analytics, KernelUdf }
 pub fn classify(err: DataFusionError, origin: PlanOrigin) -> Vec<CatalogError>;   // the ONE §23.2 mapping site; unpacks Collection/Diagnostic/Context/Shared
-pub struct RelationContract { canonical: CanonicalContract, namespace, name, key_columns: Vec<usize>, enum_columns, unique_sets, encodings: EncodingPolicy /* IpcFile | IpcFileAndParquet */ }
+pub struct RelationContract { canonical: CanonicalContract, namespace, name, enum_columns, unique_sets, encodings: EncodingPolicy /* IpcFile | IpcFileAndParquet */ }
 impl RelationContract { pub fn try_new(..); pub fn from_spec(spec: &RelationSpec, fingerprint: ContentHash) -> Result<Self, CatalogError>; pub fn constraints(&self) -> Constraints; pub fn df_schema(&self) -> Result<DFSchema, _>; }
 pub enum TrustLevel { Owned, Untrusted }
 pub struct LoadedRelation { contract: Arc<RelationContract>, batch: RecordBatch /* one PK-sorted batch */, member: RelationMember }
@@ -352,7 +393,7 @@ pub struct Snapshot { manifest: Arc<Manifest>, relations: BTreeMap<(String, Stri
 pub struct RefName(String);  // ^[a-z0-9][a-z0-9._-]{0,63}$
 pub trait Clock { fn now_rfc3339_utc(&self) -> String; } pub struct SystemClock; pub struct FixedClock(pub String);
 pub const MANIFEST_VERSION = "pse.manifest.v2";
-pub struct Manifest { manifest_version, snapshot_kind, snapshot_id, membership_profile, created_at, schema_registry_fingerprint, relations: Vec<RelationMember>, packages: Vec<PackageRef>, compiler: CompilerRef, engine_profile: Option<ArtifactRef>, numerical_policy: Option<ArtifactRef>, toolchain: ToolchainRef, kernels: Vec<KernelRef>, semantic_parents: Vec<SnapshotParent>, evidence: Vec<EvidenceRecord> }
+pub struct Manifest { manifest_version, snapshot_kind, snapshot_id, membership_profile, created_at, schema_registry_fingerprint, relations: Vec<RelationMember>, packages: Vec<PackageRef>, compiler: CompilerRef, engine_profile: Option<EngineProfileRef>, numerical_policy: Option<NumericalPolicyRef>, toolchain: ToolchainRef, kernels: Vec<KernelRef>, semantic_parents: Vec<SnapshotParent>, evidence: Vec<EvidenceRecord> }
 pub struct RelationMember { port, namespace, relation_id, name, version, logical_hash, rows, encodings: Vec<EncodingRecord { format: ArrowIpcFile|Parquet, writer_version, encoding_checksum, bytes, path }> }
 impl Manifest { pub fn validate(&self, registry_fingerprint) -> Result<(), CatalogError>; pub fn frame(&self) -> SnapshotFrame; pub fn encode(&self) -> Result<Vec<u8>, _>; pub fn decode(&[u8]) -> Result<Self, _>; }
 // store/ [B-store]
@@ -362,7 +403,7 @@ pub struct Published { snapshot_id, manifest_checksum, manifest: Arc<Manifest>, 
 pub enum RefUpdatePolicy { Fail, RetryWhileUnchanged { expected_parent: Option<SnapshotId>, attempts: u8 } }
 pub struct Catalog;
 impl Catalog {
-  pub fn open(store: Arc<dyn ObjectStore>, registry: Arc<Registry>, trust: TrustLevel, clock: Arc<dyn Clock>) -> Self;
+  pub fn open(store: Arc<dyn ObjectStore>, registry: Arc<Registry>, trust: TrustLevel, clock: Arc<dyn Clock>, reserver: Arc<dyn MemoryReserver>) -> Self;
   pub async fn publish_bundle(&self, draft: BundleDraft, reserver: &dyn MemoryReserver, cancel: CancellationToken) -> Result<Published, CatalogError>;
   pub async fn set_ref(&self, name: &RefName, target: (SnapshotId, EncodingChecksum), policy: RefUpdatePolicy) -> Result<RefHead, CatalogError>;
   pub async fn head(&self, name: &RefName) -> Result<RefHead, _>; pub async fn list_refs(&self) -> Result<Vec<RefHead>, _>;
@@ -517,7 +558,11 @@ pub struct Driver;    // new(Arc<Catalog>, Arc<SharedRuntime>); commit(&Document
 // CompilerError codes: compile::stage_graph, internal::invariant, runtime::resource_limit, runtime::infrastructure + re-exported authoring/rule errors
 ```
 
-## Progress ledger (living; updated 2026-09-14)
+## Historical keel ledger (recorded 2026-09-14)
+
+The table below preserves the earlier packet receipts and pre-consolidation PR states.
+Current execution is the single combined branch described above; these historical PR
+states are not current remote status or evidence of Wave 1 completion.
 
 **Landed on `main` (2026-09-14, squash commit `d375a6a`, PR #9).** Everything the rows
 below describe — the revision-5 amendment with ADR-0039–0048 accepted, ADR-0049–0051, the
@@ -553,9 +598,12 @@ starts from `origin/main`: one branch and one PR per packet, base `main`, never 
 - Agent-tool worktrees start at `origin/main`, not the current branch; every packet prompt must state its base branch explicitly.
 - mdBook's default `index` preprocessor rendered `README.md` chapters as `index.html`, so cross-links to the revision-4 evidence README failed `docs / build`; `docs/book.toml` now keeps only the `links` preprocessor (fixed on PR #2's branch and merged forward).
 - The `main` ruleset requires verified signatures; local commits are SSH-signed with a key GitHub does not know (`UNKNOWN_KEY`), which blocks every merge until the signing key is registered on the account.
-- Keel contract deviations recorded by the packets for their consumers: `schema_columns.quantity_type_id` is minted from the qualified name (A-1 reconciles with `reference.quantity_types`); `rule_expr_id` formula fixed in K-3 (A-3 adopts it); `RateBasis` members `per_volume | per_mass | per_area` (A-1 declares the same); `MathIrError::Quantity` carries `compile::math::unit_inconsistent` with the quantity error as `diagnostic_source`; `ArtifactRef` serializes its identity as `id`.
+- Keel contract deviations recorded by the packets for their consumers: `schema_columns.quantity_type_id` is minted from the qualified name (A-1 reconciles with `reference.quantity_types`); `rule_expr_id` formula fixed in K-3 (A-3 adopts it); `RateBasis` members `per_volume | per_mass | per_area` (A-1 declares the same); `MathIrError::Quantity` carries `compile::math::unit_inconsistent` with the quantity error as `diagnostic_source`; distinct `EngineProfileRef.engine_profile_id` and `NumericalPolicyRef.policy_id` match the manifest authority (corrected during completion).
 
 ## Verification
+
+**Proposed:** the exit matrix below names required evidence, not completed results. See the
+execution evidence ledger for commands actually run.
 
 Phase-0 exit per blueprint §25, each with the command that proves it. Baseline zero for
 every command and mode; `Tested` claims name the test and its conditions.
@@ -567,7 +615,7 @@ every command and mode; `Tested` claims name the test and its conditions.
 | `pse.canon.v2` metamorphic fixtures + active semantic query admission | `canonical_null_equivalence`, `encoding_roundtrip_identity`, `snapshot_membership`, `semantic_admission_paths` (E1 as a regression) | `just test-package pse-tests-conformance -p pse-relations`; `just test-package pse-tests-engine -p pse-relations` |
 | storage identity/integrity fault matrix | `publication_fault_matrix`; the three budget fixtures | `just test-package pse-tests-lifecycle -p pse-relations` |
 | quantity/ordered-IR contract fixtures | `quantity_composition`, `head_conversion_exactness` (quantity half in Q-4, head half in C-3), `numerical_policy_conformance` (P10 subset) | `just test-package pse-tests-conformance -p pse-relations` |
-| a complete snapshot published, read back and queried | golden stores `registry` and `minimal_explicit`: publish → open → `SELECT` through the catalog; `pushdown_vs_unpruned`; `incremental_equals_clean` (P0–P3) | `cargo xtask golden registry && cargo xtask golden minimal_explicit`; `just test-package pse-tests-engine -p pse-relations` |
+| a complete snapshot published, read back and queried | golden stores `registry` and `minimal_explicit`: publish → open → `SELECT` through the catalog; `pushdown_vs_unpruned`; `incremental_equals_clean` (P0–P3) | `cargo xtask golden registry && cargo xtask golden minimal_explicit`; both `--check` invocations; `just test-package pse-tests-engine -p pse-relations` |
 | generated trees current | the four generated paths regenerate byte-identically | `just codegen-check` |
 | Python boundary | generated contracts pass the `Any` lint, extension round trip with the revision-6 metadata shapes, `GENERATED.sha256`, golden registry readable through generated contracts | `just py-sync && just py-test && just quality` |
 | benchmarks build and run | `canonicalization` criterion group replaces the placeholder | `just bench-smoke` |
@@ -583,21 +631,25 @@ Decided by recommendation in K-2 unless the maintainer overrides at plan approva
 - **Extension metadata shapes.** `pse.enum` carries `{"v":1,"enum_id":…}` and
   `pse.ordinal_ref` carries `{"v":1,"target_relation_id":…}` in the extension's own
   metadata (revision 6); the Python placeholder types change accordingly.
-- **`authored.change_ops.row`** becomes `struct<staged_port, staged_ordinal>` pointing into
+- **`authored.change_ops.row`** originally became `struct<staged_port, staged_ordinal>` pointing into
   per-relation staged members of the change-set bundle (revision 6); JSON text rejected (D1).
-- **Appendix B relations without column lists** (`instance_equations`, `sweep_results`,
-  `profile_results`, `run_state`; partial `template_scaling_defaults`,
-  `diagnostic_thresholds`, `cost_indices`, `location_factors`) are listed in
-  `tests/governance/appendix_b_deferred.toml` with reasons, not invented — except
-  `normalized.package_graph`, which P0 needs and revision 6 specifies.
-- **Boolean guards.** Phase 0 accepts a `SymbolRef` of a registered boolean kind or an
-  `IntConst` 0/1 as a `Conditional` guard; comparison/logical opcodes are a later §7.2
-  amendment.
+- **Appendix B incomplete contracts.** The exact eighteen relations and their missing
+  authority are listed in `tests/governance/appendix-b-deferred.toml` under ADR-0056/R-30.
+  The first full PR gate exposed ten omissions from the original exemption inventory;
+  the audit addendum distinguishes missing columns/types, missing dictionary members,
+  and the phase-equilibrium composite-key/membership conflict. In particular, the
+  original A4 `closure_report` declaration is explicitly deferred until its payload and
+  associations are specified. Fully specified declarations remain in scope regardless
+  of producer availability: state-flash facts, connection equations, initialization
+  order and solve plans are included. `normalized.package_graph`, which P0 requires,
+  is specified and implemented.
+- **Boolean guards.** Use the current typed/pending predicate and binding contracts in
+  blueprint §7.2 and §7.7 (ADR-0054); the historical integer-only shortcut is superseded.
 - **Literal ambiguity** (`T − 300{K}`): a unit literal beside an origin-sensitive sibling is
   that kind's difference; beside an equation side it takes the side's type; a bare literal
   resolves only when exactly one registered type matches. Documented as a rule.
-- **Derived units per unit set** (slice A): register the derived units a unit set uses as
-  `reference.units` rows in the units package; no minted `inferred.derived_units` in phase 0.
+- **Derived units per unit set.** P3 persists derived coordinates in `normalized.units`
+  under blueprint §6.2 and §7.7 (ADR-0058); source declarations remain unchanged.
 - **`Affine`** is constructible and typed but not emitted by P3 or synthesised by P10 in
   phase 0 (§7.4 step 2); it is P8's substrate later.
 - **Scope on shared nodes** is excluded from the node hash; conflicting scopes collapse to
@@ -605,7 +657,7 @@ Decided by recommendation in K-2 unless the maintainer overrides at plan approva
 - **Rust `Manifest` struct** is hand-written in phase 0 with a parity test against the
   registry's `ManifestSpec`; generating it is a wave-2 item under ADR-0051.
 - **mmap for IPC artifacts** is not adopted (read via `get_opts` → `Bytes` → zero-copy
-  `Buffer`, no `unsafe`); register row under R-24 with a measured trigger.
+  `Buffer`, no `unsafe`); register row R-26 carries the measured trigger.
 - **`datafusion-session`** is not declared; the umbrella's `datafusion::catalog::*`
   re-exports suffice.
 - **B-evidence** and **R-3 (bindgen arm)** are optional in this wave; if they slip they get
@@ -613,8 +665,7 @@ Decided by recommendation in K-2 unless the maintainer overrides at plan approva
 - **Wave 2 preview** (not planned here): P4–P9 rule execution with strata and conflict
   detection, `pse-templates`, the reference units/elements YAML package as the authority for
   Q-4's fixture (with the `standard_fixture_matches_yaml` governance test), `pse.open` over
-  the catalog through `pyo3-arrow`, Rust manifest generation, `rename` re-rendering of
-  `expr_dsl` from normalized graphs.
+  the catalog through `pyo3-arrow`, Rust manifest generation. Full rename re-rendering is required in Wave 1 under ADR-0053.
 
 ## Outcome (recorded after implementation)
 

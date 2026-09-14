@@ -1,0 +1,12 @@
+{
+  "invariant": "inferred.initialization_order:unique:pk",
+  "rows": {
+    "inferred.initialization_order": [
+      {
+        "instance": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

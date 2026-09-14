@@ -139,6 +139,7 @@ serde = { version = "=1.0.229", features = ["derive", "rc"] }
 # Manifest and extension-metadata JSON only (ADR-0049): never a hash input, never
 # relation data. Identity framing lives in pse-ids (blueprint §5.3).
 serde_json = "=1.0.151"
+bytes = "=1.12.1"
 serde_arrow = { version = "=0.15.0", features = ["arrow-59"] }
 serde-saphyr = "=1.2.0"
 toml = { version = "=1.1.6", default-features = false, features = [
@@ -198,6 +199,7 @@ semver = "=1.0.28"
 sha2 = "=0.11.0"
 # dev-dependency of pse-tests-lifecycle: the fault-injecting ObjectStore wrapper
 # implements an async trait (blueprint §24.1 "Lifecycle").
+futures-core = "=0.3.34"
 async-trait = "=0.1.92"
 anyhow = "=1.0.104"
 

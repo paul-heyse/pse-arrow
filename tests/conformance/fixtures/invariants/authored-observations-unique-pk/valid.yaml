@@ -1,0 +1,18 @@
+{
+  "invariant": "authored.observations:unique:pk",
+  "rows": {
+    "authored.observations": [
+      {
+        "dataset_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "observation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "std_dev": "[\"f64\",\"3ff0000000000000\"]",
+        "tag": "[\"text\",\"value-1\"]",
+        "target": "[\"text\",\"/fixture.symbol\"]",
+        "timestamp": "[\"i64\",1]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

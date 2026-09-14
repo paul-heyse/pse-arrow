@@ -1,0 +1,12 @@
+{
+  "invariant": "normalized.package_unit_sets:unique:pk",
+  "rows": {
+    "normalized.package_unit_sets": [
+      {
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_set_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

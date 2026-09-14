@@ -31,6 +31,15 @@ pub enum CmpOp {
 }
 
 impl CmpOp {
+    /// Every comparison operator.
+    pub const ALL: [Self; 6] = [
+        Self::Eq,
+        Self::NotEq,
+        Self::Lt,
+        Self::LtEq,
+        Self::Gt,
+        Self::GtEq,
+    ];
     /// The wire spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -122,22 +131,22 @@ impl RuleExpr {
     /// The node's operator name, for the `reference.rule_expr_*` rows.
     pub const fn op(&self) -> &'static str {
         match self {
-            Self::Col(_) => "col",
-            Self::Lit(_) => "lit",
-            Self::And(_) => "and",
-            Self::Or(_) => "or",
-            Self::Not(_) => "not",
-            Self::Cmp { .. } => "cmp",
-            Self::IsNull(_) => "is_null",
-            Self::IsNotNull(_) => "is_not_null",
-            Self::IsDistinctFrom(_, _) => "is_distinct_from",
-            Self::IsNotDistinctFrom(_, _) => "is_not_distinct_from",
-            Self::InList { .. } => "in_list",
-            Self::Field { .. } => "field",
-            Self::ListLen(_) => "list_len",
-            Self::IsTrue(_) => "is_true",
-            Self::IsFalse(_) => "is_false",
-            Self::IsUnknown(_) => "is_unknown",
+            Self::Col(_) => RuleExprOp::Col.as_str(),
+            Self::Lit(_) => RuleExprOp::Lit.as_str(),
+            Self::And(_) => RuleExprOp::And.as_str(),
+            Self::Or(_) => RuleExprOp::Or.as_str(),
+            Self::Not(_) => RuleExprOp::Not.as_str(),
+            Self::Cmp { .. } => RuleExprOp::Cmp.as_str(),
+            Self::IsNull(_) => RuleExprOp::IsNull.as_str(),
+            Self::IsNotNull(_) => RuleExprOp::IsNotNull.as_str(),
+            Self::IsDistinctFrom(_, _) => RuleExprOp::IsDistinctFrom.as_str(),
+            Self::IsNotDistinctFrom(_, _) => RuleExprOp::IsNotDistinctFrom.as_str(),
+            Self::InList { .. } => RuleExprOp::InList.as_str(),
+            Self::Field { .. } => RuleExprOp::Field.as_str(),
+            Self::ListLen(_) => RuleExprOp::ListLen.as_str(),
+            Self::IsTrue(_) => RuleExprOp::IsTrue.as_str(),
+            Self::IsFalse(_) => RuleExprOp::IsFalse.as_str(),
+            Self::IsUnknown(_) => RuleExprOp::IsUnknown.as_str(),
         }
     }
 
@@ -175,6 +184,85 @@ impl RuleExpr {
                 l.collect_columns(out);
                 r.collect_columns(out);
             }
+        }
+    }
+}
+
+/// The declared `RuleExprOp` wire vocabulary.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RuleExprOp {
+    /// `col`.
+    Col,
+    /// `lit`.
+    Lit,
+    /// `and`.
+    And,
+    /// `or`.
+    Or,
+    /// `not`.
+    Not,
+    /// `cmp`.
+    Cmp,
+    /// `is_null`.
+    IsNull,
+    /// `is_not_null`.
+    IsNotNull,
+    /// `is_distinct_from`.
+    IsDistinctFrom,
+    /// `is_not_distinct_from`.
+    IsNotDistinctFrom,
+    /// `in_list`.
+    InList,
+    /// `field`.
+    Field,
+    /// `list_len`.
+    ListLen,
+    /// `is_true`.
+    IsTrue,
+    /// `is_false`.
+    IsFalse,
+    /// `is_unknown`.
+    IsUnknown,
+}
+impl RuleExprOp {
+    /// Every admitted spelling, in declaration order.
+    pub const ALL: [Self; 16] = [
+        Self::Col,
+        Self::Lit,
+        Self::And,
+        Self::Or,
+        Self::Not,
+        Self::Cmp,
+        Self::IsNull,
+        Self::IsNotNull,
+        Self::IsDistinctFrom,
+        Self::IsNotDistinctFrom,
+        Self::InList,
+        Self::Field,
+        Self::ListLen,
+        Self::IsTrue,
+        Self::IsFalse,
+        Self::IsUnknown,
+    ];
+    /// The wire spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Col => "col",
+            Self::Lit => "lit",
+            Self::And => "and",
+            Self::Or => "or",
+            Self::Not => "not",
+            Self::Cmp => "cmp",
+            Self::IsNull => "is_null",
+            Self::IsNotNull => "is_not_null",
+            Self::IsDistinctFrom => "is_distinct_from",
+            Self::IsNotDistinctFrom => "is_not_distinct_from",
+            Self::InList => "in_list",
+            Self::Field => "field",
+            Self::ListLen => "list_len",
+            Self::IsTrue => "is_true",
+            Self::IsFalse => "is_false",
+            Self::IsUnknown => "is_unknown",
         }
     }
 }

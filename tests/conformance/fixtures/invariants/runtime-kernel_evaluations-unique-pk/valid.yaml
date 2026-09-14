@@ -1,0 +1,14 @@
+{
+  "invariant": "runtime.kernel_evaluations:unique:pk",
+  "rows": {
+    "runtime.kernel_evaluations": [
+      {
+        "evaluation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "input_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "kernel_binding_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "output_batch_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,34 @@
+{
+  "invariant": "authored.template_property_requirements:foreign_key:template_id",
+  "rows": {
+    "authored.template_property_requirements": [
+      {
+        "guard": "[\"text\",\"1\"]",
+        "index_domain_bindings": "[\"list\",[]]",
+        "operation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_selector_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"02020202020202020202020202020202\"]"
+      }
+    ],
+    "authored.templates": [
+      {
+        "default_initializer_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "default_scaler_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_class": "[\"text\",\"value-1\"]",
+        "kind": "[\"enum\",\"unit\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

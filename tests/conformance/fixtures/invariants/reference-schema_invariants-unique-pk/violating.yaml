@@ -1,0 +1,28 @@
+{
+  "invariant": "reference.schema_invariants:unique:pk",
+  "rows": {
+    "reference.schema_invariants": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "invariant_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"unique\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "severity": "[\"enum\",\"error\"]"
+      },
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "invariant_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"unique\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "severity": "[\"enum\",\"error\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

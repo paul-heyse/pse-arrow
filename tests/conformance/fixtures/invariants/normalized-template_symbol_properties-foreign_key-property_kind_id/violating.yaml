@@ -1,0 +1,28 @@
+{
+  "invariant": "normalized.template_symbol_properties:foreign_key:property_kind_id",
+  "rows": {
+    "normalized.template_symbol_properties": [
+      {
+        "property_kind_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "scope_selector_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.property_kinds": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "category": "[\"enum\",\"state\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "shape": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

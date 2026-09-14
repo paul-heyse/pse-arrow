@@ -1,0 +1,38 @@
+{
+  "invariant": "normalized.expression_sources:foreign_key:source_relation_id",
+  "rows": {
+    "normalized.expression_sources": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "family": "[\"enum\",\"template\"]",
+        "field_path": "[\"text\",\"value-1\"]",
+        "owner_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "root_id": "[\"u64\",1]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_key": "[\"list\",[]]",
+        "source_relation_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"u64\",0],[\"u64\",1]]]",
+        "syntax": "[\"enum\",\"expression\"]"
+      }
+    ],
+    "reference.schema_relations": [
+      {
+        "authority": "[\"enum\",\"authored\"]",
+        "derivation_granularity": "[\"enum\",\"row\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"enum\",\"reference\"]",
+        "primary_key": "[\"list\",[]]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "snapshot_class": "[\"enum\",\"model\"]",
+        "stability": "[\"enum\",\"stable\"]",
+        "version": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

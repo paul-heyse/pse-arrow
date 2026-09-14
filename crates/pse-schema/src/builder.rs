@@ -66,7 +66,7 @@ pub fn quantity_type_id(qualified_name: &str) -> SemanticId {
 /// silent equality between two different schemas, which is the failure mode a fingerprint
 /// exists to prevent. A declared relation supplies its own key, so a future version bump
 /// is picked up rather than overridden.
-const SELF_DESCRIBING_RELATIONS: [&str; 16] = [
+const SELF_DESCRIBING_RELATIONS: [&str; 21] = [
     "reference.schema_relations",
     "reference.schema_columns",
     "reference.schema_logical_types",
@@ -83,6 +83,11 @@ const SELF_DESCRIBING_RELATIONS: [&str; 16] = [
     "reference.rule_unnest",
     "reference.rule_plan_edges",
     "reference.rule_dependencies",
+    "reference.rule_expr_nodes",
+    "reference.rule_expr_edges",
+    "reference.operator_specs",
+    "reference.schema_documents",
+    "reference.schema_document_sections",
 ];
 
 /// The assembled, immutable registry.
@@ -120,6 +125,8 @@ pub struct Registry {
     documents: Vec<DocumentSpec>,
     /// The declared manifest envelope, when a catalog module declared one.
     manifest: Option<ManifestSpec>,
+    /// Immutable projection of the completed declarations, materialized during assembly.
+    self_description: Vec<(RelationKey, Vec<Vec<Cell>>)>,
 }
 
 impl Registry {
@@ -130,6 +137,8 @@ impl Registry {
 
     /// The registry fingerprint: the digest of every self-describing row
     /// (blueprint §5.3, ADR-0050).
+    /// It identifies the admitted declarations; it does not establish the validity of
+    /// any rows, artifact, cached pass result or external dependency using them.
     pub const fn fingerprint(&self) -> ContentHash {
         self.fingerprint
     }
@@ -207,9 +216,12 @@ impl Registry {
 
     /// The pass of that name (`P2`) or qualified name (`P2@1`).
     pub fn pass(&self, name: &str) -> Option<&PassSpec> {
-        self.passes
+        let mut candidates = self
+            .passes
             .iter()
-            .find(|pass| pass.name == name || pass.qualified_name() == name)
+            .filter(|pass| pass.name == name || pass.qualified_name() == name);
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then_some(candidate)
     }
 
     /// Every declared rule, sorted by `<name>@<version>`.
@@ -219,9 +231,12 @@ impl Registry {
 
     /// The rule of that name or qualified name.
     pub fn rule(&self, name: &str) -> Option<&RuleSpec> {
-        self.rules
+        let mut candidates = self
+            .rules
             .iter()
-            .find(|rule| rule.name == name || rule.qualified_name() == name)
+            .filter(|rule| rule.name == name || rule.qualified_name() == name);
+        let candidate = candidates.next()?;
+        candidates.next().is_none().then_some(candidate)
     }
 
     /// The `reference.rule_dependencies` facts derived from the rule plans
@@ -248,6 +263,17 @@ impl Registry {
     /// `pse-relations` materializes into `RecordBatch`es, so the two cannot disagree
     /// about what the registry says.
     pub fn schema_rows(&self) -> Vec<(RelationKey, Vec<Vec<Cell>>)> {
+        self.self_description.clone()
+    }
+
+    /// Borrow the complete immutable declaration projection without allocating row copies.
+    /// Producers can inspect actual values and reserve space before materializing another
+    /// representation. This projection is initialized from the sole declarations at assembly.
+    pub fn schema_rows_ref(&self) -> &[(RelationKey, Vec<Vec<Cell>>)] {
+        &self.self_description
+    }
+
+    fn materialize_schema_rows(&self) -> Vec<(RelationKey, Vec<Vec<Cell>>)> {
         let mut out = Vec::new();
         for qualified in SELF_DESCRIBING_RELATIONS {
             let spec = self.relation(qualified);
@@ -267,7 +293,12 @@ impl Registry {
                 "reference.rule_group_keys" => self.rule_group_keys_rows(),
                 "reference.rule_unnest" => self.rule_unnest_rows(),
                 "reference.rule_plan_edges" => self.rule_plan_edges_rows(),
-                _ => self.rule_dependencies_rows(),
+                "reference.rule_dependencies" => self.rule_dependencies_rows(),
+                "reference.rule_expr_nodes" => self.rule_expression_rows().0,
+                "reference.rule_expr_edges" => self.rule_expression_rows().1,
+                "reference.schema_documents" => self.document_rows(),
+                "reference.schema_document_sections" => self.document_section_rows(),
+                _ => crate::catalog::s7_operators::rows(),
             };
             let key = spec.map_or_else(
                 || RelationKey::new(Namespace::Reference, bare_name(qualified), 1),
@@ -276,6 +307,62 @@ impl Registry {
             out.push((key, sort_by_primary_key(spec, rows)));
         }
         out
+    }
+
+    fn document_rows(&self) -> Vec<Vec<Cell>> {
+        self.documents
+            .iter()
+            .map(|document| {
+                vec![
+                    Cell::text(document.name),
+                    Cell::text(document.kind.as_str()),
+                    Cell::text(document.path_glob),
+                    Cell::text(document.doc),
+                ]
+            })
+            .collect()
+    }
+
+    fn document_section_rows(&self) -> Vec<Vec<Cell>> {
+        self.documents
+            .iter()
+            .flat_map(|document| {
+                document
+                    .sections
+                    .iter()
+                    .enumerate()
+                    .map(move |(ordinal, section)| {
+                        vec![
+                            Cell::text(document.name),
+                            Cell::U64(u64::try_from(ordinal).unwrap_or(u64::MAX)),
+                            Cell::text(section.key),
+                            self.relation(section.relation)
+                                .map_or(Cell::Null, |relation| Cell::Id(relation.id)),
+                            Cell::Bool(section.repeated),
+                            section.identity_column.map_or(Cell::Null, Cell::text),
+                            section.entity_kind.map_or(Cell::Null, Cell::text),
+                            section.name_column.map_or(Cell::Null, Cell::text),
+                            section.naming_scope_column.map_or(Cell::Null, Cell::text),
+                            section
+                                .expression_owner_column
+                                .map_or(Cell::Null, Cell::text),
+                            Cell::text(section.doc),
+                            Cell::List(
+                                section
+                                    .expression_fields
+                                    .iter()
+                                    .map(|(path, syntax)| {
+                                        Cell::Struct(vec![
+                                            Cell::text(*path),
+                                            Cell::Enum(syntax.as_str()),
+                                        ])
+                                    })
+                                    .collect(),
+                            ),
+                        ]
+                    })
+            })
+            .collect()
     }
 
     /// One `reference.schema_relations` row.
@@ -403,9 +490,9 @@ impl Registry {
             .map(|invariant| {
                 vec![
                     Cell::Id(invariant.id),
-                    Cell::opt_id(self.relation(invariant.relation).map(|spec| spec.id)),
+                    Cell::opt_id(self.relation(&invariant.relation).map(|spec| spec.id)),
                     Cell::Enum(invariant.kind.as_str()),
-                    Cell::opt_id(self.rule(invariant.rule).map(|rule| rule.id)),
+                    Cell::opt_id(self.rule(&invariant.rule).map(|rule| rule.id)),
                     Cell::Enum(invariant.severity.as_str()),
                     Cell::text(invariant.doc),
                 ]
@@ -452,6 +539,7 @@ impl Registry {
                     ),
                     Cell::Enum(pass.determinism.as_str()),
                     Cell::List(pass.diagnostics.iter().copied().map(Cell::Enum).collect()),
+                    Cell::Bool(pass.executes_plans),
                 ]
             })
             .collect()
@@ -470,7 +558,7 @@ impl Registry {
                     vec![
                         Cell::Id(pass.id),
                         Cell::text(input.port),
-                        Cell::opt_id(self.relation(input.relation).map(|spec| spec.id)),
+                        Cell::opt_id(self.relation(&input.relation).map(|spec| spec.id)),
                         Cell::opt_id(
                             source_pass
                                 .and_then(|name| self.pass(name))
@@ -493,7 +581,7 @@ impl Registry {
                     vec![
                         Cell::Id(pass.id),
                         Cell::text(output.port),
-                        Cell::opt_id(self.relation(output.relation).map(|spec| spec.id)),
+                        Cell::opt_id(self.relation(&output.relation).map(|spec| spec.id)),
                     ]
                 })
             })
@@ -514,6 +602,14 @@ impl Registry {
                     Cell::Enum(rule.negation.as_str()),
                     Cell::Bool(rule.monotonic),
                     Cell::Enum(rule.conflict_policy.as_str()),
+                    Cell::Enum(rule.head.kind().as_str()),
+                    Cell::List(match &rule.head {
+                        crate::model::RuleHead::Relation(_) => Vec::new(),
+                        crate::model::RuleHead::Violations { key_columns, .. } => key_columns
+                            .iter()
+                            .map(|column| Cell::text(*column))
+                            .collect(),
+                    }),
                 ]
             })
             .collect()
@@ -525,7 +621,7 @@ impl Registry {
         for rule in &self.rules {
             for (path, node) in walk_plan(&rule.plan) {
                 let (relation, port) = match node {
-                    RulePlan::Scan { relation, port } => (Some(*relation), Some(*port)),
+                    RulePlan::Scan { relation, port } => (Some(relation.as_str()), Some(*port)),
                     _ => (None, None),
                 };
                 let keys = match node {
@@ -578,6 +674,32 @@ impl Registry {
                     projection.unwrap_or(Cell::Null),
                     Cell::Null,
                     Cell::text(""),
+                    Cell::opt_enum(match node {
+                        RulePlan::EquiJoin { null_equality, .. } => Some(null_equality.as_str()),
+                        _ => None,
+                    }),
+                    Cell::opt_text(match node {
+                        RulePlan::Recursive { name, .. } | RulePlan::RecursiveRef { name } => {
+                            Some(*name)
+                        }
+                        _ => None,
+                    }),
+                    Cell::opt_id(recursive_target(rule, &path, node)),
+                    match node {
+                        RulePlan::Recursive { is_distinct, .. } => Cell::Bool(*is_distinct),
+                        RulePlan::Union(_) => Cell::Bool(false),
+                        _ => Cell::Null,
+                    },
+                    Cell::opt_enum(match node {
+                        RulePlan::Recursive { depth_bound, .. } => Some(depth_bound.as_str()),
+                        _ => None,
+                    }),
+                    match node {
+                        RulePlan::Recursive { depth_bound, .. } => depth_bound
+                            .limit()
+                            .map_or(Cell::Null, |bound| Cell::U64(u64::from(bound))),
+                        _ => Cell::Null,
+                    },
                 ]);
             }
         }
@@ -691,15 +813,63 @@ impl Registry {
             .iter()
             .map(|dependency| {
                 vec![
-                    Cell::opt_id(self.rule(dependency.rule).map(|rule| rule.id)),
-                    Cell::opt_id(self.relation(dependency.relation).map(|spec| spec.id)),
+                    Cell::Id(dependency.rule_id),
+                    Cell::Id(dependency.relation_id),
                     Cell::opt_text(dependency.input_port),
                     Cell::Enum(dependency.mode.as_str()),
                     Cell::U64(u64::from(dependency.stratum)),
-                    Cell::Null,
+                    Cell::Id(named_id(
+                        dependency.rule_id,
+                        &format!(
+                            "dependency:{}:{}:{}:{}",
+                            dependency.relation_id.to_hex(),
+                            dependency.input_port.unwrap_or("").len(),
+                            dependency.input_port.unwrap_or(""),
+                            dependency.mode.as_str()
+                        ),
+                    )),
                 ]
             })
             .collect()
+    }
+
+    fn rule_expression_rows(&self) -> (Vec<Vec<Cell>>, Vec<Vec<Cell>>) {
+        let mut nodes = Vec::new();
+        let mut edges = Vec::new();
+        for rule in &self.rules {
+            for (path, node) in walk_plan(&rule.plan) {
+                let expressions: Vec<(String, &crate::model::RuleExpr)> = match node {
+                    RulePlan::Filter { predicate, .. } => vec![("predicate".to_owned(), predicate)],
+                    RulePlan::Project { columns, .. } => columns
+                        .iter()
+                        .enumerate()
+                        .map(|(ordinal, (_, expr))| (format!("project:{ordinal}"), expr))
+                        .collect(),
+                    RulePlan::Aggregate { aggregates, .. } => aggregates
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(ordinal, aggregate)| {
+                            aggregate
+                                .input
+                                .as_ref()
+                                .map(|expr| (format!("aggregate:{ordinal}"), expr))
+                        })
+                        .collect(),
+                    _ => Vec::new(),
+                };
+                for (slot, expression) in expressions {
+                    emit_expression(
+                        rule,
+                        &path,
+                        &slot,
+                        ExpressionNode::Expr(expression),
+                        &mut nodes,
+                        &mut edges,
+                    );
+                }
+            }
+        }
+        (nodes, edges)
     }
 
     /// The identity of the invariant named `<relation>:<name>`.
@@ -708,6 +878,112 @@ impl Registry {
             .iter()
             .find(|invariant| invariant.qualified_name() == qualified_name)
             .map(|invariant| invariant.id)
+    }
+}
+
+fn recursive_target(rule: &RuleSpec, path: &str, node: &RulePlan) -> Option<SemanticId> {
+    let RulePlan::RecursiveRef { name } = node else {
+        return None;
+    };
+    walk_plan(&rule.plan)
+        .into_iter()
+        .filter(|(parent, candidate)| {
+            matches!(candidate, RulePlan::Recursive { name: binder, .. } if binder == name)
+                && (path == format!("{parent}.1") || path.starts_with(&format!("{parent}.1.")))
+        })
+        .max_by_key(|(parent, _)| parent.len())
+        .map(|(parent, _)| rule_node_id(rule, &parent))
+}
+
+#[derive(Clone, Copy)]
+enum ExpressionNode<'a> {
+    Expr(&'a crate::model::RuleExpr),
+    Literal(&'a Cell),
+}
+
+fn emit_expression(
+    rule: &RuleSpec,
+    path: &str,
+    slot: &str,
+    node: ExpressionNode<'_>,
+    nodes: &mut Vec<Vec<Cell>>,
+    edges: &mut Vec<Vec<Cell>>,
+) {
+    use crate::model::RuleExpr as E;
+    let node = match node {
+        ExpressionNode::Expr(E::Lit(value)) => ExpressionNode::Literal(value),
+        other => other,
+    };
+    let id = rule_expr_id(rule, path, slot);
+    let mut row = vec![
+        Cell::Id(id),
+        Cell::Id(rule.id),
+        Cell::Enum(match node {
+            ExpressionNode::Expr(expr) => expr.op(),
+            ExpressionNode::Literal(_) => "lit",
+        }),
+    ];
+    row.extend(std::iter::repeat_n(Cell::Null, 11));
+    match node {
+        ExpressionNode::Expr(E::Col(name)) => row[3] = Cell::text(*name),
+        ExpressionNode::Expr(E::Cmp { op, .. }) => row[4] = Cell::Enum(op.as_str()),
+        ExpressionNode::Expr(E::Field { name, .. }) => row[5] = Cell::text(*name),
+        ExpressionNode::Literal(value) => {
+            row[6] = Cell::Enum(value.literal_kind().as_str());
+            match value {
+                Cell::Bool(value) => row[7] = Cell::Bool(*value),
+                Cell::I64(value) => row[8] = Cell::I64(*value),
+                Cell::U64(value) => row[9] = Cell::U64(*value),
+                Cell::F64(value) => row[10] = Cell::U64(value.to_bits()),
+                Cell::Text(value) => row[11] = Cell::text(value.clone()),
+                Cell::Enum(value) => row[11] = Cell::text(*value),
+                Cell::Id(value) => row[12] = Cell::Id(*value),
+                Cell::Hash(value) => row[13] = Cell::Hash(*value),
+                Cell::Null | Cell::List(_) | Cell::Struct(_) => {}
+            }
+        }
+        ExpressionNode::Expr(_) => {}
+    }
+    nodes.push(row);
+    for (ordinal, child) in expression_children(node).into_iter().enumerate() {
+        let child_slot = format!("{slot}.{ordinal}");
+        edges.push(vec![
+            Cell::Id(id),
+            Cell::U64(count(ordinal)),
+            Cell::Id(rule_expr_id(rule, path, &child_slot)),
+        ]);
+        emit_expression(rule, path, &child_slot, child, nodes, edges);
+    }
+}
+
+fn expression_children(node: ExpressionNode<'_>) -> Vec<ExpressionNode<'_>> {
+    use crate::model::RuleExpr as E;
+    match node {
+        ExpressionNode::Literal(Cell::List(values) | Cell::Struct(values)) => {
+            values.iter().map(ExpressionNode::Literal).collect()
+        }
+        ExpressionNode::Literal(_) | ExpressionNode::Expr(E::Col(_) | E::Lit(_)) => Vec::new(),
+        ExpressionNode::Expr(E::And(values) | E::Or(values)) => {
+            values.iter().map(ExpressionNode::Expr).collect()
+        }
+        ExpressionNode::Expr(
+            E::Cmp { l, r, .. } | E::IsDistinctFrom(l, r) | E::IsNotDistinctFrom(l, r),
+        ) => vec![ExpressionNode::Expr(l), ExpressionNode::Expr(r)],
+        ExpressionNode::Expr(E::InList { expr, list }) => {
+            std::iter::once(ExpressionNode::Expr(expr))
+                .chain(list.iter().map(ExpressionNode::Literal))
+                .collect()
+        }
+        ExpressionNode::Expr(
+            E::Not(expr)
+            | E::IsNull(expr)
+            | E::IsNotNull(expr)
+            | E::Field { expr, .. }
+            | E::ListLen(expr)
+            | E::IsTrue(expr)
+            | E::IsFalse(expr)
+            | E::IsUnknown(expr),
+        ) => vec![ExpressionNode::Expr(expr)],
     }
 }
 
@@ -869,9 +1145,25 @@ pub struct RegistryBuilder {
     documents: Vec<DocumentSpec>,
     /// The manifest envelope, if declared.
     manifest: Option<ManifestSpec>,
+    /// A duplicate singleton remains an admission failure instead of an overwrite.
+    duplicate_manifest: bool,
 }
 
 impl RegistryBuilder {
+    /// Read the authoritative declarations while deriving additional catalog contracts.
+    pub fn declared_relations(&self) -> &[RelationDecl] {
+        &self.relations
+    }
+
+    /// Read declared invariants while deriving pass preconditions and postconditions.
+    pub fn declared_invariants(&self) -> &[InvariantDecl] {
+        &self.invariants
+    }
+
+    /// Read the sole document-to-relation inventory when declaring authoring pass ports.
+    pub fn declared_documents(&self) -> &[DocumentSpec] {
+        &self.documents
+    }
     /// An empty builder.
     pub fn new() -> Self {
         Self::default()
@@ -921,6 +1213,7 @@ impl RegistryBuilder {
 
     /// Declares the `pse.manifest.v2` envelope (blueprint §20.2).
     pub fn declare_manifest(&mut self, spec: ManifestSpec) -> &mut Self {
+        self.duplicate_manifest |= self.manifest.is_some();
         self.manifest = Some(spec);
         self
     }
@@ -937,6 +1230,12 @@ impl RegistryBuilder {
     /// input port, or a compiler output port targeting `authored` or `reference`;
     /// [`SchemaError::RuleFloatKey`] for a rule that keys on an `f64` column.
     pub fn build(self) -> Result<Registry, SchemaError> {
+        if self.duplicate_manifest {
+            return Err(SchemaError::DuplicateDeclaration {
+                kind: "manifest",
+                name: "manifest".to_owned(),
+            });
+        }
         let relations = self.resolve_relations()?;
         let relation_index = index_relations(&relations);
         let relation_by_id = relations
@@ -962,12 +1261,13 @@ impl RegistryBuilder {
             rule_dependencies: Vec::new(),
             documents: Vec::new(),
             manifest: self.manifest,
+            self_description: Vec::new(),
         };
 
         check_relation_references(&registry)?;
         registry.rules = resolve_rules(self.rules, &registry)?;
         registry.rules.sort_by_key(RuleSpec::qualified_name);
-        registry.rule_dependencies = crate::rule_deps::derive(&registry.rules);
+        registry.rule_dependencies = crate::rule_deps::derive(&registry.rules, &registry)?;
         registry.invariants = resolve_invariants(self.invariants, &registry)?;
         registry
             .invariants
@@ -976,6 +1276,7 @@ impl RegistryBuilder {
         registry.passes.sort_by_key(PassSpec::qualified_name);
         registry.migrations = resolve_migrations(self.migrations, &registry)?;
         registry.documents = resolve_documents(self.documents, &registry)?;
+        crate::checks::documents(&registry.documents, &registry)?;
         crate::checks::run(&registry)?;
 
         let fingerprints: Vec<ContentHash> = registry
@@ -986,7 +1287,8 @@ impl RegistryBuilder {
         for (spec, fingerprint) in registry.relations.iter_mut().zip(fingerprints) {
             spec.fingerprint = fingerprint;
         }
-        registry.fingerprint = crate::fingerprint::registry(&registry.schema_rows());
+        registry.self_description = registry.materialize_schema_rows();
+        registry.fingerprint = crate::fingerprint::registry(registry.schema_rows_ref());
         Ok(registry)
     }
 
@@ -1011,6 +1313,7 @@ impl RegistryBuilder {
             {
                 return Err(SchemaError::MissingGranularity { relation: name });
             }
+            crate::checks::relation_declaration(decl)?;
             out.push(RelationSpec {
                 id: registry_id(&format!("relation:{name}")),
                 key: decl.key,
@@ -1042,6 +1345,15 @@ impl RegistryBuilder {
                     kind: "enum",
                     name: decl.name.to_owned(),
                 });
+            }
+            let mut members = BTreeSet::new();
+            for member in &decl.members {
+                if !members.insert(member.name) {
+                    return Err(SchemaError::DuplicateDeclaration {
+                        kind: "enum member",
+                        name: format!("{}.{}", decl.name, member.name),
+                    });
+                }
             }
             out.push(EnumSpec {
                 id: registry_id(&format!("enum:{}", decl.name)),
@@ -1136,7 +1448,28 @@ fn collect_logical_types(
             extension_name: extension.map(ExtensionUse::extension_name),
             metadata_schema: extension.map(|use_| {
                 let spec = use_.spec();
-                ext_metadata::json_schema(spec.metadata, spec.metadata_version)
+                let resolved = match use_ {
+                    ExtensionUse::Enum(name) => enums
+                        .iter()
+                        .find(|enumeration| enumeration.name == *name)
+                        .map(|enumeration| enumeration.id),
+                    ExtensionUse::OrdinalRef { target } => relations
+                        .iter()
+                        .filter(|relation| relation.qualified_name() == *target)
+                        .max_by_key(|relation| relation.key.version)
+                        .map(|relation| relation.id),
+                    _ => None,
+                };
+                resolved.map_or_else(
+                    || ext_metadata::json_schema(spec.metadata, spec.metadata_version),
+                    |id| {
+                        ext_metadata::specialized_json_schema(
+                            spec.metadata,
+                            spec.metadata_version,
+                            id,
+                        )
+                    },
+                )
             }),
             name,
         });
@@ -1186,11 +1519,20 @@ fn check_column(
                     context: context.clone(),
                     reference: fk.relation.to_owned(),
                 })?;
-        if target.column(fk.column).is_none() {
+        let Some(target_column) = target.column(fk.column) else {
             return Err(SchemaError::UnknownReference {
                 context: context.clone(),
                 reference: fk.to_string(),
             });
+        };
+        if column.logical_type != target_column.logical_type {
+            return Err(crate::checks::invalid(
+                &context,
+                format!(
+                    "foreign key {} has type {}, expected {}",
+                    fk, column.logical_type, target_column.logical_type
+                ),
+            ));
         }
     }
     if column.quantity == QuantityContract::PerRow
@@ -1200,6 +1542,17 @@ fn check_column(
             context: context.clone(),
             reference: column.per_row_quantity_sibling(),
         });
+    }
+    if column.quantity == QuantityContract::PerRow {
+        let sibling = spec.column(&column.per_row_quantity_sibling());
+        if sibling.is_some_and(|sibling| {
+            sibling.logical_type != LogicalType::id() || (sibling.nullable && !column.nullable)
+        }) {
+            return Err(crate::checks::invalid(
+                &context,
+                "per-row quantity sibling must be a semantic ID and cannot be nullable when its value is required",
+            ));
+        }
     }
     let mut reachable = Vec::new();
     column.logical_type.walk(&mut reachable);
@@ -1243,6 +1596,16 @@ fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSp
                 reference: decl.head.relation().to_owned(),
             });
         }
+        if matches!(decl.head, crate::model::RuleHead::Relation(_))
+            && registry
+                .relation(decl.head.relation())
+                .is_some_and(|relation| NON_DERIVABLE_NAMESPACES.contains(&relation.key.namespace))
+        {
+            return Err(crate::checks::invalid(
+                format!("head of rule {name}"),
+                "a derived rule cannot write authored or reference facts",
+            ));
+        }
         for (relation, _, _) in decl.plan.dependencies() {
             if registry.relation(relation).is_none() {
                 return Err(SchemaError::UnknownReference {
@@ -1251,7 +1614,7 @@ fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSp
                 });
             }
         }
-        check_rule_keys(&name, &decl.plan, registry)?;
+        crate::model::rule_validation::validate(&name, &decl.plan, &decl.head, registry)?;
         out.push(RuleSpec {
             id: registry_id(&format!("rule:{name}")),
             name: decl.name,
@@ -1265,49 +1628,6 @@ fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSp
         });
     }
     Ok(out)
-}
-
-/// Rejects a rule that joins, groups or deduplicates on an `f64` column
-/// (blueprint §14.2 rule 7).
-///
-/// # Errors
-///
-/// [`SchemaError::RuleFloatKey`].
-fn check_rule_keys(rule: &str, plan: &RulePlan, registry: &Registry) -> Result<(), SchemaError> {
-    for (_, node) in walk_plan(plan) {
-        let keys: Vec<&'static str> = match node {
-            RulePlan::EquiJoin { keys, .. } | RulePlan::AntiJoin { keys, .. } => keys
-                .iter()
-                .flat_map(|(left, right)| [*left, *right])
-                .collect(),
-            RulePlan::Aggregate { group, .. } => group.clone(),
-            _ => Vec::new(),
-        };
-        for key in keys {
-            if scanned_column_is_float(node, key, registry) {
-                return Err(SchemaError::RuleFloatKey {
-                    rule: rule.to_owned(),
-                    column: key.to_owned(),
-                });
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Whether `column` resolves, through a scan reachable from `node`, to an `f64` column.
-///
-/// Resolution stops at what the plan scans: a projected expression's type is the rule
-/// compiler's business, and this check deliberately reports only what the registry alone
-/// can prove.
-fn scanned_column_is_float(node: &RulePlan, column: &str, registry: &Registry) -> bool {
-    walk_plan(node).into_iter().any(|(_, child)| {
-        matches!(child, RulePlan::Scan { relation, .. }
-            if registry
-                .relation(relation)
-                .and_then(|spec| spec.column(column))
-                .is_some_and(|spec| spec.logical_type == LogicalType::F64))
-    })
 }
 
 /// Assigns identities to the invariant declarations and checks their references.
@@ -1329,17 +1649,24 @@ fn resolve_invariants(
                 name,
             });
         }
-        if registry.relation(decl.relation).is_none() {
+        if registry.relation(&decl.relation).is_none() {
             return Err(SchemaError::UnknownReference {
                 context: format!("invariant {name}"),
-                reference: decl.relation.to_owned(),
+                reference: decl.relation.clone(),
             });
         }
-        if registry.rule(decl.rule).is_none() {
+        let Some(rule) = registry.rule(&decl.rule) else {
             return Err(SchemaError::UnknownReference {
                 context: format!("invariant {name}"),
-                reference: decl.rule.to_owned(),
+                reference: decl.rule.clone(),
             });
+        };
+        if !matches!(&rule.head, crate::model::RuleHead::Violations { of, .. } if of == &decl.relation)
+        {
+            return Err(crate::checks::invalid(
+                format!("invariant {name}"),
+                "the exact rule must report violations for the constrained relation",
+            ));
         }
         out.push(InvariantSpec {
             id: registry_id(&format!("invariant:{name}")),
@@ -1376,10 +1703,10 @@ fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassS
                     name: format!("{name}.{}", output.port),
                 });
             }
-            let target = registry.relation(output.relation).ok_or_else(|| {
+            let target = registry.relation(&output.relation).ok_or_else(|| {
                 SchemaError::UnknownReference {
                     context: format!("output port {name}.{}", output.port),
-                    reference: output.relation.to_owned(),
+                    reference: output.relation.clone(),
                 }
             })?;
             if pass_ordinal(decl.name).is_some_and(|ordinal| ordinal >= 3)
@@ -1393,14 +1720,39 @@ fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassS
                 });
             }
         }
+        let mut input_ports = BTreeSet::new();
         for input in &decl.inputs {
-            if registry.relation(input.relation).is_none() {
+            if !input_ports.insert(input.port) {
+                return Err(SchemaError::DuplicateDeclaration {
+                    kind: "input port",
+                    name: format!("{name}.{}", input.port),
+                });
+            }
+            if registry.relation(&input.relation).is_none() {
                 return Err(SchemaError::UnknownReference {
                     context: format!("input port {name}.{}", input.port),
-                    reference: input.relation.to_owned(),
+                    reference: input.relation.clone(),
                 });
             }
         }
+        for conditions in [&decl.preconditions, &decl.postconditions] {
+            let mut seen_conditions = BTreeSet::new();
+            for condition in conditions {
+                if !seen_conditions.insert(condition) {
+                    return Err(SchemaError::DuplicateDeclaration {
+                        kind: "pass condition",
+                        name: format!("{name}:{condition}"),
+                    });
+                }
+                if registry.invariant_id(condition).is_none() {
+                    return Err(SchemaError::UnknownReference {
+                        context: format!("condition of {name}"),
+                        reference: (*condition).clone(),
+                    });
+                }
+            }
+        }
+        check_pass_diagnostics(&decl, registry)?;
         out.push(PassSpec {
             id: registry_id(&format!("pass:{name}")),
             name: decl.name,
@@ -1416,6 +1768,33 @@ fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassS
     }
     check_derived_ports(&out)?;
     Ok(out)
+}
+
+fn check_pass_diagnostics(decl: &PassDecl, registry: &Registry) -> Result<(), SchemaError> {
+    let mut seen = BTreeSet::new();
+    for diagnostic in &decl.diagnostics {
+        if !seen.insert(diagnostic) {
+            return Err(SchemaError::DuplicateDeclaration {
+                kind: "pass diagnostic",
+                name: format!("{}@{}:{diagnostic}", decl.name, decl.version),
+            });
+        }
+        if registry
+            .enum_spec("FailureClass")
+            .is_none_or(|enumeration| {
+                !enumeration
+                    .members
+                    .iter()
+                    .any(|member| member.name == *diagnostic)
+            })
+        {
+            return Err(SchemaError::UnknownReference {
+                context: format!("diagnostic of {}@{}", decl.name, decl.version),
+                reference: format!("FailureClass.{diagnostic}"),
+            });
+        }
+    }
+    Ok(())
 }
 
 /// The `n` of a pass named `P<n>`, when the name has that shape (blueprint §14.1).
@@ -1434,20 +1813,36 @@ fn check_derived_ports(passes: &[PassSpec]) -> Result<(), SchemaError> {
             let PortSource::Derived { pass: from, port } = input.source else {
                 continue;
             };
-            let producer = passes
+            let mut candidates = passes
                 .iter()
-                .find(|candidate| candidate.name == from)
-                .ok_or_else(|| SchemaError::StageGraph {
+                .filter(|candidate| candidate.name == from || candidate.qualified_name() == from);
+            let producer = candidates.next().ok_or_else(|| SchemaError::StageGraph {
+                reason: format!(
+                    "{}.{} reads {from}.{port}, and no pass named {from} is declared",
+                    pass.name, input.port
+                ),
+            })?;
+            if candidates.next().is_some() {
+                return Err(SchemaError::StageGraph {
                     reason: format!(
-                        "{}.{} reads {from}.{port}, and no pass named {from} is declared",
+                        "{}.{} names ambiguous producer {from}; qualify its version",
                         pass.name, input.port
                     ),
-                })?;
-            if producer.output(port).is_none() {
+                });
+            }
+            let Some(output) = producer.output(port) else {
                 return Err(SchemaError::StageGraph {
                     reason: format!(
                         "{}.{} reads {from}.{port}, and {from} declares no such output port",
                         pass.name, input.port
+                    ),
+                });
+            };
+            if output.relation != input.relation {
+                return Err(SchemaError::StageGraph {
+                    reason: format!(
+                        "{}.{} requires {}, but {from}.{port} produces {}",
+                        pass.name, input.port, input.relation, output.relation
                     ),
                 });
             }
@@ -1481,6 +1876,7 @@ fn resolve_migrations(
                 reference: spec.relation.to_owned(),
             });
         }
+        crate::checks::migration(&spec, registry)?;
         out.push(spec);
     }
     out.sort_by_key(MigrationSpec::qualified_name);
@@ -1505,7 +1901,14 @@ fn resolve_documents(
                 name: spec.name.to_owned(),
             });
         }
+        let mut sections = BTreeSet::new();
         for section in &spec.sections {
+            if !sections.insert(section.key) {
+                return Err(SchemaError::DuplicateDeclaration {
+                    kind: "document section",
+                    name: format!("{}.{}", spec.name, section.key),
+                });
+            }
             if registry.relation(section.relation).is_none() {
                 return Err(SchemaError::UnknownReference {
                     context: format!("document {}.{}", spec.name, section.key),
@@ -1697,7 +2100,9 @@ mod tests {
                 SnapshotClass::Derived,
                 "a derived fixture",
             )
-            .granularity(DerivationGranularity::Row),
+            .granularity(DerivationGranularity::Row)
+            .pk(&["id"])
+            .columns(vec![ColumnSpec::key("id", LogicalType::id(), "identity")]),
         );
         assert!(builder.build().is_ok());
     }

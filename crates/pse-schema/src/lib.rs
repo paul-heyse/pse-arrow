@@ -50,6 +50,7 @@ pub mod builder;
 pub mod catalog;
 mod checks;
 pub mod codegen;
+pub mod compiled_contract;
 pub mod error;
 pub mod ext_metadata;
 pub mod fingerprint;

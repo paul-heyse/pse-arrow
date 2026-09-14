@@ -1,0 +1,28 @@
+{
+  "invariant": "normalized.display_expr_broadcasts:foreign_key:template_id",
+  "rows": {
+    "authored.templates": [
+      {
+        "default_initializer_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "default_scaler_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_class": "[\"text\",\"value-1\"]",
+        "kind": "[\"enum\",\"unit\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ],
+    "normalized.display_expr_broadcasts": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"text\",\"value-1\"]",
+        "node_id": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,37 @@
+{
+  "invariant": "normalized.units:foreign_key:reference_state_id",
+  "rows": {
+    "normalized.units": [
+      {
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "is_affine": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "offset_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reference_state_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "scale_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "symbol": "[\"text\",\"value-1\"]",
+        "system": "[\"text\",\"value-1\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_set_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.reference_states": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "include_enthalpy_of_formation": "[\"bool\",true]",
+        "kind": "[\"enum\",\"elemental_at_conditions\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "pressure": "[\"f64\",\"3ff0000000000000\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "temperature": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "invariant": "compiled.math_dae_links:unique:pk",
+  "rows": {
+    "compiled.math_dae_links": [
+      {
+        "derivative_symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "wrt_domain_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

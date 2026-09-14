@@ -1,0 +1,16 @@
+{
+  "invariant": "authored.continuous_domains:unique:pk",
+  "rows": {
+    "authored.continuous_domains": [
+      {
+        "discretization_policy_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "initial_points": "[\"list\",[]]",
+        "lower": "[\"f64\",\"3ff0000000000000\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "upper": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

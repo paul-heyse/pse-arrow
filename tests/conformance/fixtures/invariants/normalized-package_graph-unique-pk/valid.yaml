@@ -1,0 +1,16 @@
+{
+  "invariant": "normalized.package_graph:unique:pk",
+  "rows": {
+    "normalized.package_graph": [
+      {
+        "content_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "dependency_package_ids": "[\"list\",[]]",
+        "depth": "[\"u64\",1]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -15,13 +15,27 @@
 //! row in the §23.2 taxonomy into a process abort; it is banned in `clippy.toml` and by a
 //! governance grep.
 //!
-//! Phase 0 lands the two configuration types. The profile, rule catalog, extension
-//! registry, admission rules and session builder are packet B-session.
+//! Sessions retain their profile, function implementations, extension registry and
+//! exact admitted or unpublished relation inventory through execution and plan decoding.
 
 pub mod admission;
+mod candidate;
 pub mod config;
+mod factory;
+mod functions;
+mod observation;
+pub mod plan_codec;
+pub use observation::PlanObservation;
 pub mod profile;
 pub mod registry;
+mod snapshot_session;
+
+pub use factory::SessionFactory;
+pub use profile::{EngineProfile, RuleCatalog, phase0_reference_profile};
+pub use snapshot_session::{
+    SessionSemantics, SnapshotSession, build_candidate_session,
+    build_candidate_session_with_cancel, build_session,
+};
 
 use std::num::NonZeroUsize;
 

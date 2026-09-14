@@ -1,0 +1,36 @@
+{
+  "invariant": "reference.schema_document_sections:foreign_key:relation_id",
+  "rows": {
+    "reference.schema_document_sections": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "document_name": "[\"text\",\"value-1\"]",
+        "entity_kind": "[\"text\",\"value-1\"]",
+        "expression_fields": "[\"list\",[]]",
+        "expression_owner_column": "[\"text\",\"value-1\"]",
+        "identity_column": "[\"text\",\"value-1\"]",
+        "key": "[\"text\",\"value-1\"]",
+        "name_column": "[\"text\",\"value-1\"]",
+        "naming_scope_column": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "repeated": "[\"bool\",true]"
+      }
+    ],
+    "reference.schema_relations": [
+      {
+        "authority": "[\"enum\",\"authored\"]",
+        "derivation_granularity": "[\"enum\",\"row\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"enum\",\"reference\"]",
+        "primary_key": "[\"list\",[]]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "snapshot_class": "[\"enum\",\"model\"]",
+        "stability": "[\"enum\",\"stable\"]",
+        "version": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

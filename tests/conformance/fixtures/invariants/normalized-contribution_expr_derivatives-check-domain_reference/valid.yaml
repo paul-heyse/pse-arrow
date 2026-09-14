@@ -1,0 +1,15 @@
+{
+  "invariant": "normalized.contribution_expr_derivatives:check:domain_reference",
+  "rows": {
+    "normalized.contribution_expr_derivatives": [
+      {
+        "domain_name": "[\"null\",null]",
+        "node_id": "[\"u64\",1]",
+        "order": "[\"u64\",1]",
+        "template_id": "[\"null\",null]",
+        "wrt_domain_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

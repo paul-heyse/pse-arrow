@@ -1,0 +1,14 @@
+{
+  "invariant": "compiled.math_free_indices:unique:pk",
+  "rows": {
+    "compiled.math_free_indices": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "indexed_equation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "position": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

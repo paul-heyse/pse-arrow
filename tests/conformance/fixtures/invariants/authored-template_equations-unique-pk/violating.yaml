@@ -1,0 +1,40 @@
+{
+  "invariant": "authored.template_equations:unique:pk",
+  "rows": {
+    "authored.template_equations": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression": "[\"text\",\"1\"]",
+        "family_hint": "[\"enum\",\"BOUND\"]",
+        "filter": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "role_hint": "[\"enum\",\"HARD_FEASIBILITY\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression": "[\"text\",\"1\"]",
+        "family_hint": "[\"enum\",\"BOUND\"]",
+        "filter": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "role_hint": "[\"enum\",\"HARD_FEASIBILITY\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

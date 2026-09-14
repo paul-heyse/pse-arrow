@@ -1,0 +1,16 @@
+{
+  "invariant": "compiled.equation_order:unique:pk",
+  "rows": {
+    "compiled.equation_order": [
+      {
+        "active": "[\"bool\",true]",
+        "equation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"equality\"]",
+        "position": "[\"u64\",1]",
+        "problem_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

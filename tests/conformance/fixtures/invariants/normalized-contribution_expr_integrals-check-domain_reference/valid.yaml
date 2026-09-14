@@ -1,0 +1,19 @@
+{
+  "invariant": "normalized.contribution_expr_integrals:check:domain_reference",
+  "rows": {
+    "normalized.contribution_expr_integrals": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"null\",null]",
+        "filter_node_id": "[\"u64\",1]",
+        "filter_predicate_id": "[\"u64\",1]",
+        "filter_source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"u64\",1]",
+        "quadrature_policy_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"null\",null]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

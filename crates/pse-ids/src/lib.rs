@@ -52,10 +52,14 @@ pub mod error;
 pub mod float;
 pub mod frame;
 pub mod id;
+pub mod owned_buffer;
 pub mod resource;
 pub mod snapshot;
+pub mod validation_extent;
+pub use validation_extent::validation_extent;
 
 pub use crate::canon::{CANON_VERSION, IPC_ALIGNMENT, IPC_METADATA_VERSION};
+pub use crate::canon::{CanonicalOutput, CanonicalizeOptions, canonicalize, logical_hash};
 pub use crate::contract::{CanonicalContract, DictKey, Envelope, FieldPath, Layout};
 pub use crate::derive::{
     FramedHasher, IndexTuple, connection_equation_id, derive_hash, derive_id,
@@ -71,7 +75,9 @@ pub use crate::frame::FrameSink;
 pub use crate::id::{
     ContentHash, EncodingChecksum, LogicalHash, Ordinal, SchemaVersion, SemanticId, SnapshotId,
 };
-pub use crate::resource::{CancellationToken, FixedBudget, MemoryReserver, Reservation};
+pub use crate::resource::{
+    CancellationToken, FixedBudget, MemoryReserver, Reservation, ReservationLease,
+};
 pub use crate::snapshot::{
     SNAPSHOT_PROFILE, SnapshotFrame, SnapshotKind, SnapshotMember, SnapshotParent, model_port_name,
     snapshot_id, snapshot_preimage,

@@ -19,15 +19,14 @@
 //!   literals and get different nodes; every NaN would compare equal, which is why a NaN
 //!   literal is rejected outright instead (ADR-0030).
 //! - **`scope` is not part of the key.** The same expression in two instances is one node,
-//!   exactly as §7.4 step 1 excludes scope from the structural hash. The first scope
-//!   inserted is the one the node keeps.
+//!   exactly as §7.4 step 1 excludes scope from the structural hash. Conflicting scopes merge
+//!   to `None`, which remains absorbing on subsequent inserts.
 //! - **Sharing is not permission to hoist.** A node shared with a `Conditional` branch is
 //!   still evaluated inside that branch (§7.4 step 1); the guard lives in the payload so
 //!   that the child list cannot suggest otherwise.
 //!
-//! The keel compares by value. Packet M-1 replaces the comparison with the framed
-//! `pse:mathir:node:v1` hash through `pse-ids`; the encoding below is an in-memory
-//! comparison key that never leaves the process and is never stored.
+//! Sharing compares the complete framed structure, not only a digest. Hashes are
+//! identity/lookup aids; payload, reference and value checks remain mandatory.
 
 use std::collections::BTreeMap;
 
@@ -86,14 +85,49 @@ impl ExprGraph {
         children: &[NodeId],
         scope: Option<SemanticId>,
     ) -> Result<NodeId, MathIrError> {
+        self.insert_with_type(opcode, payload, children, None, scope)
+    }
+
+    /// Insert one physically inferred occurrence without merging distinct quantity contracts.
+    /// The caller establishes the quantity contract; this method checks structural admission.
+    ///
+    /// # Errors
+    /// Rejects malformed payloads, values, arities, and references just like [`Self::insert`].
+    pub fn insert_typed(
+        &mut self,
+        opcode: Opcode,
+        payload: Payload,
+        children: &[NodeId],
+        quantity_type: QuantityTypeId,
+        scope: Option<SemanticId>,
+    ) -> Result<NodeId, MathIrError> {
+        self.insert_with_type(opcode, payload, children, Some(quantity_type), scope)
+    }
+
+    fn insert_with_type(
+        &mut self,
+        opcode: Opcode,
+        payload: Payload,
+        children: &[NodeId],
+        quantity_type: Option<QuantityTypeId>,
+        scope: Option<SemanticId>,
+    ) -> Result<NodeId, MathIrError> {
         check_payload_belongs_to(opcode, &payload)?;
         check_arity(opcode, children.len())?;
         self.check_references(opcode, &payload, children)?;
         check_payload_values(opcode, &payload, children)?;
 
-        let key = structural_key(opcode, &payload, children);
+        let key = typed_key(opcode, &payload, children, quantity_type);
         if let Some(existing) = self.by_structure.get(&key) {
-            return Ok(*existing);
+            let id = *existing;
+            if let Some(node) = usize::try_from(id.0)
+                .ok()
+                .and_then(|index| self.nodes.get_mut(index))
+                && node.scope != scope
+            {
+                node.scope = None;
+            }
+            return Ok(id);
         }
 
         let id = NodeId(self.nodes.len() as u64);
@@ -101,11 +135,43 @@ impl ExprGraph {
             opcode,
             payload,
             children: children.to_vec(),
-            quantity_type: None,
+            quantity_type,
             scope,
         });
         self.by_structure.insert(key, id);
         Ok(id)
+    }
+
+    /// Replace a node after a pass has checked its operation and physical contract.
+    pub(crate) fn replace_literal(
+        &mut self,
+        id: NodeId,
+        payload: Payload,
+    ) -> Result<(), MathIrError> {
+        check_payload_belongs_to(Opcode::Const, &payload)?;
+        check_payload_values(Opcode::Const, &payload, &[])?;
+        let node = usize::try_from(id.0)
+            .ok()
+            .and_then(|index| self.nodes.get_mut(index))
+            .ok_or_else(|| MathIrError::malformed_at(id, "no such node"))?;
+        node.opcode = Opcode::Const;
+        node.payload = payload;
+        node.children.clear();
+        Ok(())
+    }
+
+    pub(crate) fn rebuild_structural_index(&mut self) {
+        self.by_structure.clear();
+        for (position, node) in self.nodes.iter().enumerate() {
+            self.by_structure
+                .entry(typed_key(
+                    node.opcode,
+                    &node.payload,
+                    &node.children,
+                    node.quantity_type,
+                ))
+                .or_insert(NodeId(position as u64));
+        }
     }
 
     /// The node with this identity.
@@ -154,11 +220,23 @@ impl ExprGraph {
         id: NodeId,
         quantity_type: QuantityTypeId,
     ) -> Result<(), MathIrError> {
+        let old = self.node(id)?;
+        let prior_key = typed_key(old.opcode, &old.payload, &old.children, old.quantity_type);
         let node = usize::try_from(id.0)
             .ok()
             .and_then(|index| self.nodes.get_mut(index))
             .ok_or_else(|| MathIrError::malformed_at(id, "no such node in this graph"))?;
         node.quantity_type = Some(quantity_type);
+        let new_key = typed_key(
+            node.opcode,
+            &node.payload,
+            &node.children,
+            node.quantity_type,
+        );
+        if self.by_structure.get(&prior_key) == Some(&id) {
+            self.by_structure.remove(&prior_key);
+        }
+        self.by_structure.entry(new_key).or_insert(id);
         Ok(())
     }
 
@@ -191,7 +269,14 @@ impl ExprGraph {
     ///
     /// Never in practice; the signature matches the other constructors.
     pub fn symbol(&mut self, symbol: SemanticId) -> Result<NodeId, MathIrError> {
-        self.insert(Opcode::SymbolRef, Payload::SymbolRef { symbol }, &[], None)
+        self.insert(
+            Opcode::SymbolRef,
+            Payload::SymbolRef {
+                symbol: symbol.into(),
+            },
+            &[],
+            None,
+        )
     }
 
     /// An ordered sum of two nodes.
@@ -304,19 +389,28 @@ fn check_payload_belongs_to(opcode: Opcode, payload: &Payload) -> Result<(), Mat
         | Opcode::SmoothMin
         | Opcode::SmoothAbs
         | Opcode::SafeSqrt
-        | Opcode::SafeLog => matches!(payload, Payload::SmoothOp { .. }),
+        | Opcode::SafeLog => matches!(
+            payload,
+            Payload::SmoothOp { .. } | Payload::PendingSmoothOp { .. }
+        ),
         Opcode::Conditional => matches!(payload, Payload::Conditional { .. }),
         Opcode::SumOver => matches_reduction(payload, pse_quantity::ReductionKind::Sum),
         Opcode::ProdOver => matches_reduction(payload, pse_quantity::ReductionKind::Prod),
         Opcode::MinOver => matches_reduction(payload, pse_quantity::ReductionKind::Min),
         Opcode::MaxOver => matches_reduction(payload, pse_quantity::ReductionKind::Max),
-        Opcode::Gather => matches!(payload, Payload::Gather { .. }),
+        Opcode::Gather => matches!(
+            payload,
+            Payload::Gather { .. } | Payload::PendingGather { .. }
+        ),
         Opcode::Broadcast => matches!(payload, Payload::Broadcast { .. }),
         Opcode::Derivative => matches!(payload, Payload::Derivative { .. }),
         Opcode::Integral => matches!(payload, Payload::Integral { .. }),
         Opcode::KernelCall => matches!(payload, Payload::KernelCall { .. }),
         Opcode::ImplicitRef => matches!(payload, Payload::ImplicitRef { .. }),
-        Opcode::UnitConvert => matches!(payload, Payload::UnitConvert(_)),
+        Opcode::UnitConvert => matches!(
+            payload,
+            Payload::UnitConvert(_) | Payload::PendingUnitConvert { .. }
+        ),
         Opcode::PiecewiseLinear => matches!(payload, Payload::PiecewiseLinear { .. }),
         Opcode::Add
         | Opcode::Sub
@@ -371,29 +465,28 @@ fn check_payload_values(
     payload: &Payload,
     children: &[NodeId],
 ) -> Result<(), MathIrError> {
+    if let Payload::SymbolRef { symbol } = payload {
+        symbol.validate()?;
+    }
+    if let Some(domain) = payload.domain() {
+        domain.validate()?;
+    }
+
     match payload {
         Payload::FloatConst { value, .. } => require_finite(*value)?,
-        Payload::Affine { constant, terms } => {
-            require_finite(*constant)?;
-            if terms.len() != children.len() {
-                return Err(MathIrError::malformed(format!(
-                    "`Affine` has {} terms but {} children",
-                    terms.len(),
-                    children.len()
-                )));
-            }
-            for (position, term) in terms.iter().enumerate() {
-                require_finite(term.coefficient)?;
-                if children.get(position) != Some(&term.child) {
-                    return Err(MathIrError::malformed(format!(
-                        "`Affine` term {position} names {} but child {position} is {}",
-                        term.child,
-                        children
-                            .get(position)
-                            .map_or_else(|| "absent".to_owned(), NodeId::to_string)
-                    )));
-                }
-            }
+        Payload::Affine {
+            constant,
+            constant_quantity_type,
+            constant_unit,
+            terms,
+        } => {
+            check_affine_values(
+                *constant,
+                *constant_quantity_type,
+                *constant_unit,
+                terms,
+                children,
+            )?;
         }
         Payload::WeightedMean {
             pairs,
@@ -413,7 +506,7 @@ fn check_payload_values(
                 ));
             }
         }
-        Payload::SmoothOp { eps } => {
+        Payload::SmoothOp { eps } | Payload::PendingSmoothOp { eps, .. } => {
             require_finite(*eps)?;
             if *eps <= 0.0 {
                 return Err(MathIrError::malformed(format!(
@@ -431,6 +524,11 @@ fn check_payload_values(
                 require_finite(*x)?;
                 require_finite(*y)?;
             }
+            if breakpoints.windows(2).any(|pair| pair[0].0 >= pair[1].0) {
+                return Err(MathIrError::malformed(
+                    "PiecewiseLinear coordinates must be strictly increasing",
+                ));
+            }
         }
         Payload::Derivative { order, .. } => {
             if *order == 0 {
@@ -439,22 +537,67 @@ fn check_payload_values(
                 ));
             }
         }
+        Payload::UnitConvert(spec) => {
+            require_finite(spec.scale)?;
+            require_finite(spec.offset)?;
+            if spec.scale <= 0.0 {
+                return Err(MathIrError::malformed("UnitConvert scale must be positive"));
+            }
+        }
         Payload::None
         | Payload::SymbolRef { .. }
         | Payload::IntConst { .. }
         | Payload::Reduction { .. }
         | Payload::Gather { .. }
+        | Payload::PendingGather { .. }
         | Payload::Broadcast { .. }
         | Payload::Integral { .. }
+        | Payload::PendingUnitConvert { .. }
         | Payload::Conditional { .. }
         | Payload::KernelCall { .. }
-        | Payload::ImplicitRef { .. }
-        | Payload::UnitConvert(_) => {}
+        | Payload::ImplicitRef { .. } => {}
     }
     Ok(())
 }
 
 /// §7.6 leaves no representation for a non-finite literal; reject it at the door.
+fn check_affine_values(
+    constant: f64,
+    constant_quantity_type: Option<QuantityTypeId>,
+    constant_unit: Option<UnitId>,
+    terms: &[crate::AffineTerm],
+    children: &[NodeId],
+) -> Result<(), MathIrError> {
+    require_finite(constant)?;
+    if constant_quantity_type.is_some() != constant_unit.is_some()
+        || (constant != 0.0 && constant_quantity_type.is_none())
+    {
+        return Err(MathIrError::malformed(
+            "Affine constant requires paired physical type and unit; a nonzero constant cannot be untyped",
+        ));
+    }
+    if terms.len() != children.len() {
+        return Err(MathIrError::malformed(format!(
+            "`Affine` has {} terms but {} children",
+            terms.len(),
+            children.len()
+        )));
+    }
+    for (position, term) in terms.iter().enumerate() {
+        require_finite(term.coefficient)?;
+        if children.get(position) != Some(&term.child) {
+            return Err(MathIrError::malformed(format!(
+                "`Affine` term {position} names {} but child {position} is {}",
+                term.child,
+                children
+                    .get(position)
+                    .map_or_else(|| "absent".to_owned(), NodeId::to_string)
+            )));
+        }
+    }
+    Ok(())
+}
+
 fn require_finite(value: f64) -> Result<(), MathIrError> {
     if value.is_finite() {
         Ok(())
@@ -465,14 +608,25 @@ fn require_finite(value: f64) -> Result<(), MathIrError> {
     }
 }
 
+fn typed_key(
+    opcode: Opcode,
+    payload: &Payload,
+    children: &[NodeId],
+    quantity_type: Option<QuantityTypeId>,
+) -> Vec<u8> {
+    let mut key = structural_key(opcode, payload, children);
+    put_optional_id(&mut key, quantity_type.map(QuantityTypeId::as_id));
+    key
+}
+
 /// The in-memory structural comparison key of a node.
 ///
 /// Not a hash and not storage: a byte encoding used only to find an identical structure
 /// already in this graph. Floats enter through `canonical_f64_bits`, so `-0.0` and `0.0`
 /// stay distinct (ADR-0030); `scope` and `quantity_type` are excluded, matching what
-/// §7.4 step 1 excludes from the structural hash. Packet M-1 replaces this with the framed
-/// `pse:mathir:node:v1` hash through `pse-ids`.
-fn structural_key(opcode: Opcode, payload: &Payload, children: &[NodeId]) -> Vec<u8> {
+/// §7.4 step 1 excludes from the untyped structural hash. This exact key remains the
+/// equality check even when a digest is used to locate candidates.
+pub(crate) fn structural_key(opcode: Opcode, payload: &Payload, children: &[NodeId]) -> Vec<u8> {
     let mut out = Vec::new();
     put_str(&mut out, opcode.as_str());
     encode_payload(&mut out, payload);
@@ -518,6 +672,63 @@ fn put_id(out: &mut Vec<u8>, id: SemanticId) {
 }
 
 /// Appends an optional identity with an explicit presence byte.
+fn put_domain(out: &mut Vec<u8>, domain: &crate::DomainRef) {
+    match domain {
+        crate::DomainRef::Actual(domain) => {
+            out.push(0);
+            put_id(out, domain.as_id());
+        }
+        crate::DomainRef::Template {
+            template_id,
+            domain_name,
+        } => {
+            out.push(1);
+            put_id(out, *template_id);
+            put_str(out, domain_name);
+        }
+    }
+}
+
+fn put_value(out: &mut Vec<u8>, value: &crate::ValueRef) {
+    put_str(out, value.kind());
+    match value {
+        crate::ValueRef::ActualSymbol(symbol) => put_id(out, *symbol),
+        crate::ValueRef::Template {
+            template_id, name, ..
+        } => {
+            put_id(out, *template_id);
+            put_str(out, name);
+        }
+        crate::ValueRef::Domain(domain) => put_domain(out, domain),
+        crate::ValueRef::Index(index) => put_id(out, index.as_id()),
+    }
+}
+fn put_guard(out: &mut Vec<u8>, guard: crate::GuardRef) {
+    match guard {
+        crate::GuardRef::Math(node) => {
+            out.push(0);
+            put_u64(out, node.0);
+        }
+        crate::GuardRef::Predicate {
+            source_id,
+            predicate_id,
+        } => {
+            out.push(1);
+            put_id(out, source_id);
+            put_u64(out, predicate_id);
+        }
+    }
+}
+fn put_optional_guard(out: &mut Vec<u8>, guard: Option<crate::GuardRef>) {
+    match guard {
+        Some(guard) => {
+            out.push(1);
+            put_guard(out, guard);
+        }
+        None => out.push(0),
+    }
+}
+
 fn put_optional_id(out: &mut Vec<u8>, id: Option<SemanticId>) {
     match id {
         Some(value) => {
@@ -528,34 +739,30 @@ fn put_optional_id(out: &mut Vec<u8>, id: Option<SemanticId>) {
     }
 }
 
-/// Appends an optional node reference with an explicit presence byte.
-fn put_optional_node(out: &mut Vec<u8>, node: Option<NodeId>) {
-    match node {
-        Some(value) => {
-            out.push(1);
-            put_u64(out, value.0);
-        }
-        None => out.push(0),
-    }
-}
-
 /// Appends the payload's discriminator and fields.
 #[expect(
     clippy::too_many_lines,
     reason = "one arm per §6.9 payload relation; splitting it would hide the one-to-one correspondence"
 )]
-fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
+pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
     put_str(out, payload.relation_name().unwrap_or(""));
     match payload {
         Payload::None => {}
-        Payload::SymbolRef { symbol } => put_id(out, *symbol),
+        Payload::SymbolRef { symbol } => put_value(out, symbol),
         Payload::FloatConst { value, unit } => {
             put_f64(out, *value);
             put_id(out, unit.as_id());
         }
         Payload::IntConst { value } => out.extend_from_slice(&value.to_le_bytes()),
-        Payload::Affine { constant, terms } => {
+        Payload::Affine {
+            constant,
+            constant_quantity_type,
+            constant_unit,
+            terms,
+        } => {
             put_f64(out, *constant);
+            put_optional_id(out, constant_quantity_type.map(QuantityTypeId::as_id));
+            put_optional_id(out, constant_unit.map(UnitId::as_id));
             put_len(out, terms.len());
             for term in terms {
                 put_f64(out, term.coefficient);
@@ -585,14 +792,15 @@ fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
             filter,
         } => {
             put_str(out, kind.as_str());
-            put_id(out, domain.as_id());
+            put_domain(out, domain);
             put_id(out, bound_index.as_id());
-            put_optional_node(out, *filter);
+            put_optional_guard(out, *filter);
         }
         Payload::Gather {
             group,
             coordinate_map,
         } => {
+            out.push(1);
             put_id(out, *group);
             put_len(out, coordinate_map.len());
             for (bound_index, position) in coordinate_map {
@@ -600,26 +808,52 @@ fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
                 put_u32(out, u32::from(*position));
             }
         }
+        Payload::PendingGather { group, indices } => {
+            out.push(0);
+            put_id(out, *group);
+            put_len(out, indices.len());
+            for index in indices {
+                put_u64(out, index.0);
+            }
+        }
         Payload::Broadcast {
             domain,
             bound_index,
         } => {
-            put_id(out, domain.as_id());
+            put_domain(out, domain);
             put_id(out, bound_index.as_id());
         }
         Payload::Derivative { wrt_domain, order } => {
-            put_id(out, wrt_domain.as_id());
+            put_domain(out, wrt_domain);
             out.push(*order);
         }
         Payload::Integral {
             domain,
+            bound_index,
             quadrature_policy,
+            filter,
         } => {
-            put_id(out, domain.as_id());
+            put_domain(out, domain);
+            put_id(out, bound_index.as_id());
             put_optional_id(out, *quadrature_policy);
+            match filter {
+                None => out.push(0),
+                Some(guard) => {
+                    out.push(1);
+                    put_guard(out, *guard);
+                }
+            }
         }
-        Payload::SmoothOp { eps } => put_f64(out, *eps),
-        Payload::Conditional { guard } => put_u64(out, guard.0),
+        Payload::SmoothOp { eps } => {
+            out.push(0);
+            put_f64(out, *eps);
+        }
+        Payload::PendingSmoothOp { eps, unit } => {
+            out.push(1);
+            put_f64(out, *eps);
+            put_id(out, unit.as_id());
+        }
+        Payload::Conditional { guard } => put_guard(out, *guard),
         Payload::KernelCall {
             kernel_binding,
             output_ordinal,
@@ -634,7 +868,12 @@ fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
             put_id(out, *implicit_system);
             put_u32(out, u32::from(*unknown_ordinal));
         }
+        Payload::PendingUnitConvert { to } => {
+            out.push(0);
+            put_id(out, to.as_id());
+        }
         Payload::UnitConvert(spec) => {
+            out.push(1);
             put_id(out, spec.from.as_id());
             put_id(out, spec.to.as_id());
             put_f64(out, spec.scale);
@@ -660,8 +899,8 @@ fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
 mod tests {
     use pse_ids::SemanticId;
     use pse_quantity::{
-        BoundIndexId, DomainId, InvariantId, Opcode, ReductionKind, UnitConvertSpec, UnitId,
-        WeightNormalization,
+        BoundIndexId, DomainId, InvariantId, Opcode, QuantityTypeId, ReductionKind,
+        UnitConvertSpec, UnitId, WeightNormalization,
     };
 
     use super::ExprGraph;
@@ -757,9 +996,9 @@ mod tests {
             Opcode::SumOver,
             Payload::Reduction {
                 kind: ReductionKind::Sum,
-                domain: DomainId::from_id(SemanticId::NIL),
+                domain: DomainId::from_id(SemanticId::NIL).into(),
                 bound_index: BoundIndexId::from_id(SemanticId::NIL),
-                filter: Some(NodeId(42)),
+                filter: Some(NodeId(42).into()),
             },
             &[body],
             None,
@@ -777,6 +1016,8 @@ mod tests {
             Opcode::Affine,
             Payload::Affine {
                 constant: 0.0,
+                constant_quantity_type: None,
+                constant_unit: None,
                 terms: vec![AffineTerm {
                     coefficient: 1.0,
                     child: first,
@@ -791,6 +1032,8 @@ mod tests {
             Opcode::Affine,
             Payload::Affine {
                 constant: 0.0,
+                constant_quantity_type: None,
+                constant_unit: None,
                 terms: vec![
                     AffineTerm {
                         coefficient: 1.0,
@@ -811,6 +1054,8 @@ mod tests {
             Opcode::Affine,
             Payload::Affine {
                 constant: 0.5,
+                constant_quantity_type: Some(QuantityTypeId::from_id(SemanticId::NIL)),
+                constant_unit: Some(UnitId::from_id(SemanticId::NIL)),
                 terms: vec![
                     AffineTerm {
                         coefficient: 1.0,
@@ -907,7 +1152,7 @@ mod tests {
             Opcode::ProdOver,
             Payload::Reduction {
                 kind: ReductionKind::Sum,
-                domain: DomainId::from_id(SemanticId::NIL),
+                domain: DomainId::from_id(SemanticId::NIL).into(),
                 bound_index: BoundIndexId::from_id(SemanticId::NIL),
                 filter: None,
             },
@@ -918,7 +1163,7 @@ mod tests {
     }
 
     /// Scope is excluded from the structural key (§7.4 step 1), so the same expression in
-    /// two instances is one node, and the first scope inserted is the one kept.
+    /// two instances is one node, and conflicting scopes merge to `None`.
     #[test]
     fn scope_is_not_part_of_the_structure() {
         let mut graph = ExprGraph::new();
@@ -928,7 +1173,7 @@ mod tests {
             .insert(
                 Opcode::SymbolRef,
                 Payload::SymbolRef {
-                    symbol: SemanticId::NIL,
+                    symbol: SemanticId::NIL.into(),
                 },
                 &[],
                 Some(first_scope),
@@ -938,17 +1183,26 @@ mod tests {
             .insert(
                 Opcode::SymbolRef,
                 Payload::SymbolRef {
-                    symbol: SemanticId::NIL,
+                    symbol: SemanticId::NIL.into(),
                 },
                 &[],
                 Some(second_scope),
             )
             .expect("a symbol reference");
         assert_eq!(first, second);
-        assert_eq!(
-            graph.node(first).expect("the node exists").scope,
-            Some(first_scope)
-        );
+        assert_eq!(graph.node(first).expect("the node exists").scope, None);
+        let third = graph
+            .insert(
+                Opcode::SymbolRef,
+                Payload::SymbolRef {
+                    symbol: SemanticId::NIL.into(),
+                },
+                &[],
+                Some(first_scope),
+            )
+            .expect("same symbol");
+        assert_eq!(third, first);
+        assert_eq!(graph.node(first).expect("node").scope, None);
     }
 
     #[test]
@@ -1000,7 +1254,7 @@ mod tests {
                 .is_none()
         );
 
-        let quantity_type = pse_quantity::QuantityTypeId::from_id(SemanticId::from_bytes([3; 16]));
+        let quantity_type = QuantityTypeId::from_id(SemanticId::from_bytes([3; 16]));
         graph
             .set_quantity_type(node, quantity_type)
             .expect("the node exists");

@@ -1,0 +1,20 @@
+{
+  "invariant": "normalized.guard_expr_int_constants:unique:pk",
+  "rows": {
+    "normalized.guard_expr_int_constants": [
+      {
+        "node_id": "[\"u64\",1]",
+        "value": "[\"i64\",1]"
+      },
+      {
+        "node_id": "[\"u64\",1]",
+        "value": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"u64\",1]"
+    ]
+  ]
+}

@@ -4,16 +4,16 @@
 //! The registry fingerprint and the per-relation fingerprint (blueprint §4.3, §5.3).
 //!
 //! Two digests with two jobs. The *registry* fingerprint enters every snapshot frame, every
-//! stage key and every canonical preimage: it answers "were these artifacts written under
-//! the same schema?". The *relation* fingerprint is the `pse.contract.fingerprint` schema
-//! metadata value a generated view checks before it downcasts anything: it answers "is this
-//! batch the relation I was generated for?".
+//! stage key and every canonical preimage: it identifies the declared schema content. The
+//! *relation* fingerprint is the `pse.contract.fingerprint` metadata value that identifies
+//! one declaration. Neither digest admits a batch or proves a cached artifact is valid:
+//! readers still validate its exact schema, metadata, arrays and semantic constraints.
 //!
 //! Both are keyed with [`pse_ids::derive::context::REGISTRY`] and framed with
 //! [`pse_ids::FramedHasher`], so the framing rules of ADR-0050 hold here with no second
-//! implementation. [`FRAME_VERSION`] is the frame's own version string: changing what
-//! enters either digest is a new version string, not an edit, because every stored
-//! `logical_hash` and `snapshot_id` is a function of it.
+//! implementation. [`FRAME_VERSION`] versions that framing, independently of changes to
+//! the declared rows it contains. Every stored `logical_hash` and `snapshot_id` is a
+//! function of the complete registry content.
 
 use pse_ids::{ContentHash, FramedHasher, derive::context};
 
@@ -42,8 +42,8 @@ pub fn registry(rows: &[(RelationKey, Vec<Vec<Cell>>)]) -> ContentHash {
 /// rows, and the `reference.schema_logical_types` and `reference.schema_enums` rows those
 /// columns reference. The referenced rows are included because a column's meaning is not
 /// in its own row: a `pse.enum` column that kept its name while its enumeration lost a
-/// member would otherwise keep its fingerprint, and a view generated against the old
-/// member list would accept a batch it cannot decode.
+/// member would otherwise keep its fingerprint. Exact schema and enum-domain validation
+/// remains required even when the fingerprint matches.
 pub fn relation(reg: &Registry, spec: &RelationSpec) -> ContentHash {
     let mut hasher = FramedHasher::new(context::REGISTRY);
     hasher.part(FRAME_VERSION.as_bytes());

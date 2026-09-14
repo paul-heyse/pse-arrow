@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! A snapshot as the session sees it: a validated manifest plus the relations it names,
-//! already decoded (blueprint §5.4, §20.1).
+//! already decoded and semantically admitted (blueprint §5.4, §20.1).
 //!
 //! §5.4 requires a session to pin a snapshot so that "schemas cannot change mid-query",
 //! and it requires `SchemaProvider::table()` — which is `async` by signature — to perform
@@ -16,18 +16,19 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use datafusion::arrow::array::RecordBatch;
-use pse_ids::SnapshotId;
+use pse_ids::{EncodingChecksum, SnapshotId};
 
 use crate::contract::RelationContract;
 use crate::store::manifest::{Manifest, RelationMember};
 
+/// Immutable admitted manifest metadata; detached clones retain their shared allocation.
+pub type OwnedManifest = crate::store::control::OwnedControl<Manifest>;
+
 /// Where the bytes behind a snapshot came from (blueprint §20.1).
 ///
-/// The distinction is not paranoia, it is cost: an [`Self::Owned`] artifact was written by
-/// this deployment under the single-writer protocol and needs its encoding checksum
-/// verified; an [`Self::Untrusted`] one — an import or a restore — must additionally be
-/// decoded, validated against the complete semantic contract and rehashed, because
-/// nothing else establishes that the bytes hold the relation their name claims.
+/// This records provenance. Both paths currently decode and validate actual content,
+/// complete membership and registered semantics before comparing their identities;
+/// ownership provenance does not bypass admission.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TrustLevel {
     /// Written by this deployment's publication protocol.
@@ -44,14 +45,26 @@ pub enum TrustLevel {
 #[derive(Clone, Debug)]
 pub struct LoadedRelation {
     /// What the registry declares about this relation.
-    pub contract: Arc<RelationContract>,
+    pub(crate) contract: Arc<RelationContract>,
     /// The relation's complete content, in one primary-key-sorted batch.
-    pub batch: RecordBatch,
+    pub(crate) batch: RecordBatch,
     /// The manifest member this was loaded from.
-    pub member: RelationMember,
+    pub(crate) member: crate::store::control::OwnedControl<RelationMember>,
 }
 
 impl LoadedRelation {
+    /// The registry-bound contract whose rows passed catalog admission.
+    pub fn contract(&self) -> &Arc<RelationContract> {
+        &self.contract
+    }
+    /// The admitted, sorted rows. Buffer clones retain the reservation owner.
+    pub fn batch(&self) -> &RecordBatch {
+        &self.batch
+    }
+    /// The independently checked manifest claims for this relation.
+    pub fn member(&self) -> &RelationMember {
+        &self.member
+    }
     /// The number of rows the batch holds.
     ///
     /// Read from the batch rather than the manifest so that a caller comparing the two
@@ -62,30 +75,99 @@ impl LoadedRelation {
     }
 }
 
+/// The exact immutable manifest, independent of its logical membership identity.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ManifestRef {
+    /// Logical membership identity, verified after semantic admission.
+    pub snapshot_id: SnapshotId,
+    /// Exact encoded manifest to reopen for reproducibility.
+    pub manifest_checksum: EncodingChecksum,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ManifestRefWire {
+    snapshot_id: pse_ids::ContentHash,
+    manifest_checksum: pse_ids::ContentHash,
+}
+impl serde::Serialize for ManifestRef {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        ManifestRefWire {
+            snapshot_id: self.snapshot_id.0,
+            manifest_checksum: self.manifest_checksum.0,
+        }
+        .serialize(serializer)
+    }
+}
+impl<'de> serde::Deserialize<'de> for ManifestRef {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = ManifestRefWire::deserialize(deserializer)?;
+        Ok(Self {
+            snapshot_id: SnapshotId(value.snapshot_id),
+            manifest_checksum: EncodingChecksum(value.manifest_checksum),
+        })
+    }
+}
+
 /// A pinned, fully loaded snapshot (blueprint §5.4).
 #[derive(Clone, Debug)]
 pub struct Snapshot {
     /// The validated manifest.
-    pub manifest: Arc<Manifest>,
-    /// Every member, keyed by `(namespace, name)`.
-    pub relations: BTreeMap<(String, String), Arc<LoadedRelation>>,
+    pub(crate) manifest: OwnedManifest,
+    /// Every complete member, keyed by its actual declared manifest/output port.
+    pub(crate) relations: Arc<BTreeMap<String, Arc<LoadedRelation>>>,
+    /// Exact immutable manifest pinned at admission.
+    pub(crate) manifest_ref: ManifestRef,
+    /// Admitted semantic context retained for contextual validation and reproduction.
+    pub(crate) parents: Arc<BTreeMap<String, Arc<Snapshot>>>,
+    /// Catalog admission provenance, compared by allocation identity, never a digest.
+    pub(crate) admission: Arc<()>,
+    /// Registered producer checked during stage admission.
+    pub(crate) stage_pass: Option<pse_ids::SemanticId>,
 }
 
 impl Snapshot {
+    /// The exact manifest object that produced this admitted handle.
+    pub const fn manifest_ref(&self) -> ManifestRef {
+        self.manifest_ref
+    }
+    /// Manifest claims checked against the decoded relations.
+    pub fn manifest(&self) -> &OwnedManifest {
+        &self.manifest
+    }
+    /// The complete admitted relation set, keyed by exact manifest/output port.
+    pub fn relations(&self) -> &BTreeMap<String, Arc<LoadedRelation>> {
+        &self.relations
+    }
+    /// Semantic parent handles, with their exact manifest references retained.
+    pub fn parents(&self) -> &BTreeMap<String, Arc<Snapshot>> {
+        &self.parents
+    }
+    /// The exact registered stage producer, if this is a stage snapshot.
+    pub const fn stage_pass(&self) -> Option<pse_ids::SemanticId> {
+        self.stage_pass
+    }
     /// The snapshot's membership identity, as the manifest records it.
     #[must_use]
     pub fn snapshot_id(&self) -> SnapshotId {
         self.manifest.snapshot_id
     }
 
-    /// One relation, or `None` when the snapshot does not contain it.
-    ///
-    /// `None` is a complete answer, not a lookup failure: §5.3 step 7 requires a snapshot
-    /// to name every member of its class explicitly, so a missing relation means the
-    /// snapshot does not have one, and the caller decides whether that is an error.
+    /// One uniquely named relation, or `None` when absent or present under several ports.
+    /// Stage consumers must use [`Self::relation_port`] when a producer has repeated
+    /// output schemas; relation names cannot choose between distinct actual outputs.
     #[must_use]
     pub fn relation(&self, namespace: &str, name: &str) -> Option<&Arc<LoadedRelation>> {
-        self.relations.get(&(namespace.to_owned(), name.to_owned()))
+        let mut matches = self.relations.values().filter(|relation| {
+            relation.member.namespace == namespace && relation.member.name == name
+        });
+        let found = matches.next()?;
+        matches.next().is_none().then_some(found)
+    }
+
+    /// One exact declared output port, retaining its distinct complete relation values.
+    pub fn relation_port(&self, port: &str) -> Option<&Arc<LoadedRelation>> {
+        self.relations.get(port)
     }
 
     /// The namespaces present, in UTF-8 byte order.
@@ -93,9 +175,10 @@ impl Snapshot {
     pub fn namespaces(&self) -> Vec<&str> {
         let mut found: Vec<&str> = self
             .relations
-            .keys()
-            .map(|(namespace, _)| namespace.as_str())
+            .values()
+            .map(|relation| relation.member.namespace.as_str())
             .collect();
+        found.sort_unstable();
         found.dedup();
         found
     }
@@ -103,11 +186,15 @@ impl Snapshot {
     /// The relation names in one namespace, in UTF-8 byte order.
     #[must_use]
     pub fn relation_names(&self, namespace: &str) -> Vec<&str> {
-        self.relations
-            .iter()
-            .filter(|((found, _), _)| found == namespace)
-            .map(|((_, name), _)| name.as_str())
-            .collect()
+        let mut names: Vec<_> = self
+            .relations
+            .values()
+            .filter(|relation| relation.member.namespace == namespace)
+            .map(|relation| relation.member.name.as_str())
+            .collect();
+        names.sort_unstable();
+        names.dedup();
+        names
     }
 }
 
@@ -126,6 +213,14 @@ mod tests {
     use crate::contract::EncodingPolicy;
     use crate::store::layout::{EncodingFormat, relation_path};
     use crate::store::manifest::{CompilerRef, EncodingRecord, MANIFEST_VERSION, ToolchainRef};
+
+    fn owned<T>(value: T) -> crate::store::control::OwnedControl<T> {
+        use pse_ids::MemoryReserver;
+        let budget = pse_ids::FixedBudget::new(1 << 20);
+        let mut reservation = budget.open("snapshot fixture metadata");
+        reservation.try_grow(1 << 20).expect("fixture reservation");
+        crate::store::control::OwnedControl::new(value, pse_ids::ReservationLease::new(reservation))
+    }
 
     fn loaded(namespace: &str, name: &str, tag: u8) -> Arc<LoadedRelation> {
         let schema = Arc::new(Schema::new(vec![
@@ -147,7 +242,6 @@ mod tests {
             canonical,
             namespace,
             name,
-            &["id"],
             &[],
             &[],
             EncodingPolicy::IpcFile,
@@ -177,7 +271,7 @@ mod tests {
         Arc::new(LoadedRelation {
             contract: Arc::new(contract),
             batch,
-            member: RelationMember {
+            member: owned(RelationMember {
                 port: format!("{namespace}/{name}"),
                 namespace: namespace.to_owned(),
                 relation_id: SemanticId::from_bytes([tag; 16]),
@@ -192,21 +286,18 @@ mod tests {
                     bytes: 512,
                     path: path.as_ref().to_owned(),
                 }],
-            },
+            }),
         })
     }
 
     fn snapshot() -> Snapshot {
-        let mut relations: BTreeMap<(String, String), Arc<LoadedRelation>> = BTreeMap::new();
+        let mut relations: BTreeMap<String, Arc<LoadedRelation>> = BTreeMap::new();
         for (namespace, name, tag) in [
             ("compiled", "math_equations", 0x21_u8),
             ("compiled", "math_expr_nodes", 0x22),
             ("authored", "units", 0x23),
         ] {
-            relations.insert(
-                (namespace.to_owned(), name.to_owned()),
-                loaded(namespace, name, tag),
-            );
+            relations.insert(format!("{namespace}/{name}"), loaded(namespace, name, tag));
         }
         let manifest = Manifest {
             manifest_version: MANIFEST_VERSION.to_owned(),
@@ -217,7 +308,7 @@ mod tests {
             schema_registry_fingerprint: ContentHash::from_bytes([0x11; 32]),
             relations: relations
                 .values()
-                .map(|loaded| loaded.member.clone())
+                .map(|loaded| loaded.member.as_ref().clone())
                 .collect(),
             packages: Vec::new(),
             compiler: CompilerRef {
@@ -235,8 +326,15 @@ mod tests {
             evidence: Vec::new(),
         };
         Snapshot {
-            manifest: Arc::new(manifest),
-            relations,
+            manifest_ref: ManifestRef {
+                snapshot_id: manifest.snapshot_id,
+                manifest_checksum: EncodingChecksum(ContentHash::NIL),
+            },
+            manifest: owned(manifest),
+            relations: Arc::new(relations),
+            parents: Arc::new(BTreeMap::new()),
+            admission: Arc::new(()),
+            stage_pass: None,
         }
     }
 

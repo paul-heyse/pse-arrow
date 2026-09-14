@@ -1,0 +1,31 @@
+{
+  "invariant": "authored.template_domains:unique:pk",
+  "rows": {
+    "authored.template_domains": [
+      {
+        "bounds": "[\"struct\",[[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"]]]",
+        "continuous": "[\"bool\",true]",
+        "kind": "[\"enum\",\"time\"]",
+        "members_from": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "bounds": "[\"struct\",[[\"f64\",\"3ff0000000000000\"],[\"f64\",\"3ff0000000000000\"]]]",
+        "continuous": "[\"bool\",true]",
+        "kind": "[\"enum\",\"time\"]",
+        "members_from": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

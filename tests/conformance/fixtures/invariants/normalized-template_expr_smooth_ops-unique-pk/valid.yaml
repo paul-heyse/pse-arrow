@@ -1,0 +1,14 @@
+{
+  "invariant": "normalized.template_expr_smooth_ops:unique:pk",
+  "rows": {
+    "normalized.template_expr_smooth_ops": [
+      {
+        "eps": "[\"f64\",\"3ff0000000000000\"]",
+        "eps_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "epsilon_state": "[\"enum\",\"coordinate\"]",
+        "node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

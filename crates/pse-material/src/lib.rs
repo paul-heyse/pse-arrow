@@ -26,7 +26,7 @@
 //! - [`enums`] — the §6.14 enumerations, spelled as IDAES spells them.
 //! - [`error`] — [`MaterialError`] with its §23.2 class.
 //!
-//! Declared here and filled by packet Q-material: [`element`], [`phase_validity`],
+//! Material helpers: [`element`], [`phase_validity`],
 //! [`stoichiometry`], and `testdata` behind `cfg(any(test, feature = "fixtures"))`.
 
 pub mod element;
@@ -38,6 +38,9 @@ pub mod stoichiometry;
 #[cfg(any(test, feature = "fixtures"))]
 pub mod testdata;
 
+pub use crate::element::{Element, ElementCount, ElementTable, molecular_weight};
 pub use crate::enums::{ComponentType, ConcentrationForm, HenryType, PhaseType, ReactionKind};
 pub use crate::error::MaterialError;
 pub use crate::ids::{ElementId, PhaseId, ReactionId, SpeciesId};
+pub use crate::phase_validity::{PhaseRestriction, species_valid_in_phase};
+pub use crate::stoichiometry::{Stoichiometry, element_balance};

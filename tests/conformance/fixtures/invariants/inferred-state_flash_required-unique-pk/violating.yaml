@@ -1,0 +1,18 @@
+{
+  "invariant": "inferred.state_flash_required:unique:pk",
+  "rows": {
+    "inferred.state_flash_required": [
+      {
+        "state_instance": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "state_instance": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

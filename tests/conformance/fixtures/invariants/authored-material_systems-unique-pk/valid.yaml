@@ -1,0 +1,16 @@
+{
+  "invariant": "authored.material_systems:unique:pk",
+  "rows": {
+    "authored.material_systems": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_ids": "[\"list\",[]]",
+        "species_ids": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

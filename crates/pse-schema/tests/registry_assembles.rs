@@ -17,8 +17,8 @@
 //! they are the preimage of the registry fingerprint.
 
 use pse_schema::model::{
-    Cell, EXTENSION_TYPES, ExtensionUse, LogicalType, QuantityContract, RelationSpec,
-    render_data_type,
+    Authority, Cell, DerivationGranularity, EXTENSION_TYPES, ExtensionUse, LogicalType,
+    QuantityContract, RelationSpec, SnapshotClass, render_data_type,
 };
 use pse_schema::{catalog, registry};
 
@@ -45,6 +45,81 @@ fn the_registry_assembles() {
         "the fingerprint is filled at assembly"
     );
     assert_eq!(reg.package_id(), *pse_schema::REGISTRY_PACKAGE_ID);
+}
+
+#[test]
+fn inference_contracts_preserve_actual_instance_member_and_index_keys() {
+    let reg = registry().expect("the shipped catalog assembles");
+    let id = LogicalType::id();
+    for (name, keys, columns) in [
+        (
+            "inferred.state_flash_required",
+            vec!["state_instance"],
+            vec![("state_instance", id.clone())],
+        ),
+        (
+            "inferred.connection_equations",
+            vec!["connection_id", "member_ordinal", "index"],
+            vec![
+                ("connection_id", id.clone()),
+                (
+                    "member_ordinal",
+                    reg.relation("inferred.port_members")
+                        .unwrap()
+                        .column("ordinal")
+                        .unwrap()
+                        .logical_type
+                        .clone(),
+                ),
+                ("index", LogicalType::Ext(ExtensionUse::IndexTuple)),
+                ("equation_id", id.clone()),
+            ],
+        ),
+        (
+            "inferred.initialization_order",
+            vec!["instance"],
+            vec![
+                ("instance", id),
+                (
+                    "ordinal",
+                    reg.relation("compiled.init_stages")
+                        .unwrap()
+                        .column("ordinal")
+                        .unwrap()
+                        .logical_type
+                        .clone(),
+                ),
+            ],
+        ),
+    ] {
+        let spec = reg.relation(name).unwrap();
+        assert_eq!(spec.primary_key, keys, "{name}");
+        assert_eq!(spec.authority, Authority::Derived, "{name}");
+        assert_eq!(spec.snapshot_class, SnapshotClass::Derived, "{name}");
+        assert_eq!(
+            spec.derivation_granularity,
+            Some(DerivationGranularity::Row),
+            "{name}"
+        );
+        assert_eq!(
+            spec.columns
+                .iter()
+                .map(|column| (column.name, column.logical_type.clone()))
+                .collect::<Vec<_>>(),
+            columns,
+            "{name} retains complete declared values"
+        );
+        assert!(spec.columns.iter().all(|column| !column.nullable));
+        assert!(
+            reg.invariants()
+                .iter()
+                .any(|invariant| { invariant.relation == name && invariant.name == "unique:pk" })
+        );
+    }
+    let connection = reg.relation("inferred.connection_equations").unwrap();
+    let reference = connection.column("connection_id").unwrap().fk.unwrap();
+    assert_eq!(reference.relation, "authored.connections");
+    assert_eq!(reference.column, "connection_id");
 }
 
 #[test]

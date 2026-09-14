@@ -64,12 +64,12 @@ pub enum PortSource {
 }
 
 /// One declared input of a pass (blueprint §6.11).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InputPort {
     /// The port name inside the pass.
     pub port: &'static str,
     /// The qualified relation bound to the port.
-    pub relation: &'static str,
+    pub relation: String,
     /// Where the rows come from.
     pub source: PortSource,
     /// Whether the pass refuses to run without it.
@@ -81,12 +81,12 @@ pub struct InputPort {
 }
 
 /// One declared output of a pass (blueprint §6.11).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OutputPort {
     /// The port name inside the pass.
     pub port: &'static str,
     /// The qualified relation the port writes.
-    pub relation: &'static str,
+    pub relation: String,
 }
 
 /// A declared pass (blueprint §6.11 `reference.pass_specs`, §14.1).
@@ -103,9 +103,9 @@ pub struct PassSpec {
     /// The outputs. An output bundle contains every one of them, empties explicit.
     pub outputs: Vec<OutputPort>,
     /// Invariants that must hold before the pass runs, as `<relation>:<name>`.
-    pub preconditions: Vec<&'static str>,
+    pub preconditions: Vec<String>,
     /// Invariants the pass establishes, as `<relation>:<name>`.
-    pub postconditions: Vec<&'static str>,
+    pub postconditions: Vec<String>,
     /// How reproducible the pass is.
     pub determinism: Determinism,
     /// The `FailureClass` members the pass can report.
@@ -139,9 +139,9 @@ pub struct PassDecl {
     /// See [`PassSpec::outputs`].
     pub outputs: Vec<OutputPort>,
     /// See [`PassSpec::preconditions`].
-    pub preconditions: Vec<&'static str>,
+    pub preconditions: Vec<String>,
     /// See [`PassSpec::postconditions`].
-    pub postconditions: Vec<&'static str>,
+    pub postconditions: Vec<String>,
     /// See [`PassSpec::determinism`].
     pub determinism: Determinism,
     /// See [`PassSpec::diagnostics`].
@@ -182,11 +182,7 @@ impl PassDecl {
 
     /// The same declaration with its pre- and postconditions set.
     #[must_use]
-    pub fn conditions(
-        mut self,
-        preconditions: Vec<&'static str>,
-        postconditions: Vec<&'static str>,
-    ) -> Self {
+    pub fn conditions(mut self, preconditions: Vec<String>, postconditions: Vec<String>) -> Self {
         self.preconditions = preconditions;
         self.postconditions = postconditions;
         self

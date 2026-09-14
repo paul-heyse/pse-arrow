@@ -1,0 +1,36 @@
+{
+  "invariant": "authored.species:foreign_key:package_id",
+  "rows": {
+    "authored.packages": [
+      {
+        "content_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "dependencies": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "id_policy": "[\"enum\",\"explicit\"]",
+        "kind": "[\"enum\",\"reference\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ],
+    "authored.species": [
+      {
+        "charge": "[\"i64\",1]",
+        "component_type": "[\"enum\",\"Component\"]",
+        "dissociation_species": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "formula": "[\"text\",\"value-1\"]",
+        "mw": "[\"f64\",\"3ff0000000000000\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "valid_phase_types": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

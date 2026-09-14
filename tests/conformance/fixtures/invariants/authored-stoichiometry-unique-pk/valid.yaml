@@ -1,0 +1,14 @@
+{
+  "invariant": "authored.stoichiometry:unique:pk",
+  "rows": {
+    "authored.stoichiometry": [
+      {
+        "coefficient": "[\"f64\",\"3ff0000000000000\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

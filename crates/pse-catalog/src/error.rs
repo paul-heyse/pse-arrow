@@ -28,6 +28,20 @@ use pse_ids::{ContentHash, LogicalHash};
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[non_exhaustive]
 pub enum CatalogError {
+    /// A typed semantic diagnostic from the rule layer, without a dependency cycle.
+    /// Shared ownership preserves its code, labels and related findings through engine
+    /// `Shared` wrappers instead of stringifying a non-cloneable source.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Semantic(std::sync::Arc<dyn miette::Diagnostic + Send + Sync>),
+
+    /// Every classified engine leaf, each retaining its own diagnostic class.
+    #[error("{} platform failures", .errors.len())]
+    Multiple {
+        /// Complete related findings, in the engine's original traversal order.
+        #[related]
+        errors: Vec<CatalogError>,
+    },
     /// An accounted consumer could not obtain the memory it needs.
     ///
     /// Recoverable and configuration-driven: `config_keys` names the settings an
@@ -41,7 +55,8 @@ pub enum CatalogError {
     ResourceLimit {
         /// The consumer that asked, as the engine or the platform named it.
         consumer: String,
-        /// Configuration keys the message named, in order of first appearance.
+        /// Configuration keys named by the engine or established by the bound runtime,
+        /// in order of first appearance. The original engine detail remains unchanged.
         config_keys: Vec<String>,
         /// The engine's own message, kept verbatim.
         detail: String,

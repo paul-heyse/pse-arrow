@@ -1,0 +1,20 @@
+{
+  "invariant": "normalized.species:unique:pk",
+  "rows": {
+    "normalized.species": [
+      {
+        "charge": "[\"i64\",1]",
+        "component_type": "[\"enum\",\"Component\"]",
+        "dissociation_species": "[\"list\",[]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "formula": "[\"text\",\"value-1\"]",
+        "mw": "[\"f64\",\"3ff0000000000000\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "valid_phase_types": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

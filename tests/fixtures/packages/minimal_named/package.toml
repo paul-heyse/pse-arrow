@@ -1,0 +1,8 @@
+[package]
+id = "01991d6a-13a0-7000-8000-000000000003"
+name = "minimal_named"
+version = "1.0.0"
+kind = "reference"
+id_policy = "named"
+dependencies = []
+doc = "Minimal named identity fixture."

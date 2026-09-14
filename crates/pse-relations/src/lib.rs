@@ -26,7 +26,12 @@ pub mod error;
 pub mod ext;
 pub mod migrate;
 pub mod registry_relations;
+pub mod typed;
 pub mod validate;
+/// Typed contracts generated from the authoritative registry.
+#[rustfmt::skip]
+pub mod generated;
+
 
 pub use crate::error::RelationError;
 

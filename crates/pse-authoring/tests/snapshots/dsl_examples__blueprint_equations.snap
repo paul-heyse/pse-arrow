@@ -1,0 +1,567 @@
+---
+source: crates/pse-authoring/tests/dsl_examples.rs
+expression: equations
+---
+[
+    (
+        "sum(p in phase | control_volume.properties_out[t].enth_flow_phase[p]) - sum(p in phase | control_volume.properties_in[t].enth_flow_phase[p]) - heat_duty[t] == 0",
+        Equation {
+            kind: Relation {
+                lhs: Expr {
+                    kind: Binary {
+                        op: Sub,
+                        lhs: Expr {
+                            kind: Binary {
+                                op: Sub,
+                                lhs: Expr {
+                                    kind: Reduce {
+                                        kind: Sum,
+                                        binder: Binder {
+                                            var: "p",
+                                            domain: Path {
+                                                segments: [
+                                                    PathSegment {
+                                                        name: "phase",
+                                                        indices: [],
+                                                    },
+                                                ],
+                                            },
+                                            filter: None,
+                                        },
+                                        body: Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "control_volume",
+                                                            indices: [],
+                                                        },
+                                                        PathSegment {
+                                                            name: "properties_out",
+                                                            indices: [
+                                                                Expr {
+                                                                    kind: Path(
+                                                                        Path {
+                                                                            segments: [
+                                                                                PathSegment {
+                                                                                    name: "t",
+                                                                                    indices: [],
+                                                                                },
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    span: Span {
+                                                                        start: 47,
+                                                                        end: 48,
+                                                                    },
+                                                                },
+                                                            ],
+                                                        },
+                                                        PathSegment {
+                                                            name: "enth_flow_phase",
+                                                            indices: [
+                                                                Expr {
+                                                                    kind: Path(
+                                                                        Path {
+                                                                            segments: [
+                                                                                PathSegment {
+                                                                                    name: "p",
+                                                                                    indices: [],
+                                                                                },
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    span: Span {
+                                                                        start: 66,
+                                                                        end: 67,
+                                                                    },
+                                                                },
+                                                            ],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 17,
+                                                end: 68,
+                                            },
+                                        },
+                                    },
+                                    span: Span {
+                                        start: 0,
+                                        end: 69,
+                                    },
+                                },
+                                rhs: Expr {
+                                    kind: Reduce {
+                                        kind: Sum,
+                                        binder: Binder {
+                                            var: "p",
+                                            domain: Path {
+                                                segments: [
+                                                    PathSegment {
+                                                        name: "phase",
+                                                        indices: [],
+                                                    },
+                                                ],
+                                            },
+                                            filter: None,
+                                        },
+                                        body: Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "control_volume",
+                                                            indices: [],
+                                                        },
+                                                        PathSegment {
+                                                            name: "properties_in",
+                                                            indices: [
+                                                                Expr {
+                                                                    kind: Path(
+                                                                        Path {
+                                                                            segments: [
+                                                                                PathSegment {
+                                                                                    name: "t",
+                                                                                    indices: [],
+                                                                                },
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    span: Span {
+                                                                        start: 118,
+                                                                        end: 119,
+                                                                    },
+                                                                },
+                                                            ],
+                                                        },
+                                                        PathSegment {
+                                                            name: "enth_flow_phase",
+                                                            indices: [
+                                                                Expr {
+                                                                    kind: Path(
+                                                                        Path {
+                                                                            segments: [
+                                                                                PathSegment {
+                                                                                    name: "p",
+                                                                                    indices: [],
+                                                                                },
+                                                                            ],
+                                                                        },
+                                                                    ),
+                                                                    span: Span {
+                                                                        start: 137,
+                                                                        end: 138,
+                                                                    },
+                                                                },
+                                                            ],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 89,
+                                                end: 139,
+                                            },
+                                        },
+                                    },
+                                    span: Span {
+                                        start: 72,
+                                        end: 140,
+                                    },
+                                },
+                            },
+                            span: Span {
+                                start: 0,
+                                end: 140,
+                            },
+                        },
+                        rhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "heat_duty",
+                                            indices: [
+                                                Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "t",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 153,
+                                                        end: 154,
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 143,
+                                end: 155,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 0,
+                        end: 155,
+                    },
+                },
+                sense: Eq,
+                rhs: Expr {
+                    kind: Number(
+                        Number {
+                            value: 0.0,
+                            unit: None,
+                        },
+                    ),
+                    span: Span {
+                        start: 159,
+                        end: 160,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 160,
+            },
+        },
+    ),
+    (
+        "if compressor then work_isentropic[t] == work_mechanical[t]*efficiency_isentropic[t] else work_mechanical[t] == work_isentropic[t]*efficiency_isentropic[t]",
+        Equation {
+            kind: Conditional {
+                guard: Predicate {
+                    kind: Atom(
+                        Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "compressor",
+                                            indices: [],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 3,
+                                end: 13,
+                            },
+                        },
+                    ),
+                    span: Span {
+                        start: 3,
+                        end: 13,
+                    },
+                },
+                then: Equation {
+                    kind: Relation {
+                        lhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "work_isentropic",
+                                            indices: [
+                                                Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "t",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 35,
+                                                        end: 36,
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 19,
+                                end: 37,
+                            },
+                        },
+                        sense: Eq,
+                        rhs: Expr {
+                            kind: Binary {
+                                op: Mul,
+                                lhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "work_mechanical",
+                                                    indices: [
+                                                        Expr {
+                                                            kind: Path(
+                                                                Path {
+                                                                    segments: [
+                                                                        PathSegment {
+                                                                            name: "t",
+                                                                            indices: [],
+                                                                        },
+                                                                    ],
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 57,
+                                                                end: 58,
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 41,
+                                        end: 59,
+                                    },
+                                },
+                                rhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "efficiency_isentropic",
+                                                    indices: [
+                                                        Expr {
+                                                            kind: Path(
+                                                                Path {
+                                                                    segments: [
+                                                                        PathSegment {
+                                                                            name: "t",
+                                                                            indices: [],
+                                                                        },
+                                                                    ],
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 82,
+                                                                end: 83,
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 60,
+                                        end: 84,
+                                    },
+                                },
+                            },
+                            span: Span {
+                                start: 41,
+                                end: 84,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 19,
+                        end: 84,
+                    },
+                },
+                otherwise: Equation {
+                    kind: Relation {
+                        lhs: Expr {
+                            kind: Path(
+                                Path {
+                                    segments: [
+                                        PathSegment {
+                                            name: "work_mechanical",
+                                            indices: [
+                                                Expr {
+                                                    kind: Path(
+                                                        Path {
+                                                            segments: [
+                                                                PathSegment {
+                                                                    name: "t",
+                                                                    indices: [],
+                                                                },
+                                                            ],
+                                                        },
+                                                    ),
+                                                    span: Span {
+                                                        start: 106,
+                                                        end: 107,
+                                                    },
+                                                },
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ),
+                            span: Span {
+                                start: 90,
+                                end: 108,
+                            },
+                        },
+                        sense: Eq,
+                        rhs: Expr {
+                            kind: Binary {
+                                op: Mul,
+                                lhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "work_isentropic",
+                                                    indices: [
+                                                        Expr {
+                                                            kind: Path(
+                                                                Path {
+                                                                    segments: [
+                                                                        PathSegment {
+                                                                            name: "t",
+                                                                            indices: [],
+                                                                        },
+                                                                    ],
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 128,
+                                                                end: 129,
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 112,
+                                        end: 130,
+                                    },
+                                },
+                                rhs: Expr {
+                                    kind: Path(
+                                        Path {
+                                            segments: [
+                                                PathSegment {
+                                                    name: "efficiency_isentropic",
+                                                    indices: [
+                                                        Expr {
+                                                            kind: Path(
+                                                                Path {
+                                                                    segments: [
+                                                                        PathSegment {
+                                                                            name: "t",
+                                                                            indices: [],
+                                                                        },
+                                                                    ],
+                                                                },
+                                                            ),
+                                                            span: Span {
+                                                                start: 153,
+                                                                end: 154,
+                                                            },
+                                                        },
+                                                    ],
+                                                },
+                                            ],
+                                        },
+                                    ),
+                                    span: Span {
+                                        start: 131,
+                                        end: 155,
+                                    },
+                                },
+                            },
+                            span: Span {
+                                start: 112,
+                                end: 155,
+                            },
+                        },
+                    },
+                    span: Span {
+                        start: 90,
+                        end: 155,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 155,
+            },
+        },
+    ),
+    (
+        "pressure[t] >= 2{bar}",
+        Equation {
+            kind: Relation {
+                lhs: Expr {
+                    kind: Path(
+                        Path {
+                            segments: [
+                                PathSegment {
+                                    name: "pressure",
+                                    indices: [
+                                        Expr {
+                                            kind: Path(
+                                                Path {
+                                                    segments: [
+                                                        PathSegment {
+                                                            name: "t",
+                                                            indices: [],
+                                                        },
+                                                    ],
+                                                },
+                                            ),
+                                            span: Span {
+                                                start: 9,
+                                                end: 10,
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ),
+                    span: Span {
+                        start: 0,
+                        end: 11,
+                    },
+                },
+                sense: Ge,
+                rhs: Expr {
+                    kind: Number(
+                        Number {
+                            value: 2.0,
+                            unit: Some(
+                                "bar",
+                            ),
+                        },
+                    ),
+                    span: Span {
+                        start: 15,
+                        end: 21,
+                    },
+                },
+            },
+            span: Span {
+                start: 0,
+                end: 21,
+            },
+        },
+    ),
+]

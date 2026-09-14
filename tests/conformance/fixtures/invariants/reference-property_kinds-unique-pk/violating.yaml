@@ -1,0 +1,30 @@
+{
+  "invariant": "reference.property_kinds:unique:pk",
+  "rows": {
+    "reference.property_kinds": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "category": "[\"enum\",\"state\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "shape": "[\"list\",[]]"
+      },
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "category": "[\"enum\",\"state\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "shape": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

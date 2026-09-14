@@ -1,0 +1,33 @@
+{
+  "invariant": "reference.rule_aggregates:unique:pk",
+  "rows": {
+    "reference.rule_aggregates": [
+      {
+        "empty_policy": "[\"enum\",\"zero\"]",
+        "function": "[\"enum\",\"count\"]",
+        "input_expr_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "null_policy": "[\"enum\",\"reject\"]",
+        "order_by": "[\"list\",[]]",
+        "ordinal": "[\"u64\",1]",
+        "output_name": "[\"text\",\"value-1\"]"
+      },
+      {
+        "empty_policy": "[\"enum\",\"zero\"]",
+        "function": "[\"enum\",\"count\"]",
+        "input_expr_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "null_policy": "[\"enum\",\"reject\"]",
+        "order_by": "[\"list\",[]]",
+        "ordinal": "[\"u64\",1]",
+        "output_name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

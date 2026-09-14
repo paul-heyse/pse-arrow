@@ -1,0 +1,36 @@
+{
+  "invariant": "normalized.template_contributions:unique:pk",
+  "rows": {
+    "normalized.template_contributions": [
+      {
+        "contribution_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "expression": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "law_family": "[\"enum\",\"material\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "orientation": "[\"enum\",\"into_scope\"]",
+        "scope": "[\"text\",\"value-1\"]",
+        "subject": "[\"text\",\"1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "contribution_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "expression": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "law_family": "[\"enum\",\"material\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "orientation": "[\"enum\",\"into_scope\"]",
+        "scope": "[\"text\",\"value-1\"]",
+        "subject": "[\"text\",\"1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

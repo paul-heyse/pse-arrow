@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+#
+# Proptest persists minimized failing seeds here and replays them before fresh cases.
+# No failing seeds have been observed in the initial 1,024-case qualification of each
+# property. Their fixed qualification seeds are explicit in dsl_roundtrip.rs.
+# Preserve future entries: the accompanying AST structure comparisons are the oracle.

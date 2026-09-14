@@ -1,14 +1,53 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Model revisions, case revisions and runs (blueprint §5.2).
-//!
-//! Packet A-4 fills this module. It is declared and wired into
-//! [`crate::catalog::assemble`] now so that the assembly order is fixed before the
-//! declarations arrive: a module inserted later would reorder the call list, and the
-//! call list is the one thing about assembly a reader can check at a glance.
+//! §5.2 revision.
 
+use super::declarations::{column, relation};
 use crate::builder::RegistryBuilder;
+use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
 
-/// Declares nothing yet; packet A-4 fills it.
-pub fn declare(_builder: &mut RegistryBuilder) {}
+/// Declares the §5.2 revision contracts.
+pub fn declare(builder: &mut RegistryBuilder) {
+    declare_authored_model_revisions(builder);
+    declare_authored_case_revisions(builder);
+}
+
+fn declare_authored_model_revisions(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "model_revisions",
+        S::Sidecar,
+        &["model_revision_id"],
+        vec![
+            column("model_revision_id", T::id()),
+            column("parent_revision_id", T::id()).optional(),
+            column("snapshot_id", T::hash()),
+            column("created_at", T::Timestamp),
+            column("author", T::Text),
+            column("message", T::Text),
+        ],
+        "blueprint §5.2 revision: model_revisions.",
+    );
+}
+
+fn declare_authored_case_revisions(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Authored,
+        "case_revisions",
+        S::Sidecar,
+        &["case_revision_id"],
+        vec![
+            column("case_revision_id", T::id()),
+            column("model_revision_id", T::id()),
+            column("parent_case_id", T::id()).optional(),
+            column("snapshot_id", T::hash()),
+            column("created_at", T::Timestamp),
+            column("author", T::Text),
+            column("message", T::Text),
+        ],
+        "blueprint §5.2 revision: case_revisions.",
+    );
+}

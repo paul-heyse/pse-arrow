@@ -10,34 +10,55 @@
 //! because only the second constrains stratification (§14.2 rule 2), and both retain the
 //! named input port because "which port" is what makes a read reproducible.
 //!
-//! Packet C-3 extends this with the derivation identities the `derivation_id` column
-//! carries once `provenance.derivations` exists.
+//! Assembly resolves exact rule and relation identities. The row projection identifies
+//! each dependency derivation from those identities, its port and its mode.
 
-use crate::model::{DependencyMode, RuleDependency, RuleSpec};
+use crate::model::{DependencyMode, RuleDependency, RuleHead, RuleSpec};
+use crate::{Registry, SchemaError};
 
 /// The dependency facts of `rules`, sorted.
-pub(crate) fn derive(rules: &[RuleSpec]) -> Vec<RuleDependency> {
+pub(crate) fn derive(
+    rules: &[RuleSpec],
+    registry: &Registry,
+) -> Result<Vec<RuleDependency>, SchemaError> {
     let mut out: Vec<RuleDependency> = Vec::new();
     for rule in rules {
-        let name: &'static str = rule.name;
         for (relation, port, mode) in rule.plan.dependencies() {
+            let relation_id = registry
+                .relation(relation)
+                .ok_or_else(|| SchemaError::UnknownReference {
+                    context: rule.qualified_name(),
+                    reference: relation.to_owned(),
+                })?
+                .id;
             out.push(RuleDependency {
-                rule: name,
-                relation,
+                rule_id: rule.id,
+                relation: relation.to_owned(),
+                relation_id,
                 input_port: Some(port),
                 mode,
                 stratum: rule.stratum,
             });
         }
-        out.push(RuleDependency {
-            rule: name,
-            relation: rule.head.relation(),
-            input_port: None,
-            mode: DependencyMode::Write,
-            stratum: rule.stratum,
-        });
+        if let RuleHead::Relation(relation) = &rule.head {
+            let relation_id = registry
+                .relation(relation)
+                .ok_or_else(|| SchemaError::UnknownReference {
+                    context: rule.qualified_name(),
+                    reference: relation.to_owned(),
+                })?
+                .id;
+            out.push(RuleDependency {
+                rule_id: rule.id,
+                relation: relation.to_owned(),
+                relation_id,
+                input_port: None,
+                mode: DependencyMode::Write,
+                stratum: rule.stratum,
+            });
+        }
     }
     out.sort_unstable();
     out.dedup();
-    out
+    Ok(out)
 }

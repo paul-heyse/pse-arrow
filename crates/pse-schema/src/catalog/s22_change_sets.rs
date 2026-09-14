@@ -17,8 +17,7 @@
 
 use crate::builder::RegistryBuilder;
 use crate::model::{
-    Authority, ColumnSpec, ExtensionUse, LogicalType, Namespace, RelationDecl, SnapshotClass,
-    Stability,
+    Authority, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass, Stability,
 };
 
 /// Declares the §22.2 change-set relations.
@@ -99,19 +98,16 @@ fn declare_change_ops(builder: &mut RegistryBuilder) {
             .with_fk("reference.schema_relations", "relation_id"),
             ColumnSpec::payload(
                 "row_key",
-                LogicalType::Ext(ExtensionUse::IndexTuple),
-                "The primary key of the affected row.",
+                staged_row_type(),
+                "A typed staged row whose primary key identifies the affected base row (ADR-0053).",
             ),
             ColumnSpec::payload(
                 "row",
-                LogicalType::Struct(vec![
-                    ("staged_port", LogicalType::Text, false),
-                    ("staged_ordinal", LogicalType::U64, false),
-                ]),
+                staged_row_type(),
                 "A pointer into the change set's per-relation staged members, never JSON text \
                  (decision D1). For a rename the staged row carries the entity identity and the \
-                 new name and qualified name.",
-            ),
+                 new name and qualified name. Absent for delete.",
+            ).optional(),
             ColumnSpec::payload(
                 "precondition",
                 LogicalType::Text,
@@ -120,4 +116,12 @@ fn declare_change_ops(builder: &mut RegistryBuilder) {
             .optional(),
         ]),
     );
+}
+
+/// The durable staged-row reference, shared by both operation roles.
+fn staged_row_type() -> LogicalType {
+    LogicalType::Struct(vec![
+        ("staged_port", LogicalType::Text, false),
+        ("staged_ordinal", LogicalType::U64, false),
+    ])
 }

@@ -37,10 +37,11 @@
 //! - [`mod@unit`] — [`UnitConvertSpec`], the payload `pse_mathir` carries on a
 //!   `UnitConvert` node.
 //!
-//! Declared here and filled by later packets: [`mod@unit`] (the rest), [`unit_set`],
-//! [`conversion`], [`kind`], [`basis`], [`reference_state`], [`quantity_type`],
-//! [`registry`] (packet Q-1); [`operation`], [`infer`], [`literal`] (packet Q-3);
-//! [`admission`], [`numeric`], and `standard` behind the `fixtures` feature (packet Q-4).
+//! Registry admission and representation conversion live in [`registry`], [`unit_set`],
+//! [`conversion`], [`kind`], [`basis`], [`reference_state`] and [`quantity_type`].
+//! [`operation`], [`infer`] and [`literal`] implement complete contract composition and
+//! occurrence-specific literal resolution. [`admission`] and [`numeric`] provide boundary
+//! comparisons; the `fixtures` feature exposes the standard test package.
 //!
 //! [`closed_enum`]: crate::closed_enum
 //! [`semantic_id_newtype`]: crate::semantic_id_newtype
@@ -61,11 +62,14 @@ pub mod operation;
 pub mod quantity_type;
 pub mod reference_state;
 pub mod registry;
+pub mod smoothing;
 #[cfg(feature = "fixtures")]
 pub mod standard;
 pub mod unit;
 pub mod unit_set;
 
+pub use crate::basis::Basis;
+pub use crate::conversion::ConversionRule;
 pub use crate::dimension::{BaseDimension, DimensionVector, Ratio};
 pub use crate::enums::{
     BasisKind, BasisRule, CompositionBasis, ConversionKind, DomainKind, Opcode,
@@ -78,4 +82,10 @@ pub use crate::ids::{
     QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
 };
 pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};
-pub use crate::unit::UnitConvertSpec;
+pub use crate::kind::QuantityKind;
+pub use crate::operation::{InputConversion, QuantityOperation};
+pub use crate::quantity_type::{QuantityType, QuantityTypeKey};
+pub use crate::reference_state::ReferenceState;
+pub use crate::registry::{QuantityRegistry, QuantityRegistryBuilder};
+pub use crate::unit::{Unit, UnitConvertSpec, convert_spec, convert_spec_for_type, convert_value};
+pub use crate::unit_set::{DerivedUnit, UnitSet};

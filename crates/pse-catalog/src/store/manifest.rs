@@ -15,8 +15,8 @@
 //!   serving a snapshot under a contract it never implemented.
 //! - **Hashes are text with their algorithm attached.** `blake3:<64 hex>` rather than a
 //!   bare digest, because the algorithm is part of the value (`pse-ids` says so) and a
-//!   manifest outlives the build that wrote it. `pse-ids` stays serde-free, so the
-//!   conversion lives here, in the crate that owns the format.
+//!   manifest outlives the build that wrote it. Role-wrapper conversion lives here,
+//!   in the crate that owns this versioned physical format.
 //!
 //! # What is not in the manifest's own identity
 //!
@@ -33,7 +33,7 @@ use pse_ids::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::CatalogError;
-use crate::store::layout::{EncodingFormat, is_sidecar_path, relation_path};
+use crate::store::layout::{EncodingFormat, evidence_path, is_sidecar_path, relation_path};
 
 /// The frozen manifest format version (blueprint §20.2).
 pub const MANIFEST_VERSION: &str = "pse.manifest.v2";
@@ -323,15 +323,26 @@ pub struct CompilerRef {
     pub passes: Vec<PassRef>,
 }
 
-/// A content-addressed artifact the snapshot depends on: an engine profile or a
-/// numerical policy (blueprint §20.2).
+/// The declared engine profile used by a snapshot (blueprint §20.2).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ArtifactRef {
-    /// The artifact's identity.
+pub struct EngineProfileRef {
+    /// The profile's identity, using the registry's manifest wire field.
     #[serde(with = "semantic_id_text")]
-    pub id: SemanticId,
-    /// The hash of the artifact's content.
+    pub engine_profile_id: SemanticId,
+    /// The hash of the profile's content.
+    #[serde(with = "hash_text")]
+    pub content_hash: ContentHash,
+}
+
+/// The numerical policy used by a snapshot (blueprint §20.2).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NumericalPolicyRef {
+    /// The policy's identity, using the registry's manifest wire field.
+    #[serde(with = "semantic_id_text")]
+    pub policy_id: SemanticId,
+    /// The hash of the policy's content.
     #[serde(with = "hash_text")]
     pub content_hash: ContentHash,
 }
@@ -416,9 +427,9 @@ pub struct Manifest {
     /// The compiler and its passes.
     pub compiler: CompilerRef,
     /// The engine profile, when the snapshot kind requires one.
-    pub engine_profile: Option<ArtifactRef>,
+    pub engine_profile: Option<EngineProfileRef>,
     /// The numerical policy, when the snapshot kind requires one.
-    pub numerical_policy: Option<ArtifactRef>,
+    pub numerical_policy: Option<NumericalPolicyRef>,
     /// The toolchain.
     pub toolchain: ToolchainRef,
     /// The kernels the snapshot depends on.
@@ -452,14 +463,13 @@ impl Manifest {
         }
     }
 
-    /// Checks everything §20.2 requires before a snapshot is exposed.
+    /// Checks the manifest envelope and its self-consistency (blueprint §20.2).
     ///
-    /// In order: the two format versions, the registry fingerprint, port uniqueness,
-    /// relation uniqueness, path containment, evidence noncanonicality, the absence of
-    /// sidecar and self references, and finally the recomputed `snapshot_id`. The
-    /// membership identity is recomputed rather than trusted — a manifest that carries
-    /// its own name is only as trustworthy as the process that wrote it, and §20.1
-    /// requires readers to "recompute its semantic snapshot identity".
+    /// Checks format versions, the registry fingerprint, member uniqueness, storage
+    /// paths, evidence noncanonicality and the recomputed `snapshot_id`. These are
+    /// envelope checks only: equality of an identity does not validate decoded relation
+    /// values, keys, references, required membership or stage preconditions. The store
+    /// must establish those contracts separately before exposing a snapshot.
     ///
     /// # Errors
     ///
@@ -470,6 +480,11 @@ impl Manifest {
     /// - [`CatalogError::ManifestInvalid`] for every structural failure, naming it.
     /// - [`CatalogError::Snapshot`] when the frame itself cannot be named.
     pub fn validate(&self, registry_fingerprint: ContentHash) -> Result<(), CatalogError> {
+        if !super::clock::valid_rfc3339_utc(&self.created_at) {
+            return Err(CatalogError::ManifestInvalid {
+                reason: "created_at must be a calendar-valid RFC3339 UTC timestamp".to_owned(),
+            });
+        }
         if self.manifest_version != MANIFEST_VERSION {
             return Err(CatalogError::UnknownVersion {
                 field: "manifest_version".to_owned(),
@@ -480,6 +495,12 @@ impl Manifest {
             return Err(CatalogError::UnknownVersion {
                 field: "membership_profile".to_owned(),
                 value: self.membership_profile.clone(),
+            });
+        }
+        if self.toolchain.canonicalization != pse_ids::CANON_VERSION {
+            return Err(CatalogError::UnknownVersion {
+                field: "toolchain.canonicalization".to_owned(),
+                value: self.toolchain.canonicalization.clone(),
             });
         }
         if self.schema_registry_fingerprint != registry_fingerprint {
@@ -504,10 +525,8 @@ impl Manifest {
         Ok(())
     }
 
-    /// Ports and `(namespace, relation_id, version)` triples are unique.
-    ///
-    /// Both, not one: a repeated port makes the frame ambiguous, and a repeated relation
-    /// under two ports would publish one relation twice with two identities.
+    /// Ports are unique. Model/case relation triples are unique; a stage may declare
+    /// distinct output ports with the same schema, each carrying its own complete rows.
     fn check_member_uniqueness(&self) -> Result<(), CatalogError> {
         let mut ports: Vec<&str> = self.relations.iter().map(|m| m.port.as_str()).collect();
         ports.sort_unstable();
@@ -519,6 +538,10 @@ impl Manifest {
                     reason: format!("port `{left}` appears more than once"),
                 });
             }
+        }
+
+        if self.snapshot_kind == SnapshotKind::Stage {
+            return Ok(());
         }
 
         let mut triples: Vec<(&str, [u8; 16], u32)> = self
@@ -580,6 +603,15 @@ impl Manifest {
                     ),
                 });
             }
+            let expected = evidence_path(&evidence.encoding_checksum);
+            if evidence.path != expected.as_ref() {
+                return Err(CatalogError::ManifestInvalid {
+                    reason: format!(
+                        "evidence `{}` stores `{}`, but its checksum-derived layout is `{expected}`",
+                        evidence.kind, evidence.path
+                    ),
+                });
+            }
         }
         Ok(())
     }
@@ -618,7 +650,7 @@ impl Manifest {
     ///
     /// [`CatalogError::ManifestInvalid`] for malformed JSON, a missing field, an unknown
     /// field or an unreadable hash. Decoding proves the shape only; call
-    /// [`Manifest::validate`] for the semantics.
+    /// [`Manifest::validate`] for envelope consistency; it does not admit relation data.
     pub fn decode(bytes: &[u8]) -> Result<Self, CatalogError> {
         serde_json::from_slice(bytes).map_err(|error| CatalogError::ManifestInvalid {
             reason: error.to_string(),
@@ -696,11 +728,14 @@ mod tests {
                     version: "1".to_owned(),
                 }],
             },
-            engine_profile: Some(ArtifactRef {
-                id: SemanticId::from_bytes([0x51; 16]),
+            engine_profile: Some(EngineProfileRef {
+                engine_profile_id: SemanticId::from_bytes([0x51; 16]),
                 content_hash: ContentHash::from_bytes([0x52; 32]),
             }),
-            numerical_policy: None,
+            numerical_policy: Some(NumericalPolicyRef {
+                policy_id: SemanticId::from_bytes([0x53; 16]),
+                content_hash: ContentHash::from_bytes([0x54; 32]),
+            }),
             toolchain: ToolchainRef {
                 lockfile_hash: ContentHash::from_bytes([0x61; 32]),
                 canonicalization: CANON_VERSION.to_owned(),
@@ -770,6 +805,200 @@ mod tests {
     }
 
     #[test]
+    fn actual_utc_calendar_validity_is_checked_even_with_consistent_hashes() {
+        for value in [
+            "0001-01-01T00:00:00Z",
+            "2000-02-29T23:59:59.1Z",
+            "2024-02-29T00:00:00.123456789Z",
+        ] {
+            let mut manifest = fixture();
+            manifest.created_at = value.to_owned();
+            rehashed(&mut manifest);
+            manifest
+                .validate(fingerprint())
+                .expect("calendar-valid UTC");
+        }
+        for value in [
+            "",
+            "not a timestamp",
+            "0000-01-01T00:00:00Z",
+            "2100-02-29T00:00:00Z",
+            "2026-04-31T00:00:00Z",
+            "2026-01-01T24:00:00Z",
+            "2026-01-01T00:60:00Z",
+            "2026-01-01T00:00:60Z",
+            "2026-01-01T00:00:00.Z",
+            "2026-01-01T00:00:00.1234567890Z",
+            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:00.αZ",
+        ] {
+            let mut manifest = fixture();
+            manifest.created_at = value.to_owned();
+            rehashed(&mut manifest);
+            assert!(
+                matches!(
+                    manifest.validate(fingerprint()),
+                    Err(CatalogError::ManifestInvalid { .. })
+                ),
+                "{value}"
+            );
+        }
+    }
+
+    /// Recompute the membership identity after tampering, then round-trip the envelope
+    /// so refusal exercises a decodable manifest carrying a consistent identity.
+    fn rehashed(manifest: &mut Manifest) {
+        manifest.snapshot_id =
+            snapshot_id(&manifest.frame()).expect("the tampered frame is nameable");
+        let bytes = manifest
+            .encode()
+            .expect("the tampered envelope is encodable");
+        *manifest = Manifest::decode(&bytes).expect("the tampered envelope decodes");
+    }
+
+    #[test]
+    fn the_manifest_uses_registry_declared_artifact_field_names() {
+        let json = serde_json::to_value(fixture()).expect("manifest encodes");
+        assert!(json["engine_profile"].get("engine_profile_id").is_some());
+        assert!(json["numerical_policy"].get("policy_id").is_some());
+        assert!(json["engine_profile"].get("id").is_none());
+        assert!(json["numerical_policy"].get("id").is_none());
+        let mut wrong = json;
+        let value = wrong["engine_profile"]["engine_profile_id"].take();
+        wrong["engine_profile"]["id"] = value;
+        assert!(Manifest::decode(&serde_json::to_vec(&wrong).expect("JSON encodes")).is_err());
+    }
+
+    /// A populated fixture exercises every registry-declared branch; this is checked
+    /// recursively, so a nested wire-field rename cannot hide behind a top-level match.
+    fn assert_manifest_type(
+        value: &serde_json::Value,
+        ty: &pse_schema::model::ManifestType,
+        path: &str,
+    ) {
+        use pse_schema::model::ManifestType;
+        match ty {
+            ManifestType::Text | ManifestType::Timestamp => assert!(value.is_string(), "{path}"),
+            ManifestType::U32 => assert!(
+                value.as_u64().is_some_and(|v| u32::try_from(v).is_ok()),
+                "{path}"
+            ),
+            ManifestType::U64 => assert!(value.as_u64().is_some(), "{path}"),
+            ManifestType::Bool => assert!(value.is_boolean(), "{path}"),
+            ManifestType::Id => assert!(
+                value
+                    .as_str()
+                    .is_some_and(|v| SemanticId::parse_hex(v).is_ok()),
+                "{path}"
+            ),
+            ManifestType::Hash => assert!(
+                value
+                    .as_str()
+                    .is_some_and(|v| ContentHash::parse_prefixed(v).is_ok()),
+                "{path}"
+            ),
+            ManifestType::List(inner) => {
+                let values = value.as_array().expect("list shape must match registry");
+                assert!(
+                    !values.is_empty(),
+                    "the parity fixture must exercise {path}"
+                );
+                for (ordinal, value) in values.iter().enumerate() {
+                    assert_manifest_type(value, inner, &format!("{path}/{ordinal}"));
+                }
+            }
+            ManifestType::Struct(fields) => {
+                let object = value.as_object().expect("object shape must match registry");
+                assert_eq!(
+                    object.len(),
+                    fields.len(),
+                    "{path}: extra or missing wire fields"
+                );
+                for field in fields {
+                    let value = object
+                        .get(field.name)
+                        .expect("registry-declared field must exist");
+                    assert_manifest_type(value, &field.ty, &format!("{path}/{}", field.name));
+                }
+            }
+            ManifestType::Optional(inner) => {
+                if !value.is_null() {
+                    assert_manifest_type(value, inner, path);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rust_manifest_matches_the_recursive_registry_declaration() {
+        let registry = pse_schema::registry().expect("registry is valid");
+        let spec = registry.manifest().expect("manifest is declared");
+        let manifest = fixture();
+        assert_eq!(manifest.manifest_version, spec.version);
+        assert_eq!(manifest.membership_profile, spec.membership_profile);
+        let value = serde_json::to_value(&manifest).expect("manifest encodes");
+        assert_manifest_type(
+            &value,
+            &pse_schema::model::ManifestType::Struct(spec.fields().to_vec()),
+            "manifest",
+        );
+        let mut optional_absent = manifest;
+        optional_absent.engine_profile = None;
+        optional_absent.numerical_policy = None;
+        let value = serde_json::to_value(&optional_absent).expect("manifest encodes");
+        assert_manifest_type(
+            &value,
+            &pse_schema::model::ManifestType::Struct(spec.fields().to_vec()),
+            "manifest",
+        );
+        assert_eq!(
+            Manifest::decode(&serde_json::to_vec(&value).expect("JSON encodes"))
+                .expect("optional fields decode"),
+            optional_absent
+        );
+    }
+
+    #[test]
+    fn an_unknown_canonicalization_is_refused_with_consistent_hashes() {
+        let mut manifest = fixture();
+        manifest.toolchain.canonicalization = "pse.canon.v999".to_owned();
+        rehashed(&mut manifest);
+        assert!(matches!(
+            manifest.validate(fingerprint()),
+            Err(CatalogError::UnknownVersion { ref field, .. })
+                if field == "toolchain.canonicalization"
+        ));
+    }
+
+    #[test]
+    fn evidence_must_have_its_own_checksum_path_despite_consistent_hashes() {
+        for path in [
+            "evidence/wrong",
+            "relations/authored/fake.arrow",
+            "../outside",
+            "/evidence/absolute",
+        ] {
+            let mut manifest = fixture();
+            manifest.evidence[0].path = path.to_owned();
+            rehashed(&mut manifest);
+            assert!(matches!(
+                manifest.validate(fingerprint()),
+                Err(CatalogError::ManifestInvalid { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn missing_relation_encodings_fail_despite_consistent_hashes() {
+        let mut manifest = fixture();
+        manifest.relations[0].encodings.clear();
+        rehashed(&mut manifest);
+        assert!(
+            matches!(manifest.validate(fingerprint()), Err(CatalogError::ManifestInvalid { ref reason }) if reason.contains("no stored encoding"))
+        );
+    }
+
+    #[test]
     fn a_wrong_manifest_version_is_refused_rather_than_read() {
         let mut manifest = fixture();
         manifest.manifest_version = "pse.manifest.v1".to_owned();
@@ -819,6 +1048,7 @@ mod tests {
     #[test]
     fn a_duplicate_relation_triple_is_refused() {
         let mut manifest = fixture();
+        manifest.snapshot_kind = SnapshotKind::Model;
         let Some(first) = manifest.relations.first().cloned() else {
             panic!("the fixture has members");
         };
@@ -833,6 +1063,18 @@ mod tests {
             Err(CatalogError::ManifestInvalid { ref reason })
                 if reason.contains("appears more than once")
         ));
+    }
+
+    #[test]
+    fn stage_ports_can_share_a_relation_contract() {
+        let mut manifest = fixture();
+        let mut second = manifest.relations[0].clone();
+        second.port = "other_declared_output".to_owned();
+        manifest.relations.push(second);
+        rehashed(&mut manifest);
+        manifest
+            .validate(fingerprint())
+            .expect("distinct stage ports");
     }
 
     #[test]

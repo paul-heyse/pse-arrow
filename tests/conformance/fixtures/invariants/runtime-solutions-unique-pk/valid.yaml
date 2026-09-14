@@ -1,0 +1,15 @@
+{
+  "invariant": "runtime.solutions:unique:pk",
+  "rows": {
+    "runtime.solutions": [
+      {
+        "bound_status": "[\"enum\",\"interior\"]",
+        "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "value": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,36 @@
+{
+  "invariant": "reference.schema_relations:unique:pk",
+  "rows": {
+    "reference.schema_relations": [
+      {
+        "authority": "[\"enum\",\"authored\"]",
+        "derivation_granularity": "[\"enum\",\"row\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"enum\",\"reference\"]",
+        "primary_key": "[\"list\",[]]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "snapshot_class": "[\"enum\",\"model\"]",
+        "stability": "[\"enum\",\"stable\"]",
+        "version": "[\"u64\",1]"
+      },
+      {
+        "authority": "[\"enum\",\"authored\"]",
+        "derivation_granularity": "[\"enum\",\"row\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"enum\",\"reference\"]",
+        "primary_key": "[\"list\",[]]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "snapshot_class": "[\"enum\",\"model\"]",
+        "stability": "[\"enum\",\"stable\"]",
+        "version": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "invariant": "reference.schema_document_sections:foreign_key:document_name",
+  "rows": {
+    "reference.schema_document_sections": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "document_name": "[\"text\",\"value-2\"]",
+        "entity_kind": "[\"text\",\"value-1\"]",
+        "expression_fields": "[\"list\",[]]",
+        "expression_owner_column": "[\"text\",\"value-1\"]",
+        "identity_column": "[\"text\",\"value-1\"]",
+        "key": "[\"text\",\"value-1\"]",
+        "name_column": "[\"text\",\"value-1\"]",
+        "naming_scope_column": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "repeated": "[\"bool\",true]"
+      }
+    ],
+    "reference.schema_documents": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "document_name": "[\"text\",\"value-1\"]",
+        "kind": "[\"text\",\"value-1\"]",
+        "path_glob": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"text\",\"value-2\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

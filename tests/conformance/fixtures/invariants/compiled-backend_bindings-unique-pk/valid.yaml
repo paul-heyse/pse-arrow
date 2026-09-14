@@ -1,0 +1,15 @@
+{
+  "invariant": "compiled.backend_bindings:unique:pk",
+  "rows": {
+    "compiled.backend_bindings": [
+      {
+        "artifact_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "backend": "[\"enum\",\"native_ipopt\"]",
+        "problem_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "status": "[\"enum\",\"supported\"]",
+        "unsupported_opcodes": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -117,8 +117,7 @@ fn declare_entities(builder: &mut RegistryBuilder) {
             1,
             Authority::Authored,
             SnapshotClass::Model,
-            "Every authored entity. The invariant `closure:entity_registered` requires every other \
-             authored relation's primary key to appear here.",
+            "Explicitly declared authored entities; registration validates exact declaration correspondence.",
         )
         .stability(Stability::Stable)
         .pk(&["entity_id"])

@@ -1,0 +1,16 @@
+{
+  "invariant": "normalized.state_bounds:unique:pk",
+  "rows": {
+    "normalized.state_bounds": [
+      {
+        "initial": "[\"f64\",\"3ff0000000000000\"]",
+        "lower": "[\"struct\",[[\"enum\",\"unbounded\"],[\"null\",null]]]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_symbol": "[\"text\",\"value-1\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "upper": "[\"struct\",[[\"enum\",\"unbounded\"],[\"null\",null]]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

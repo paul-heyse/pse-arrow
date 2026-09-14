@@ -1,0 +1,17 @@
+{
+  "invariant": "reference.reference_states:unique:pk",
+  "rows": {
+    "reference.reference_states": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "include_enthalpy_of_formation": "[\"bool\",true]",
+        "kind": "[\"enum\",\"elemental_at_conditions\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "pressure": "[\"f64\",\"3ff0000000000000\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "temperature": "[\"f64\",\"3ff0000000000000\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

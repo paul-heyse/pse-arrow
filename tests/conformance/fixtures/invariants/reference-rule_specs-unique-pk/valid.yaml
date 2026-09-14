@@ -1,0 +1,20 @@
+{
+  "invariant": "reference.rule_specs:unique:pk",
+  "rows": {
+    "reference.rule_specs": [
+      {
+        "conflict_policy": "[\"enum\",\"reject\"]",
+        "head_key_columns": "[\"list\",[]]",
+        "head_kind": "[\"enum\",\"relation\"]",
+        "head_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "monotonic": "[\"bool\",true]",
+        "negation": "[\"enum\",\"none\"]",
+        "root_node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "stratum": "[\"u64\",1]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

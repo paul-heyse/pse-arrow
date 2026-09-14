@@ -7,12 +7,11 @@
 //! `{"v":1,"target_relation_id":"<32 hex>"}`, with no whitespace and in that key order.
 //! A factory rejects any other shape.
 //!
-//! Built by hand rather than with `serde_json`, for two reasons. The string is a schema
+//! Built by hand rather than with `serde_json`. The string is a schema
 //! metadata value and therefore a canonical-metadata-relation value under §5.3 step 3, so
 //! it enters a logical hash; a serializer's key order and number formatting are its own
-//! choices, and the one that happens to be right today is not a contract. And
-//! `pse-schema` has no `serde_json` dependency: ADR-0049 pins it for the manifest and the
-//! `pse-relations` metadata codec, which reads these strings back with a strict parser.
+//! choices, and the one that happens to be right today is not a contract. The
+//! `pse-relations` metadata codec reads these strings back with a strict parser.
 
 use pse_ids::SemanticId;
 
@@ -63,6 +62,23 @@ pub fn json_schema(shape: ExtensionMetadataShape, version: u32) -> String {
             "{{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"v\",\"{key}\"],\
              \"properties\":{{\"v\":{{\"const\":{version}}},\
              \"{key}\":{{\"type\":\"string\",\"pattern\":\"^[0-9a-f]{{32}}$\"}}}}}}"
+        ),
+    }
+}
+
+/// Specialize a use's metadata contract to its resolved identity. A generic 32-hex
+/// pattern describes storage syntax; this constant describes the actual enum/ordinal
+/// target and therefore participates in the consuming relation's semantic fingerprint.
+pub fn specialized_json_schema(
+    shape: ExtensionMetadataShape,
+    version: u32,
+    id: SemanticId,
+) -> String {
+    match shape.id_key() {
+        None => json_schema(shape, version),
+        Some(key) => format!(
+            "{{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"v\",\"{key}\"],\"properties\":{{\"v\":{{\"const\":{version}}},\"{key}\":{{\"const\":\"{}\"}}}}}}",
+            id.to_hex()
         ),
     }
 }

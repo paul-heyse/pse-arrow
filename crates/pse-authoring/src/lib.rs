@@ -32,6 +32,11 @@ pub mod p0;
 pub mod p1;
 pub mod span;
 pub mod targets;
+mod work;
 
 pub use crate::error::AuthoringError;
 pub use crate::span::{ParseBudget, SourceSpan};
+
+/// Authoring document declarations projected from the registry.
+#[rustfmt::skip]
+pub mod generated;

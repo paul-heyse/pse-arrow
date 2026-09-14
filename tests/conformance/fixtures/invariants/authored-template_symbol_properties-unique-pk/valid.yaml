@@ -1,0 +1,13 @@
+{
+  "invariant": "authored.template_symbol_properties:unique:pk",
+  "rows": {
+    "authored.template_symbol_properties": [
+      {
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_selector_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,15 @@
+{
+  "invariant": "normalized.guard_expr_broadcasts:check:domain_reference",
+  "rows": {
+    "normalized.guard_expr_broadcasts": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_name": "[\"null\",null]",
+        "node_id": "[\"u64\",1]",
+        "template_id": "[\"null\",null]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

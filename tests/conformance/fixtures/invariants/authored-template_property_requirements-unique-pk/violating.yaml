@@ -1,0 +1,30 @@
+{
+  "invariant": "authored.template_property_requirements:unique:pk",
+  "rows": {
+    "authored.template_property_requirements": [
+      {
+        "guard": "[\"text\",\"1\"]",
+        "index_domain_bindings": "[\"list\",[]]",
+        "operation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_selector_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "guard": "[\"text\",\"1\"]",
+        "index_domain_bindings": "[\"list\",[]]",
+        "operation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_selector_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

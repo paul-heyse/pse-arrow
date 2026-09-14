@@ -66,6 +66,14 @@
   - [ADR-0049: Pin serde_json and uuid as direct dependencies for the manifest codec and explicit identities](adr/0049-serde-json-and-uuid-direct-pins.md)
   - [ADR-0050: Freeze the identity framing constants, canonical frames and the phase-1 relation envelope](adr/0050-identity-framing-constants.md)
   - [ADR-0051: Extend the generated-tree list and make codegen --check a regeneration-equivalence check](adr/0051-generated-trees-and-regeneration-check.md)
+  - [ADR-0052: Validate semantics before content identity and stage reuse](adr/0052-validation-before-identity-and-reuse.md)
+  - [ADR-0053: Complete typed change-set keys and bounded recursive rule contracts](adr/0053-typed-change-set-and-rule-closure.md)
+  - [ADR-0054: Complete indexed physical typing and operator inputs](adr/0054-wave-one-math-contract-completion.md)
+  - [ADR-0055: Keep memory reservations with Arrow buffer owners](adr/0055-owned-arrow-reservations.md)
+  - [ADR-0056: Register only complete executable pass contracts](adr/0056-wave-one-pass-availability.md)
+  - [ADR-0057: Make equation classification and role contracts self-contained](adr/0057-equation-classification-contract.md)
+  - [ADR-0058: Separate unit coordinates from physical reference conversions](adr/0058-unit-coordinate-and-quantity-reference.md)
+  - [ADR-0059: Declare authoring identity and naming projections explicitly](adr/0059-authoring-identity-projection.md)
 <!-- adr:end -->
 
 # Plans
@@ -74,6 +82,7 @@
   - [01 — Repository configuration](plans/01-repository-configuration.md)
   - [02 — Blueprint revision 5 contracts](plans/02-blueprint-revision-5-contracts.md)
   - [03 — Wave 1 foundations](plans/03-wave-1-foundations.md)
+  - [04 — Wave 2 semantic compilation](plans/04-wave-2-semantic-compilation.md)
 
 # Design reviews
 
