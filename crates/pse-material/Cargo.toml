@@ -22,3 +22,10 @@ pse-quantity.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[features]
+# The element table and phase-validity test data (blueprint §6.4); never a default.
+fixtures = []
+
+[dev-dependencies]
+proptest.workspace = true

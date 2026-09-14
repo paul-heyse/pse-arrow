@@ -1,12 +1,12 @@
 ---
 status: proposed
-revision: 5
+revision: 6
 date: 2026-09-13
 ---
 
 # Arrow-native IDAES core: detailed design architecture blueprint
 
-**Status:** Proposed design blueprint, revision 5 (2026-09-13); implementation and numerical acceptance remain open. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
+**Status:** Proposed design blueprint, revision 6 (2026-09-13); implementation and numerical acceptance remain open. One file, revised in git: revisions 2 and 3 are the tags `design-rev2` and `design-rev3` (ADR-0033); the *Revision history* table below lists every revision.
 **Reviews:** revisions 1 and 2 have historical reviews under `docs/design_review/reviews/`. The [revision-4 library-contract review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md) overturned several earlier enforcement claims. Revision 5 incorporates R4-01–R4-13 and L1–L9; §26 records disposition and [plan 02](../plans/02-blueprint-revision-5-contracts.md) names the remaining implementation gates. Library characterization is evidence about the pinned libraries, not acceptance of the skeletal platform.
 **Follows:** `docs/authoritative_design/proposal.md` (the proposal this document makes concrete)
 **Governing doctrine:** `docs/design_review/design_principles/DATA_MODEL_DESIGN_CHARTER.md` (DM-01–DM-60, gates G1–G7) applied through `AGENT_DESIGN_DIRECTIVE.md`. The P-numbered principles cited in §2.1 and §22.2 come from the doctrine texts this document was drafted against (*semantic_design_principles_holistic*, *Inference-Complete Process Metamodel Design Principles*, *semantic_math_basis*), which are not part of this repository.
@@ -59,6 +59,7 @@ date: 2026-09-13
 | 3 | 2026-09-13 | Resolves every finding of the second review and every item revision 2 had parked, using the four capability maps' measurements. **R2-1** the plan fingerprint leaves the memo key; schema and field metadata are canonicalized at construction; the codec obligations, the analyzer rule list and a versioned settings allow-list are stated (§4.3, §14.2, §14.3, §6.11). **R2-2** `-0.0` preservation is qualified; `Float64` columns are never distinct or join keys in rule plans (§5.3, §14.2, §19.2). **R2-3** §4.3 corrected; the ten `pse.*` types are registered in the engine's extension-type registry (§4.3, §4.4, §5.4, §14.3). **R2-4** the Python boundary is rewritten as enforced contracts: pint validates and never defines, contract classes are generated, strict structuring, an `Any` lint, the msgspec/attrs division, shipped `pyarrow` extension classes with an idempotent registrar, the numpy null rule, pre-flight checks, exact pins and two interpreter ranges (§3.1, §3.3, §4.4, §21). **R2-5** every crate and Python library is pinned, a committed lockfile and `cargo deny` are required, `arrow-flight` and `uom` are dropped, §3.3 roles match use sites, `serde-saphyr` replaces `serde_yaml`, `num-dual` is 0.15 with FeOs conditional, `blake3` belongs to `pse-ids` with `derive_key` (§3.1, §3.2, §3.3, §5.1, §9.8). **R2-6** `object_store`, petgraph and faer statements corrected (§15.3–§15.5, §20.1). **R2-7** §5.4 states the measured pushdown shapes, purity, the wrapper test, `Precision` and selective statistics. **R2-8** `feedback_arc_set`, the formatter factory, `force_validate`, a `datafusion.pse.*` config extension, `pgjson` plans, the optimizer observer, `toml::Spanned`, `implicit_derivative`, and the Ipopt C names are adopted (§12.5, §14.2, §18.2, §18.3, §22.1, §23, §24.1). Parked items: **F8** rule bodies, invariant specs and selectors are typed relations (§4.1, §6.7, §6.10, §6.11); **F10** capability probes are runtime operations with recorded resolved options (§6.13, §18.3); **F12** the hashing contract names its constants and its scope (§5.3, §18.2); **F13** `salsa` is deferred behind an artifact-hash memo with a stated trigger (§14.3); **F14** derivation granularity is declared per relation (§4.1, §14.2); **F16** the bundle carries quantity types and a loss profile (§21.1); **F17** the SVD and condition-number routes are named and the pushdown precondition is discharged (§15.4, §15.5, §5.4). Also decided: `FairSpillPool` with an explicit limit (§14.3), `pyo3-arrow` retained (§21.1), `LogicalPlan::Extension` rule nodes deferred with a trigger (§14.2), IDAES 2.12.0 as the parity reference (§3.1, §6.14, §25), the commit contract stated (§22.2). | `design-rev3` |
 | 4 | 2026-09-13 | Repository conventions: MSRV = pinned toolchain (ADR-0018); layout additions (ADR-0038); document paths under `docs/` (ADR-0033). | repository setup history |
 | 5 | 2026-09-13 | **Proposed:** active semantic admission and complete quantity operations; normalized demand seeds and stage bundles; conservative complete cache keys; guarded kernel/numeric policies; canonical logical identity separated from encoded integrity (`pse.canon.v2`); noncanonical plan evidence; shared accounted budgets; standard predicate, aggregate, unnest, buffer and explicit-schema reader bindings. Addresses R4-01–R4-13 and L1–L9 under ADR-0039–ADR-0048. | this design revision; maintainer PR acceptance pending |
+| 6 | 2026-09-13 | Wave-1 implementation conventions: direct pins for `serde_json` and `uuid` (ADR-0049); identity framing constants, canonical frames and the phase-1 envelope (ADR-0050); generated-tree additions and regeneration-equivalence check (ADR-0051); small contract clarifications listed under §3.1, §4.2, §4.4, §6.1, §6.9, §7.2, §7.7, §22.2 and Appendix B. | wave-1 keel |
 
 ## 0. Purpose, scope, and how to read this document
 
@@ -296,6 +297,8 @@ Every pass declares its complete input ports; memoization is keyed by their logi
 
 ### 3.1 Version anchors
 
+> Decision: ADR-0049
+
 **Engine and runtime (Rust).** Every crate in both families is pinned with `=`; `Cargo.lock` is committed and CI asserts one version per family (`cargo tree` grouped by family) — `=` pins bind direct dependencies only, and `cargo tree -d` does not report a mixed family because it is not a duplicate.
 
 | Component | Pin | Note |
@@ -312,11 +315,13 @@ Every pass declares its complete input ports; memoization is keyed by their logi
 | Crate | Pin | Owning crate | Note |
 |---|---|---|---|
 | `serde` | 1.0.229 | all | `derive`, `rc` |
+| `serde_json` | 1.0.151 | `pse-catalog`, `pse-relations`, `xtask` | manifest and extension-metadata JSON codec; never a hash input and never relation data (ADR-0049) |
 | `serde_arrow` | 0.15.0 | `pse-relations` (adapters) | feature `arrow-59`; `SchemaLike::from_type`/`from_samples` banned on platform paths; any `SERDE_ARROW:*` field-metadata key is a contract violation (§5.3) |
 | `syn` / `quote` / `proc-macro2` / `prettyplease` | 3.0.5 / 1.0.47 / 1.0.107 / 0.3.0 | `pse-schema` | `syn 3`, not the ecosystem's `syn 2`; `proc-macro2` `span-locations`; a `prettyplease` upgrade is a regeneration commit |
 | `serde-saphyr` | 1.2.0 | `pse-authoring` | replaces the unmaintained `serde_yaml` (0.9.34+deprecated, last release 2024-03): typed errors with line/column, hostile input refused without panics, a `budget` bound on nesting, aliases and allocation |
 | `toml` | 1.1.6 | `pse-authoring` | `Spanned<T>` supplies `pse.source_span` for `package.toml` |
 | `winnow` | 1.0.4 | `pse-authoring` | already in the graph via `toml` |
+| `uuid` | 1.26.1 | `pse-authoring` | `v7` for explicit-policy entity ids; `assign-ids` only, P1 never mints one (ADR-0049) |
 | `petgraph` | 0.8.3 | `pse-structural`, `pse-compiler` | pre-1.0; SCC intra-component order is arbitrary and is sorted by semantic ID (§15.3); `greedy_feedback_arc_set` for tear search (§12.5) |
 | `num-dual` | **0.15.0** | `pse-kernels`, `pse-numerics` | every kernel body is written against the 0.15 trait shape (`DualNum<Primitive = f64>`); `implicit_derivative*` for implicit kernels (§18.2) |
 | `faer` | 0.24.4 | `pse-numerics`, `pse-diagnostics` | sparse LU, dense SVD, `pseudoinverse_from_svd_with_tolerance`, `matrix_free` (§15.4, §15.5) |
@@ -489,6 +494,8 @@ A relation schema has one meaning and may occur at several immutable compiler st
 
 ### 4.2 What is generated from it
 
+> Decision: ADR-0051
+
 `pse-schema` runs as a build step (a non-macro `syn`/`quote`/`prettyplease` pipeline; emitted source is committed under `pse-relations/src/generated/` and diffed in CI) and produces, for every relation:
 
 | Generated artifact | Form | Consumer |
@@ -503,11 +510,13 @@ A relation schema has one meaning and may occur at several immutable compiler st
 | Migrations | `fn migrate_v1_to_v2(batch) -> batch` | artifact loader |
 | Authoring JSON Schema | for editor validation of package documents | tooling |
 
+Two further artifacts are generated into committed trees: `crates/pse-authoring/src/generated/documents.rs`, the serde document structs the package loader parses into, generated from the registry's `DocumentSpec`; and the `docs/generated/` layout — `README.md`, `relations/<ns>.md`, `enums.md`, `extension_types.md`, `passes.md`, `rules.md` and `schema/authoring.schema.json` (ADR-0051).
+
 Nothing hand-written may duplicate a column list. A hand-written struct that mirrors a relation is a governance failure (`tests/governance/tests/no_shadow_structs.rs` greps generated symbol names against hand-written code).
 
 ### 4.3 Metadata conventions
 
-> Decision: ADR-0039, ADR-0044
+> Decision: ADR-0039, ADR-0044, ADR-0050
 
 Schema-level metadata keys (attached by the provider and preserved through IPC/Parquet):
 
@@ -556,6 +565,8 @@ All extension types have a standard storage type so that an unaware consumer rea
 | `pse.expr_dsl` | `Utf8` | authored expression text: the only authored form of an expression. Its parsed graph is a `normalized.*_expr_*` relation produced by P3 with a derivation to the source span (§7.7); no authored relation stores a parsed graph |
 | `pse.target_path` | `Utf8` | an authored selector path naming instances, ports, symbols, or equations (`fs.H101.inlet.flow_mol`, `fs.H101.inlet.*`). P1 resolves it to entity identities at commit (`case_spec_targets` and kin, §6.10); the text is the serialization of those rows and is re-rendered by `rename` |
 
+`pse.enum` metadata is `{"v":1,"enum_id":"<32 hex>"}` and `pse.ordinal_ref` metadata is `{"v":1,"target_relation_id":"<32 hex>"}`; every other type carries `{"v":1}`; a factory rejects any other shape.
+
 Rust implementations use `arrow_schema::extension::ExtensionType` — `NAME`, typed `Metadata`, `metadata`, `serialize_metadata`, `deserialize_metadata` (which must error on unexpected metadata), `supports_data_type`, `try_new`, and the provided `validate` and `try_new_from_field_metadata`, which are the read path. The generated `try_from(&RecordBatch)` calls `try_extension_type::<E>()` on every extension column beside the schema-fingerprint check; `Field::extension_type()` (the panicking variant) is banned by a governance grep. Every type's serialized metadata carries a `v` field, and the registration factory (below) accepts the metadata generations it knows and rejects the rest — that is the extension-type migration mechanism (DM-44, DM-51). One generated conformance test per type covers the metadata round trip, `supports_data_type` accept and reject, and reconstruction from a `Field`.
 
 **Engine registration and active admission.** Every type in this table is registered in the DataFusion session's `ExtensionTypeRegistry` at session construction (`ExtensionTypeRegistration::new_arc(name, factory)` on a `MemoryExtensionTypeRegistry` preloaded with the seven canonical `arrow.*` types), generated from this table; the generator asserts that no registration replaces an earlier one. Registration alone is passive: review E1 demonstrates that an ordinary `SELECT` can bypass its factories. The generated validator runs when a provider or bundle is admitted, on the complete logical plan before any rewrite can remove an invalid field, as the first and final platform `AnalyzerRule` around the ordered engine analyzers, after logical optimization before physical planning, and on every published output batch. Traversal includes subqueries (`LogicalPlan::apply_with_subqueries`), expressions and nested child fields. Rule expressions additionally use the platform's quantity inference; an untyped computed quantity fails head admission (§14.2). A session exposes only these validated planning/execution entry points.
@@ -586,7 +597,7 @@ Dictionary encoding is applied at write time for enums and repeated labels; it n
 
 ### 5.1 Three forms of identity
 
-> Decision: ADR-0045
+> Decision: ADR-0045, ADR-0049, ADR-0050
 
 | Form | Type | Assigned by | Survives |
 |---|---|---|---|
@@ -641,7 +652,7 @@ A change to a case never changes the model revision; a change to a template or c
 
 ### 5.3 Canonical serialization and hashing
 
-> Decision: ADR-0045, ADR-0030
+> Decision: ADR-0045, ADR-0030, ADR-0050
 
 Logical content and physical encoding have different identities. `pse-ids` owns both hashing entry points. `pse.canon.v2` is a new contract: v1's ignored-null payload and stream/file ambiguity cannot be repaired while retaining its name. No implemented v2 canonicalizer is claimed by this document.
 
@@ -708,6 +719,10 @@ reference.aliases @1             -- deprecated qualified names of named-policy e
   alias_id : sid PK · entity_id : sid · old_qualified_name : text · deprecated_in : text (package version)
 
 authored.model_revisions @1, authored.case_revisions @1   (§5.2)
+
+normalized.package_graph @1                     -- P0 output; exact version requirements only in phase 0
+  package_id : sid PK · version : text · content_hash : hash · depth : u16
+  dependency_package_ids : list<sid> · derivation_id : sid
 ```
 
 Every other authored relation's primary key is also present in `authored.entities`; the invariant `closure:entity_registered` enforces it.
@@ -1127,7 +1142,7 @@ compiled.math_weighted_means @1     node_id, pairs : list<struct<weight_node_id:
 compiled.math_reductions @1         node_id, kind : enum(ReductionKind) (sum|prod|min|max), domain_id : sid,
                                     bound_index_id : sid, filter_node_id : u64 [n]
 compiled.math_gathers @1            node_id, group_id : sid, coordinate_map : list<struct<bound_index_id: sid, position: u16>>
-compiled.math_broadcasts @1         node_id, domain_id : sid
+compiled.math_broadcasts @1         node_id, domain_id : sid, bound_index_id : sid
 compiled.math_derivatives @1        node_id, wrt_domain_id : sid, order : u8
 compiled.math_integrals @1          node_id, domain_id : sid, quadrature_policy_id : sid [n]
 compiled.math_smooth_ops @1         node_id, eps : f64                     -- smooth_max, smooth_min, smooth_abs, safe_sqrt, safe_log
@@ -1135,6 +1150,13 @@ compiled.math_conditionals @1       node_id, guard_node_id : u64            -- p
 compiled.math_kernel_calls @1       node_id, kernel_binding_id : sid, output_ordinal : u16
 compiled.math_implicit_refs @1      node_id, implicit_system_id : sid, unknown_ordinal : u16
 compiled.math_unit_converts @1      node_id, scale : f64, offset : f64, from_unit_id : sid, to_unit_id : sid
+compiled.math_piecewise_linear @1   node_id, breakpoints : list<struct<x: f64, y: f64>>,
+                                    input_quantity_type_id : sid, output_quantity_type_id : sid
+
+compiled.math_quantity_selections @1  -- the P10 derivation of the §8.3 selection made at each node
+  node_id : u64 · operation_id : sid [n] · builtin_rule : enum(BuiltinQuantityRule) [n]
+  operand_permutation : list<u16> · conversions : list<struct<operand: u16, conversion_id: sid>>
+  deferred_static_check : bool
 
 compiled.math_indexed_equations @1   -- one row per (instance, equation declaration): the indexed form produced by P7–P9 and consumed by P12
   indexed_equation_id : sid PK · owner_instance_id : sid · equation_decl_id : sid [n] · qualified_name : text
@@ -1475,6 +1497,8 @@ These enumerations are closed dictionaries whose members carry `idaes_name` for 
 | `UnitConvert` | 1 + scale, offset | from → to | scale | offset ≠ 0 only when a point quantity is converted from an affine unit (°C, psig) to its canonical unit; inserted by P3/P9, so no node carries an affine unit after P10 | C∞ | ✓ | ✓ | ✓ | ✓ |
 | `PiecewiseLinear` | breakpoints payload | given | slopes | — | C⁰ | ✓ | ✓ (SOS2 lowering) | ✓ (`Piecewise`) | ✓ |
 
+Phase 0 admits as a `Conditional` guard only a `SymbolRef` whose kind is the registered boolean kind or an `IntConst` 0/1 decided by feature selection; comparison and logical opcodes are a later amendment.
+
 "✓ (expanded)" means the backend receives scalar forms after P12 (index expansion) and P16 (backend lowering). `Conditional` is admitted in authored templates only under a guard whose value is decided at compile time (feature flags) or when the case selects a backend that supports it; otherwise it must be reformulated (smooth approximation, complementarity, or disjunction).
 
 ### 7.3 Operator contract record
@@ -1568,6 +1592,8 @@ unit        := "{" unit_expr "}" ;                      (* e.g. 320{K}, 2{bar}, 
 function    := "exp" | "log" | "log10" | "sqrt" | "abs" | "smooth_max" | "smooth_min" | "smooth_abs" | "safe_sqrt" | "safe_log"
              | "sin" | "cos" | "tan" | "tanh" | "erf" | "min" | "max" | "convert" | "weighted_mean" ;
 ```
+
+**Accepted superset (wave 1).** The parser accepts a documented superset of the grammar above. There are three entry points: an expression; an equation, with `==`, `<=` or `>=`; and a predicate, with `and`, `or`, `not`, `!=` and `in`. `expr where name = expr, …` binds local names as in §9.3. `eps=` is the last, named argument of the smooth and safe functions. `^` is right-associative, and `-x^2` is refused as ambiguous — write `(-x)^2` or `-(x^2)`. The comprehension form `f(x_i for i in set)` written in the mixer example below is **not** accepted; the chained `smooth_min` form of §11.1 is the authored form. `min` and `max` parse and are refused by P3 until their opcodes exist.
 
 Examples (heater energy balance and a mixer's smooth minimum pressure):
 
@@ -2345,7 +2371,7 @@ Generated `ScalarUDFImpl` wrappers for kernels (§18.5) are registered in the se
 
 ### 14.3 The pass engine
 
-> Decision: ADR-0041, ADR-0042, ADR-0044, ADR-0046
+> Decision: ADR-0041, ADR-0042, ADR-0044, ADR-0046, ADR-0050
 
 - **Complete stage memo.** Key a pass by ID/version, every named input port's schema and logical hash or explicit absence, registry/operator/quantity contracts, relevant package/domain/binding/provider-candidate artifacts, kernel implementation digests, and selected policies. Plan-executing passes also key the complete engine profile and generated function registry. The driver binds this immutable environment; undeclared file/catalog/config reads fail the contract. A changed candidate universe or absent optional relation is a changed input. Initially P7 and every other stage are cached as complete bundles, not per-instance tuples. Attempt metadata is excluded from semantic output membership; changed semantic lineage remains in the stage snapshot. Reusing equal relation storage does not authorize skipping a dependent stage whose complete inputs changed.
 - **Measured refinement.** A complete per-instance input bundle may be considered only when representative cold/warm measurements show whole-stage recomputation dominates preparation and the candidate passes full incremental-versus-clean comparisons (R-22). `salsa` remains deferred to the further R-01 trigger; neither a second dependency engine nor automatic read tracking is needed for initial execution.
@@ -2771,7 +2797,7 @@ An interrupted operation leaves the old ref valid and at most unreachable comple
 
 ### 20.2 Manifest
 
-> Decision: ADR-0044, ADR-0045
+> Decision: ADR-0044, ADR-0045, ADR-0049
 
 The versioned manifest is the physical envelope around the explicit semantic membership of §5.3. Its own checksum is held by the ref, not embedded recursively in itself. A representative member is:
 
@@ -2900,8 +2926,10 @@ P1 parses every document into `authored` rows via a change set; the document's c
 
 ```text
 authored.change_sets @1     change_set_id, base_revision_id, author, message, created_at
-authored.change_ops @1      change_set_id, ordinal, op : enum (insert|update|delete|rename), relation_id, row_key, row (Struct), precondition : text [n]
-                            -- rename: row carries entity_id and the new name/qualified_name; rejected for named-policy entities (§5.1)
+authored.change_ops @1      change_set_id, ordinal, op : enum (insert|update|delete|rename), relation_id, row_key,
+                            row : struct<staged_port: text, staged_ordinal: u64>, precondition : text [n]
+                            -- row points into the change set's per-relation staged members, never at JSON text (D1)
+                            -- rename: the staged row carries entity_id and the new name/qualified_name; rejected for named-policy entities (§5.1)
 ```
 
 A change set is validated (P2 on the resulting snapshot), applied atomically, and yields a new model or case revision. **The commit contract is P2-level validity**: a committed revision is structurally and referentially valid (every invariant of `reference.schema_invariants` holds, every target resolves to an identity, every expression parses); it may still fail P3–P10 (an unresolvable template path, a unit inconsistency). Publication as a *compiled problem* is gated separately by the closure report (§14.5), and every revision carries `last_closure_status` so a reader can tell a committed revision from a compilable one. There is no other write path into `authored` (decision D2 and doctrine P20). Attempts to write a derived relation are rejected; an "expected" derived fact goes to `provenance.assertions`.
@@ -2975,7 +3003,7 @@ DataFusion errors map into the taxonomy at one place, never per call site:
 
 ### 24.1 Test layers
 
-> Decision: ADR-0048
+> Decision: ADR-0048, ADR-0051
 
 | Layer | What it proves | Mechanism |
 |---|---|---|
@@ -3151,7 +3179,7 @@ The left column is the IDAES mechanism (source path relative to `idaes-pse/idaes
 | `authored` | `packages`, `documents`, `entities`, `model_revisions`, `case_revisions`, `change_sets`, `change_ops`, `domains`, `domain_members`, `continuous_domains`, `species`, `species_elements`, `phases`, `phase_species`, `henry_declarations`, `material_systems`, `reactions`, `stoichiometry`, `reaction_methods`, `reaction_packages`, `parameter_values`, `property_packages`, `state_bounds`, `phase_equilibrium_pairs`, `method_selections`, `default_scaling`, `templates`, `template_params`, `template_features`, `template_property_requirements`, `template_feature_rules`, `template_guards`, `template_domains`, `template_symbols`, `template_equations`, `template_submodels`, `template_ports`, `template_contributions`, `template_law_instances`, `template_requirements`, `template_display`, `template_scaling_defaults`, `instances`, `instance_equations`, `flowsheets`, `scopes`, `selector_terms`, `connections`, `cases`, `case_specs`, `case_spec_targets`, `case_activations`, `case_activation_targets`, `case_objectives`, `case_policies`, `discretization_policies`, `solver_profiles`, `datasets`, `observations`, `observation_targets`, `measurement_models`, `scenarios`, `case_sets`, `case_set_samples`, `tags` |
 | `normalized` | `package_graph`, `domain_products`, `property_demand_seeds`, the parsed expression graphs `template_expr_*`, `instance_expr_*`, `display_expr_*`, `contribution_expr_*`, `guard_expr_*` (one family per `pse.expr_dsl` column), canonical copies of authored relations after P3 |
 | `inferred` | `valid_index_tuples`, `phase_species`, `phase_equilibrium_species`, `state_flash_required`, `property_requirements`, `method_resolutions`, `instance_tree`, `instance_features`, `instances`, `ports`, `port_members`, `scope_members`, `boundary_crossings`, `topology_edges`, `tear_candidates`, `connection_equations`, `initialization_order`, `undecided`, law negative-completeness rows |
-| `compiled` | `meshes`, `mesh_nodes`, `stencils`, `quadrature_rules`, `symbols`, `symbol_references`, `symbol_groups`, `symbol_group_members`, `math_expr_nodes`, `math_expr_args`, `math_symbol_refs`, `math_float_constants`, `math_int_constants`, `math_affine`, `math_weighted_means`, `math_reductions`, `math_gathers`, `math_broadcasts`, `math_derivatives`, `math_integrals`, `math_smooth_ops`, `math_conditionals`, `math_kernel_calls`, `math_implicit_refs`, `math_unit_converts`, `math_indexed_equations`, `math_free_indices`, `math_equations`, `math_objectives`, `math_implicit_systems`, `math_complementarity`, `math_alternative_sets`, `math_alternatives`, `math_dae_links`, `math_static_analysis`, `kernel_bindings`, `scaling_plans`, `variable_scales`, `equation_scales`, `initialization_plans`, `init_stages`, `solve_plans`, `problems`, `variable_order`, `equation_order`, `bound_values`, `case_bound_substitutions`, `stage_bundles`, `incidence`, `dm_partition`, `blocks`, `block_members`, `sparsity_patterns`, `evaluation_programs`, `backend_bindings` |
+| `compiled` | `meshes`, `mesh_nodes`, `stencils`, `quadrature_rules`, `symbols`, `symbol_references`, `symbol_groups`, `symbol_group_members`, `math_expr_nodes`, `math_expr_args`, `math_symbol_refs`, `math_float_constants`, `math_int_constants`, `math_affine`, `math_weighted_means`, `math_reductions`, `math_gathers`, `math_broadcasts`, `math_derivatives`, `math_integrals`, `math_smooth_ops`, `math_conditionals`, `math_kernel_calls`, `math_implicit_refs`, `math_unit_converts`, `math_piecewise_linear`, `math_quantity_selections`, `math_indexed_equations`, `math_free_indices`, `math_equations`, `math_objectives`, `math_implicit_systems`, `math_complementarity`, `math_alternative_sets`, `math_alternatives`, `math_dae_links`, `math_static_analysis`, `kernel_bindings`, `scaling_plans`, `variable_scales`, `equation_scales`, `initialization_plans`, `init_stages`, `solve_plans`, `problems`, `variable_order`, `equation_order`, `bound_values`, `case_bound_substitutions`, `stage_bundles`, `incidence`, `dm_partition`, `blocks`, `block_members`, `sparsity_patterns`, `evaluation_programs`, `backend_bindings` |
 | `runtime` | `runs`, `solutions`, `duals`, `residuals`, `iterations`, `solver_events`, `diagnostics_findings`, `kernel_evaluations`, `kernel_evaluation_outcomes`, `host_capabilities`, `sweep_results`, `profile_results`, `run_state` |
 | `provenance` | `derivations`, `pass_records`, `assertions`, `refs`, `closure_report` |
 

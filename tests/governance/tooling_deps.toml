@@ -25,7 +25,7 @@ reason = "dev-dependency of pse-benches only; the §24.3 performance groups"
 
 [[dep]]
 name = "tempfile"
-reason = "dev-dependency: object-store and artifact-store lifecycle tests need a scratch root"
+reason = "dev-dependency and xtask: object-store and artifact-store lifecycle tests need a scratch root, and `codegen --check` regenerates into one (ADR-0051)"
 
 [[dep]]
 name = "tracing-subscriber"
@@ -58,6 +58,14 @@ reason = "build-dependency of pse-ipopt-sys: locates Ipopt >= 3.14 (blueprint §
 [[dep]]
 name = "semver"
 reason = "xtask and pse-tests-governance: compares family versions and declared rust-version floors"
+
+[[dep]]
+name = "sha2"
+reason = "xtask only: writes python/pse/contracts/GENERATED.sha256; semantic identity stays blake3 in pse-ids (blueprint §5.3, ADR-0051)"
+
+[[dep]]
+name = "async-trait"
+reason = "dev-dependency of pse-tests-lifecycle: the fault-injecting ObjectStore wrapper implements an async trait (blueprint §24.1 \"Lifecycle\")"
 
 [[dep]]
 name = "anyhow"
