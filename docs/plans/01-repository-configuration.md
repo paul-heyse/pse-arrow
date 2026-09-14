@@ -315,7 +315,9 @@ its verification tools. Windows fixture paths are normalized, directory skill al
 are excluded from sdists, and benchmark smoke selects the relations crate when enabling
 its validation feature. Doctor reads package metadata because invoking a tool wrapper's
 `--version` attempted network access. Dependabot's Cargo strategy is `auto`; GitHub
-rejected the earlier `increase` value. Final cross-platform and packaging results are
+rejected the earlier `increase` value. The wheel action's explicit `stable` override
+was removed so it reads the pinned toolchain; clean installs assert the embedded compiler
+version matches that pin. Final cross-platform and packaging results are
 recorded by PR #1's checks, rather than inferred from local compilation.
 
 ### Deliberate boundaries and handoff

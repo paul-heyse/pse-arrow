@@ -118,9 +118,8 @@ jobs:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
           maturin-version: ${{ env.MATURIN_VERSION }}
-          # The toolchain still comes from rust-toolchain.toml; this only tells the
-          # action not to install one of its own choosing.
-          rust-toolchain: stable
+          # Omit rust-toolchain: the action reads rust-toolchain.toml. An explicit
+          # `stable` input overrides that pin with a moving channel.
           sccache: "true"
           args: --release --out dist --locked
       - name: every wheel is cp311-abi3
@@ -221,12 +220,24 @@ jobs:
           uv run --python "${GITHUB_WORKSPACE}/.venv-${INSTALL_PYTHON}" \
             --no-project python -c \
             'import pse, msgspec; print(msgspec.json.format(msgspec.json.encode(pse.build_info())).decode())'
-      - name: no numpy on import
+      - name: compiler provenance and no numpy on import
         # numpy must stay behind the pse._array boundary; importing pse must not pull it
         # in. A subprocess with a poisoned finder is the fixture; here a plain check.
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}"
           uv run --python "${GITHUB_WORKSPACE}/.venv-${INSTALL_PYTHON}" \
-            --no-project python -c \
-            'import sys, pse; assert "numpy" not in sys.modules, "importing pse pulled in numpy"; print("ok")'
+            --no-project python - <<'PY'
+          import os
+          import pathlib
+          import sys
+          import tomllib
+          import pse
+
+          pin = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / "rust-toolchain.toml"
+          expected = tomllib.loads(pin.read_text())["toolchain"]["channel"]
+          actual = pse.build_info().rustc_version
+          assert actual == expected, f"wheel compiler {actual} != pinned {expected}"
+          assert "numpy" not in sys.modules, "importing pse pulled in numpy"
+          print("compiler pin and import boundary verified")
+          PY
