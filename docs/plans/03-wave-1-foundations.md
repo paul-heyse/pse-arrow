@@ -519,6 +519,16 @@ pub struct Driver;    // new(Arc<Catalog>, Arc<SharedRuntime>); commit(&Document
 
 ## Progress ledger (living; updated 2026-09-14)
 
+**Landed on `main` (2026-09-14, squash commit `d375a6a`, PR #9).** Everything the rows
+below describe — the revision-5 amendment with ADR-0039–0048 accepted, ADR-0049–0051, the
+five keel packets K-1…K-5, the maintainer's prompt-free permissions and hook update, and
+the `docs/book.toml` link fix — is on `main` in one squash. The stacked PRs #2–#8 were
+consolidated because GitHub closed the amendment PR when PR #1's branch was deleted and
+marked the packet PRs as merged into their intermediate bases; the merges used the
+maintainer's admin bypass without awaiting CI (governance issue #12). Conflict resolution
+was proved lossless (`main` equalled the branch base for every conflicting file). Tier 1
+starts from `origin/main`: one branch and one PR per packet, base `main`, never stacked.
+
 | Item | State | Evidence / where |
 |---|---|---|
 | Stage 0 — merge PR #1 | **awaiting maintainer** | `chore/complete-repository-setup`, every reported check green |
