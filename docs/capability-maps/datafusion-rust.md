@@ -1,9 +1,38 @@
+---
+status: evidence-map
+blueprint_revision: 5
+pins: Cargo.lock
+regenerated: null
+reviewed: 2026-09-13
+---
+
 # DataFusion (Rust) — capability map
+
+**Current binding:** blueprint revision 5 and ADR-0039–ADR-0048. The inventories and
+original extraction/probe receipts below retain their historical scope and dates;
+this update did not regenerate that corpus. Historical comparisons to revision 2
+are not current acceptance claims. Corrected interpretations are recorded in place.
+The current design remains **Proposed**; pinned library mechanisms are
+**Interface-checked**, and only the named characterization experiments are **Tested**.
+
+`[review:E1]`–`[review:E6]` refer to the [retained six-group characterization](../design_review/evidence/blueprint-rev4-2026-09-13/README.md)
+and its conditions: Rust 1.98.1, Arrow 59.3.0, DataFusion 55.1.0, dev,
+Arrow force_validate, zero failure baseline. The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+explains the counterexamples; these markers do not certify a platform implementation.
+
+| Current decision | Library mechanism and boundary | Evidence / adoption gate |
+|---|---|---|
+| Active semantic analyzer | Generated recursive validator before/after relevant plan rewrites, including subqueries; explicit provider/output admission | ADR-0039; [review:E1]; registry registration alone is passive |
+| Guarded execution and field-aware UDFs | Built-in CASE, complete argument/return contracts, scalar fast paths | ADR-0043/0047; [review:E2]; flags do not implement lazy arguments |
+| Standard relational mechanisms | Physical expressions/Arrow filters; typed aggregate and unnest for contributions/membership | ADR-0048; review L3/L4; full-result and expansion-reference fixtures |
+| Complete stage reuse and noncanonical evidence | Complete input ports plus engine/function registry; diagnostic protobuf checksums outside semantic keys | ADR-0040–0044; [review:E5] and dependency-matrix tests |
+| Shared accounted runtime | Shared RuntimeEnv, fallible platform reservations and consumer/peak attribution | ADR-0046; review L5; query pool is not a process-wide allocation limit |
+| Predicate preimages | Exact supported replacement semantics with half-open bounds | ADR-0048; review L8; R-25 proof/equivalence and measurement trigger |
 
 **Companion to** `arrow-rust.md`; together they cover the engine stack that `supporting-rust-libraries.md` deliberately excluded. The register (§13) and gate review (§14) here are now **DataFusion-only**; the Arrow map carries its own. In the previous edition both were combined here, which meant neither document could be updated alone.
 
 **Compiled** 2026-09-13 against **`datafusion` 55.1.0** on **`arrow` 59.3.0**.
-**Adjudicates** blueprint **revision 2** (2026-09-13). The previous edition adjudicated revision 1 and never said so; §0.1 lists what changed underneath it.
+**Historical survey adjudicated** blueprint **revision 2** (2026-09-13). The previous edition adjudicated revision 1 and never said so; §0.1 lists what changed underneath it.
 
 ---
 
@@ -106,7 +135,7 @@ Committed under **`docs/capability-maps/evidence/rust/`**: the extraction manife
 | `PhysicalPlanningContext` | `datafusion-expr` | struct |
 | `EnsureRequirements` | `datafusion-physical-optimizer` | struct |
 | `is_strict` | `datafusion-expr` (`ScalarUDFImpl`) | trait method |
-| `convert_to_state` | `datafusion-expr-common`, `datafusion-functions-aggregate` | function |
+| `convert_to_state` | DM-25 | **Note only:** the revised algebra uses built-in aggregation, but declares no custom UDAF requiring this state-conversion route. Do not infer a consumer merely from the aggregate family (ADR-0048). |
 
 `[rustdoc:*@55.1.0]`. §3.1's further note that "planner contracts moved toward `datafusion-session`" is also **confirmed**: `TableProvider`, `CatalogProvider`, `CatalogProviderList`, `SchemaProvider`, `Session` and `ScanArgs` all live there.
 
@@ -234,14 +263,14 @@ q: WHERE id IS NOT NULL
 Five facts, and they change §5.4's status from unverifiable to specifiable:
 
 1. **Equality on a `FixedSizeBinary(16)` key arrives as a plain binary expression with a literal on one side** — `rel.id = FixedSizeBinary(16, …)`. That is a shape a provider can match structurally. **`Exact` is achievable on key equality**, which is what §5.4 promises. The blocking item is resolved in the design's favour.
-2. **`IN (a, b)` does not arrive as an `InList`.** The optimizer has already rewritten it to a chain of `OR`s. A provider written to match `Expr::InList` — the obvious implementation — would **never fire**, silently falling back to a full scan with no error. This is precisely the kind of thing that cannot be learned from the type signature.
+2. **The measured two-element `IN` became an `OR`.** This is not a universal shape guarantee: support only qualified expression forms, handle supported `InList` forms explicitly, and return Unsupported for the rest. Blueprint §5.4 now specifies that conservative contract.
 3. **Conjunctions are split.** `A AND B` arrives as two independent filters, so a provider can accept one `Exact` and decline the other. §5.4's per-column policy is expressible exactly as written.
 4. **`IS NOT NULL` on a non-nullable column is eliminated before the provider sees it** — zero filters offered. The optimizer used the schema's nullability declaration. This is a small, pleasing confirmation that `Field` nullability is load-bearing, and a reminder that it is the *one* constraint DataFusion actually enforces (see Gaps).
 5. **`supports_filters_pushdown` is called more than once per plan** — each filter appeared twice. The method must therefore be **pure and idempotent**; a provider that logged, counted, or mutated state there would double-count. Not documented in the signature.
 
 ### Gaps and risks
 
-- **Nothing verifies an `Exact` claim.** PROBE A shows the shapes are matchable; it does not make a match *correct*. Recommend a test-only wrapper provider that re-applies every filter it advertised as `Exact` to the batches it returns and fails loudly on a survivor. Cheap, runs in CI over the golden snapshots (§24), and converts a trust-based claim into a tested one (**DM-53, DM-54**).
+- **Exact requires completeness as well as soundness.** Reapplying filters to returned rows cannot detect missing matches. Compare full values and multiplicities with a pushdown-disabled provider and include a deliberately empty/over-pruning negative control (review R4-11; blueprint §24.1).
 - **`supports_filters_pushdown` must be pure** (PROBE A, fact 5). Worth a comment in the generated provider, since the obvious place to put instrumentation is exactly there.
 - **DataFusion enforces no relational constraint except `Field` nullability — and does not check that on ingest.** Upstream is explicit: primary, unique and foreign keys and check constraints "are provided for informational purposes", are "not validated or used during query planning", and returning nulls for a non-nullable column "will result in runtime errors during execution" `[c7:/apache/datafusion]`. §5.4 declares "Constraints: primary key only", which is sound **as a declaration** — but it must not be read as enforcement. The platform's P2 invariant validation is the only thing that makes the claim true (**G7**, DM-43).
 - `Statistics::new_unknown(&Schema)` is the honest default and should be the starting point for every provider, with statistics added only where the manifest supplies them — rather than constructing `Statistics` optimistically and hoping.
@@ -419,7 +448,7 @@ PROBE X2  EXPLAIN formats accepted by 55.1.0
 | **Declare `EmissionType` and `Boundedness` honestly on any custom `ExecutionPlan`** | **G7**, DM-43, DM-30 | **adopt.** A snapshot-artifact scan is `Boundedness::Bounded` and (per the upstream example) `EmissionType::Incremental`. These are capability claims the engine plans against: declaring `Bounded` for something unbounded causes an operator to wait forever for an end that never comes. |
 | **Partitioning as a declared property, not an accident** | DM-35 (concurrency respects dependencies and declared ordering), DM-40 | **adopt.** §5.3 requires canonical ordering, and a partitioned scan emits batches in nondeterministic order across partitions. That is fine — ordering is imposed later by the sort in §5.3 step 1 — but it must be *stated*, because a pass that reads a rule result and assumes arrival order is deterministic will be intermittently wrong. |
 | Single-partition providers for `compiled` relations | DM-36, DM-58 | **evaluate.** §5.4 says the provider "never prunes rows of a coupled mathematical problem". A related discipline: relations consumed as a whole by a native pass gain nothing from partitioning and lose ordering determinism. Declaring `Partitioning::UnknownPartitioning(1)` for those is simpler and cheaper. Measure before generalising (DM-58). |
-| `convert_to_state` | DM-25 (unify operation contracts) | **note only.** It belongs to the aggregate-UDAF path, which the blueprint does not currently use — §14.2's algebra has no aggregate. Listed because §3.1 names it; if UDAFs are never written, this is a pin-table entry with no consumer, and §3.1 could say so. |
+| `convert_to_state` | DM-25 | **Note only:** the revised algebra uses built-in aggregation, but declares no custom UDAF requiring this state-conversion route. Do not infer a consumer merely from the aggregate family (ADR-0048). |
 
 ### Gaps and risks
 
@@ -463,8 +492,8 @@ Argument carriers: `ReturnFieldArgs { arg_fields, scalar_arguments }` and `Scala
 
 | Item | DM / gate | Recommendation |
 |---|---|---|
-| **`conditional_arguments()` + `short_circuits()`** | **G4 (hidden behavior)**, **DM-28**, DM-08 | **adopt — the most consequential unmentioned method in the engine for this design.** §7.2's IR has a `Conditional` operator and §18.2 step 6 defines domain guards: evaluating `log` of a non-positive value raises a recoverable evaluation error. If a kernel's arguments are evaluated *eagerly* inside an `if/then/else`, the guarded branch is computed anyway and the guard fires on a value the model never intended to evaluate — a spurious `solve.evaluation_error` with a misleading culprit. `conditional_arguments` is how a UDF tells DataFusion which arguments are conditional; `short_circuits` declares the behaviour. Generated adapters for conditional kernels **must** implement both. |
-| **`preimage()`** | **DM-43** (negotiate capabilities), G6, G7 | **evaluate — potentially large.** Given `f(x) = literal`, `preimage` returns a `Range` on `x`. That is what lets a filter over a *computed* column be pushed down to a scan on the underlying column. For §19 analytics over `runtime` relations ("find states where enthalpy exceeds …"), this is the difference between a pushdown and a full scan. It is also a **correctness surface with the same character as `Exact` pushdown**: a wrong preimage silently drops rows. Adopt only for kernels with a proven monotone inverse, and test it adversarially. |
+| **`conditional_arguments()` + `short_circuits()`** | G4, DM-28, DM-08 | **Optimizer declarations only.** Generic UDF evaluation is eager even with both flags [review:E2]. Use built-in `Expr::Case`/`CaseExpr` for actual guarded execution; emit truthful flags only for a supported implementation. |
+| **`preimage()`** | DM-24, DM-43, G6 | **Evaluate under R-25.** A supported replacement must denote the equivalent input set with correct half-open bounds, nulls and floating behavior. Monotonicity alone is not proof; conservative ranges may only prune while retaining a residual predicate (review L8). |
 | **`output_ordering` / `preserves_lex_ordering` / `strictly_order_preserving`** | **DM-24** (preserve semantics across rewrites), DM-26, DM-40 | **adopt for monotone kernels.** §5.3 depends on canonical ordering and §15.3's block triangularisation depends on deterministic order. Declaring that a strictly increasing kernel preserves ordering lets DataFusion keep a sort through the call instead of re-sorting — and, more importantly, makes the *claim* explicit and testable rather than implicit. The blueprint already tracks monotonicity for `evaluate_bounds`; the same declaration feeds these three. |
 | `is_nullable(&[Expr], schema)` | **DM-08**, G2 | **adopt.** §18.5 says the batch adapter produces "nulls plus a diagnostic column when requested" for validity violations. If the UDF declares itself non-nullable while the batch path can emit nulls, the plan's schema lies — a G2 failure. The declaration must be derived from the same `KernelSpec` strictness/validity data that drives the batch adapter, not written independently. |
 | `with_updated_config(&ConfigOptions)` and `ScalarFunctionArgs.config_options` | **DM-28** (declare ambient inputs), **G4** | **reject, and assert it.** A kernel whose result depends on session config is nondeterministic with respect to everything §5.3 hashes. §14.2 rule 5 already pins the session config and includes a function-registry hash in the pass record — good — but the generated adapters should simply never read `config_options`, and a governance check should say so. |
@@ -508,7 +537,7 @@ Argument carriers: `ReturnFieldArgs { arg_fields, scalar_arguments }` and `Scala
 
 | Item | DM / gate | Recommendation |
 |---|---|---|
-| **Choose the `MemoryPool` deliberately, and never `UnboundedMemoryPool`** | **DM-30** (make partial failure and recovery explicit), **G5**, DM-39 | **adopt.** Five implementations exist with materially different failure behaviour. `UnboundedMemoryPool` converts an out-of-memory condition from a typed `ResourcesExhausted` error into an OOM kill — which destroys the run, any in-flight artifacts, and §23.2's ability to classify the failure at all. `FairSpillPool` or `GreedyMemoryPool` with an explicit limit turns exhaustion into a recoverable, classifiable failure. **The blueprint says "`MemoryPool` limits" without choosing; this is the choice.** |
+| **Choose and share an accounted `MemoryPool`** | DM-30, DM-35, DM-39 | **Adopt shared RuntimeEnv and explicit reservations.** FairSpillPool limits fallibly accounted consumers, not arbitrary Arrow/native/solver allocations; `grow` is infallible. Platform buffers reserve through `try_grow` and report pool/process peaks separately (ADR-0046). |
 | **`TrackConsumersPool` / `PeakRecordingPool` for diagnostics** | **DM-50** (observe the model lifecycle), DM-39 | **evaluate.** These wrap a pool to attribute memory to consumers and record peaks. §24.3 benchmarks and §23.1 metrics both want this, and it converts "the pass used too much memory" into "this operator did". |
 | **`TimeProvider` — inject a deterministic clock** | **DM-28** (declare ambient inputs and nondeterminism), **DM-48** (reproducibility contract) | **adopt for tests and reproduction.** Wall-clock time is an ambient input. §20.4's `pse reproduce` asserts byte-identical relation hashes for deterministic passes; anything that reaches a timestamp through the engine breaks that. DataFusion already provides the seam — use `SystemTimeProvider` in production and a fixed provider under test. **Unmentioned in the blueprint, and it is exactly the DM-28 mechanism the charter asks for.** |
 | **`CacheManager` for artifact metadata** | DM-26 (separate preparation from repeated execution), DM-32 | **evaluate.** §5.4 requires statistics "answered only from cached metadata"; DataFusion ships a pluggable metadata cache with `FileMetadata`/`CachedFileMetadata`. Whether to use it or keep the manifest cache platform-side is a real choice — the engine's cache is keyed to files, while the platform's natural key is the content hash. Probably platform-side wins, but it should be a decision. |
@@ -656,7 +685,7 @@ PROBE C2/C3  plan-byte stability vs the number of field-metadata keys
 
 | Item | DM / gate | Recommendation |
 |---|---|---|
-| **Canonicalise field and schema metadata at schema construction** | **DM-48**, DM-15, **G6** | **adopt — this is the fix for the erratum above, and it is one function.** Build every `Schema` through a constructor that inserts metadata from a sorted, deterministic source. It costs nothing, it makes `datafusion-proto` bytes reproducible, and it simultaneously fixes the platform-side `pse.contract.fingerprint` (Arrow map §11 register row 8). Fixing it at fingerprint time instead would fix neither, because the instability is inside DataFusion's encoder. |
+| **Canonical metadata versus diagnostic plans** | DM-48, DM-15, G6 | **Corrected:** sorted HashMap insertion does not stabilize protobuf [review:E5]. Canonicalize logical relation metadata under §5.3; preserve plan bytes as explicitly noncanonical diagnostic evidence outside memo keys (ADR-0044). |
 | **Implement `try_encode_udf` on the platform codec** | **DM-31**, **G6** | **adopt.** `try_encode_udf` is a *provided* method, so a codec that does not override it encodes a UDF by **name only**. §18.5's kernels are generated UDFs whose *definitions* change when `KernelSpec` changes. A fingerprint that captures only the name would be identical across two plans that compute different things — exactly the "cache hit reuses an artifact produced under different semantics" failure **G6** describes. §14.2 already hashes the kernel digest separately, so the information exists; the codec must include it or §14.2 must state that the fingerprint deliberately excludes UDF bodies and the kernel digest covers them. Either is defensible; silence is not. |
 | Verify fingerprint stability in CI | DM-48, DM-53 | **adopt.** Encode the same plan in two fresh processes and assert byte equality. This is a three-line test that would have caught the erratum above, and it is the only thing that keeps the canonicalisation from regressing. |
 | `Serializeable` for individual `Expr`s | DM-48 | **evaluate.** §6.6's `pse.expr_dsl` columns are the authored form and `normalized.*_expr_*` the parsed graphs — both platform-owned, so this is not needed for the IR. It is useful for *caching a compiled filter expression* alongside a pass record. Low priority. |
@@ -679,7 +708,7 @@ PROBE C2/C3  plan-byte stability vs the number of field-metadata keys
 
 **This is the largest single gap between the blueprint and DataFusion 55.1.0**, and it did not exist in the previous edition because the surface did not exist in the extraction corpus.
 
-The blueprint's §4.3 says of `pse.*` metadata keys: *"nothing in DataFusion acts on these keys unless a platform component explicitly reads them."* At 55.1.0 that is an **erratum**. DataFusion has a first-class logical-type layer and a name-keyed extension-type registry, wired into `SessionStateBuilder`, which resolves `ARROW:extension:name` to registered behaviour and validates storage types during planning.
+DataFusion 55.1.0 provides a name-keyed extension registry and explicit validation helpers. X1 exercises a direct helper; it does not establish planning admission. E1 demonstrates the missing call on ordinary SELECT [review:E1]. The revised blueprint installs active semantic boundaries (§4.4).
 
 **Role:** §4.4 (the ten `pse.*` extension types), §4.5 (the logical type catalog), §4.3 (metadata conventions), §5.4 (what the provider hands the engine), §18.5 (`return_field_from_args` and UDF typing).
 
@@ -729,9 +758,9 @@ PROBE E  ARROW:extension:name through planning and execution
 
 Four consequences, in order of importance.
 
-1. **Storage-type validation becomes an engine-level property of every plan**, not a check the platform performs only inside generated views. The Arrow map's §11 register row 1 (`try_extension_type` inside `try_from`) validates a batch the platform constructs; this validates *anything* that reaches the session, including whatever a future analytics query or an imported artifact puts in front of it. Same principle (**DM-07**, **G3**), one level lower, and covering paths generated code never sees.
+1. **Direct validation is available, automatic plan validation is not established.** Invoke the generated recursive validator at supported admission/plan/output boundaries; E1 proves registration alone is insufficient [review:E1].
 
-2. **An unregistered `pse.*` name errors rather than degrading.** This is the opposite of the Python boundary's behaviour, where the companion Python map measured that an unregistered extension type silently becomes its bare storage type. The same design decision is therefore *enforced* on the Rust side and *unenforced* on the Python side — which is exactly the asymmetry §21's loss profile must declare (**DM-42**, **G7**).
+2. **An explicit registry lookup rejects an unknown name.** An ordinary query may never perform that lookup. Python and Rust therefore both need an active platform boundary; the loss profile identifies the enforcing API rather than attributing enforcement to registration [review:E1].
 
 3. **`ARROW:extension:name` propagates through projection, aliasing and aggregation** (PROBE E). §4.3's claim that metadata is "a carrier" understates it: the carrier is preserved by the engine across operations that rewrite schemas. That is what makes an end-to-end semantic-type discipline feasible at all.
 
@@ -751,7 +780,7 @@ Four consequences, in order of importance.
 
 | Item | DM / gate | Recommendation |
 |---|---|---|
-| **Register the ten `pse.*` types in an `ExtensionTypeRegistry` at session construction** | **DM-06**, **DM-07**, **G3**, DM-44 | **adopt — the headline recommendation of this edition.** One registration per type, generated from §4.4's table exactly as §4.2 generates everything else. It converts §4.4 from a documentation convention into an engine-enforced constraint, covering every plan rather than only generated views, and it costs one generated function. |
+| **Register all declared types and invoke generated validation** | DM-06, DM-07, G3, DM-44 | **Adopt:** factories plus recursive provider/bundle/analyzer/output admission; one generated registration function alone does not close G3 (ADR-0039; [review:E1]). |
 | **`DFExtensionType::create_array_formatter`** | **DM-49**, DM-47 | **adopt alongside the Arrow map's §11 register row 11.** The same formatter implementation satisfies Arrow's `ArrayFormatterFactory` and DataFusion's per-type hook, so `pse.semantic_id` renders meaningfully in `EXPLAIN`, in error messages and in diagnostics instead of as 16 raw bytes. |
 | **`TypePlanner` for `pse.*` types in analytic SQL** | DM-06, DM-55 | **evaluate.** §19.2's reporting surface is SQL. A `TypePlanner` lets a query say `CAST(x AS SEMANTIC_ID)` — or any platform type name — and have it resolve to the right storage type *with* its extension metadata. Upstream's own example does exactly this for `UUID` → `FixedSizeBinary(16)` + `ARROW:extension:name` `[c7:/apache/datafusion]`, which is the same shape as `pse.semantic_id`. Only worth it if analytic SQL becomes a supported interface rather than an ad-hoc one. |
 | **Extension-type versioning via the registry** | **DM-44**, DM-51 | **evaluate — this is where the Arrow map's open item can finally be answered.** Arrow has no registry, so A2 could only record that `pse.*` metadata has no version-resolution story. A registration factory receives the serialized metadata string and may branch on a version field inside it, so a single registered name can accept several metadata generations and reject the rest. That is a migration mechanism (DM-51) in the place DM-44 wants it. |
@@ -760,7 +789,7 @@ Four consequences, in order of importance.
 
 ### Gaps and risks
 
-- **The registry is session-scoped, which is both the point and the risk.** A relation read outside a `SessionContext` — by a native pass borrowing Arrow buffers directly (D11), or by the Python boundary — gets no registry and therefore no validation. The engine-level guarantee covers plans, not the whole platform. The Arrow map's §11 register row 1 is therefore complementary, not redundant: it covers the paths that never touch a session.
+- **Session scope is not validation coverage.** Both engine and non-engine paths must invoke the declared checks. The registry supplies factories; Arrow typed helpers and platform cross-field/row validators supply distinct parts of the admission contract (§4.4; [review:E1]).
 - **`create_extension_type_for_field` is a *provided* method.** A custom `ExtensionTypeRegistry` implementation that overrides it could weaken the check silently. Use `MemoryExtensionTypeRegistry` unless there is a reason not to.
 - **Registration order and duplicate names.** `add_extension_type_registration` returns the previous registration for that name, so a later registration silently replaces an earlier one. Generated code should assert the return is `None` — a duplicate `pse.*` name is a build error, not a runtime surprise (**G1**).
 - The registry validates *storage type and metadata*. It cannot validate cross-field constraints such as `pse.ordinal_ref`'s target relation, which the Arrow map records as an open item. That gap is unchanged.
@@ -893,7 +922,7 @@ In the previous edition this table combined Arrow and DataFusion rows. The Arrow
 
 | # | Capability | Cluster | DM / gate | What it removes or prevents |
 |---|---|---|---|---|
-| 1 | **Register the ten `pse.*` types in an `ExtensionTypeRegistry` at session construction** | **D10** | **DM-06**, **DM-07**, **G3**, DM-44 | **The headline of this edition.** Converts §4.4 from a documentation convention into an engine-enforced constraint: a field whose storage type does not match its declared extension name is **rejected during planning** (PROBE X1), across every plan rather than only inside generated views. One generated function, driven from §4.4's existing table. |
+| 1 | **Register types and install active semantic admission** | D10 | DM-06, DM-07, G3, DM-44 | X1 is a direct-helper probe; E1 refutes universal plan enforcement. Generate recursive validation and install the declared analyzer/provider/output boundaries (ADR-0039). |
 | 2 | **Canonicalise field and schema metadata before a schema reaches the engine** | D9 | **DM-48**, DM-15, **G6** | **Blocking for revision 2's F9.** `datafusion-proto` serialises field metadata in `HashMap` iteration order, so plan bytes differ on every process start once a field carries ≥2 metadata keys — which every `pse.*` relation does (PROBE C). As specified, F9's fingerprint would never produce a memo hit and would record different provenance for identical runs. |
 | 3 | **Implement `try_encode_udf` on the platform's `LogicalExtensionCodec`** | D9 | **DM-31**, **G6** | It is a *provided* method, so the default encodes a UDF **by name only**. Two plans calling the same-named kernel with different `KernelSpec` bodies would fingerprint identically — a cache hit reusing an artifact produced under different semantics. Either encode the kernel digest, or state in §14.2 that the fingerprint excludes UDF bodies and the kernel digest covers them. Silence is the one unacceptable option. |
 | 4 | **CI test: encode the same plan in two fresh processes, assert byte equality** | D9 | DM-48, DM-53 | Three lines. It would have caught row 2, and it is the only thing that stops the canonicalisation from silently regressing. |
@@ -902,14 +931,14 @@ In the previous edition this table combined Arrow and DataFusion rows. The Arrow
 | 7 | Answer `StatisticsRequest`s selectively, `Absent` otherwise | D2 | DM-26 | Makes §5.4's "answered only from cached metadata" a contract rather than a convention. |
 | 8 | `Constraints::project()` when a scan is projected | D2 | DM-22, DM-24 | Hand-projecting a primary key over a changed column set. |
 | 9 | **Record that DataFusion enforces no constraint but `Field` nullability** | D2 | **G7**, DM-43 | §5.4 declares "Constraints: primary key only". Upstream is explicit that primary, unique and foreign keys "are not validated or used during query planning" `[c7:/apache/datafusion]`. The declaration is sound; reading it as enforcement is not. Platform P2 validation is what makes it true. **New.** |
-| 10 | `conditional_arguments()` + `short_circuits()` on conditional kernels | D6 | **G4**, DM-28 | Eager evaluation inside `if/then/else` fires §18.2's domain guards on values the model never intended to evaluate — a spurious `solve.evaluation_error` with a misleading culprit. |
+| 10 | Built-in CASE with truthful UDF optimization flags | D6 | G4, DM-28 | E2 shows flags alone leave generic evaluation eager; use real guarded physical execution (ADR-0043/0047). |
 | 11 | `output_ordering` / `preserves_lex_ordering` / `strictly_order_preserving` for monotone kernels | D6 | **DM-24**, DM-40 | Makes a monotonicity claim explicit and testable instead of implicit. |
 | 12 | `is_nullable` and `is_strict` derived from `KernelSpec`, not written independently | D6 | **DM-08**, G2 | A UDF declaring non-nullable while its batch path emits nulls makes the plan schema lie. **Raised in stakes by 55.0:** strictness metadata is now used for *outer join elimination*, so a wrong `is_strict` changes results rather than merely missing an optimisation (§12 E4). |
 | 13 | `coerce_types` = accept declared types, else error | D6 | DM-42, G2 | Silent widening of an `Int64` argument into a `Float64` kernel. |
 | 14 | Record the optimizer/analyzer rule set and engine version in the pass key | D4 | **DM-31**, **DM-32**, G6 | **Applied in revision 2** as part of F9 (`reference.engine_profiles`, ordered rule lists, `engine_profile_hash`). Retained as the closed record of why. |
 | 15 | **Restate §14.2 rule 5's semantic-settings hash as an explicit key allow-list** | §12 E3 | **DM-31**, **G6** | Rule 5 selects settings by *namespace* (`datafusion.optimizer.*`, `sql_parser.*`, `execution.time_zone`). At least two semantically significant keys live under `execution.*` — `skip_physical_aggregate_schema_check` and `enable_ansi_mode` — so a namespace match misses them, and a future release adding a semantic key under `execution.*` would escape the hash silently. **New.** |
 | 16 | **Assert `skip_physical_aggregate_schema_check = false` and `enable_ansi_mode = false`** | §12 E3 | **G3**, G2 | The first switches off a schema-consistency check; the second changes expression semantics. Both default correctly today; neither is pinned. **New.** |
-| 17 | Choose a bounded `MemoryPool`; never `UnboundedMemoryPool` | D7 | **DM-30**, **G5** | Converts an OOM kill into a typed failure. **Measured (PROBE H):** the resulting error is not merely typed but *actionable* — it names the two config keys that would resolve it, which is exactly what §23.2 wants from a resource diagnostic. |
+| 17 | Choose a bounded `MemoryPool`; never `UnboundedMemoryPool` | D7 | **DM-30**, **G5** | **Corrected scope:** fallible reservations can return a typed resource error; unaccounted or infallible allocations can still exhaust process memory (ADR-0046). PROBE H characterizes the query error and its configuration hints, not process-wide protection. |
 | 18 | Inject `TimeProvider` for tests and reproduction | D7 | **DM-28**, **DM-48** | Wall-clock time is an ambient input that breaks §20.4's byte-identical reproduction claim. The engine already provides the seam. |
 | 19 | Validate `target_partitions` against the rayon budget at session construction | D7, D5 | G5, DM-35 | §18.8 says oversubscription "is a configuration error, not a runtime surprise" — only true if something checks. |
 | 20 | Add a DataFusion column to §23.2's failure table | D8 | **DM-47**, G3 | Twenty engine variants currently map to platform classes by convention at each call site. |
@@ -924,7 +953,6 @@ In the previous edition this table combined Arrow and DataFusion rows. The Arrow
 | 29 | **`CustomMetricValue`** if any custom `ExecutionPlan` is written | §12 E2 | **DM-50**, DM-39 | Platform counters aggregate and display alongside engine metrics; with `pgjson` they become machine-readable pass evidence rather than log lines. **New.** |
 | 30 | **`ExtensionPlanner`** if D3's extension nodes are adopted | §12 E2 | DM-19 | PROBE B shows it is the one missing piece: the node survives the optimizer intact, and physical planning then fails with a clean typed error until a planner is registered. **New.** |
 | 31 | Family-wide `=` pins, **and a committed, CI-enforced lockfile** | §1.2 | DM-48, DM-51 | Revision 2 adopted the pins; it did not adopt the lockfile. `=` pins bind direct dependencies only — a transitive path can still introduce a second version. |
-
 | 32 | **The per-rule `observer` closure on `Optimizer::optimize` / `Analyzer::execute_and_check`** | D4 | **DM-46**, DM-50, DM-49 | Revision 2's F9 records the rule *set*; the observer records which rules actually **fired, in what order, on this plan**. The first is what could have happened, the second is what did — and it is what makes a plan difference explainable at the level of meaning instead of by diffing two renderings. The seam exists and the platform already drives optimisation explicitly, so this is effectively free. **New.** |
 
 ### Evaluate
@@ -932,7 +960,7 @@ In the previous edition this table combined Arrow and DataFusion rows. The Arrow
 | # | Capability | Cluster | DM | Why it is not yet an adopt |
 |---|---|---|---|---|
 | 33 | `LogicalPlan::Extension` + `UserDefinedLogicalNode` for rule bodies, with `check_invariants` and `prevent_predicate_push_down_columns` | D3 | **DM-18**, **DM-21**, DM-07 | Still the largest structural opportunity, and **its blocking uncertainty is now resolved**: PROBE B shows the node survives the optimizer with `rule_id` intact, and that the optimizer still pushes projections down *through* it. What remains is cost, not risk — a 14-method contract plus row 30's planner. This is an adopt-candidate awaiting a decision, not an open question. |
-| 34 | `ScalarUDFImpl::preimage()` | D6 | DM-43, G6 | Enables pushdown of filters over computed columns. Same correctness character as `Exact` pushdown: a wrong preimage silently drops rows. Adopt only for proven monotone inverses, tested adversarially. |
+| 34 | `ScalarUDFImpl::preimage()` | D6 | DM-24, DM-43, G6 | Deferred to R-25; exact equivalent predicate with half-open endpoints, null/floating policy and differential fixtures; a monotone inverse alone is insufficient. |
 | 35 | `TrackConsumersPool` / `PeakRecordingPool` | D7 | DM-50, DM-39 | Turns "the pass used too much memory" into "this operator did". |
 | 36 | `CacheManager` for artifact metadata | D7 | DM-26, DM-32 | The engine cache is table/file-keyed (`CacheKey` requires `table_ref()`); the platform's natural key is the content hash. Probably platform-side wins — but decide it. |
 | 37 | `Expr::Placeholder` for §19.3 sweeps | D3 | DM-26 | One prepared plan executed per sample. Only if sweeps prove plan-construction-bound. Pairs with row 39. |
@@ -974,21 +1002,16 @@ In the previous edition this table combined Arrow and DataFusion rows. The Arrow
 
 ## 14. Acceptance-gate review (DataFusion)
 
-Each gate with the DataFusion-specific way this design could fail it, and what closes it. The Arrow map carries the Arrow-specific review of the same seven gates; a design passes only if both do. **Bold** status changes are relative to the previous edition.
+The previous gate interpretation overclaimed X1, UDF flags and sorted metadata insertion. E1/E2/E5 refute those mechanisms as universal enforcement. The revision-4 review replaces that interpretation; revision 5 specifies the active integrations.
 
-| Gate | The specific risk here | Status | Closing action |
-|---|---|---|---|
-| **G1 — Authority** | `TableProvider` carries *defaulted* mutation methods — five in 55.0.0, **six now that `merge_into` has landed**. Implementing any would make the immutable snapshot mutable through SQL. `LogicalPlan::{Dml, Ddl, Copy}` are the same risk at plan level; `FunctionFactory` and the external-source providers are the same risk at the catalog level. | **open — protected only by omission, and the surface is still growing** | Row 5: a governance test asserting the *set* of implemented methods, so trait growth is caught. Rows 57, 58, 62, 63 record the temptations. |
-| **G2 — Semantic fidelity** | Three engine paths. (a) A UDF declaring `is_nullable = false` while emitting nulls — **now higher-stakes**, since 55.0 uses strictness metadata for outer-join elimination, so a wrong declaration changes *results*. (b) Spark/ANSI semantics silently altering arithmetic. (c) **New, and measured:** `GROUP BY` and hash joins merge `-0.0` with `+0.0` and treat NaN as equal to itself, while `ORDER BY` preserves `totalOrder` (PROBE D). §5.3 and §26 both assert "`-0.0` is preserved" without qualification. | **open — one measured contradiction** | Rows 12, 16, 60; and either declare that `Float64` columns are never grouping or join keys, or record the collapse as a selected loss (**DM-42**). |
-| **G3 — Validity** | An invalid state reaching an operation that assumes validity. Three paths: extension metadata never checked; `skip_physical_aggregate_schema_check` switching off a schema check; and `SessionConfig::set_str` **panicking** on an invalid value instead of erroring (PROBE X3). | **substantially improved, not closed** | **Row 1 is the big change** — registering the `pse.*` types makes storage-type validation an engine property of every plan, verified by PROBE X1. Rows 16 and 22 close the other two. |
-| **G4 — Hidden behavior** | (a) A conditional kernel whose arguments are evaluated eagerly fires a domain guard the model intended to avoid. (b) A UDF reading `config_options` makes its result depend on ambient session state. (c) **New:** `supports_filters_pushdown` is called more than once per plan (PROBE A), so a provider with side effects there behaves unpredictably. | **open** | Rows 10, 49, 24. |
-| **G5 — Consistency and recovery** | `UnboundedMemoryPool` converts resource exhaustion into an OOM kill. Oversubscribed threads degrade unpredictably. Spill writes to an unmanaged filesystem. | **improved** | **Measured (PROBE H): a bounded pool yields a typed error that names the two config keys to change** — a better outcome than the previous edition could claim. Rows 17, 19, 41. |
-| **G6 — Transformation and reuse** | The optimizer is an ambient dependency of every derived relation — 25 `OptimizerRule`s + 3 `AnalyzerRule`s, changing between releases. **Revision 2 fixed this** via `reference.engine_profiles` and the rule lists (F9). But F9's own fingerprint mechanism is **measurably non-reproducible** (PROBE C), and its codec encodes UDFs by name only. | **the old hole closed; a new one opened inside the fix** | Rows 2, 3, 4 — all cheap, all blocking. Row 15 closes the namespace-vs-allow-list gap. |
-| **G7 — Truthful capability claims** | `TableProviderFilterPushDown::Exact` lets the optimizer **delete** the filter and nothing verifies the claim. DataFusion enforces **no** relational constraint except `Field` nullability, and does not check that on ingest. `Statistics` without `Precision` claims more than is known. | **improved — the blocking unknown is resolved** | **PROBE A retires the previous edition's must-settle item 1 and blueprint §26 F17's precondition:** equality on a `FixedSizeBinary(16)` key arrives as a plain binary expression with a literal, which a provider can match, so **`Exact` is achievable**. Two cautions came with it — `IN` arrives pre-rewritten to `OR` (a provider matching `InList` never fires), and nothing validates the claim. Rows 6, 9, 23, 26. |
+| Gate concern | Revised mechanism | Remaining platform gate |
+|---|---|---|
+| G2 / G3 | Complete field/quantity admission and generated analyzer checks | Actual import/query/output rejection, including nested and computed fields |
+| G4 / G7 | Built-in CASE; implementation-backed UDF policies and binding matrices | Branch/failure and real backend-route conformance |
+| G5 / G6 | Shared accounted runtime, complete stage keys, noncanonical plan evidence | Resource/cancellation tests and incremental-versus-clean outputs |
+| G7 / regression quality | Full pushed/unpruned result oracle | Deliberate over-pruning must be detected |
 
-**Summary.** Two gates moved materially. **G7's blocking unknown is resolved in the design's favour** — the pushdown spike §26 F17 demanded has been run and `Exact` is reachable. **G3 is substantially closed** by an engine facility the previous edition did not know existed: registering the `pse.*` extension types makes storage-type validation a property of every plan. Against that, **G6 acquired a new hole inside revision 2's own fix** — the `datafusion-proto` fingerprint F9 specifies is not reproducible as written — and **G2 acquired a measured contradiction**, the `-0.0` collapse under grouping and joining. Both are cheap to close and neither requires an architectural change. G1, G4 and G5 are unchanged in character, with G5 better evidenced than before.
-
----
+Pinned interface availability is Interface-checked; integration stays Proposed until the named behavior is exercised. No numerical maturity total is inferred from this map.
 
 ## 15. Leverage matrix (DataFusion)
 
@@ -997,7 +1020,7 @@ Each gate with the DataFusion-specific way this design could fail it, and what c
 | §5.4 catalog of snapshots → namespaces → relations | `CatalogProviderList` / `CatalogProvider` / `SchemaProvider` / `TableProvider` (all in `datafusion-session`) | confirmed |
 | §5.4 `scan_with_args` implemented, `scan` delegates | both provided methods; `ScanArgs` with projection/filters/limit/statistics-requests | confirmed |
 | §5.4 exact vs inexact filters | `TableProviderFilterPushDown::{Exact, Inexact, Unsupported}` | confirmed; **`Exact` is now shown reachable** `[probe]` — key equality arrives as a matchable binary expression (PROBE A). Still unverified *by the engine*, so row 23's test wrapper stands — G7 |
-| §5.4 `IN` on key columns | — | **caution** `[probe]` — `IN (a,b)` is rewritten to `OR` before the provider sees it; a provider matching `Expr::InList` never fires |
+| §5.4 `IN` on key columns | typed predicate contract | The two-element OR rewrite was observed; other InList/OR forms require their own supported-shape and full-result checks (review R4-11). |
 | §5.4 "Constraints: primary key only" | `Constraints` | **refined** — DataFusion validates **no** constraint but `Field` nullability, and not on ingest `[c7:/apache/datafusion]`; the declaration is informational |
 | §5.4 primary key only | `Constraint::{PrimaryKey, Unique}`, `Constraints::new_unverified` | confirmed; constructor name is the standing warning |
 | §5.4 statistics from cached metadata | `Statistics`, `ColumnStatistics`, `Precision`, `StatisticsRequest` | **refined** — use `Precision` and answer requests selectively |
@@ -1014,7 +1037,7 @@ Each gate with the DataFusion-specific way this design could fail it, and what c
 | §14.2 rule 3 four-valued predicates | `Expr::IsUnknown`/`IsNotUnknown` cover three; `conflict` stays platform-level | partial, by design |
 | §18.5 `ScalarUDFImpl` adapter row | 25 methods; all six named by §18.5 confirmed | confirmed |
 | §18.5 `return_field_from_args` attaches `pse.semantic.*` | `ReturnFieldArgs { arg_fields, scalar_arguments }` | **confirmed and stronger** — input **Fields** are supplied, so output quantity type can be *derived* from input metadata |
-| §18.2 domain guards vs conditional evaluation | `conditional_arguments`, `short_circuits` | **adopt** — unmentioned; G4 |
+| §18.2 domain guards and conditional evaluation | `Expr::Case` / `CaseExpr` | **Tested** E2 library case; generic UDF conditional flags are not lazy execution (ADR-0043/0047). |
 | §14.3 one `SessionContext` per snapshot with `MemoryPool` limits | `SessionConfig`, `RuntimeEnvBuilder`, 5 pool implementations | confirmed; **pool choice is unmade** |
 | §14.3 / §18.8 thread budget | `target_partitions` in `SessionConfig` | confirmed; budget lives in config, must be validated |
 | §20.1 artifact store | `ObjectStoreRegistry`, `ObjectStoreUrl`, `object_store` 0.13.2 shared with the platform | confirmed |
@@ -1055,7 +1078,7 @@ Each gate with the DataFusion-specific way this design could fail it, and what c
 | 21 | D9 | **probe** | `df_probe.rs`, `df_probe_c3.rs` | is `datafusion-proto` usable and stable as a plan fingerprint? | **PROBE C** — fails without a codec on custom providers; **unstable at ≥2 field-metadata keys** (6 distinct encodings in 6 runs at 5 keys); stable when one `Schema` object is reused, isolating `HashMap` iteration order as the cause |
 | 22 | D3 | **probe** | `df_probe_b.rs` | does a `UserDefinedLogicalNode` survive the optimizer carrying `rule_id`? | **PROBE B** — yes, intact and still rendered; the optimizer pushes projections down *through* it; physical planning needs an `ExtensionPlanner` and says so with a typed error |
 | 23 | D3, §14 | **probe** | `df_probe.rs` | null / NaN / `-0.0` through sort, GROUP BY and equi-join | **PROBE D** — `ORDER BY` preserves `totalOrder`; `GROUP BY` merges `-0.0` with `+0.0` (4 groups from 5 rows); hash join treats NaN as self-equal |
-| 24 | D10 | **probe** | `df_probe_x.rs` | can a `pse.*` type be registered and resolved? what happens to an unregistered one? | **PROBE X1** — 7 canonical types preloaded; registration and resolution work; wrong storage type **rejected** with a typed planning error; unregistered name **errors** |
+| 24 | D10 | **probe** | `df_probe_x.rs` | can a `pse.*` type be registered and resolved? what happens to an unregistered one? | **PROBE X1, direct helper only** — 7 canonical types preloaded; registration and resolution work; wrong storage type **rejected** with a typed planning error; unregistered name **errors** |
 | 25 | D10 | **probe** | `df_probe.rs` | does `ARROW:extension:name` survive planning and execution? | **PROBE E** — survives projection, aliasing and use as a GROUP BY key |
 | 26 | D4, D8 | **probe** | `df_probe_x.rs` | which `EXPLAIN` formats exist; how is an invalid config value reported? | **PROBE X2** — `indent`, `tree`, `pgjson`, `graphviz` all accepted. **PROBE X3** — `SessionConfig::set_str` **panics**; `ConfigOptions::set` returns a typed `Err` |
 | 27 | D7 | **probe** | `df_probe.rs` | bounded `MemoryPool` — typed failure or process death? | **PROBE H** — a typed, *actionable* error naming `datafusion.runtime.memory_limit` and `datafusion.execution.sort_spill_reservation_bytes` |
@@ -1068,55 +1091,17 @@ Each gate with the DataFusion-specific way this design could fail it, and what c
 
 ## 17. Open items and recommended blueprint amendments
 
-Every item carries its status against blueprint **revision 2**: **applied**, **parked** (acknowledged under a §26 review finding but unresolved), **resolved** (settled by this edition's measurements), or **new**.
+| Item | Revision-5 decision | Remaining acceptance |
+|---|---|---|
+| Extension registration versus admission | ADR-0039; recursive validator and explicit analyzer/provider/output boundaries | E1-derived negative boundary matrix |
+| Conditional UDF execution | ADR-0043/0047; CASE and native branch regions | Mixed-row, nested, optimizer and derivative conformance |
+| Rule-head casting | ADR-0039; exact numeric and complete physical admissibility | E3-derived rejection and explicit conversion cases |
+| Exact pushdown | ADR-0048; shared physical predicates and complete-result oracle | Soundness and completeness, including projections/limits/IN/nulls |
+| Aggregate/unnest | ADR-0048; bounded typed payloads for current consumers | Independent expansion reference, empty/null/order/provenance fixtures |
+| Plan fingerprints | ADR-0044; noncanonical checksummed diagnostics, outside semantic keys | Codec round-trip/attribution; E5 is not a determinism guarantee |
+| Stage reuse | ADR-0040–0042; complete immutable inputs and initial whole-stage memo | Dependency matrix; R-22/R-01 before finer mechanisms |
+| Memory pools | ADR-0046; shared runtime, platform try_grow, separate process metrics | Two snapshots, non-spillable/platform consumers, cancellation |
+| UDF scalar fast paths | ADR-0043; field-aware input checks and scalar preservation | Scalar/mixed/batch cardinality, units, outcomes and allocations |
+| Predicate preimages | R-25; exact equivalent supported predicates | Proof/fixtures before pruning; measured total benefit |
 
-### Must be settled before the affected code is written
-
-| # | Item | Cluster | Status | Why it cannot wait |
-|---|---|---|---|---|
-| 1 | **Spike: do DataFusion's filter shapes over `FixedSizeBinary(16)` key columns match what a provider can recognise?** | D2 | **RESOLVED — the spike has been run** | PROBE A: key equality arrives as `rel.id = FixedSizeBinary(16, …)`, a matchable binary expression, so **`Exact` is achievable** and §5.4's promise stands. This also discharges §26 **F17**'s precondition ("the pushdown spike precedes any `Exact` claim") for the key-equality case. Two cautions carry forward: `IN` is pre-rewritten to `OR`, so a provider matching `Expr::InList` never fires; and nothing in the engine verifies an `Exact` claim, so register row 23's test wrapper is still required. |
-| 2 | **Canonicalise field/schema metadata before any schema reaches the engine** | D9 | **new — and blocking for F9** | Revision 2 put a `datafusion-proto` plan fingerprint into the memo key and the pass record. PROBE C shows those bytes differ on essentially every process start once a field carries ≥2 metadata keys, which every `pse.*` relation does. Until this lands, F9's memo key never hits and `plan_fingerprints` records different values for identical runs. One constructor fixes it, and it fixes the Arrow-side `pse.contract.fingerprint` at the same time. |
-| 3 | **Decide what the plan fingerprint covers, and say so in §14.2** | D9 | **new** | `LogicalExtensionCodec::try_encode_udf` is a *provided* method: by default a UDF is encoded **by name only**, so two plans invoking the same-named kernel with different `KernelSpec` bodies fingerprint identically. Either encode the kernel digest in the codec, or state explicitly that the fingerprint excludes UDF bodies and that §14.2's separate kernel digest covers them. Both are defensible; leaving it unsaid is not (**G6**). |
-| 4 | **Decide the `MemoryPool` implementation and its limit** | D7 | **open — unchanged** | PROBE H confirms the payoff is larger than claimed: the resulting error names the exact configuration keys to change. The counterfactual is still an OOM kill that destroys the run. |
-| 5 | **Governance test: no `TableProvider` mutation method implemented** | D1 | **open — and the surface grew** | Five defaulted mutation methods became six with `merge_into` in 55.0.0. Assert the *set*, not a fixed list. |
-| 6 | **Decide whether to register the `pse.*` types in an `ExtensionTypeRegistry`** | D10 | **new** | Not blocking in the sense that nothing breaks without it — but it is the cheapest **G3** closure available (one generated function) and it changes what §4.4 means from a convention into an enforced constraint. Deciding it late means generated code written twice. |
-| 7 | **Pin every crate with `=` *and* commit an enforced lockfile** | §1.2 | **half applied** | Revision 2 adopted the `=` pins, not the lockfile. `=` pins bind direct dependencies only. |
-
-### Recommended blueprint amendments
-
-| # | Section | Change | Status |
-|---|---|---|---|
-| A | §3.1 | Family-wide `=` pins; `object_store 0.13.2` is **required by** DataFusion, not chosen; note `convert_to_state` has no consumer unless UDAFs are written | **applied in revision 2**, except the `convert_to_state` note |
-| A′ | §3.1 | *Additions:* require a committed, CI-enforced `Cargo.lock`; record that DataFusion 55.1.0 builds against `arrow 59.2.0`, so the platform pin runs one minor ahead | **new** |
-| B | §5.4 | The provider implements no mutation method; statistics carry explicit `Precision`; `StatisticsRequest`s answered selectively; `Constraints::project` applied under projection | **parked** |
-| B′ | §5.4 | *Additions:* record that DataFusion validates **no** constraint but `Field` nullability and not on ingest, so "Constraints: primary key only" is a declaration the platform's P2 makes true; record that `IN` reaches a provider as `OR`, not `InList`; record that `supports_filters_pushdown` must be pure | **new** |
-| C | §14.2 | Rule 6: the pass record captures the DataFusion version and ordered rule names; the memo key includes them; state how the plan fingerprint is computed | **applied in revision 2** (F9) |
-| C′ | §14.2 | *Corrections to F9:* (i) the fingerprint requires a platform `LogicalExtensionCodec` — `logical_plan_to_bytes` fails outright on a custom provider; (ii) it is reproducible **only** if field metadata is canonicalised first; (iii) state whether UDF bodies are in scope; (iv) restate rule 5's settings hash as an explicit key allow-list, since two semantic keys live under `execution.*` | **new — corrects an applied amendment** |
-| D | §14.2 rule 3 | `Expr::IsUnknown`/`IsNotUnknown` cover three of four values; `conflict` is platform-level | **applied in revision 2** |
-| E | §18.5 | Add `conditional_arguments`/`short_circuits`; `output_ordering`/`preserves_lex_ordering`/`strictly_order_preserving`; `coerce_types` as strict accept-or-error; `is_nullable` derived from `KernelSpec`; prohibit reading `config_options`; note `return_field_from_args` receives input **Fields** | **partially applied** — six of thirteen members named in revision 2 |
-| E′ | §18.5 | *Addition:* note that 55.0 uses UDF **strictness metadata for outer-join elimination**, so a wrong `is_strict` changes results rather than merely missing an optimisation | **new** |
-| F | §14.3 | Name the `MemoryPool` implementation and limit; validate `target_partitions` against the rayon budget at session construction | **parked** |
-| G | §20.4 | Inject a `TimeProvider` so reproduction runs are not exposed to wall-clock time | **parked** |
-| H | §23.2 | Add a DataFusion column mapping the 20 `DataFusionError` variants to platform failure classes; use `DataFusionError::Collection` | **parked** |
-| H′ | §23.2 | *Addition:* ban `SessionConfig::set_str` (it panics on an invalid value) in favour of `ConfigOptions::set`; add it to the governance greps beside `Field::extension_type()` | **new** |
-| I | §23.1 | Record that DataFusion emits no `tracing` spans by default — rule-level spans are platform code; operator-level needs an instrumentation layer | **parked**, now with named candidates (`JoinSetTracer`, `CustomMetricValue`) |
-| J | §5.3 / §14.2 | Note that plan execution yields a `SendableRecordBatchStream` whose cross-partition arrival order is nondeterministic; canonical order is imposed by §5.3 step 1, never assumed | **parked** |
-| **K** | §4.3 | **Erratum:** "nothing in DataFusion acts on these keys" is false for `ARROW:extension:name` at 55.1.0 — the engine resolves it against a registry and rejects mismatched storage types. Narrow the sentence to non-`ARROW:` keys | **new** |
-| **L** | §4.4 / §14.3 | Register the ten `pse.*` types in an `ExtensionTypeRegistry` at session construction, generated from §4.4's table; assert no duplicate name; note that seven canonical `arrow.*` types are preloaded by default | **new** |
-| **M** | §5.3 / §26 | **Erratum:** "`-0.0` is preserved" holds for Arrow ordering and for the content hash, and **fails under `GROUP BY` and hash joins**, which merge it with `+0.0` and treat NaN as self-equal. Either declare that `Float64` columns are never grouping or join keys, or record the collapse as a selected loss | **new** |
-| **N** | §4.5 | Clarify that §4.5 catalogs *Arrow storage* types, and that DataFusion has a separate `LogicalType`/`NativeType` layer above them used for signature coercion — the two are compatible but must not be conflated | **new** |
-| **O** | §23.1 / §19 | Set `datafusion.explain.format = pgjson` where a pass record stores a plan, so the plan is queryable structure rather than text; `analyze_level` and `analyze_categories` make the verbosity declared policy | **new** |
-| **O′** | §14.2 rule 5 / §6.11 | §14.2 names `Optimizer::with_rules` but not `Analyzer::with_rules` — the 3 analyzer rules are installed separately and change plans too, so `reference.engine_profiles` must capture **both** ordered lists. Also record the **per-rule `observer`** on `Optimizer::optimize` / `Analyzer::execute_and_check`, which turns the declared rule set into evidence of which rules actually fired — DM-46, DM-50. And note that `Analyzer::add_function_rewrite` mutates an analyzer after construction and must not be used, since it escapes any list captured at construction | **new** |
-| **P** | §3.3 | Record the rejections that look like wins: `datafusion-table-providers` and the external-source integrations (a second mutable authority, **G1**), `datafusion-spark`/`enable_ansi_mode` (silently different arithmetic, **G2**), Parquet virtual columns and `input_file_name` (position-based identity, **G1**), `FunctionFactory` (SQL-defined kernels, **G1**), `AsyncScalarUDFImpl` (I/O inside expression evaluation) | **new** |
-
-### Unresolved / unverified
-
-| Item | Status |
-|---|---|
-| Filter match shapes on extension-typed key columns | **closed** — PROBE A. `Exact` is reachable for key equality; `IN` arrives as `OR` |
-| Whether `LogicalPlan::Extension` nodes survive the optimizer intact enough to carry `rule_id` | **closed** — PROBE B. They do, and the optimizer still rewrites through them; physical execution needs an `ExtensionPlanner` |
-| Stability of `LogicalPlan`'s `Display`/`EXPLAIN` rendering across releases | **superseded** — revision 2 chose `datafusion-proto` instead, which PROBE C shows has its own stability problem with a known cause and a cheap fix |
-| The physical-optimizer rule trait | `[UNVERIFIED]` — `EnsureRequirements` resolves as a struct; the rule trait still did not surface in the extraction. Only needed if a custom physical rule is written |
-| `Interval`'s public representation for `evaluate_bounds`/`propagate_constraints` | `[UNVERIFIED]` — did not resolve to a field list; read before writing range-analysis adapters |
-| Whether `datafusion-proto` bytes are stable across DataFusion **releases**, not merely across processes | `[UNVERIFIED]` — this edition measured within-version stability only. A release upgrade changing the protobuf representation would invalidate every memo key, which may be the desired behaviour (F9 wants engine version in the key anyway) but should be stated rather than discovered |
-| Whether registering `pse.*` types affects plan or execution cost | `[UNVERIFIED]` — the registry is consulted during planning; the overhead was not measured |
+Review E1–E6 and L1–L9 have [retained source and receipts](../design_review/evidence/blueprint-rev4-2026-09-13/README.md). Context7 supplied discovery leads; the pinned source and executed characterization bound the claims. No original extraction/probe corpus was regenerated here.

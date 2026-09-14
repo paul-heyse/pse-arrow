@@ -1,0 +1,30 @@
+Repository HEAD: fb0717d9151ada4884bd7ccb5efc27422bb92f7a
+Cargo.lock SHA-256: 0b478337c3b4cc0e9da9150142ec8a14cc0be6c3ab2d1fb98adfbebe32280716
+Probe SHA-256: 31750341321ca6cd9e4e4d5fb36ecde8f36896d3eb656d9a87e9d599e75e28fa
+Rust toolchain: 1.98.1
+Mode: dev; arrow/force_validate enabled; offline; workspace version changes: 0; failure baseline: 0
+Resolved package count: 292
+arrow: ['59.3.0']
+datafusion: ['55.1.0']
+object_store: ['0.13.2']
+blake3: ['1.8.7']
+E1 direct validation rejects wrong storage: true
+E1 direct validation rejects unknown name: true
+E1 ordinary SELECT accepts both fields: true
+E1 registry factory calls during SELECT: 0
+E2 conditional UDF with both flags errors: true
+E2 error: Execution error: unselected argument evaluated
+E2 builtin CASE masks unselected rows: true
+E3 can_cast Float64 to Int64: true
+E3 safe=false casts 1.9 to: 1
+E3 safe=false Int64 -> Float64 -> Int64: 9007199254740993 -> 9007199254740992
+E4 equal visible arrays with different null payload: true
+E4 canonical-option IPC stream bytes equal: false
+E4 null-payload stream hashes: 22ee41edf80d1c54100d4d8eb41a072a86c55b7caef7ebe4d6cca68c28f18585 / 98e1a20f9082542dde52474a1bd6f15544c102de82ef2c7b9e3c89243017db95
+E4 IPC stream / IPC file / Parquet lengths: 648 / 954 / 773
+E4 physical encodings match canonical stream digest: file=false parquet=false
+E5 sorted metadata insertion, distinct proto encodings / 32: 32
+E5 sorted metadata insertion, distinct IPC encodings / 32: 1
+E6 log(exp(1000))=inf versus rewritten x=1000
+E6 reassociation: (a+b)+c=1 a+(b+c)=0
+Characterization groups completed: 6; assertion failures: 0.

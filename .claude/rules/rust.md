@@ -35,7 +35,7 @@ the failure is silent and reads like a logic bug (blueprint §3.1).
 - `SchemaLike::from_type` / `from_samples` — schemas come from the registry, never
   inferred (§5.3).
 - `IpcWriteOptions::try_with_compression` — canonical IPC is uncompressed (§5.3,
-  `pse.canon.v1`).
+  `pse.canon.v2`, ADR-0045).
 - `anyhow::Error` — every `pse-*` crate returns a concrete `thiserror` enum that also
   derives `miette::Diagnostic` with a §23.2 code. `xtask` opts out at crate level.
 

@@ -74,7 +74,7 @@ pse-buildinfo = { path = "crates/pse-buildinfo" }
 # Features fixed here. `force_validate` is exposed as `pse-relations/force-validate` and
 # passed by every test invocation, never a default. `ipc_compression` and `prettyprint`
 # are never on an identity path; DataFusion's own features may unify lz4/zstd into
-# arrow-ipc, and the call-site bans (clippy.toml) keep them off pse.canon.v1 paths.
+# arrow-ipc, and the call-site bans (clippy.toml) keep them off pse.canon.v2 paths.
 arrow = { version = "=59.3.0", default-features = false, features = [
   "ipc",
   "ffi",

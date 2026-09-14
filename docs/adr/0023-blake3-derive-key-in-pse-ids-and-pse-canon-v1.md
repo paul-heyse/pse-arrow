@@ -1,7 +1,7 @@
 ---
 id: ADR-0023
 title: Give pse-ids sole ownership of hashing, with derive_key contexts and pse.canon.v1
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§5.1, §5.3, §20.1]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0045
 revisit: A canonicalization constant changes (alignment, metadata version, legacy flag, compression), which is a new `pse.canon.vN` and invalidates every stored hash
 verification: `tests/governance/blake3_owner.rs`; the canonicalization property tests in `tests/conformance` (re-batching, metadata re-insertion order, dictionary re-encoding, Parquet round trip)
 
@@ -61,3 +61,4 @@ Blueprint §5.1 (identity), §5.3 (canonical serialization and hashing), §20.1 
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0045.

@@ -10,6 +10,10 @@ phase: 0
 
 ## Completion ledger (2026-09-13)
 
+The later blueprint revision-5 contract amendment is tracked in
+[plan 02](02-blueprint-revision-5-contracts.md). This setup ledger retains its own
+acceptance scope; its historical design summaries do not override revision 5.
+
 The initial design below is historical planning context. The repository is now public
 at `paul-heyse/pse-arrow`; the starting commit for completion is `3c9c95f`, already
 pushed to `main`, with a clean working tree. Completion uses signed commits and a

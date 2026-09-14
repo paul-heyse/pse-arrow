@@ -1,7 +1,7 @@
 ---
 id: ADR-0017
 title: Adopt D14: memoize on declared inputs, the pass version and the engine profile
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D14, §14.3, §14.4]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0041
 revisit: A measurement shows sub-pass granularity finer than per-instance is needed (the same trigger as ADR-0020), or an undeclared read is found in a pass
 verification: `tests/engine` memo-key tests; the two-process byte-equality test for the plan fingerprint (ADR-0019)
 
@@ -61,3 +61,4 @@ Blueprint §D14, §14.3 (pass engine), §14.4 (incrementality); review findings 
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0041.

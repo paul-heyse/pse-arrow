@@ -1,7 +1,7 @@
 ---
 id: ADR-0029
 title: Give every session a FairSpillPool sized from a declared memory limit
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§14.3]
 review: not-required: adopted in revision 3 from the DataFusion capability map's measured pool behaviour; no review finding
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0046
 revisit: A workload's spill rate makes the declared limit the binding constraint on compile time, or a deployment needs a different pool discipline
 verification: `tests/engine` memory-exhaustion test (asserts a typed `ResourcesExhausted` naming the keys to change); the §24.3 compile benchmarks
 
@@ -61,3 +61,4 @@ Blueprint §14.3 (pass engine, session), §18.8 (threading), §23.2 (failure tax
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0046.

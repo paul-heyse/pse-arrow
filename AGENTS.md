@@ -200,9 +200,15 @@ Plans go in `docs/plans/`, never in a home directory.
   are immutable; supersede them (`just adr-supersede`) instead.
 - The generated paths in prime directive 2, `external/`, `build/`, `target/`.
 
-A `PreToolUse` hook blocks writes to all of these. When a change to the blueprint or an
-accepted ADR is genuinely the work, set `PSE_DESIGN_EDIT=1` for that session and say in
-the PR why. The escape exists so the guard can stay strict; using it silently defeats it.
+A `PreToolUse` hook blocks writes to all of these. Its scope is the working copy plus the
+agent runtime's own directories: it allows `~/.claude` (or `CLAUDE_CONFIG_DIR`), `~/.codex`,
+the session temp directory and anything named in `PSE_AGENT_WRITABLE`, and refuses every
+other path outside the working copy so a stray edit cannot land in another checkout. That
+allowance is for runtime state — memory, scratch files, the runtime's own configuration.
+Project state still belongs here: plans go in `docs/plans/`, never in a private home
+directory. When a change to the blueprint or an accepted ADR is genuinely the work, set
+`PSE_DESIGN_EDIT=1` for that session and say in the PR why. The escape exists so the guard
+can stay strict; using it silently defeats it.
 
 ## Agent runtimes
 

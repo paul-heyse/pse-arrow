@@ -1,7 +1,7 @@
 ---
 id: ADR-0011
 title: Adopt D8: a pass computes the property closure; inspection never constructs physics
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D8, §9.6]
 review: not-required: neither review raised a finding against D8
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0040
 revisit: A property provider needs to be selected at evaluation time rather than at P6, for example because a method's applicability depends on a solved value
 verification: `python / test` `test_preflight_capability_backend` (raises before `ConcreteModel` construction); P6 golden tests in `tests/conformance`
 
@@ -61,3 +61,4 @@ Blueprint §D8, §9.6 (property demand resolution), §9.3 (method registry).
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0040.
