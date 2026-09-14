@@ -1,9 +1,37 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Package and case document loader, expression DSL parser and change sets (blueprint §3.2, §11).
+//! Package and case document loading, the expression DSL and change sets
+//! (blueprint §3.2, §11, §22).
 //!
-//! Documents are parsed with spans so every authoring failure carries a
-//! `pse.source_span` (blueprint §11, §23.2 `authoring.parse`).
+//! Documents are parsed with spans, so every authoring failure carries a
+//! [`span::SourceSpan`] and every authored row can point at the text that produced it
+//! (§23.2 `authoring.parse`). YAML is one surface: the same change sets can be produced by
+//! Python builders and by agents, which is why the change set — not the document — is the
+//! write path (§22.2).
 //!
-//! Phase 0: this crate is a declared boundary with no implementation yet.
+//! # Layout
+//!
+//! - [`error`] — [`AuthoringError`] with its §23.2 codes.
+//! - [`span`] — source spans and the parse budget.
+//! - [`dsl`] — the expression DSL: parse, render, round trip.
+//! - [`document`] — the package and case document loader.
+//! - [`ids`] — entity identity assignment under both policies.
+//! - [`change_set`] — the only write path into `authored`.
+//! - [`targets`] — `pse.target_path` parsing and resolution.
+//! - [`p0`], [`p1`] — package resolution and authoring parse.
+//!
+//! `generated` is added together with the first generated `documents.rs` (packet A-6).
+
+pub mod change_set;
+pub mod document;
+pub mod dsl;
+pub mod error;
+pub mod ids;
+pub mod p0;
+pub mod p1;
+pub mod span;
+pub mod targets;
+
+pub use crate::error::AuthoringError;
+pub use crate::span::{ParseBudget, SourceSpan};

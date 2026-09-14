@@ -1,9 +1,37 @@
+---
+status: evidence-map
+blueprint_revision: 5
+pins: Cargo.lock
+regenerated: null
+reviewed: 2026-09-13
+---
+
 # Arrow (Rust) — capability map
+
+**Current binding:** blueprint revision 5 and ADR-0039–ADR-0048. The inventories and
+original extraction/probe receipts below retain their historical scope and dates;
+this update did not regenerate that corpus. Historical comparisons to revision 2
+are not current acceptance claims. Corrected interpretations are recorded in place.
+The current design remains **Proposed**; pinned library mechanisms are
+**Interface-checked**, and only the named characterization experiments are **Tested**.
+
+`[review:E1]`–`[review:E6]` refer to the [retained six-group characterization](../design_review/evidence/blueprint-rev4-2026-09-13/README.md)
+and its conditions: Rust 1.98.1, Arrow 59.3.0, DataFusion 55.1.0, dev,
+Arrow force_validate, zero failure baseline. The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+explains the counterexamples; these markers do not certify a platform implementation.
+
+| Current decision | Library mechanism and boundary | Evidence / adoption gate |
+|---|---|---|
+| Active semantic admission | Recursive `try_extension_type` / generated validators; registry factories are explicitly invoked | ADR-0039; [review:E1]; actual query/import rejection remains a platform gate |
+| Canonical content and encoded integrity | Recursive typed normalization plus framed metadata/data IPC streams; separate stored-byte checksums | ADR-0045; [review:E4]; v2 metamorphic/round-trip fixtures remain open |
+| Loss-aware conversion | Arrow casts only after exact representability and full quantity/conversion checks | ADR-0039; [review:E3]; castability alone is insufficient |
+| Safe buffers and bounded transfer | `PrimitiveArray::values` / owning `ScalarBuffer`; eligible slices are contiguous; `BatchCoalescer` for bounded transfers | ADR-0047/0048; review L7; lifetime tests and R-24 measurement |
+| Shared filters and explicit-schema readers | Arrow filters, Parquet projection/row filters, CSV/JSON `ReaderBuilder::new(schema)` | ADR-0048; review L3/L9; shared predicate correctness now, R-24 for storage optimization |
 
 **Companion to** `docs/authoritative_design/blueprint.md` and to `supporting-rust-libraries.md`, which covered the §3.3 supporting crates and deliberately excluded Arrow and DataFusion. The DataFusion half of this pair is `datafusion-rust.md`. **Each map now carries its own principle-alignment register (§11) and its own acceptance-gate review (§12)**; in the previous edition both lived only in the DataFusion map, which meant neither document could be updated on its own.
 
 **Compiled** 2026-09-13 against **`arrow` 59.3.0**.
-**Adjudicates** blueprint **revision 2** (2026-09-13). The previous edition of this map adjudicated revision 1 and never said so; §0.4 lists what revision 2 changed underneath it.
+**Historical survey adjudicated** blueprint **revision 2** (2026-09-13). The previous edition of this map adjudicated revision 1 and never said so; §0.4 lists what revision 2 changed underneath it.
 
 ---
 
@@ -196,7 +224,7 @@ Measurements in this document come from five programs compiled against the pinne
   So §5.3's `content_hash` is **not** at risk from metadata ordering, and the previous edition's register row #8 overstated the problem. The risk is real but confined to two other paths, and the second one is serious:
 
   1. **Any platform code that fingerprints by iterating `metadata()` directly** — `pse.contract.fingerprint` as §4.3 describes it — *is* exposed, because that iteration is the `HashMap`'s. Sorting there is still required (DM-48).
-  2. **`datafusion-proto` does inherit it, and is measurably unstable.** Encoding the same logical plan over a schema with ≥2 field-metadata keys produced a different byte string on almost every run. Since blueprint revision 2 (**F9**) puts a `datafusion-proto` plan fingerprint into the memo key, this is now load-bearing. The measurement and its consequence are in the companion map's D9 (its §10); the amendment is recorded here as §15 item 3 because the *fix* is Arrow-side — canonicalise field metadata at schema construction, before it ever reaches the engine.
+  2. **Protobuf metadata remains unordered.** Sorted insertion into field/schema HashMaps does not stabilize `datafusion-proto` bytes [review:E5]. Blueprint §14.2 now records noncanonical diagnostic encodings outside semantic memo keys (ADR-0044); §5.3 separately canonicalizes metadata for logical relation identity.
 - `fields_with_dict_id` / `Field::new_dict(dict_id, …)` expose Arrow's legacy dictionary-id mechanism. §4.5 says "dictionary encoding … never carries identity" — consistent, but the generated code must not set `dict_id`, and a governance check is cheap.
 
 ---
@@ -255,7 +283,7 @@ This cluster is where **DM-06** ("type semantic distinctions, not only machine r
      unregistered pse.* name           -> Err("Logical type not found")
   ```
 
-  Three consequences for §4.4. First, the validation this cluster recommends (`try_extension_type` inside the generated `try_from`) has an **engine-level counterpart** that applies to every plan, not only to generated views. Second, an unregistered `pse.*` name **errors** rather than degrading silently — the opposite of the Python boundary's behaviour, where the same situation yields a bare storage type with no signal. Third, the registry is where extension-type *versioning* could live, which is the open item below. Full treatment is in the companion map's new cluster D10 (its §11); it is cross-referenced here because §4.4 is the blueprint section it bears on.
+  **Scope correction:** X1 invokes `create_extension_type_for_field` directly; it does not validate query admission. E1 shows malformed and unknown extension fields survive an ordinary SELECT with zero factory calls [review:E1]. Generated recursive admission plus a platform AnalyzerRule supplies the missing boundary (blueprint §4.4).
 
 - **Extension-type metadata versioning remains unresolved.** An inbound field carrying `pse.quantity_value` written by a *different version* of the platform deserializes only if our current `Metadata` type still parses it. §4.4 has no versioning story — `pse.contract.version` versions the *relation*, not the extension type. The registry gives a place to put a resolution rule; it does not supply one. **Open item (DM-44, DM-51).**
 - **`deserialize_metadata` must error on unexpected metadata**, not ignore it `[docs.rs:arrow-schema@59.2.0]`. For the blueprint's metadata-free types (`pse.content_hash`, `pse.ordinal_ref`) the implementation must therefore reject a field that carries an `ARROW:extension:metadata` key rather than shrug — otherwise two different producers disagree silently.
@@ -296,7 +324,7 @@ This cluster is where **DM-06** ("type semantic distinctions, not only machine r
 
 ### Gaps and risks
 
-- **`ptr_offset()` is the trap in D11.** An Arrow array produced by `slice`, by a filter, or by a multi-batch read carries a non-zero offset into a shared buffer. Native code that takes `data_ptr()` and indexes from zero reads the wrong rows — silently, with plausible numbers. Any borrow path in `pse-numerics` must go through `as_slice()` (which accounts for the offset) or assert `ptr_offset() == 0` explicitly. **The blueprint's D11 and §18.2 do not mention offsets at all; this belongs in the contract.**
+- **Borrow through safe views.** `PrimitiveArray::values` incorporates the logical slice offset. A null-free contiguous one-chunk slice can be borrowed with its owning handle retained; raw base-pointer indexing is invalid. A filter need not produce a nonzero offset. Layout/coercion/multi-chunk cases use checked reserved copies (blueprint §18.2; review L7).
 - Nullability: a borrowed `Float64Array` may carry a validity bitmap. §18.2 treats parameter values as dense `f64`; borrowing a nullable column without checking `null_count() == 0` reads uninitialised slots as data. **State the precondition.**
 
 ---
@@ -390,7 +418,7 @@ Three facts follow, and all three matter to the blueprint:
 |---|---|---|---|
 | **`arrow_row::RowConverter`** | **DM-15** (define canonicalization and equivalence before using content identity), DM-38 | a hand-written multi-column comparator for §5.3's primary-key ordering | **adopt — the strongest single find in the Arrow surface.** `RowConverter` encodes a set of columns into a **byte-comparable** row format: sorting becomes `memcmp`, and two rows are equal iff their bytes are equal. That is precisely the canonical-ordering-and-equivalence primitive §5.3 needs, and it **handles nested types**, which `make_comparator`, `lt` and `gt` explicitly do not (A4). §4.4's `pse.index_tuple` (`List<FixedSizeBinary(16)>`) is a primary-key component in several `compiled.*` relations, so this is not hypothetical — it is the difference between §5.3 step 1 working on those relations and not. |
 | `arrow_ord::partition` / `Partitions` | DM-38 | hand-written run detection over a sorted key column | **adopt** for grouped passes (per-instance, per-domain processing), which the rule compiler and §18.2's tape construction both need. |
-| `arrow_cast::CastOptions { safe }` and `can_cast_types` | **DM-42** (loss-aware interchange, reject silent degradation), G2 | an unchecked `cast` | **adopt as a rule.** `cast` with `safe = true` turns an out-of-range conversion into a **null** — a silent semantic degradation and a textbook G2 failure. Every cast in a platform path must set `safe = false` so overflow is an error, and `can_cast_types` should gate the cast at plan time rather than discovering it at execution. §20.5's IDAES JSON import is exactly where this bites. **Not mentioned in the blueprint.** |
+| `arrow_cast::CastOptions { safe }` and `can_cast_types` | DM-42, G2 | unchecked or precision-losing conversion | **Adopt as implementation tools after admission checks.** `safe: false` can still truncate fractions and round integers [review:E3]; exact representability and complete quantity compatibility are platform checks (§14.2). |
 | `and_kleene` / `or_kleene` | **DM-08** | ordinary `and`/`or` | **adopt** in the rule compiler. Kleene logic is three-valued (`true AND null = null`, `false AND null = false`), which is the semantics §14.2 rule 3's four-valued predicates need underneath. Ordinary `and` propagates null unconditionally and loses the `false` short-circuit — changing which rows a rule emits. |
 | `garbage_collect_dictionary` | DM-15, DM-36 | — | **evaluate.** After filtering, a dictionary column retains unreferenced values; two logically identical relations can then carry different dictionary payloads. §5.3 step 2 expands dictionaries before hashing so the content hash is safe — but any *other* comparison of two batches is not. Worth knowing the kernel exists. |
 | `BatchCoalescer` | DM-37 (coarse typed units) | manual re-batching before crossing the FFI boundary | **evaluate** for §21's Python handoff, where batch size affects per-call overhead. |
@@ -462,8 +490,8 @@ PROBE 7  Parquet — survival and determinism            [new in this edition]
 
 ### Gaps and risks
 
-- **Compression and the artifact store are in tension.** §20.1 wants durable Parquet artifacts (which will be compressed for size) and hot IPC artifacts (which must be uncompressed for hashing). Both exist for the same relation at the same content hash. The store's layout already separates them by extension — the rule to state is that the **hash is computed from the canonical IPC form regardless of which artifact is written**, otherwise `content_hash` depends on storage choice, violating DM-01 (meaning, not storage shape).
-- `StreamWriter::into_inner` requires `finish()` first; a writer dropped without finishing produces a truncated stream with no error at the call site. For an artifact store writing idempotently by hash (§20.1), a truncated write that lands under a *correct-looking* name would be a silent corruption. **Recommend hashing the bytes actually written and verifying against the name before the put.**
+- **Identity and integrity are separate.** Blueprint §5.3 defines a versioned logical hash; §20 names each stored encoding by its own byte checksum. IPC-file/Parquet encodings cannot be verified against the canonical stream digest [review:E4].
+- Finish and validate every writer before publication. Verify physical checksum/length/format, then the decoded semantic contract and logical hash where required. An existing checksum-named object is not automatically trusted (blueprint §20.1; [review:E4]).
 
 ---
 
@@ -513,7 +541,7 @@ Surveyed for completeness and rejected, with reasons, so the rejection is on the
 | Capability | Status for this design | Reason |
 |---|---|---|
 | `arrow-flight` / Flight SQL | **not used** | §20.1's artifact store is `object_store` over immutable content-addressed files, and §21's Python boundary is in-process FFI. Flight solves *network* transport between processes, which this architecture does not have. Adopting it would add a service boundary the blueprint explicitly does not want (§3.3's "explicitly not added"). Revisit only if a remote execution tier appears. |
-| `arrow-csv`, `arrow-json` (umbrella features `csv`, `json`) | **not used for platform data**; possible at import edges | §22.1 authoring documents are YAML/TOML (companion map C3) and §20.5 imports IDAES JSON via a typed adapter, not via schema inference. Arrow's CSV/JSON readers **infer** schemas from samples — precisely what §4.2 forbids ("never inferred from samples"). If ever used, the schema must be supplied explicitly. |
+| `arrow-csv`, `arrow-json` (umbrella features `csv`, `json`) | **adopt for declared tabular observations** | `ReaderBuilder::new(schema)` accepts an explicit schema; inference is optional. Use JSON strict mode and CSV header validation plus generated unit/target/invariant admission (blueprint §6.10; review L9). |
 | `arrow-avro` | **not used** | No Avro source in scope. Listed in §3.1's pin table; it can be dropped from the dependency set entirely, which is one fewer crate in the version-pinning surface. |
 | `prettyprint` feature | **development and diagnostics only** | Useful for `EXPLAIN`-style output and test failure messages; must never appear in an identity or hashing path (A5). |
 ---
@@ -540,7 +568,7 @@ The denominator matters because of the rule this corpus inherits: **absence from
 | `arrow-row` | **adopt** | register #4 — required, not optional, wherever a key contains `pse.index_tuple` |
 | `arrow-string` | **bound (incidentally)** | pulled in by the umbrella; no direct requirement. `Utf8` columns in the platform are identifiers and documentation, not text to be searched |
 | `parquet` | **bound** | §20.1 durable artifacts (A6) |
-| `arrow-csv`, `arrow-json` | **reject for platform data** | they infer schemas from samples, which §4.2 forbids (A8). But see `EncoderFactory` in E2 — `arrow-json`'s *writer* extension point is a separate question from its reader |
+| `arrow-csv`, `arrow-json` (umbrella features `csv`, `json`) | **adopt for declared tabular observations** | `ReaderBuilder::new(schema)` accepts an explicit schema; inference is optional. Use JSON strict mode and CSV header validation plus generated unit/target/invariant admission (blueprint §6.10; review L9). |
 | `arrow-avro` | **reject** | no Avro source in scope; §3.1 rev 2 already says "not used" |
 | `arrow-flight` | **reject** | no network tier (A8). **Note the residue:** §3.1 rev 2 still lists `arrow-flight` in the pin row, so the dependency set carries a crate with no consumer — §15 |
 | `parquet-variant`, `parquet-variant-compute`, `parquet-variant-json` | **reject, with reason** | The Variant type is a self-describing semi-structured value — a JSON-like tree in a binary encoding. It is genuinely useful for schema-on-read data, and it is genuinely wrong here: **D1 makes typed relations the only authority**, and a Variant column is a typed hole in that authority. Adopting it would let a future contributor park unmodelled structure in a relation instead of declaring it. Recorded as a rejection precisely because it looks convenient (DM-01, DM-10, G1) |
@@ -587,7 +615,7 @@ Features landed in the 59 line `[gh:apache/arrow-rs/dev/changelog]`. Most are pe
 | `arrow-ipc` **sans-IO stream encoder** | 59.2.0 | **evaluate.** Separates encoding from writing, so the platform controls buffering and can hash the encoded bytes without a second pass. Relevant to A6's "hash the bytes actually written" recommendation. |
 | `arrow-ipc` compression-level configuration | 59.1.0 | **reject** — compression stays off on the identity path (A6) |
 | `DictionaryArray::is_normalized` flag | 59.0.0 | **adopt as a check.** A normalized dictionary has no unreferenced values. §5.3 step 2 expands dictionaries before hashing, so identity is safe — but any *other* comparison of two batches is not (A5). This flag makes the property assertable instead of assumed. |
-| `arrow-csv` header validation against a `Schema` | 59.1.0 | **noted, not adopted** — it answers A8's objection to the CSV reader (schemas need not be inferred), but no CSV source is in scope |
+| `arrow-csv` header validation against a `Schema` | 59.1.0 | **adopt at the explicit tabular observation boundary**, not as an authoring-language replacement (ADR-0048; review L9) |
 | Writing **RunEndEncoded** arrays directly to Parquet | 59.1.0 | folds into register #14's REE evaluation — REE is now viable end-to-end, not just in memory |
 | `uuid` extension type from `FixedSizeBinary(16)` | 59.1.0 | **reinforces register #17's rejection** — the canonical `arrow.uuid` is now easier to adopt and still wrong for a blake3 digest |
 | `arrow-flight` `skip_validation`, zero-copy tonic path | 59.1.0–59.2.0 | **reject** — no Flight tier |
@@ -624,7 +652,7 @@ In the previous edition these rows lived in the DataFusion map as one combined 4
 | 5 | `distinct` / `not_distinct` and Kleene booleans in the rule compiler | A5, A4 | **DM-08** | Ordinary `eq` yields null for null-vs-null, silently dropping candidate rows — which §14.2 rule 3 explicitly forbids. |
 | 6 | `CastOptions { safe: false }` + `can_cast_types` at import | A5 | **DM-42**, G2 | `safe: true` turns an out-of-range cast into a null. Silent degradation at the §20.5 import edge. |
 | 7 | Name the IPC alignment constant and `MetadataVersion` in the §5.3 contract | A6 | **DM-48** | Measured: alignment changes the bytes (872 vs 1032). An unnamed constant makes every `content_hash` depend on an Arrow default. |
-| 8 | **Canonicalise field and schema metadata at schema construction** | A1 | **DM-48**, DM-15 | **Restated and sharpened.** The previous edition said "sort metadata keys before fingerprinting" and justified it with a claim about IPC that PROBE 6 refutes — IPC is stable. The real exposure is (a) any platform fingerprint that iterates the `HashMap` directly and (b) `datafusion-proto`, which is measurably unstable at ≥2 keys and which revision 2's **F9** now puts in the memo key. Canonicalising once, at construction, fixes both; sorting only at fingerprint time fixes neither. |
+| 8 | **Canonicalize the hashing representation explicitly** | A1 | DM-48, DM-15 | Metadata key/value sets are validated at construction; HashMap insertion order is not encoding order. v2 hashes a separate ordered metadata representation; plan encodings remain noncanonical [review:E5]. |
 | 9 | Generated conformance test per `pse.*` extension type | A2 | **DM-44**, DM-53 | Ad-hoc tests; the `ExtensionType` trait defines exactly what to assert. |
 | 10 | **`force_validate` in the test and CI cargo profiles** | §10.3 | **G3**, DM-54 | Turns "we believe the generated builders produce valid arrays" into a property checked on every array in the whole suite. One profile line. **New.** |
 | 11 | **`ArrayFormatterFactory` for `pse.*` rendering in diagnostics** | §10.2 | **DM-49**, DM-47 | Hand-written display helpers per semantic type, or diagnostics that render a `pse.semantic_id` as 16 raw bytes. One factory, driven from §4.4's table, shared with DataFusion's matching hook. **New.** |
@@ -641,7 +669,7 @@ In the previous edition these rows lived in the DataFusion map as one combined 4
 | 17 | `arrow_buffer::MemoryPool` (the `pool` feature) | §10.2 | DM-30, G5 | Accounts for allocations DataFusion's pool cannot see. Wait until there is a budget to enforce. **New.** |
 | 18 | `arrow_json::EncoderFactory` for extension-aware export | §10.2 | DM-42, G7 | Only if JSON export becomes a supported interface rather than a debugging convenience. **New.** |
 | 19 | `arrow-ipc` sans-IO stream encoder | §10.4 | DM-48 | Would let A6's "hash the bytes actually written" happen in one pass instead of two. **New.** |
-| 20 | `parquet::ArrowPredicate` + page index | §10.2 | DM-36, DM-26 | Only if a durable Parquet artifact ever becomes a scan source; §5.4 reads IPC today. **New.** |
+| 20 | `parquet::ArrowPredicate` and page indexes | §10.2 | DM-36, DM-26 | Durable Parquet is already a blueprint §5.4 scan source. Evaluate under R-24 with full-result equivalence and measured decoding/total-cost improvement (ADR-0048). |
 
 ### Reject, with reason
 
@@ -651,7 +679,7 @@ In the previous edition these rows lived in the DataFusion map as one combined 4
 | 22 | `Field::extension_type::<E>()` (the panicking variant) | A2 | A panic is not a typed failure (§23.2) and cannot become a `validation.invariant` row. **G3.** Ban by governance grep. |
 | 23 | `Schema::normalize` / `flattened_fields` | A1 | They flatten nested structure into dotted names — the opposite of §4.5's direction. Named so nobody adopts them for convenience. |
 | 24 | `Decimal32`/`Decimal64` for physical quantities | A1 | §4.5 is right that `Float64` is what a solver consumes. Worth a note only for costing (§19.5). |
-| 25 | Arrow CSV/JSON **readers** for platform data | A8 | They infer schemas from samples — precisely what §4.2 forbids. (The JSON *writer*'s `EncoderFactory` is a separate question — row 18.) |
+| 25 | Sample-inferred schemas at platform ingestion | A8 | Reject inference as authority; explicit-schema Arrow CSV/JSON readers are adopted for the declared §6.10 observation interface (ADR-0048). |
 | 26 | **`parquet-variant` family** | §10.1 | A Variant column is a typed hole in D1's "typed relations are the only authority". Rejected because it looks convenient, not because it is obscure. **New.** |
 | 27 | **`parquet_derive`** | §10.1 | Derives schemas from Rust structs; §4.2 generates Rust from the registry. Adopting it inverts the authority direction — **G1**. **New.** |
 | 28 | **`typed-arrow`** | §10.5 | Same inversion as row 27, at compile time. **New.** |
@@ -662,21 +690,15 @@ In the previous edition these rows lived in the DataFusion map as one combined 4
 
 ## 12. Acceptance-gate review (Arrow)
 
-Each gate with the Arrow-specific way this design could fail it, and what closes it. The companion map carries the DataFusion-specific review of the same seven gates; a design passes only if both do.
+This map establishes library surfaces and bounded observations, not platform gate acceptance. The earlier gate summary credited registration and incomplete canonicalization too strongly; the revision-4 review supersedes it.
 
-| Gate | The specific Arrow risk | Status | Closing action |
-|---|---|---|---|
-| **G1 — Authority** | Arrow itself holds no competing authority: it is a format, and `Schema` carries whatever the registry says. The exposure is at the edges — `parquet_derive` and `typed-arrow` would make a Rust type authoritative over a schema, and a `parquet-variant` column would let unmodelled structure live inside a typed relation. | **satisfied, with two named temptations** | Rows 26–28 are rejections precisely so the temptation is on the record. |
-| **G2 — Semantic fidelity** | Two live degradation paths: `CastOptions { safe: true }` turning overflow into null at the §20.5 import edge, and an unregistered extension type read as bare storage. Against these: null, NaN and `-0.0` are **measurably distinct** and survive round-trips (PROBE 2), `totalOrder` orders them deterministically (PROBE 3), and both IPC **and Parquet** preserve extension metadata (PROBE 1, PROBE 7). §4.4's refusal to use null or NaN as a bound sentinel is verified sound. | **largely satisfied; one open hole** | Row 6. Row 2 is applied. |
-| **G3 — Validity** | An invalid batch reaching a pass that assumes validity. §4.2's generated view checks the schema *fingerprint* only — not that extension metadata deserializes or that storage types are supported. `Field::extension_type()` panics rather than erroring. | **open** | Rows 1, 9, 22 — and row 10 (`force_validate`) turns the whole test suite into a structural check, which is the cheapest of the four. |
-| **G4 — Hidden behavior** | Low exposure: Arrow kernels are pure and arithmetic is checked by default. The one real path is D11's buffer borrowing — `ptr_offset()` is non-zero on any sliced or filtered array, so native code indexing from zero reads the wrong rows silently, with plausible numbers. | **open — one concrete path** | Amendment I: state the offset and nullability preconditions in §18.2. |
-| **G5 — Consistency and recovery** | `StreamWriter` dropped without `finish()` yields a truncated stream **with no error at the call site**; under §20.1's hash-named store, a truncated write could land under a correct-looking name. Arrow allocations outside any query are unaccounted. | **open** | A6's "hash the bytes actually written and verify against the name before the put"; row 17 for accounting. |
-| **G6 — Transformation and reuse** | Batch splitting changes IPC bytes (PROBE 4: 872 vs 1080 for identical rows), so a cache keyed on a hash computed before concatenation would be wrong. Alignment likewise (PROBE 5). Dictionary payloads can differ between logically identical batches. | **satisfied *if* §5.3 steps 1–3 are followed exactly** | Rows 7, 8, 12 — and the amendment that records *why* step 2 exists, so it is not optimised away. |
-| **G7 — Truthful capability claims** | The Python boundary is where Arrow claims more than it delivers: §4.4's `pse.*` types reach Python as bare storage types unless matching classes are registered, and nothing detects the difference. Arrow has no extension registry to negotiate against. | **open** | Amendment J (declare the per-column loss profile). Note the asymmetry the companion map measures: **DataFusion errors** on an unregistered extension name, while Python silently degrades — so the same design decision is enforced on one side of the boundary and not the other. |
+| Gate concern | Current mechanism | Remaining evidence |
+|---|---|---|
+| G1 / G2 / G3 | Registry authority, complete physical admission and v2 typed canonicalization | Supported boundary rejection and metamorphic fixtures; E1/E3/E4 are counterexamples, not implementation acceptance |
+| G4 / G6 | Safe owning views, explicit conversion and ordered numerical contracts | Lifetime, conversion and backend conformance |
+| G5 / G7 | Logical/encoded identity split and truthful interface scope | Corrupt/partial/existing-object publication fixtures and complete provider comparisons |
 
-**Summary.** G1 is satisfied and G6 is satisfied conditionally on §5.3 being followed as written — both stronger results than the previous edition could state, because Parquet and metadata stability are now measured rather than feared. G2 has one hole. G3, G4, G5 and G7 have concrete, named, closable holes. None requires an architectural change; all four want a declaration Arrow already has a place for.
-
----
+Use the revision-5 design review for current document-stage gates and plan 02 for implementation acceptance.
 
 ## 13. Leverage matrix
 
@@ -685,14 +707,14 @@ Each gate with the Arrow-specific way this design could fail it, and what closes
 | §4.3 schema- and field-level `pse.*` metadata keys | `Schema.metadata`, `Field::with_metadata` (both `HashMap<String,String>`) | confirmed |
 | §4.3 "preserved through IPC/Parquet" | — | **confirmed empirically for both** `[probe]` — schema md, field md and `ARROW:extension:name` survive IPC (PROBE 1) **and Parquet** (PROBE 7) |
 | §4.3 `pse.contract.fingerprint` reproducibility | `Schema.metadata` iteration | **refined** — IPC is stable regardless of key count `[probe]` (PROBE 6), so the previous edition's claim was wrong; the exposure is platform-side fingerprints and `datafusion-proto` (§15 item 3) |
-| §4.4 `pse.*` recognised by the engine | `datafusion_expr::registry::ExtensionTypeRegistry` | **new** — §4.4's "nothing in DataFusion acts on these keys" is an **erratum** at 55.1.0: registered types are resolved and wrong storage types rejected `[probe]` (PROBE X1) |
+| §4.4 extension admission | `try_extension_type`, `ExtensionTypeRegistry` factories and generated validation | X1 is a direct-helper check; ordinary query enforcement requires the active boundary [review:E1] |
 | §4.5 logical type catalog | `DataType` (41 variants; the catalog is a conservative subset) | confirmed |
 | §4.2 `try_from(&RecordBatch)` schema check | fingerprint is platform code; `Schema::contains` available | **refined** — add a structural check beside the fingerprint |
 | §4.4 `ExtensionType` with `NAME`/`Metadata`/`serialize_metadata`/`deserialize_metadata`/`supports_data_type` | the trait, verbatim | **confirmed, incomplete** — `try_new` also required; `validate` + `try_new_from_field_metadata` provided and are the read path |
 | §4.4 `pse.*` namespacing | `arrow.` reserved for canonical types | confirmed |
 | §4.4 extension validation at the boundary | `try_extension_type` / `validate` | **adopt** — highest-value Arrow item (DM-07, G3) |
 | §4.4 recognising inbound canonical types | `canonical_extension_types` feature | **adopt** — unmentioned; DM-42 |
-| D11 borrow Arrow buffers | `Buffer::as_slice`, `data_ptr`, `ptr_offset` | confirmed, **with an offset hazard the blueprint omits** |
+| D11 borrow Arrow buffers | `PrimitiveArray::values`, `ScalarBuffer` | **Interface-checked** safe slice-aware route; owner lifetime, null rejection and reservation checks are platform obligations (ADR-0047; review L7) |
 | D11 publish native workspace as Arrow | `Buffer::from_custom_allocation` | evaluate (DM-37, DM-29) |
 | §4.4 `pse.bound` never null/NaN sentinels | null propagates through `cmp` kernels | **confirmed, with a second reason** |
 | §5.3 step 4 canonicalise NaN, preserve `-0.0` | IEEE 754 `totalOrder` in sort/cmp | **confirmed necessary** `[probe]` — sorted order was `null, -1, -0, 0, NaN` |
@@ -701,7 +723,7 @@ Each gate with the Arrow-specific way this design could fail it, and what closes
 | §5.3 step 2 expand dictionaries | `cast` from `Dictionary(K,V)` to `V` | leverage |
 | §5.3 step 3 IPC, no compression, deterministic alignment | `IpcWriteOptions::try_new(alignment, false, MetadataVersion)` + `try_with_compression(None)` | **confirmed expressible; alignment value is unspecified in §5.3** `[probe]` |
 | §14.2 rule compiler null-aware joins/dedup | `distinct` / `not_distinct`, `and_kleene` / `or_kleene` | **adopt** — unmentioned; DM-08 |
-| §20.5 IDAES JSON import casts | `cast_with_options(CastOptions { safe: false })`, `can_cast_types` | **adopt** — unmentioned; DM-42, G2 |
+| §20.5 declared import conversions | `cast_with_options`, `can_cast_types` | **Interface-checked** mechanisms; exact numeric/physical admissibility must be established first [review:E3] |
 | §21.1 / D12 Arrow C stream boundary | `FFI_ArrowArrayStream`, `ArrowArrayStreamReader`, `ffi` feature | confirmed |
 | §3.1 `pyo3-arrow 0.19.0` on the Arrow 59 line | requires `arrow-* ^59`, `pyo3 ^0.29` | confirmed — compatible with 59.3.0 |
 | §3.1 one Arrow release family | umbrella-only pinning does **not** pin the family | **erratum — resolved in revision 2** (§1.2); the lockfile half is still open (§15 item 6) |
@@ -745,7 +767,7 @@ Rows 1–22 are the previous edition's, retained so its claims stay traceable. R
 | 26 | all | **rustdoc** | locally generated, full family, `=`-pinned, lockfile committed | complete API surface | **57 targets, 57 OK, 0 FAIL, 60 JSON documents, format_version 61**; arrow family 20 crates all 59.3.0. Supersedes row 15, whose output was not preserved. Receipt in §1.4 |
 | 27 | §10.2 | facts corpus | `build/facts/arrow593` (normalized from row 26) | the E2 denominator | **101 public traits**, 30,920 declarations, 18,268 impl relations `[rustdoc:arrow593@59.3.0]` |
 | 28 | A1, A6 | **probe** | `arrow_probe2.rs` against `arrow 59.3.0` | does metadata key count change canonical IPC bytes? does Parquet preserve metadata and write deterministically? | **PROBE 6** — IPC stable at 0/1/2/3/5 keys, which **refutes** this map's previous claim (§0.4). **PROBE 7** — Parquet preserves schema md, field md and `ARROW:extension:name`; two writes byte-identical; `created_by` embedded. Closes row 14's open question and the previous edition's unresolved item 1 |
-| 29 | A2 | **probe** | `df_probe_x.rs` against `datafusion 55.1.0` | can a `pse.*` type be registered in DataFusion's `ExtensionTypeRegistry`, and what happens to an unregistered one? | **PROBE X1** — 7 canonical types preloaded; `pse.semantic_id` registers and resolves; wrong storage type **rejected** with a typed error; unregistered name **errors** rather than degrading |
+| 29 | A2 | **probe** | `df_probe_x.rs` against `datafusion 55.1.0` | can a `pse.*` type be registered in DataFusion's `ExtensionTypeRegistry`, and what happens to an unregistered one? | **PROBE X1, direct helper only** — 7 canonical types preloaded; `pse.semantic_id` registers and resolves; wrong storage type **rejected** with a typed error; unregistered name **errors** rather than degrading |
 | 30 | §10.4 | GitHub | `apache/arrow-rs` `dev/changelog/59.{0,1,2}.0.md` | the E4 delta | Parquet/GeoArrow extension-type round-trip (59.1.0) — explains PROBE 7; sans-IO IPC stream encoder (59.2.0); `DictionaryArray::is_normalized` (59.0.0); REE→Parquet (59.1.0) `[gh:apache/arrow-rs/dev/changelog]` |
 | 31 | §10.5 | crates.io API | crates.io search, `q=arrow` | third-party extenders worth adjudicating | `typed-arrow` 0.7.1, `serde_arrow` 0.15.0, `quiver` 0.6.1, `arrow-udf-wasm` 0.5.1, `arrow-udf-python` 0.4.2, `pyo3-arrow` 0.19.0 |
 | 32 | §1.3 | GitHub raw | `apache/arrow-rs@59.3.0/arrow/Cargo.toml` | the E3 denominator | the complete umbrella feature list, including the undocumented-in-blueprint `force_validate` and `pool` `[gh:apache/arrow-rs@59.3.0/arrow/Cargo.toml]` |
@@ -754,46 +776,17 @@ Rows 1–22 are the previous edition's, retained so its claims stay traceable. R
 
 ## 15. Open items and recommended blueprint amendments
 
-Every item now carries its status against blueprint **revision 2**: **applied**, **parked** (revision 2 acknowledged it under a §26 review finding but did not resolve it), or **new** in this edition.
+The reviewed amendments are now **Proposed** blueprint revision-5 contracts. The existing probe receipts remain historical observations; no library receipt proves their platform integration.
 
-### Must be settled before the affected code is written
+| Item | Current disposition | Remaining gate |
+|---|---|---|
+| Active extension validation | §4.3–§4.4, ADR-0039; generated recursive admission | Actual provider/query/bundle/output paths and nested values |
+| Canonical bytes and physical encodings | §5.3/§20, ADR-0045; v2 framing and null normalization | Metamorphic/round-trip/integrity tests; R-23 for larger relations |
+| Metadata ordering | Ordered hashing representation, noncanonical protobuf evidence | No sorted-insertion equivalence claim; [review:E5] |
+| Numeric/physical casts | §14.2 semantic admission, ADR-0039 | Fractional/large-integer and wrong-unit/basis/reference rejection |
+| Buffer views and transfer | §18.2/§21.1, ADR-0047/0048 | Lifetime/cancellation checks; R-24 for coalescing benefit |
+| Shared predicates / Parquet | §5.4, ADR-0048 | Full pushed/unpruned results; R-24 before additional pruning |
+| Explicit-schema readers | §6.10, ADR-0048 | Declared tabular descriptor, strict fields/headers and unit/target validation |
+| Optional layouts / custom allocation | Remain consumer/measurement gated | No new layout admitted merely because Arrow exposes it |
 
-| # | Item | Cluster | Status | Why it cannot wait |
-|---|---|---|---|---|
-| 1 | **Name the IPC alignment constant and `MetadataVersion` in the §5.3 hashing contract** | A6 | **parked** — §26 **F12** | Alignment changes the bytes (872 vs 1032 for identical rows). An unnamed alignment means every `content_hash` and `snapshot_id` silently depends on an Arrow default that can change between releases. |
-| 2 | **State that content identity is defined over the canonical IPC encoding only** — Parquet artifacts are never hashed | A6 | **parked** — §26 **F12** | Now measured (PROBE 7): Parquet is deterministic *within* a writer version and does preserve metadata, but embeds `created_by`, so its bytes change on upgrade while the data does not. The rule stands; the reason is narrower than previously stated. |
-| 3 | **Canonicalise field and schema metadata at schema construction, not at fingerprint time** | A1, §10 | **new — and now urgent** | Restates item 3 of the previous edition with a corrected justification and a higher stake. IPC is stable (PROBE 6), so `content_hash` was never at risk. But `datafusion-proto` **is** unstable at ≥2 field-metadata keys, and revision 2's **F9** put a `datafusion-proto` fingerprint into the memo key. Every `pse.*` relation carries ≥2 field-metadata keys. Until this is fixed, F9's memo key differs on every process start. |
-| 4 | **Enable `canonical_extension_types` and `ffi`** | A2, A7 | **applied in revision 2** | Retained as a closed record. |
-| 5 | **Decide `arrow-pyarrow` vs `pyo3-arrow`** and record the reason | A7 | **open — unchanged** | One is first-party and version-locked to the Arrow family; the other adds PyCapsule and numpy. `arrow-pyarrow` could not be included in this extraction (it needs a Python interpreter at build time), which is itself a small argument about build complexity. |
-| 6 | **Pin every `arrow-*` and `datafusion-*` crate with `=`, or commit and enforce a lockfile** | §1.2 | **half applied** | Revision 2 adopted the `=` pins. It did **not** adopt the lockfile. `=` pins bind direct dependencies only; nothing stops a transitive path from introducing a second Arrow version, and only a committed lockfile plus a CI assertion catches that. This map's extraction commits its lockfile — §3.1 should require the same of the build. |
-
-### Recommended blueprint amendments
-
-| # | Section | Change | Status |
-|---|---|---|---|
-| A | §3.1 | Family-wide `=` pins; `cargo tree -d`'s blind spot; features `ipc`, `ffi`, `canonical_extension_types`; drop `arrow-avro` | **applied in revision 2** |
-| A′ | §3.1 | *Additions:* require a committed, CI-enforced `Cargo.lock` (item 6); record that DataFusion 55.1.0 builds against `arrow 59.2.0`, so the pin runs one minor ahead (§1.1); and **drop `arrow-flight` from the pin row** — §3.1 pins it and nothing consumes it | **new** |
-| B | §4.3 | Add `ARROW:extension:metadata` to the field-key table (mandatory alongside `ARROW:extension:name`); state that metadata is canonicalised at construction | **parked** — §26 F12 |
-| C | §4.4 | Add `try_new`, `validate`, `try_new_from_field_metadata` to the named trait surface; the generated `try_from` calls `try_extension_type` per extension column; ban `Field::extension_type()` (it panics) | **parked** |
-| D | §4.2 | Add a generated conformance test per extension type (metadata round-trip, `supports_data_type` accept/reject, reconstruction from a `Field`) — DM-44 | **parked** |
-| E | §5.3 | Record that step 2 (concatenate) is what makes "different batch splits hash identically" true, with the measurement; name the alignment and `MetadataVersion` constants | **parked** — §26 F12 |
-| F | §5.3 step 1 | Note that `pse.index_tuple` (a `List`) cannot be ordered by the ordinary comparison kernels and requires `arrow_row::RowConverter` | **parked** |
-| G | §14.2 | Specify `distinct`/`not_distinct` and Kleene boolean kernels for null-bearing joins and deduplication | **parked** |
-| H | §20.5 | Specify `CastOptions { safe: false }` and `can_cast_types` for import conversions | **parked** |
-| I | D11 / §18.2 | Add the buffer-offset and nullability preconditions for borrowing Arrow buffers into the evaluation program | **parked** — §26 F12 |
-| J | §21 | Declare the per-column loss profile of the Python adapter — DM-42, G7. **Sharpened:** the companion map measures that DataFusion *errors* on an unregistered extension name while the Python boundary silently degrades, so the loss profile is not symmetric and the declaration must say which side enforces what | **parked** — §26 F16 |
-| **K** | §24.1 | Add `force_validate` to the test and CI cargo profiles as a structural-validity gate — **G3**, DM-54 | **new** |
-| **L** | §23.2 / §4.4 | Register an `ArrayFormatterFactory` for the `pse.*` types so diagnostics render semantic values rather than raw storage — DM-49, DM-47. One implementation also serves DataFusion's `DFExtensionType::create_array_formatter` | **new** |
-| **M** | §4.4 / §5.4 | Record that DataFusion 55.1.0 has a first-class `ExtensionTypeRegistry`, and that registering the `pse.*` types there makes storage-type validation an engine-level property of *every* plan rather than only of generated views — DM-06, DM-07, G3. Details in the companion map's D10 | **new** |
-| **N** | §3.3 | Record the rejections that look like wins: `parquet-variant` (a typed hole in D1's authority), `parquet_derive` and `typed-arrow` (both invert the registry→Rust generation direction, **G1**) | **new** |
-
-### Unresolved / unverified
-
-| Item | Status |
-|---|---|
-| Parquet metadata preservation and write determinism | **closed** — measured in PROBE 7. Preserved; deterministic within a writer version; `created_by` embedded |
-| Whether metadata key order destabilises the canonical IPC encoding | **closed** — measured in PROBE 6. It does not; the previous edition's claim was wrong (§0.4) |
-| Extension-type metadata versioning across platform releases | `[UNVERIFIED]` — Arrow has no registry and `pse.contract.version` versions the relation, not the extension type. DataFusion's `ExtensionTypeRegistry` supplies a *place* for a resolution rule but not the rule itself (DM-44, DM-51) |
-| `pse.ordinal_ref`'s target relation is carried in platform metadata rather than in the extension's own `Metadata`, so `supports_data_type` cannot enforce it | open (DM-09, DM-44) |
-| Whether any `compiled.*` column's access pattern justifies `RunEndEncoded` or `Utf8View` | open — requires measurement, per DM-58. 59.1.0 made REE writable to Parquet, so the route is end-to-end; the missing input is still the measurement |
-| `arrow-pyarrow`'s build requirements | `[UNVERIFIED]` — excluded from this extraction because it needs a Python interpreter with `pyarrow` at build time; bears on item 5 |
+The [revision-4 evidence](../design_review/evidence/blueprint-rev4-2026-09-13/README.md) supplies E1/E3/E4/E5; review L3/L7/L9 records the pinned source interfaces for the added bindings. Regeneration of the original evidence corpus was not part of this update.

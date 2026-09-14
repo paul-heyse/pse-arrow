@@ -23,5 +23,6 @@ proc-macro2.workspace = true
 prettyplease.workspace = true
 serde.workspace = true
 arrow-schema.workspace = true
+pse-ids.workspace = true
 thiserror.workspace = true
 miette.workspace = true

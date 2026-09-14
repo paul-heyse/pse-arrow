@@ -1,7 +1,7 @@
 ---
 id: ADR-0012
 title: Adopt D9: every constitutive computation is a KernelSpec with generated bindings
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D9, §18.5, §21.4]
 review: not-required: neither review raised a finding against D9
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0043
 revisit: A kernel needs a binding form the six generated ones cannot express, or a third-party compiled kernel package is admitted (§22, ADR-0037)
 verification: `tests/conformance` kernel-adapter equivalence tests; `rust / codegen-diff`
 
@@ -61,3 +61,4 @@ Blueprint §D9, §18.5 (generated kernel adapters), §21.4 (opaque kernels and A
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0043.

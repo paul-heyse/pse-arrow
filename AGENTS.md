@@ -200,9 +200,15 @@ Plans go in `docs/plans/`, never in a home directory.
   are immutable; supersede them (`just adr-supersede`) instead.
 - The generated paths in prime directive 2, `external/`, `build/`, `target/`.
 
-A `PreToolUse` hook blocks writes to all of these. When a change to the blueprint or an
-accepted ADR is genuinely the work, set `PSE_DESIGN_EDIT=1` for that session and say in
-the PR why. The escape exists so the guard can stay strict; using it silently defeats it.
+A `PreToolUse` hook blocks writes to all of these. Its scope is the working copy plus the
+agent runtime's own directories: it allows `~/.claude` (or `CLAUDE_CONFIG_DIR`), `~/.codex`,
+the session temp directory and anything named in `PSE_AGENT_WRITABLE`, and refuses every
+other path outside the working copy so a stray edit cannot land in another checkout. That
+allowance is for runtime state — memory, scratch files, the runtime's own configuration.
+Project state still belongs here: plans go in `docs/plans/`, never in a private home
+directory. When a change to the blueprint or an accepted ADR is genuinely the work, set
+`PSE_DESIGN_EDIT=1` for that session and say in the PR why. The escape exists so the guard
+can stay strict; using it silently defeats it.
 
 ## Agent runtimes
 
@@ -219,6 +225,16 @@ the PR why. The escape exists so the guard can stay strict; using it silently de
   contain the runtime wiring. Hooks guard supported file-edit tools; they are not a
   sandbox for arbitrary shell commands or tools. Follow the same protection policy
   for all other actions. Existing session authorization remains authoritative.
+- Development runs without approval prompts. `.claude/settings.json` allows the tools
+  outright and keeps one specific `deny` list for the protected paths; a session that
+  wants no prompt at all sets `permissions.defaultMode` in the gitignored
+  `.claude/settings.local.json`. In that mode `deny` rules and the `PreToolUse` hook are
+  still enforced but `ask` rules are not, so a gate that must hold belongs in `deny` or
+  in `scripts/agent-hooks.py` -- never in `ask`. Recipes that reach outside the working
+  copy (`release`, `solver-image`, `labels-sync`, `gh-setup`, `solver-pin-update`) keep
+  their `just` confirmation, which is not a prompt: with no terminal it fails rather than
+  asking, so run one deliberately with `just --yes <recipe>`. Permission to act is not an
+  instruction to act -- commit, push and publish when the work calls for it.
 - `just lint-agents` checks references, aliases, native role drift and hook wiring.
   `just setup-test` exercises the guard behavior in disposable fixtures.
 

@@ -1,9 +1,32 @@
+---
+status: evidence-map
+blueprint_revision: 5
+pins: Cargo.lock
+regenerated: null
+reviewed: 2026-09-13
+---
+
 # Supporting Rust libraries — capability map
+
+**Current binding:** blueprint revision 5. The original survey and version/probe
+receipts below retain their historical scope; they were not regenerated in this
+update. Earlier revision comparisons and parked recommendations are historical.
+The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+and ADR-0039–ADR-0048 determine the corrected design bindings below. Platform
+integration remains **Proposed**; interface and probe evidence are labeled at
+their original scope. No Python behavioral corpus was re-audited by this revision.
+
+| Current binding | Decision and limit | Evidence / authority |
+|---|---|---|
+| Artifact-hash memo | Whole-stage inputs first; finer bundles and salsa require R-22/R-01 evidence | ADR-0040–0042; review R4-06/07 |
+| Hash ownership and identity | v2 canonical logical hash and a separate encoded checksum; semantic-ID contexts retained | ADR-0045; review E4 |
+| Object storage | Verify existing objects and complete manifest membership before conditional publication | ADR-0045; blueprint §20.1 |
+| Kernel-local differentiation | Declared derivative implementation/validity; no inference from scalar signature | ADR-0043/0047; actual backend conformance remains open |
 
 **Companion to** `docs/authoritative_design/blueprint.md` §3.3 (supporting libraries and the boundary each must respect), and the fourth of four capability maps — the other three are `arrow-rust.md`, `datafusion-rust.md` and `python-libraries.md`.
 
 **Compiled** 2026-09-13 against the versions in §1.
-**Adjudicates** blueprint **revision 2** (2026-09-13). The previous edition adjudicated revision 1 and never said so.
+**Historical survey adjudicated** blueprint **revision 2** (2026-09-13). The previous edition adjudicated revision 1 and never said so.
 
 ---
 
@@ -1001,7 +1024,7 @@ This is exactly the failure mode an unresolvable citation hides: a confident API
 |---|---|---|
 | §20.1 "`object_store` provides atomic single-object writes and conditional updates (`PutMode::Update` with the ref's version)" | `put_opts` + `PutMode::Update(UpdateVersion { e_tag, version })`, `Error::Precondition` on mismatch | **confirmed, exactly as stated** |
 | §20.1 ref update: `refs/<name>.json` compare-and-swap | the documented optimistic-concurrency loop; `PutResult.e_tag` from the previous write is the token | **leverage** |
-| §20.1 "write every relation artifact (idempotent by hash)" | `PutMode::Create`, treating `Error::AlreadyExists` as success — the content hash *is* the name, so an existing object is by definition identical | **leverage**; this is the cleanest idempotence available |
+| §20.1 idempotent encoded objects | `PutMode::Create` plus verified existing-object checksum/length/format | **Proposed integration:** AlreadyExists is successful only after verification; a name alone does not prove integrity (ADR-0045) |
 | §20.1 "the local single-writer mode is the initial implementation" | `LocalFileSystem`, documented atomic | **confirmed** |
 | §20.1 mmap-able IPC artifacts | `get_range` / `get_ranges` for footer-then-body reads; note `object_store` returns bytes, it does not hand out a mapping — §5.4's "answered only from cached metadata" statistics path needs the footer range, which `get_range` provides | **leverage**, with the caveat that "mmap-able" describes the *file format* choice, not an `object_store` capability |
 | §20.3 / §20.4 reproduction reading pinned manifests | `get_opts` with conditional fetch, `NotModified` | **leverage** |
@@ -1216,7 +1239,7 @@ Capabilities and disciplines that would improve alignment with `DATA_MODEL_DESIG
 | 7 | **Ban `SchemaLike::from_type` / `from_samples` on any platform path** | C2.1 | **DM-02**, **G2** | Measured (PROBE 2): tracing a `[u8; 16]` yields a 16-field struct, not `FixedSizeBinary(16)`. §4.2 already forbids inference; the governance grep should name the functions. |
 | 8 | **Treat any `SERDE_ARROW:*` field-metadata key as a contract violation** | C2.1 | **DM-15**, DM-48 | Measured: the adapter stamps `SERDE_ARROW:strategy` into field metadata, which §5.3 hashes — so provenance would change a relation's content hash. Settles open question 5 without a hashing-policy exception. |
 | 9 | **`toml::Spanned` for `package.toml`** | C3.2 | **DM-47**, DM-46 | Byte offsets that slice back to source, and spans on type errors. §4.4 defines `pse.source_span`; this supplies it for free. |
-| 10 | **`#[salsa::accumulator]` for pass findings** | C5 | **DM-47**, DM-30 | Measured (PROBE 6). Findings ride alongside a query's value rather than being threaded through every return type. Amendment E. |
+| 10 | `#[salsa::accumulator]` for pass findings | C5 | DM-47, DM-30 | **Deferred**, despite the historical probe. Current pass attempts are sidecar evidence; salsa requires R-22/R-01 adoption (ADR-0042). |
 | 11 | **`petgraph::algo::feedback_arc_set` for tear selection** | §13 | **DM-38**, DM-25 | Measured (PROBE 3c): returns exactly the recycle edge. §12.5 and §15.3 list tear selection as hand-written; the search is library work, the policy is ours. |
 | 12 | **`num-dual::implicit_derivative` for implicit kernels** | C7.1 | **DM-25**, DM-52 | Measured (PROBE 4) against a hand-derived IFT: exact agreement. Amendment G, now with evidence. |
 | 13 | **Sort within every SCC block by semantic ID** | C4 | **DM-15**, **DM-48** | Measured (PROBE 3a): `tarjan_scc` and `kosaraju_scc` return the same components in *different* intra-component orders. Nothing in petgraph guarantees the order, so §5.1's reproducible-IDs claim depends on the platform imposing one. |
@@ -1252,21 +1275,18 @@ Capabilities and disciplines that would improve alignment with `DATA_MODEL_DESIG
 
 ## 15. Acceptance-gate review (supporting libraries)
 
-Each gate with the supporting-library-specific way this design could fail it. The Arrow, DataFusion and Python maps review the same seven gates over their own surfaces; a design passes only if all four do. **This map had no gate review before.**
+The earlier survey's gates described revision 2. Current document-stage gates are
+assessed in the [revision-5 review](../design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md).
+The following are **Proposed** platform contracts; historical library receipts do
+not certify their implementation.
 
-| Gate | The specific risk here | Status | Closing action |
-|---|---|---|---|
-| **G1 — Authority** | Three libraries would each introduce a competing definition of something §3.3 already assigns elsewhere: **`quantity`** (units, against §8's registry), **`uom`** if it ever became authoritative rather than a compile-time check, and **`parquet_derive`-style derivation** if a Rust type ever became the source of a schema. §3.3's boundary sentences are correct on all three; nothing enforces them. | **satisfied by declaration, unenforced** | Rows 7, 25; a governance grep for `from_type`/`from_samples` (row 7). |
-| **G2 — Semantic fidelity** | The measured path is `serde_arrow` tracing: a `[u8; 16]` becomes a 16-field struct and a `String` becomes `LargeUtf8`, neither matching §4.4's declared storage types — silently, with a working round-trip (PROBE 2). The adapter also stamps metadata that §5.3 would hash. | **open — one measured path** | Rows 7, 8. |
-| **G3 — Validity** | The authoring boundary parses user-supplied documents. The incumbent YAML crate is unmaintained; the question is whether malformed input yields a typed failure or a panic. Measured for the replacement (PROBE 7b): four hostile inputs, four typed errors, no panics. `petgraph::maximum_matching` panics on a degenerate node bound. | **closable now** | Rows 4, 15; row 23's `budget` bound. |
-| **G4 — Hidden behavior** | Low exposure — these are libraries, not an engine with an optimizer. The one real path is `salsa`: memoized recomputation that *skips* work is exactly an apparently-pure operation whose behaviour depends on hidden state. Backdating (PROBE 6) is correct but non-obvious. | **satisfied, with one thing to document** | If salsa is kept, §14.3 should state that backdating is expected behaviour, not a bug to be debugged. |
-| **G5 — Consistency and recovery** | Two: a Rust panic unwinding across an Ipopt C callback is undefined behaviour and neither §18.2 nor §18.3 forbids it; and `object_store`'s commit protocol is platform code over single-object atomicity, where a rename-based "optimisation" would break it. | **open** | Rows 15, 16; amendment J refined to name `PutMode` rather than a method that no longer exists. |
-| **G6 — Transformation and reuse** | The `num-dual` split is a reuse hazard of the exact kind this gate describes: two semver-incompatible copies whose trait shapes differ, so a kernel compiled against one cannot be used by the other — and the failure is a confusing type error, not a clear one. Separately, memoized salsa results and content-hashed artifacts key on different things. | **open** | Row 6; **F13** decided on the evidence in C5. |
-| **G7 — Truthful capability claims** | §3.3's role column overshoots the body text in three places: **`faer`** claims "Sparse LU/QR, dense SVD, condition estimates; solver workspaces" while only diagnostics use sites exist and QR and workspaces have none; **`petgraph`** claims "topology, dependency ordering, SCC, DAG checks" while §15.3 explicitly carves out matching; **`feos`** claims "Native Helmholtz/SAFT/cubic providers" while §9.8 delivers Helmholtz by expression template and *explicitly removes* the external-library dependency. Separately, `cargo audit` cannot see the one dependency this map rejects. | **open — the gate this surface fails hardest** | Row 5; amendments N, O, P (§18). |
-
-**Summary.** G4 is satisfied and G1 is satisfied by declaration but unenforced. G3 is closable immediately — the evidence for the YAML decision is in hand. G2, G5 and G6 each have one or two named, measured, closable holes. **G7 is where this surface is weakest**, and not because of any library: §3.3's one-line role column promises more than the blueprint's own body text uses, in three of sixteen rows. That is a documentation defect with real consequences, because §3.3 is what justifies each dependency's presence.
-
----
+| Gates | Current mechanism | Remaining acceptance |
+|---|---|---|
+| G1–G2 | Registry-derived schemas; no traced schema or foreign unit authority; typed conversions and recursive admission (blueprint §4, §8, ADR-0039) | Invalid metadata, lost quantity context and inferred-schema negative fixtures |
+| G3–G4 | Typed parser/kernel failure, declared pure kernel bindings, guarded execution; no adopted salsa query runtime (blueprint §18, ADR-0042/0043/0047) | Real parser/adapter entry points, branch failures, undeclared input rejection |
+| G5 | Complete objects and manifests, checksum verification on existing objects, conditional refs; no unwind through solver callbacks (blueprint §20, §18.3, ADR-0045) | Truncated-existing-object, interruption, CAS and callback fixtures |
+| G6 | Complete stage input keys and pinned derivative implementations; fine reuse/automatic tracking deferred (ADR-0041/0042/0043) | Changed domains/bindings/fixed values versus clean compilation; derivative conformance |
+| G7 | Roles remain bounded by actual consumers; optional FeOs/egglog/observability engines retain register triggers | Numerical routes and performance need their own exercised fixtures/measurements; map receipts are narrower evidence |
 
 ## 16. Leverage matrix
 
@@ -1285,11 +1305,11 @@ One row per blueprint requirement that rests on a supporting library. Read this 
 | §15.3 deterministic block order | `petgraph` | intra-component node order is **arbitrary** | **confirmed necessary** — sort within blocks by semantic ID |
 | §15.3 maximum matching | `petgraph` | `maximum_matching` exists but is Gabow, general-graph, **O(\|V\|³)** | **refined** — Hopcroft–Karp still ours; correct §15.3's stated reason |
 | §15.3 Dulmage–Mendelsohn | `petgraph` | none | build on top (as the blueprint says) |
-| §14.3 passes memoized on content hashes | `salsa` | `#[salsa::tracked]` + `#[salsa::input]` | leverage |
-| §14.3 "the memo stores the output artifact hashes" | `salsa` | `PartialEq`-driven **backdating** | **confirmed and load-bearing** — hashes make backdating exact and O(1) |
-| §14.3 pass findings | `salsa` | `#[salsa::accumulator]` — excluded from result equality | **leverage, previously unmapped** — findings do not defeat backdating |
+| §14.3 passes memoized on content hashes | `salsa` | `#[salsa::tracked]` + `#[salsa::input]` | **Available but deferred:** R-22/R-01; not the current compiler binding (ADR-0042) |
+| §14.3 "the memo stores the output artifact hashes" | `salsa` | `PartialEq`-driven **backdating** | **Available but deferred:** R-22/R-01; not the current compiler binding (ADR-0042) |
+| §14.3 pass findings | `salsa` | `#[salsa::accumulator]` — excluded from result equality | **Available but deferred:** R-22/R-01; not the current compiler binding (ADR-0042) |
 | §6.13/§23.2 cancellation | `salsa` | `CancellationToken`, unwinding | leverage — **never unwind through the Ipopt FFI** (C11) |
-| §14.3 rayon-parallel passes | `salsa` | per-key claiming; second caller blocks | confirmed compatible |
+| §14.3 rayon-parallel passes | `salsa` | per-key claiming; second caller blocks | **Available but deferred:** R-22/R-01; not the current compiler binding (ADR-0042) |
 | §3.1 snapshot immutability inside a session | `salsa` | `Durability::NEVER_CHANGE` | leverage — assignment is an **open item** |
 | §7.4 equality-saturation rewrites (phase 4) | `egglog` | `EGraph`, `rust_rule`, `run_ruleset`, cost-model extraction | capable; **determinism unverified** — gate adoption on it |
 | §18.5 one kernel body over `DualNum` | `num-dual` | `DualNum` bound; `Dual`/`Dual2`/`HyperDual` | **confirmed** |
@@ -1307,11 +1327,11 @@ One row per blueprint requirement that rests on a supporting library. Read this 
 | §9.8 FeOs provider | `feos-core` | `Residual`/`IdealGas`/`Total`, `EquationOfState`, `State`, `PhaseEquilibrium` | leverage — ⚠ **`num-dual ^0.14`** (C8.1) |
 | §13.6 native DAE backend | `diffsol` | `OdeBuilder`, `new_implicit_closure`, `NonLinearOp(Jacobian)`, `LinearOp` mass matrix | leverage via closures — **do not adopt DiffSL** |
 | §18.2 sparse Jacobian → diffsol | `diffsol` | interface asks for a Jacobian-**vector product** | open item — adapter fit check |
-| §5.3 `content_hash = blake3(ipc_bytes)` | `blake3` | `Hasher::update` / `update_reader` | leverage |
+| §5.3 logical and encoding hashes | `blake3` | `Hasher::update` / `update_reader` | pinned mechanism; v2 framing/normalization is platform code and requires metamorphic tests (ADR-0045) |
 | §5.1 `blake3_128` derived IDs | `blake3` | `new_derive_key(context)` vs. truncating `finalize()` | **design decision** — choose before freezing; truncation safety `[UNVERIFIED]` |
 | §5.3 hashing large artifacts | `blake3` | `update_rayon`, `update_mmap_rayon` | leverage — must respect §18.8's thread budget |
 | §20.1 atomic writes, conditional ref update | `object_store` | `put_opts` + `PutMode::Update(UpdateVersion)`, `Error::Precondition` | **confirmed exactly as stated** |
-| §20.1 idempotent artifact writes | `object_store` | `PutMode::Create`, treat `AlreadyExists` as success | leverage |
+| §20.1 idempotent artifact writes | `object_store` | `PutMode::Create` plus existing-object verification | logical identity and physical integrity are separate; ADR-0045 |
 | §20.1 local single-writer mode | `object_store` | `LocalFileSystem` — documented atomic | confirmed |
 | §20.1 commit protocol | `object_store` | write the final path conditionally; **`rename` does not exist at the pinned 0.13.2** | **refined** — amendment J should name `PutMode`, not a removed method (C9.2) |
 | §3.1 `object_store` API surface | `object_store` | 0.13.0 merged `copy`/`copy_if_not_exists`→`copy_opts`, `delete`→`delete_stream`, `put`/`get`/`head`→`*_opts` | **erratum** — the previous edition described a different version (C9.2, ledger row 60) |
@@ -1413,64 +1433,25 @@ Rows 1–52 are the previous edition's. **The five rows whose instrument read `l
 
 ## 18. Open questions, with recommendations
 
-Each question now carries a **recommendation and the evidence behind it**. The recommendation is not the decision: these are dependency and identity choices the owner makes, and several are permanent once made. Where the evidence does not settle a question, that is said.
+The earlier survey's amendment requests are reconciled below. Evidence sections
+and receipts remain the original observations; this is a decision update, not a
+new full-library probe run. Current pins are owned by Cargo.toml and Cargo.lock.
 
-### Must be settled before the affected code is written
+| Topic from the survey | Current disposition | Remaining verification / trigger |
+|---|---|---|
+| YAML replacement | `serde-saphyr`, ADR-0021; typed located failures (blueprint §22.1) | Platform authoring negatives; historical PROBE 7b is a library characterization |
+| `num-dual`, FeOs and units | One pinned `num-dual` family; FeOs conditional under ADR-0022/R-06; no `uom` or foreign quantity authority (ADR-0026) | Recheck the exact dependency graph and semantic adapter before optional FeOs adoption |
+| `object_store` surface and publication | Pinned options APIs; `PutMode::Create` and conditional ref updates; logical hash separate from encoded checksum (ADR-0045) | Existing-byte verification, restore and interrupted publication; R-10 before multi-writer/cloud support |
+| Identity and canonicalization | `pse-ids` owns semantic-ID derive-key contexts and v2 logical/encoded hashing (blueprint §5.1/§5.3) | Recursive null/metadata normalization, exact membership and framing fixtures; R-23 for a larger envelope |
+| `serde_arrow` and `SERDE_ARROW:*` | Registry supplies explicit schemas; unregistered metadata is rejected (blueprint §4) | Generated boundary conformance, including nested types |
+| Salsa durability, accumulators and backdating | Available library mechanisms, **deferred** under ADR-0042/R-01; current compiler uses complete stage keys | R-22 complete finer input bundle and measurements first; changed lineage cannot silently authorize a skipped stage |
+| `faer` condition estimates and smallest singular values | Consumer-specific diagnostics in blueprint §15.4–§15.5; sparse LU and explicit operator/conditioning assumptions remain necessary | End-to-end smallest-value/condition-number accuracy and cost; the operator probe alone is insufficient |
+| `diffsol` and its numerical stack | Optional later-phase backend in blueprint §13.6/§25 | Qualify its actual Jacobian, solver, dependency and failure routes before claiming backend support |
+| `egglog` | Optional; no `Debug` hashing or unguarded numerical identities (blueprint §7.3, R-05) | Cross-process/version extraction and numerical equivalence; prior same-process observations are narrower |
+| Ipopt C bindings and structured iterates | Generated owned `-sys` bindings and capability-resolved structured iterate APIs (ADR-0028/0038, blueprint §18.3) | Actual callback/interruption/linkage acceptance for each supported platform; setup preflight is not numerical parity |
+| Thread and memory budgets | One declared thread budget, shared runtime, fallible platform reservations (ADR-0046) | Concurrent consumers and release; pool peaks alongside process peaks |
+| Maintenance, pins and optional instrumentation | Family/maintenance gates and ADR-0037 register triggers remain | Library upgrades require new evidence; no supporting-library re-resolution is claimed here |
 
-| # | Question | Recommendation | Evidence |
-|---|---|---|---|
-| 1 | Which YAML crate replaces `serde_yaml`? | **`serde-saphyr` 1.2.0.** | PROBE 7b: caret diagnostics with line and column, and four classes of hostile input refused as typed errors without a panic — the criterion the previous edition itself set. `serde_norway` last released 2024-12-21; `serde_yml` is deprecated in its own description. Released 2026-08-30 `[crates.io:serde-saphyr]`. The evidence is one-sided. |
-| 2 | Pin `num-dual` at 0.14 (matching `feos-core`) or 0.15? | **0.15, and treat `feos` as blocked on its upstream** — unless a phase-4 FeOs provider is worth writing every kernel body against a trailing-edge signature. | §1.3: the split is entirely `feos-core` + its own `quantity`; nothing else in a 362-package graph wants 0.14. And the break is **source-level**, not just type-level: `DualNum<f64>` (0.14) vs `DualNum<Primitive = f64>` (0.15). This is a decision about `pse-kernels`' source, taken now, for an optional provider due in phase 4. |
-| 3 | Reconcile the `object_store` pin | **Closed — and a different problem was found.** 0.13.2 is required by DataFusion 55.1.0, not chosen; revision 2's §3.1 already records this. | But the previous edition's *API description* was of a different version. At 0.13.2, `rename`, `copy_if_not_exists` and `put`/`get`/`head`/`delete` **do not exist** (row 60). §20.1 prose written against them will not compile. |
-| 4 | `blake3_128`: `derive_key(context)` or truncate `finalize()`? Is 16-byte truncation sound? | **Truncation is sound. Use `derive_key`.** | PROBE 1: BLAKE3 is an XOF, so `finalize_xof(16)` and `hash()[..16]` are byte-identical — a 16-byte prefix is a defined 128-bit digest, not a hopeful shortening. The two *routes* differ, so one must be named; `derive_key` is the purpose-built domain-separation mechanism, and §5.1 is already doing domain separation by hand with string prefixes. |
-| 5 | How is `serde_arrow`'s `STRATEGY_KEY` classified for §5.3 hashing — volatile or contractual? | **Neither: it must never appear.** Treat any `SERDE_ARROW:*` key on a relation schema as a contract violation. | PROBE 2: the key is stamped by *tracing*, and §4.2 already forbids tracing — the registry supplies the schema. Classifying it as volatile would license a path that should not exist. The same probe shows why: traced types are structurally wrong (a `[u8; 16]` becomes a 16-field struct). |
-
-### Must be settled before the affected feature is promised
-
-| # | Question | Recommendation | Evidence |
-|---|---|---|---|
-| 6 | Budget for `num.condition_number`? | **Adopt `pseudoinverse_from_svd_with_tolerance` and make the tolerance a declared policy.** The budget question stays open. | faer ships the tolerance-parameterised pseudo-inverse §15.4 needs `[rustdoc:faer@0.24.4]`. What it does not do is make an O(n) sparse-solve budget acceptable — that is a measurement, not a library question. |
-| 7 | §15.5's "iterative for large" SVD — implement over `matrix_free`, add a crate, or restrict to dense? | **`faer` sparse LU *plus* `matrix_free`, or restrict and say so. Not `matrix_free` alone.** | C7.2: the operator contract works (PROBE 5, exact match both directions), but `partial_svd` targets the **largest** singular values by its own documentation, and §15.5 wants the smallest. Reaching the smallest needs shift-invert, i.e. applying `A⁻¹`. This is half of §26 **F17**. |
-| 8 | Durability assignment across salsa inputs | **Deferred behind F13** — assigning durability is only meaningful once salsa is kept. | PROBE 6 confirms `LOW`/`MEDIUM`/`HIGH` exist and that reference inputs are the natural `HIGH` candidates. |
-| 9 | Does `diffsol` accept an explicit sparse Jacobian, or only Jacobian-vector products? | **Unresolved — and a prior question surfaced.** | `diffsol` 0.16.2 pulls `diffsol-la`/`diffsol-nl`, **not `faer`** `[crates.io:diffsol]`. Before asking what Jacobian form it accepts, decide whether a second linear-algebra stack is acceptable at all (register row 26). |
-| 10 | Is `egglog`'s extraction deterministic across runs? | **Yes — provided nothing hashes a `Debug` rendering.** | PROBE 8: five identical runs gave one extracted term and one stable snapshot, and five different `Debug` strings, because the internal container is a hash set. egglog ships `snapshot_stable_under_proof_encoding` for exactly this. `[UNVERIFIED]` across processes and versions — and egglog has shipped **three majors in ten months**, so the phase-4 API will differ. |
-| 11 | `bindgen` or hand-declared `extern "C"` for the Ipopt `-sys` crate? | **bindgen, with generated bindings committed and diffed** — unchanged, and now better supported. | Row 61: the C surface is **eleven functions** and a handful of typedefs. That is small enough to hand-declare, which argues the other way — except that `Bool` is C99 `bool`, `ipindex`/`ipnumber` are configurable at Ipopt build time, and getting either wrong is silent UB. Committing generated bindings mirrors §4.2's treatment of generated relation code. |
-| 12 | Does `uom` need a custom `system!` for currency, or does costing stay outside uom? | **Outside.** | §8 already models currency as a quantity kind with CE-index conversion. A uom `system!` would be a second definition of the same dimension — **G1**. |
-| 13 | Which kernels get `uom` typing? §3.3 says "selected" without a rule. | **Unresolved, and it is the reason `uom` has no use site.** | `uom` is named once in §3.3 and appears nowhere else in the blueprint — §8 is written entirely without it. Either name the rule, or accept that `uom` is currently a dependency with no consumer and drop it (register row 22). |
-
-### Recommended blueprint amendments
-
-Status is against blueprint **revision 2**.
-
-| # | Section | Change | Status |
-|---|---|---|---|
-| A | §3.3 | Replace `serde_yaml` with the chosen maintained YAML crate | **parked** — §26 F11. Q1 now recommends `serde-saphyr` with evidence |
-| B | §15.3 | Correct "petgraph lacks it" → "petgraph ships only general-graph matching (Gabow, O(\|V\|³), input treated as undirected); the incidence graph is bipartite, so Hopcroft–Karp's O(\|E\|√\|V\|) is required" | **parked** — **re-sourced and confirmed verbatim** (rows 57, 58) after its only source was deleted |
-| C | §3.1 | Add `num-dual` to the pin table; extend the `cargo tree -d` check beyond Arrow | **parked** — §26 F11. **Superseded in scope by A′ below** |
-| **A′** | **§3.1** | **Pin all 24 supporting crates, not one.** §3.2 line 277 claims the manifest "carries every pin once"; §3.1 anchors only `tokio`. §1.2 is the table to adopt. Add a committed, CI-enforced `Cargo.lock`, as the Arrow and DataFusion maps also recommend | **new — the largest finding in this map** |
-| D | §3.3 / §23.1 | Add `datafusion-tracing` and `instrumented-object-store`, noting version lockstep | **do not apply yet** — both are at 55.0.0 with no 55.1.0 release against a pinned 55.1.0 engine (row 62) |
-| E | §14.3 | Name `#[salsa::accumulator]` as the mechanism for pass findings, and state that findings are excluded from memo equality so they do not defeat backdating | **parked** — mechanism confirmed by PROBE 6 |
-| F | §18.2 / §18.3 | State that no panic or cancellation unwind may cross an Ipopt callback boundary | **parked** — **G5** |
-| G | §18.2 | Note that `num-dual` supplies the implicit function theorem directly (`implicit_derivative*`) rather than it being platform code | **parked** — confirmed by PROBE 4 against a hand-derived IFT |
-| H | §23.1 | Prefer the structured-iterate API over text-parsing solver output, with a capability probe for Ipopt < 3.14 | **parked, with corrected names** — the C exports are **`GetIpoptCurrentIterate`** / **`GetIpoptCurrentViolations`**; the previously recommended `Ipopt_get_curr_*` are the C++ `TNLP` spellings (row 61) |
-| I | §18.8 | Extend the thread-budget rule to artifact hashing (`blake3::update_rayon`) and diagnostics (`faer`'s `Par`) | **parked** |
-| J | §20.1 | State explicitly that a rename is never a commit primitive | **parked, and refined** — at the pinned 0.13.2 there *is* no `rename` to misuse, only `rename_opts`. The amendment should name the mechanism (`PutMode::Create` / `Update`) rather than a method that no longer exists |
-| **K** | **§3.2** | **Assign `blake3` an owning crate** (`pse-ids` is the obvious home — line 281 already says "canonical hashing") and **name the 128-bit derivation mechanism** in §5.1. It is used at two widths across ~20 sites with neither stated | **new** |
-| **L** | **§4.2 / §24.1** | Extend the governance grep to ban `SchemaLike::from_type` and `from_samples`, and to reject any `SERDE_ARROW:*` key on a relation schema — §4.2's "never inferred from samples" is currently prose with nothing enforcing it | **new** |
-| **M** | **§24** | Require a **`cargo deny`** maintenance and bans check, not `cargo audit` alone. `cargo audit` is clean against this dependency set *and cannot see* `serde_yaml`'s deprecation (row 63) | **new** |
-| **N** | **§3.3** | **`faer`'s role overshoots its use sites.** The row promises "Sparse LU/QR, dense SVD, condition estimates; solver workspaces"; the body text uses sparse LU (§15.4) and dense/iterative SVD (§15.5) only. QR and "solver workspaces" have no use site — §18.2's workspace is native and §18.3's KKT solves go to MA57/MUMPS. Either narrow the row or name where QR is used — **G7** | **new** |
-| **O** | **§3.3** | **`petgraph`'s role overshoots.** The row promises "topology, dependency ordering, SCC, DAG checks"; §15.3 explicitly carves out matching and DM decomposition, and petgraph's actual load is two sites (§12.5's topology multigraph, §15.3's Tarjan SCC). Conversely `feedback_arc_set` **is** applicable and unclaimed (§13) — **G7** | **new** |
-| **P** | **§3.3 / §9.8** | **`feos`'s role contradicts §9.8.** The row calls it a "Native Helmholtz/SAFT/cubic" provider; §9.8 delivers Helmholtz by expression template and states that this "removes the external-library dependency for the native backend". Narrow the row to SAFT and cubic. Also record that adopting it imports **`quantity`**, a third units representation (register row 25) — **G7**, **G1** | **new** |
-| **Q** | **§8 / §3.3** | **`uom` has no use site.** It is named once in §3.3 and appears nowhere in §8, which is entirely runtime data. Either state the rule for which kernels get `uom` typing (open question 13) or remove the dependency | **new** |
-| **R** | **§5.3** | **Never hash a `Debug` rendering.** Three of the four capability maps independently found the same defect class — hash-container iteration order leaking into a rendering (egglog's `TermDag`, `datafusion-proto`'s field metadata, Arrow `Schema` metadata). The rule belongs in the canonical-serialization contract once, not in three maps | **new** |
-
-### Unresolved / unverified
-
-| Item | Status |
-|---|---|
-| MSRV / edition-2024 compatibility for `num-dual`, `salsa`, `faer`, `egglog`, `diffsol`, `feos-core` | `[UNVERIFIED]` — all six now build and document under the pinned nightly (§1.5), which is evidence of compatibility but not of a declared floor |
-| `faer::matrix_free::partial_svd` executed end to end | `[UNVERIFIED]` — its dimension preconditions were not satisfiable in the harness; C7.2's finding rests on the crate's documentation plus the measured operator contract |
-| `egglog` determinism **across processes and versions** | `[UNVERIFIED]` — PROBE 8 measures one process and one version. The cross-version question is the live one: three majors in ten months |
-| `object_store` S3 multi-writer commit coordination | `[UNVERIFIED]` — deferred while §20.1 is single-writer local, but the ref CAS is the platform's only serialization point |
-| Ipopt linking, distribution, and HSL/MUMPS availability | untouched by the blueprint and by this lookup; on the critical path for `pse-backend-native`. The stale state of the published Ipopt crates (`ipopt-sys` 0.6.0, 2024-12) supports §3.3's "own `-sys` crate" |
-| Whether `feos-core` will move to `num-dual` 0.15 | `[UNVERIFIED]` — open question 2's answer would change if it does; worth checking before phase 4 rather than at it |
+Use [plan 02](../plans/02-blueprint-revision-5-contracts.md) for the revision-5
+implementation handoff. Unchanged specialized numerical/provider questions remain
+unverified until their actual consumer is implemented and exercised.

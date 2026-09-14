@@ -56,9 +56,17 @@ class EditPolicyTests(unittest.TestCase):
         self.assertEqual(
             hooks.edit_paths({"tool_input": {"file_path": "a.py"}}), ["a.py"]
         )
+        self.assertEqual(
+            hooks.edit_paths({"tool_input": {"notebook_path": "a.ipynb"}}), ["a.ipynb"]
+        )
         with self.assertRaises(ValueError):
             hooks.edit_paths({"tool_input": {"command": "echo unchecked"}})
-        for payload in ([], {"tool_input": None}, {"tool_input": {"file_path": 3}}):
+        for payload in (
+            [],
+            {"tool_input": None},
+            {"tool_input": {"file_path": 3}},
+            {"tool_input": {"notebook_path": ""}},
+        ):
             with (
                 self.subTest(payload=payload),
                 self.assertRaises((ValueError, TypeError)),
@@ -73,7 +81,6 @@ class EditPolicyTests(unittest.TestCase):
             "crates/a/src/generated/b.rs",
             "python/pse/contracts/a.py",
             "crates/pse-ipopt-sys/src/bindings.rs",
-            "../outside",
         ):
             with self.subTest(name=name):
                 self.assertIsNotNone(hooks.protected(self.root, name, design_edit=True))
@@ -81,6 +88,31 @@ class EditPolicyTests(unittest.TestCase):
         self.assertIsNone(
             hooks.protected(self.root, str((self.root / "a.py").resolve()))
         )
+
+    def test_runtime_areas_are_writable_and_other_places_are_not(self) -> None:
+        other = tempfile.TemporaryDirectory()
+        self.addCleanup(other.cleanup)
+        area = Path(other.name) / "agent-home"
+        with patch.object(hooks, "agent_areas", return_value=[area]):
+            self.assertIsNone(hooks.protected(self.root, str(area / "memory/note.md")))
+            self.assertIsNotNone(
+                hooks.protected(self.root, str(Path(other.name) / "elsewhere/a.py"))
+            )
+
+    def test_runtime_areas_follow_the_runtime_configuration(self) -> None:
+        override = {
+            "CLAUDE_CONFIG_DIR": str(self.root / "cfg"),
+            hooks.WRITABLE_ENV: str(self.root / "extra"),
+        }
+        with patch.dict(hooks.os.environ, override):
+            areas = hooks.agent_areas()
+        for expected in (
+            self.root / "cfg",
+            self.root / "extra",
+            Path(tempfile.gettempdir()),
+            Path.home() / ".codex",
+        ):
+            self.assertIn(expected.resolve(), areas)
 
     def test_symlink_cannot_hide_a_protected_destination(self) -> None:
         (self.root / "external").mkdir()
@@ -104,6 +136,15 @@ class EditPolicyTests(unittest.TestCase):
         self.assertIsNotNone(
             hooks.protected(self.root, "docs/authoritative_design/blueprint.md")
         )
+
+    def test_formatter_ignores_files_outside_the_working_copy(self) -> None:
+        other = tempfile.TemporaryDirectory()
+        self.addCleanup(other.cleanup)
+        stray = Path(other.name) / "scratch.py"
+        stray.write_text("x=1\n")
+        with patch.object(hooks.subprocess, "run") as run:
+            hooks.format_paths(self.root, [str(stray)])
+        run.assert_not_called()
 
     def test_formatter_only_receives_permitted_edited_files(self) -> None:
         for name in ("a.py", "neighbor.py", "docs/generated/skip.py"):

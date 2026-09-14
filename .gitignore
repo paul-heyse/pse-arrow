@@ -11,6 +11,7 @@ tooling/dfarrow-apiex/verify/target/
 # Reading copies fetched by scripts/fetch-external.sh (pinned tags; never committed)
 /external/
 /.worktrees/
+/.claude/worktrees/
 /idaes-pse/
 
 # Python

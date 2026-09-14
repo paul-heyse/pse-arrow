@@ -53,12 +53,27 @@
   - [ADR-0036: Publish the documentation as an mdBook on GitHub Pages](adr/0036-mdbook-on-github-pages.md)
   - [ADR-0037: Defer datafusion-tracing, instrumented-object-store, datafusion-ffi and egglog, each with a trigger](adr/0037-remaining-deferred-items-with-triggers.md)
   - [ADR-0038: Add pse-ipopt-sys, pse-buildinfo, xtask, benches and five test crates to the workspace layout](adr/0038-workspace-layout-additions.md)
+  - [ADR-0039: Enforce semantic admission and complete physical quantity operations](adr/0039-active-semantic-admission-and-quantity-algebra.md)
+  - [ADR-0040: Resolve property demand from normalized seeds and name immutable stage outputs](adr/0040-demand-seeds-and-stage-bundles.md)
+  - [ADR-0041: Reuse complete stage inputs before introducing finer memoization](adr/0041-complete-stage-cache-inputs.md)
+  - [ADR-0042: Defer finer memoization until whole-stage measurements justify it](adr/0042-defer-fine-grained-memoization.md)
+  - [ADR-0043: Declare kernel outcomes and generate only supported bindings](adr/0043-complete-kernel-outcomes-and-bindings.md)
+  - [ADR-0044: Record plan encodings as noncanonical diagnostic evidence](adr/0044-noncanonical-plan-evidence.md)
+  - [ADR-0045: Separate canonical logical content from encoded artifact integrity](adr/0045-canonical-content-and-encoded-integrity.md)
+  - [ADR-0046: Share runtime budgets and reserve platform allocations explicitly](adr/0046-shared-accounted-runtime-memory.md)
+  - [ADR-0047: Preserve guarded numerical semantics and borrow through safe Arrow views](adr/0047-guarded-numerics-and-safe-arrow-borrows.md)
+  - [ADR-0048: Use standard relational operators and explicit-schema readers](adr/0048-standard-relational-and-import-operators.md)
+  - [ADR-0049: Pin serde_json and uuid as direct dependencies for the manifest codec and explicit identities](adr/0049-serde-json-and-uuid-direct-pins.md)
+  - [ADR-0050: Freeze the identity framing constants, canonical frames and the phase-1 relation envelope](adr/0050-identity-framing-constants.md)
+  - [ADR-0051: Extend the generated-tree list and make codegen --check a regeneration-equivalence check](adr/0051-generated-trees-and-regeneration-check.md)
 <!-- adr:end -->
 
 # Plans
 
 - [Plans](plans/README.md)
   - [01 — Repository configuration](plans/01-repository-configuration.md)
+  - [02 — Blueprint revision 5 contracts](plans/02-blueprint-revision-5-contracts.md)
+  - [03 — Wave 1 foundations](plans/03-wave-1-foundations.md)
 
 # Design reviews
 
@@ -67,6 +82,9 @@
   - [Agent design directive](design_review/design_principles/AGENT_DESIGN_DIRECTIVE.md)
 - [Review: blueprint revision 1](design_review/reviews/design_review_arrow-native-idaes-core-blueprint_2026-09-13.md)
 - [Review: blueprint revision 2](design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md)
+- [Review: blueprint revision 4 and library contracts](design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+  - [Revision-4 library evidence: probe receipts](design_review/evidence/blueprint-rev4-2026-09-13/README.md)
+- [Review: blueprint revision 5 contracts](design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md)
 
 # Capability maps
 

@@ -1,7 +1,7 @@
 ---
 id: ADR-0019
 title: Record the DataFusion plan fingerprint as evidence; keep it out of the memo key
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§14.2, §14.3, §20.2]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0044
 revisit: `datafusion-proto` gains a documented byte-stability guarantee, or the two-process byte-equality test fails after a DataFusion upgrade
 verification: `tests/engine` two-process plan-encoding byte-equality test; `rust / test`
 
@@ -61,3 +61,4 @@ Blueprint §14.2 rule 5, §14.3 (pass engine), §20.2 (manifest); review finding
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0044.

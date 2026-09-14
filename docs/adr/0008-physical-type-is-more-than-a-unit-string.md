@@ -1,7 +1,7 @@
 ---
 id: ADR-0008
 title: Adopt D5: every quantity carries a quantity_type_id, and pse.* extension types are registered
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D5, §4.4, §8]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0039
 revisit: A quantity-bearing column appears without a `quantity_type_id`, or the engine's extension-type registry stops validating storage types at planning time
 verification: `python / test` `test_extension_round_trip`; the wrong-storage-type planning rejection test in `tests/conformance`
 
@@ -61,3 +61,4 @@ Blueprint §D5, §4.3 (metadata conventions), §4.4 (extension types), §8 (phys
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0039.
