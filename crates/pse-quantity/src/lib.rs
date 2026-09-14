@@ -1,9 +1,81 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Dimensions, units, quantity kinds and types, bases, reference states and conversions (blueprint §3.2, §7).
+//! Dimensions, units, quantity kinds and types, bases, reference states and conversions
+//! (blueprint §3.2, §6.2, §8).
 //!
-//! Physical typing is data in the registry, never a Rust type parameter: `uom` is a
-//! banned dependency (blueprint §3.3).
+//! Physical typing is data in the registry, never a Rust type parameter: `uom` is a banned
+//! dependency (blueprint §3.3). A quantity type is a row, resolved at compile time by a
+//! pass, and this crate is the in-memory shape of those rows plus the algebra over them.
 //!
-//! Phase 0: this crate is a declared boundary with no implementation yet.
+//! # Why a dimension vector is not a physical type
+//!
+//! Dimensional analysis answers one question — do the exponents combine? — and §8.1 is
+//! built on the observation that the answer is not enough. Torque and energy share
+//! `M·L^2·T^-2`. A molar and a mass-specific enthalpy share `L^2·T^-2` after the basis is
+//! divided out. An absolute and a gauge pressure share everything but their datum. Each of
+//! those pairs is a modelling error that a dimension checker accepts, so a
+//! [`QuantityTypeId`] resolves the complete §8.1 tuple — kind, dimension, basis, reference
+//! state, point/difference scale, index shape, subject and canonical unit — and
+//! composition goes through a registered `quantity_operations` rule rather than through
+//! exponent arithmetic (§8.3).
+//!
+//! [`DimensionVector`] is therefore a *component* of that answer and never the answer.
+//!
+//! # Layout
+//!
+//! Landed by the keel (packet K-4):
+//!
+//! - [`dimension`] — [`Ratio`], [`BaseDimension`] and [`DimensionVector`] with canonical
+//!   bytes.
+//! - [`ids`] — the identity newtypes, and the [`semantic_id_newtype`] macro that declares
+//!   them.
+//! - [`enums`] — the closed registry dictionaries, including the 43 [`Opcode`]s of §7.2,
+//!   and the [`closed_enum`] macro that gives each member one spelling.
+//! - [`index`] — [`BoundIndexRef`] and [`IndexSet`]: free-index identity.
+//! - [`error`] — every error enum with its §23.2 class.
+//! - [`mod@unit`] — [`UnitConvertSpec`], the payload `pse_mathir` carries on a
+//!   `UnitConvert` node.
+//!
+//! Declared here and filled by later packets: [`mod@unit`] (the rest), [`unit_set`],
+//! [`conversion`], [`kind`], [`basis`], [`reference_state`], [`quantity_type`],
+//! [`registry`] (packet Q-1); [`operation`], [`infer`], [`literal`] (packet Q-3);
+//! [`admission`], [`numeric`], and `standard` behind the `fixtures` feature (packet Q-4).
+//!
+//! [`closed_enum`]: crate::closed_enum
+//! [`semantic_id_newtype`]: crate::semantic_id_newtype
+
+pub mod admission;
+pub mod basis;
+pub mod conversion;
+pub mod dimension;
+pub mod enums;
+pub mod error;
+pub mod ids;
+pub mod index;
+pub mod infer;
+pub mod kind;
+pub mod literal;
+pub mod numeric;
+pub mod operation;
+pub mod quantity_type;
+pub mod reference_state;
+pub mod registry;
+#[cfg(feature = "fixtures")]
+pub mod standard;
+pub mod unit;
+pub mod unit_set;
+
+pub use crate::dimension::{BaseDimension, DimensionVector, Ratio};
+pub use crate::enums::{
+    BasisKind, BasisRule, CompositionBasis, ConversionKind, DomainKind, Opcode,
+    QuantityAdditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind,
+    ReferenceRule, ReferenceStateKind, ScaleKind, SubjectKind, SubjectRule, WeightNormalization,
+};
+pub use crate::error::{ContractComponent, DimensionError, IncompatibilityReason, QuantityError};
+pub use crate::ids::{
+    BasisId, BoundIndexId, ConstantId, ConversionId, DomainId, InvariantId, OperationId,
+    QuantityKindId, QuantityTypeId, ReferenceStateId, UnitId, UnitSetId,
+};
+pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};
+pub use crate::unit::UnitConvertSpec;
