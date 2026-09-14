@@ -22,3 +22,9 @@ pse-quantity.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[dev-dependencies]
+# The quantity fixtures are what the canonicalization tests infer against.
+pse-quantity = { workspace = true, features = ["fixtures"] }
+proptest.workspace = true
+insta.workspace = true

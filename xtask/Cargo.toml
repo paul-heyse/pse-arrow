@@ -19,6 +19,11 @@ publish = false
 workspace = true
 
 [dependencies]
+# The registry and the passes the generators and the golden-store driver run.
+pse-schema.workspace = true
+pse-authoring.workspace = true
+pse-catalog.workspace = true
+pse-compiler.workspace = true
 clap.workspace = true
 cargo_metadata.workspace = true
 toml.workspace = true
@@ -30,3 +35,8 @@ anyhow.workspace = true
 # it (blueprint §23.2).
 miette = { workspace = true, features = ["fancy"] }
 semver.workspace = true
+tokio.workspace = true
+# `codegen --check` regenerates into a scratch directory and diffs both ways (ADR-0051).
+tempfile.workspace = true
+# python/pse/contracts/GENERATED.sha256 only; identity hashing is blake3 in pse-ids.
+sha2.workspace = true

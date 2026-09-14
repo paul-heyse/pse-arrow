@@ -16,3 +16,24 @@ publish = false
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+pse-ids.workspace = true
+pse-schema.workspace = true
+pse-relations.workspace = true
+pse-catalog.workspace = true
+pse-runtime.workspace = true
+pse-quantity = { workspace = true, features = ["fixtures"] }
+pse-mathir.workspace = true
+pse-authoring.workspace = true
+pse-material.workspace = true
+pse-rules.workspace = true
+pse-compiler.workspace = true
+arrow.workspace = true
+parquet.workspace = true
+datafusion.workspace = true
+object_store.workspace = true
+tokio.workspace = true
+proptest.workspace = true
+insta.workspace = true
+tempfile.workspace = true

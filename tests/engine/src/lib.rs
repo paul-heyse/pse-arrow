@@ -16,3 +16,5 @@
 //!
 //! Phase 0: the layer is declared and its harness runs; the tests arrive with the
 //! crates they exercise.
+
+pub mod oracle;
