@@ -4,7 +4,8 @@
 
 This is a real file so the shared import survives a Windows checkout without symlinks.
 
-`.claude/settings.json` configures permissions and three lifecycle hooks. Both Claude
+`.claude/settings.json` configures permissions and three lifecycle hooks; AGENTS.md
+describes which permission layers survive an unprompted session. Both Claude
 and Codex call `scripts/agent-hooks.py`: startup reports doctor status, pre-edit checks
 protect generated files and decided documents, and post-edit formatting touches only
 permitted edited files inside the working copy. The guard does not stand between you and
