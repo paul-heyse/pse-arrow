@@ -225,6 +225,16 @@ can stay strict; using it silently defeats it.
   contain the runtime wiring. Hooks guard supported file-edit tools; they are not a
   sandbox for arbitrary shell commands or tools. Follow the same protection policy
   for all other actions. Existing session authorization remains authoritative.
+- Development runs without approval prompts. `.claude/settings.json` allows the tools
+  outright and keeps one specific `deny` list for the protected paths; a session that
+  wants no prompt at all sets `permissions.defaultMode` in the gitignored
+  `.claude/settings.local.json`. In that mode `deny` rules and the `PreToolUse` hook are
+  still enforced but `ask` rules are not, so a gate that must hold belongs in `deny` or
+  in `scripts/agent-hooks.py` -- never in `ask`. Recipes that reach outside the working
+  copy (`release`, `solver-image`, `labels-sync`, `gh-setup`, `solver-pin-update`) keep
+  their `just` confirmation, which is not a prompt: with no terminal it fails rather than
+  asking, so run one deliberately with `just --yes <recipe>`. Permission to act is not an
+  instruction to act -- commit, push and publish when the work calls for it.
 - `just lint-agents` checks references, aliases, native role drift and hook wiring.
   `just setup-test` exercises the guard behavior in disposable fixtures.
 
