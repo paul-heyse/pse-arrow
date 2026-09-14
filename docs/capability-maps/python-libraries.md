@@ -1,4 +1,27 @@
+---
+status: evidence-map
+blueprint_revision: 5
+pins: pyproject.toml and uv.lock
+regenerated: null
+reviewed: 2026-09-13
+---
+
 # Python libraries — capability map
+
+**Current binding:** blueprint revision 5. The original survey and version/probe
+receipts below retain their historical scope; they were not regenerated in this
+update. Earlier revision comparisons and parked recommendations are historical.
+The [revision-4 review](../design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
+and ADR-0039–ADR-0048 determine the corrected design bindings below. Platform
+integration remains **Proposed**; interface and probe evidence are labeled at
+their original scope. No Python behavioral corpus was re-audited by this revision.
+
+| Current binding | Decision and limit | Evidence / authority |
+|---|---|---|
+| Arrow admission | Explicit recursive contract validation, registration/loss checks and typed outcomes | ADR-0039/0043; blueprint §21.1 |
+| Pyomo affine lowering | LinearExpression only for a proven affine-in-variables body; constants have degree 0 | ADR-0047; review R4-09 |
+| Guarded and opaque bindings | Actual writer/solver capability and numerical-policy preflight; Expr_if construction is not lazy-evaluation proof | ADR-0043/0047; blueprint §21.2 |
+| Bounded streams | Safe owning buffers and measured bounded coalescing; no whole-dataset transfer copy | ADR-0047/0048; R-24 |
 
 **Fourth and final map in the series**, completing blueprint §3.3. The Rust side is covered by `arrow-rust.md`, `datafusion-rust.md` and `supporting-rust-libraries.md`; this covers **line 331** — the Python row — plus the adjacent libraries the Python boundary actually depends on.
 
@@ -204,8 +227,8 @@ PROBE 2  metadata across IPC and PyCapsule
 
 | §21.2 step 2 requirement | Verdict |
 |---|---|
-| "`Affine` → `LinearExpression`" | **confirmed** — constructs from `(constant, linear_coefs, linear_vars)`, reports `polynomial_degree() == 1`, which is what keeps the lowered form linear for solvers that exploit it |
-| "`Conditional` → `Expr_if`" | **confirmed** — yields `Expr_ifExpression` |
+| `Affine` lowering | **Qualified:** the probe constructs a truly linear expression. Arbitrary Affine children may be nonlinear; use LinearExpression only after proving affine dependence on active variables (ADR-0047). |
+| `Conditional` to `Expr_if` | **Interface/probe scope:** expression construction works; guarded evaluation must be qualified for the actual Pyomo writer and selected solver/numerical policy (ADR-0047). |
 | "`KernelCall` → … otherwise `ExternalFunction(library, function)`" | **confirmed** as a declaration; see the risk below |
 | "`ImplicitRef` never appears (implicit systems stay as equations)" | platform rule, nothing in Pyomo to confirm or refute |
 
@@ -214,7 +237,7 @@ PROBE 2  metadata across IPC and PyCapsule
 | Item | DM / gate | Recommendation |
 |---|---|---|
 | **A missing external-function library is a *warning*, not an error** | **G7** (truthful capability claims), **DM-43**, DM-30 | **adopt a hard check.** `ExternalFunction` with an unresolvable library emitted a warning and still produced a usable expression object `[probe]`; the failure surfaces only at solve time, from the solver, far from the cause. §21.4 already requires an end-to-end test per `pyomo_external_function` kernel — the stronger rule is that the adapter must *verify the library resolves* before building the model, and raise `capability.backend` (§23.2) with the kernel id if not. A warning on stderr is not a typed failure. |
-| `polynomial_degree()` as a lowering assertion | **DM-24** (preserve semantics across lowerings), DM-53 | **adopt.** After lowering an `Affine` node the adapter can assert `polynomial_degree() == 1`; after lowering a node the IR marked linear, anything else means the lowering diverged from the IR's own classification. A cheap, generated, per-node equivalence check — exactly DM-53's "verify equivalence across representations". |
+| `polynomial_degree()` as a lowering assertion | DM-24, DM-53 | **Adopt with classification:** compare with the expected degree, 0 for constants and 1 for a nonconstant affine-in-variables form. An Affine opcode alone does not justify degree 1 (blueprint §21.2). |
 | Build through `Block`s mirroring `compiled` relation structure | DM-18 | **reject.** Tempting for readability, but D12 is explicit that the adapter "builds no IDAES classes" and "engineering names live in the source map". Blocks would recreate a hierarchy the design deliberately flattened to ordinals. |
 
 ### Gaps and risks
@@ -622,19 +645,18 @@ Capabilities the blueprint does not claim, which would improve charter alignment
 
 ## 15. Acceptance-gate review (Python boundary)
 
-| Gate | The specific risk here | Status | Closing action |
-|---|---|---|---|
-| **G1 — Authority** | pint enters twice — through Pyomo's units machinery and through IDAES — and Pyomo units are *required* by §21.2. If any `pse` relation were derived from a pint quantity there would be two authorities for the same fact. | **open — reword §3.3 from presence to authority** | #12, #30 |
-| **G2 — Semantic fidelity** | Two measured collapses. (a) A nullable Arrow column → `ndarray` turns **null into NaN**, destroying the distinction §4.4 exists to protect. (b) An unregistered extension type degrades to bare storage with no error. Both silent; both plausible-looking downstream. | **open — both closable and cheap** | #5, #8 |
-| **G3 — Validity** | cattrs by default **accepts and discards** unknown keys, and accepts `Any` fields. §21.5 asserts strictness the library does not provide by default. | **open** | #2, #3, #4 |
-| **G4 — Hidden behavior** | `ExternalFunction` with a missing library constructs successfully and warns; the model looks valid and fails later from the solver. | **open** | #10, #13 |
-| **G5 — Consistency and recovery** | Extension-type registration is process-global and non-idempotent; a second registration raises, so import order can determine whether the boundary works. | **open — minor but real** | idempotent register-once helper (§3) |
-| **G6 — Transformation and reuse** | Lowering the IR to Pyomo is a semantics-preserving transformation with no check today; `pyomo.contrib.*` tools change between releases and their versions are not recorded. | **open** | #17, #22 |
-| **G7 — Truthful capability claims** | §18.9's capability matrix presents the Pyomo route alongside native and NL backends without noting that five of the six ecosystem tools live in `pyomo.contrib`, the least stable surface in the dependency set. Missing solvers and missing external-function libraries are both discovered late. | **open** | #7, #10, #13, #17 |
+The survey's revision-2 gate results are historical. Blueprint §21 now specifies
+the following **Proposed** mechanisms. The [revision-5 review](../design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md)
+assesses the changed contracts; no current end-to-end Python/backend certification
+is supplied by this map.
 
-**Summary.** No gate is satisfied outright at the Python boundary, and that is the honest headline: this is the least-specified and least-enforced surface in the design. But every hole is *named, measured and cheap to close* — mostly by passing a constructor argument, adding a boundary assertion, or generating what is currently hand-written. None requires an architectural change.
-
----
+| Gates | Current mechanism | Remaining acceptance |
+|---|---|---|
+| G1 | Registry-generated contracts; pint validates the adapter's units and never defines model relations | Generated-schema/units disagreement fixtures |
+| G2–G3 | Recursive ingress/egress admission, extension loss profile, mask-preserving nullable transfer and strict contract structuring | Missing registrations, nested metadata, unknown fields, null/NaN and wrong-unit negative cases |
+| G4 | Solver/external-library preflight and supported numerical-policy/guarded-route checks | An actual selected solver route; constructing `Expr_if` is insufficient |
+| G5 | Idempotent extension registration; immutable stream/buffer owners retain reservations until final release | Repeated import, delayed drain, cancellation and partial-ingestion fixtures |
+| G6–G7 | `LinearExpression` only for proved affine-in-active-variable bodies; declared kernel/derivative bindings and versioned backend conformance | Nonlinear children in `Affine`, constant degree zero, guarded failures and genuine solver round trips |
 
 ## 16. Leverage matrix
 
@@ -645,8 +667,8 @@ Capabilities the blueprint does not claim, which would improve charter alignment
 | §4.4 Python consumers register `pyarrow.ExtensionType`; unknown consumers see storage types | `register_extension_type`; measured both paths | **confirmed exactly** `[probe]` |
 | §4.3 metadata preserved into Python | schema + field metadata across IPC and capsule | **confirmed** `[probe]` |
 | §21.2 step 1 units so `assert_units_consistent` passes | `pyomo.util.check_units` — **not** `pyomo.environ`; requires **pint** | **erratum ×2** — wrong module implied; contradicts §3.3 |
-| §21.2 step 2 `Affine` → `LinearExpression` | `LinearExpression(constant, linear_coefs, linear_vars)` | confirmed `[probe]` |
-| §21.2 step 2 `Conditional` → `Expr_if` | `Expr_ifExpression` | confirmed `[probe]` |
+| §21.2 affine-in-variables lowering | `LinearExpression` | **Qualified probe:** constructor works for the measured linear example; nonlinear children take ordinary expression lowering (ADR-0047) |
+| §21.2 runtime Conditional | `Expr_ifExpression` | construction observed; actual guarded writer/solver route remains a conformance requirement (ADR-0047) |
 | §21.2 step 2 `KernelCall` → `ExternalFunction` | `AMPLExternalFunction` | confirmed — **but a missing library only warns** |
 | §21.2 step 3 `scaling_factor` suffix | `Suffix(direction=EXPORT)` | confirmed `[probe]` |
 | §21.2 step 4 `dual`/`ipopt_zL_out`/`ipopt_zU_out` | `Suffix(direction=IMPORT)` | declaration confirmed; **round-trip `[UNVERIFIED]`** — no solver installed |
@@ -689,38 +711,21 @@ Capabilities the blueprint does not claim, which would improve charter alignment
 
 ## 18. Open items and recommended blueprint amendments
 
-### Must be settled before the Python package is written
+This is a **Proposed** design disposition, not a rerun of the Python corpus. The
+original API/probe sections retain their conditions. Current dependency and
+interpreter authority is pyproject.toml, uv.lock and blueprint §3.1.
 
-| # | Item | Cluster | Why it cannot wait |
-|---|---|---|---|
-| 1 | **Reword §3.3's units exclusion from presence to authority** | §5, §12 | As written, §3.3 and §21.2 are incompatible: Pyomo's units machinery *is* pint, and §21.2 requires it. Nothing can be built until the two agree. |
-| 2 | **Decide whether the Python contract classes are generated** | §7 | If generated, they join §4.2's artifact list and the generator changes. If hand-written, §4.2's "nothing hand-written may duplicate a column list" needs an explicit carve-out. Either is defensible; silence is not. |
-| 3 | **Write the attrs/cattrs ÷ msgspec division into §21.5** | §9 | Three overlapping libraries with no stated division; §21.5 currently does not say what msgspec is for. |
-| 4 | **Pin every Python library, and state the two interpreter ranges** | §1 | Two floors, three omissions, and IDAES caps the parity interpreter at 3.13 while the platform package can target 3.14. |
-| 5 | **Settle the IDAES parity version** | §12 | This map is built against 2.12.0 per instruction; §3.1 says 2.10. Parity claims are meaningless without an exact version. |
-| 6 | **Restore or replace `contract_substrate_discipline.md`** | §7 | §21.5's discipline currently points at a deleted file. |
-
-### Recommended blueprint amendments
-
-| # | Section | Change |
+| Earlier item / revision-5 finding | Current disposition | Remaining acceptance |
 |---|---|---|
-| A | §3.1 | Pin Pyomo 6.10.1, pyarrow 25.0.1, attrs 26.1.0, cattrs 26.2.0, msgspec 0.21.1, numpy 2.5.3, scipy 1.18.1, idaes-pse 2.12.0, pint 0.26.1 with `==`. State two interpreter ranges: platform package ≥3.11 (3.14 verified); parity environment 3.10–3.13 (3.13 verified). |
-| B | §3.3 | Reword the units exclusion: no Python-side units library is an **authority** for quantities; pint is required by Pyomo's units machinery and is present in the adapter and parity environments. |
-| C | §21.2 step 1 | Correct the module: `pyomo.util.check_units.assert_units_consistent`. Prefer `identify_inconsistent_units` so §23.2's `compile.math` can name the culprit. |
-| D | §21.2 step 2 | Require that the external-function library is verified to resolve before the model is built, raising `capability.backend` with the kernel id — a missing library otherwise only warns. |
-| E | §21.5 | State: `forbid_extra_keys=True` and `detailed_validation=True` on every converter; a governance lint enforcing "no `Any`"; the attrs/cattrs ÷ msgspec division; and that contract classes are generated from `RelationSpec`. |
-| F | §21.1 | Add the per-column extension loss profile to the bundle manifest; state that tables cross as readers, not materialised tables. |
-| G | §4.4 | Add that the platform ships and registers the ten `pse.*` `pyarrow.ExtensionType` classes, with a conformance test mirroring the Rust one; note that degradation is detectable via retained `ARROW:extension:name` metadata. |
-| H | §21.2 / D11 | Add the numpy boundary rule: never convert a nullable column to a bare `ndarray` (null becomes NaN); assert `null_count == 0` or carry the mask; default to `zero_copy_only=True`. |
-| I | §18.9 / §21.3 | Note that five of the six ecosystem tools live in `pyomo.contrib` — the least stable surface in the dependency set — and record their versions in `runtime.runs.environment`. |
-| J | §24 | Add standing CI cross-checks: `IncidenceGraphInterface` and `scipy.sparse.csgraph.{maximum_bipartite_matching, structural_rank}` against the native structural results over the golden snapshots. |
+| Unit authority and generated contracts | Blueprint §3.3/§4.2/§21.5: pint validates, registry generates contract classes; attrs/cattrs handles structured material and msgspec handles wire records | Generator/runtime contract checks; no duplicated independently editable schema |
+| Exact pins, interpreter split and parity version | Blueprint §3.1/§6.14 and ADR-0003/0018/0024; IDAES 2.12.0 is the parity reference | Actual named parity gate for the relevant slice; historical absence of a solver is not a claim about the current setup |
+| Deleted discipline reference | Normative Python contracts are stated in blueprint §21.5 | No dependency on the deleted library-guide file |
+| Extension registration and nullable arrays | Blueprint §4.4/§21.1/§21.6, ADR-0039; platform admission invokes checks, unaware consumers have an explicit loss profile | Real bundle/query ingress, masks, mismatched extension versions and round trips |
+| R4-09: `Affine` versus a linear problem | Blueprint §21.2, ADR-0047: verify degree 0/1 only for the qualified `LinearExpression` route; nonlinear children use ordinary expressions | Constant and nonlinear-child fixtures, declared numerical policy |
+| R4-02/10: guarded and opaque kernels | Blueprint §18.5/§18.9/§21.2/§21.4, ADR-0043/0047; actual writer/solver support, units and derivatives are required | Excluded-branch failure tests, native/Pyomo outcome comparisons and external-function solves |
+| Result suffixes and ecosystem tools | Blueprint §21.2/§21.3: record actual versions and cross-check native structures | Real dual/bound-multiplier round trips and supported `pyomo.contrib` operations; old import/construction probes do not close these |
+| L7: bounded coalescing | Blueprint §21.1, ADR-0048, R-24; stream ownership remains mandatory | Representative transfer/memory measurement and independent semantic equality |
 
-### Unresolved / unverified
-
-| Item | Status |
-|---|---|
-| Suffix round-trip (`dual`, `ipopt_zL_out`, `ipopt_zU_out`) through an actual solve | `[UNVERIFIED]` — no solver installed in either environment; declaration confirmed, loop not closed |
-| IDAES 2.12.0 on CPython 3.14 | untested by upstream; not attempted here. The two-environment split avoids needing an answer |
-| Whether `msgspec.json.schema()` and §4.2's registry-generated authoring schema can be reconciled | open (§8) — currently recommended to keep them apart |
-| Extension-metadata versioning across Rust/Python release cycles | `[UNVERIFIED]` — the same gap the Arrow map recorded, worse here because the two implementations ship separately |
-| Whether the vendored `idaes-pse/` tree (2.10 line) or the pinned 2.12.0 package is the parity reference | open — see item 5 |
+The implementation sequence and boundary fixtures are recorded in
+[plan 02](../plans/02-blueprint-revision-5-contracts.md). Performance and solver
+support remain unmeasured/unverified until those specific paths are exercised.

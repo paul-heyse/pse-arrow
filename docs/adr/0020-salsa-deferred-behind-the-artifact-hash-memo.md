@@ -1,7 +1,7 @@
 ---
 id: ADR-0020
 title: Defer salsa; the artifact-hash memo is the only memoization mechanism
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§14.3]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0042
 revisit: A measurement shows sub-pass granularity finer than per-instance is needed inside P7
 verification: The §24.3 compile-time benchmark for P7 on a flowsheet-scale model; register row R-01
 
@@ -61,3 +61,4 @@ Blueprint §14.3 (pass engine); review finding F13; `docs/adr/register.md` row R
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-13 — superseded by ADR-0042.

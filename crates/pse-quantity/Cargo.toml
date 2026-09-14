@@ -21,3 +21,12 @@ pse-ids.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[features]
+# The standard units/kinds/operations package used as a test double for the reference
+# YAML package (blueprint §8.2); never a default, never a platform authority.
+fixtures = []
+
+[dev-dependencies]
+proptest.workspace = true
+insta.workspace = true

@@ -10,12 +10,16 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 PATCH_HEADER = re.compile(
     r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", re.MULTILINE
 )
+# Claude sends one edited file under one of these keys; Codex sends a patch.
+FILE_KEYS = ("file_path", "notebook_path")
+WRITABLE_ENV = "PSE_AGENT_WRITABLE"
 
 
 def edit_paths(payload: dict) -> list[str]:
@@ -24,10 +28,11 @@ def edit_paths(payload: dict) -> list[str]:
     inputs = payload.get("tool_input", {})
     if not isinstance(inputs, dict):
         raise TypeError("tool_input must be an object")
-    if "file_path" in inputs:
-        if not isinstance(inputs["file_path"], str) or not inputs["file_path"]:
-            raise ValueError("file_path must be a nonempty string")
-        return [inputs["file_path"]]
+    for key in FILE_KEYS:
+        if key in inputs:
+            if not isinstance(inputs[key], str) or not inputs[key]:
+                raise ValueError(f"{key} must be a nonempty string")
+            return [inputs[key]]
     command = inputs.get("command", "")
     if isinstance(command, str) and command.startswith("*** Begin Patch\n"):
         paths = PATCH_HEADER.findall(command)
@@ -36,12 +41,39 @@ def edit_paths(payload: dict) -> list[str]:
     raise ValueError("unrecognized edit payload; refusing an unchecked file edit")
 
 
+def agent_areas() -> list[Path]:
+    """Directories an agent runtime owns: its config, memory and scratch space.
+
+    These hold runtime state, not project state. The guard protects the working
+    copy and is not a shell sandbox, so refusing them would only add friction to
+    the sanctioned tool path while leaving shell writes untouched.
+    """
+    home = Path.home()
+    areas = [
+        Path(os.environ.get("CLAUDE_CONFIG_DIR") or home / ".claude"),
+        home / ".codex",
+        Path(tempfile.gettempdir()),
+    ]
+    areas += [
+        Path(entry)
+        for entry in os.environ.get(WRITABLE_ENV, "").split(os.pathsep)
+        if entry
+    ]
+    return [area.expanduser().resolve() for area in areas]
+
+
+def within(target: Path, base: Path) -> bool:
+    return target == base or base in target.parents
+
+
 def protected(root: Path, path: str, *, design_edit: bool = False) -> str | None:
     target = (root / path).resolve()
     try:
         relative = target.relative_to(root.resolve())
     except ValueError:
-        return "edit is outside the repository"
+        if any(within(target, area) for area in agent_areas()):
+            return None
+        return "edit is outside the working copy and the agent's own directories"
     parts = relative.parts
     if not parts or ".git" in parts or parts[0] in {"target", "build", "external"}:
         return "VCS state, build output and reading copies are protected"
@@ -68,9 +100,13 @@ def format_paths(root: Path, paths: list[str]) -> None:
     venv = Path(os.environ.get("UV_PROJECT_ENVIRONMENT", ".venv"))
     bindir = root / venv / ("Scripts" if os.name == "nt" else "bin")
     for path in dict.fromkeys(paths):
+        target = (root / path).resolve()
+        # Repo formatters carry repo configuration. An agent's own scratch space
+        # and runtime config are not the working copy and are left untouched.
+        if not within(target, root.resolve()):
+            continue
         if protected(root, path, design_edit=os.environ.get("PSE_DESIGN_EDIT") == "1"):
             continue
-        target = (root / path).resolve()
         if not target.is_file():
             continue
         command = None

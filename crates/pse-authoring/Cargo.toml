@@ -21,8 +21,18 @@ serde-saphyr.workspace = true
 toml.workspace = true
 winnow.workspace = true
 serde.workspace = true
+uuid.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
 pse-relations.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[features]
+# `proptest::Arbitrary` generators for the expression AST, used by the DSL round-trip
+# property test and by fuzzing harnesses. Never a default (blueprint §24.1).
+arbitrary = []
+
+[dev-dependencies]
+proptest.workspace = true
+insta.workspace = true

@@ -23,6 +23,7 @@ datafusion-common.workspace = true
 datafusion-proto.workspace = true
 arrow.workspace = true
 pse-relations.workspace = true
+pse-schema.workspace = true
 pse-catalog.workspace = true
 pse-ids.workspace = true
 tokio.workspace = true
