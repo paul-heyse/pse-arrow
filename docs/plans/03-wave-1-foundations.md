@@ -517,6 +517,30 @@ pub struct Driver;    // new(Arc<Catalog>, Arc<SharedRuntime>); commit(&Document
 // CompilerError codes: compile::stage_graph, internal::invariant, runtime::resource_limit, runtime::infrastructure + re-exported authoring/rule errors
 ```
 
+## Progress ledger (living; updated 2026-09-14)
+
+| Item | State | Evidence / where |
+|---|---|---|
+| Stage 0 — merge PR #1 | **awaiting maintainer** | `chore/complete-repository-setup`, every reported check green |
+| Stage 0 — revision-5 amendment, ADR-0039–0048 accepted | **PR #2 open** (stacked on #1) | `adr/0039-revision-5-contracts`; `just adr-lint`, `just docs`, `just lint-repo`, `just lint-agents` at zero |
+| K-1 `pse-ids` core | **PR #4 open** (stacked on #2) | `wave1/k1-ids`; Tested: `just test-package pse-ids -p pse-relations` 87 passed / 0 failed; golden vectors frozen and recorded in ADR-0050 |
+| K-2 decisions, revision-6 rows, manifests, scaffolding | **PR #3 open** (stacked on #2) | `wave1/k2-decisions`; ADR-0049/0050/0051 accepted; `just governance` 19/19, `just test` 23/23, clippy both legs clean; `Cargo.lock` gained dependency edges only |
+| Keel integration branch | pushed | `wave1/keel-int` = #2 + K-2 + K-1 + the ADR-0050 vector table; `just governance` and `just family-check` at zero there; `just ci-fast` re-run pending after a TOML formatting fix |
+| K-3 `pse-schema` keel | **in progress** | worktree `.claude/worktrees/agent-a10da4907c35956bd`, branch `wave1/k3-schema` off `wave1/keel-int` |
+| K-4 leaf keels | **in progress** | worktree `.claude/worktrees/agent-a04e14a9f75a325e9`, branch `wave1/k4-leaf` |
+| K-5 engine keels | **in progress** | worktree `.claude/worktrees/agent-a7062af505e162de0`, branch `wave1/k5-engine` |
+| Tiers 1–4 | not started | dispatch after K-3/K-4/K-5 are on `wave1/keel-int` (or `main`) |
+
+**Resuming after an interruption.** The three K-3/K-4/K-5 worktrees keep their files on disk; re-dispatch the same packet prompt with the instruction to continue from the worktree's current state (`git status`, existing files) rather than starting over. Once PR #1 → #2 → #3/#4 are merged, rebase `wave1/keel-int` and every open `wave1/*` branch onto `main` (`git rebase --onto main <old-base> <branch>`) and retarget their PRs to `main` (`gh pr edit --base main`).
+
+**Findings surfaced by the keel packets (not yet acted on):**
+- `tests/governance/tests/banned_patterns.rs`: the `format!("{:?}"` ban cannot fire because `common::code_only` strips string literals before matching — fix in packet R-2 (owner of the governance tests).
+- `just adr-new <slug> --title "multi word"` splits the title (`{{ args }}` unquoted in the recipe); use `python3 scripts/adr.py new …` directly until a `chore(just)` fix lands.
+- `CanonicalContract::try_new` admits an empty primary key; the registry (K-3/A-5) must reject keyless relations.
+- Worktrees have no `.venv`; pre-commit hooks and Python recipes need `UV_PROJECT_ENVIRONMENT=/home/paul/pse-arrow/.venv`; every packet must use a worktree-local `CARGO_TARGET_DIR` because `xtask` embeds its root at compile time and the shared target directory uplifts one binary.
+- No independent BLAKE3 implementation is available locally; the ADR-0050 vectors are self-consistent, not cross-checked (`b3sum` at wave exit).
+- Agent-tool worktrees start at `origin/main`, not the current branch; every packet prompt must state its base branch explicitly.
+
 ## Verification
 
 Phase-0 exit per blueprint §25, each with the command that proves it. Baseline zero for
