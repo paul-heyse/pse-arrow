@@ -526,10 +526,11 @@ pub struct Driver;    // new(Arc<Catalog>, Arc<SharedRuntime>); commit(&Document
 | K-1 `pse-ids` core | **PR #4 open** (stacked on #2) | `wave1/k1-ids`; Tested: `just test-package pse-ids -p pse-relations` 87 passed / 0 failed; golden vectors frozen and recorded in ADR-0050 |
 | K-2 decisions, revision-6 rows, manifests, scaffolding | **PR #3 open** (stacked on #2) | `wave1/k2-decisions`; ADR-0049/0050/0051 accepted; `just governance` 19/19, `just test` 23/23, clippy both legs clean; `Cargo.lock` gained dependency edges only |
 | Keel integration branch | pushed | `wave1/keel-int` = #2 + K-2 + K-1 + K-4 + the ADR-0050 vector table; Tested there: `cargo fmt --check`, `just check`, `just clippy` (both legs), `just test` 110 passed / 0 failed before K-4, `just doctest`; taplo's `fmt-check` from the main checkout walks into nested worktrees (false positive) |
-| K-3 `pse-schema` keel | **in progress** | worktree `.claude/worktrees/agent-a10da4907c35956bd`, branch `wave1/k3-schema` off `wave1/keel-int` |
+| K-3 `pse-schema` keel | **PR #7 open** (base `wave1/keel-int`; merged into the integration branch) | `wave1/k3-schema`; Tested: `just test-package pse-schema -p pse-relations` 52 passed / 0 failed; `error_taxonomy` now sees five real error enums |
 | K-4 leaf keels | **PR #5 open** (base `wave1/keel-int`; merged into the integration branch) | `wave1/k4-leaf`; Tested: `just test-package pse-quantity/pse-mathir/pse-material -p pse-relations` 36 + 34 + 11 passed, 0 failed; workspace `just test` 191 passed |
-| K-5 engine keels | **in progress** | worktree `.claude/worktrees/agent-a7062af505e162de0`, branch `wave1/k5-engine` |
-| Tiers 1–4 | not started | dispatch after K-3/K-4/K-5 are on `wave1/keel-int` (or `main`) |
+| K-5 engine keels | **PR #6 open** (base `wave1/keel-int`; merged into the integration branch) | `wave1/k5-engine`; Tested: `just test-package pse-catalog -p pse-relations` 71 passed, `pse-runtime` 7 passed, 0 failed |
+| Keel integration (all five packets) | **green** | `wave1/keel-int` at 2026-09-14: `cargo fmt --check`, `just check`, `just clippy` (both legs), `just test` 324 passed / 0 failed (`force-validate`), `just doctest`, `just governance`, `just docs` + offline lychee (0 errors) |
+| Tiers 1–4 | not started | dispatch after the keel PRs reach `main` |
 
 **Resuming after an interruption.** The three K-3/K-4/K-5 worktrees keep their files on disk; re-dispatch the same packet prompt with the instruction to continue from the worktree's current state (`git status`, existing files) rather than starting over. Once PR #1 → #2 → #3/#4 are merged, rebase `wave1/keel-int` and every open `wave1/*` branch onto `main` (`git rebase --onto main <old-base> <branch>`) and retarget their PRs to `main` (`gh pr edit --base main`).
 
@@ -540,6 +541,9 @@ pub struct Driver;    // new(Arc<Catalog>, Arc<SharedRuntime>); commit(&Document
 - Worktrees have no `.venv`; pre-commit hooks and Python recipes need `UV_PROJECT_ENVIRONMENT=/home/paul/pse-arrow/.venv`; every packet must use a worktree-local `CARGO_TARGET_DIR` because `xtask` embeds its root at compile time and the shared target directory uplifts one binary.
 - No independent BLAKE3 implementation is available locally; the ADR-0050 vectors are self-consistent, not cross-checked (`b3sum` at wave exit).
 - Agent-tool worktrees start at `origin/main`, not the current branch; every packet prompt must state its base branch explicitly.
+- mdBook's default `index` preprocessor rendered `README.md` chapters as `index.html`, so cross-links to the revision-4 evidence README failed `docs / build`; `docs/book.toml` now keeps only the `links` preprocessor (fixed on PR #2's branch and merged forward).
+- The `main` ruleset requires verified signatures; local commits are SSH-signed with a key GitHub does not know (`UNKNOWN_KEY`), which blocks every merge until the signing key is registered on the account.
+- Keel contract deviations recorded by the packets for their consumers: `schema_columns.quantity_type_id` is minted from the qualified name (A-1 reconciles with `reference.quantity_types`); `rule_expr_id` formula fixed in K-3 (A-3 adopts it); `RateBasis` members `per_volume | per_mass | per_area` (A-1 declares the same); `MathIrError::Quantity` carries `compile::math::unit_inconsistent` with the quantity error as `diagnostic_source`; `ArtifactRef` serializes its identity as `id`.
 
 ## Verification
 
