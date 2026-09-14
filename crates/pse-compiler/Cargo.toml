@@ -17,7 +17,11 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+pse-schema.workspace = true
 pse-relations.workspace = true
+pse-authoring.workspace = true
+pse-quantity.workspace = true
+pse-mathir.workspace = true
 pse-catalog.workspace = true
 pse-rules.workspace = true
 pse-ids.workspace = true

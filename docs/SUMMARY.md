@@ -63,6 +63,9 @@
   - [ADR-0046: Share runtime budgets and reserve platform allocations explicitly](adr/0046-shared-accounted-runtime-memory.md)
   - [ADR-0047: Preserve guarded numerical semantics and borrow through safe Arrow views](adr/0047-guarded-numerics-and-safe-arrow-borrows.md)
   - [ADR-0048: Use standard relational operators and explicit-schema readers](adr/0048-standard-relational-and-import-operators.md)
+  - [ADR-0049: Pin serde_json and uuid as direct dependencies for the manifest codec and explicit identities](adr/0049-serde-json-and-uuid-direct-pins.md)
+  - [ADR-0050: Freeze the identity framing constants, canonical frames and the phase-1 relation envelope](adr/0050-identity-framing-constants.md)
+  - [ADR-0051: Extend the generated-tree list and make codegen --check a regeneration-equivalence check](adr/0051-generated-trees-and-regeneration-check.md)
 <!-- adr:end -->
 
 # Plans
@@ -70,6 +73,7 @@
 - [Plans](plans/README.md)
   - [01 — Repository configuration](plans/01-repository-configuration.md)
   - [02 — Blueprint revision 5 contracts](plans/02-blueprint-revision-5-contracts.md)
+  - [03 — Wave 1 foundations](plans/03-wave-1-foundations.md)
 
 # Design reviews
 
