@@ -20,7 +20,7 @@ pull request, followed by verification of the merged commit. No release is publi
 | Environment | Tested: bootstrap in a fresh clone with relative and absolute venv paths (including spaces); doctor clean; directory entry made zero network connections |
 | Solver access | Tested: immutable CI/dev pins agree with consumers; container preflight passes; no-cache rebuild matches published library checksums |
 | Claude/Codex | Implemented: nine native roles, shared skills/rules/hooks; Tested: ten setup fixtures and Codex role/skill discovery; interactive hook trust and Claude usage-limit recovery remain |
-| CI / packaging | Implemented: parity install, coverage artifact upload, unique check names, five-platform wheels with ten clean installs, sdist build/install; final CI evidence is on PR #1 |
+| CI / packaging | Implemented: parity install, coverage artifact upload, unique check names, editable dev builds for automatic Python/parity CI; full wheels/sdist are manual or release-time |
 | GitHub | Tested: main/tag rulesets active; settings re-applied without duplicate objects; two consecutive comparisons report zero differences |
 | Qualification | Tested: local Rust/Python gates, depth-two feature combinations and release tests, fresh bootstrap, six negative controls; final PR/main checks remain the merge acceptance record |
 
@@ -317,10 +317,17 @@ its validation feature. Doctor reads package metadata because invoking a tool wr
 `--version` attempted network access. Dependabot's Cargo strategy is `auto`; GitHub
 rejected the earlier `increase` value. The wheel action's explicit `stable` override
 was removed so it reads the pinned toolchain; clean installs assert the embedded compiler
-version matches that pin. Final cross-platform and packaging results are
-recorded by PR #1's checks, rather than inferred from local compilation.
+version matches that pin. Full distribution qualification is invoked manually or at release time; a passing
+development PR does not claim packaged-artifact acceptance.
 
 ### Deliberate boundaries and handoff
+
+**Implemented (maintainer clarification):** full wheel and sdist builds are removed
+from ordinary PR triggers and required parity dependencies. Automatic Python tests
+and parity use editable dev-profile builds. `just py-sync`, `just py-test` and
+`just quality` are the local development loop; `just wheels-check <ref>` explicitly
+requests the five-platform distribution matrix. Release workflows still qualify
+artifacts before publishing. Packaging completion is not a development merge gate.
 
 **Implemented:** source/configuration parity is complete; this plan stays in progress
 until the remaining runtime activation is verified. In Codex, review and trust the three

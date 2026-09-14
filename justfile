@@ -167,7 +167,7 @@ governance:
 ci-fast: fmt-check check clippy test doctest
 
 [group('local')]
-[doc('uv sync the platform environment (locked) with the pyomo extra')]
+[doc('Sync locked dependencies and rebuild the editable native extension with the dev profile')]
 py-sync:
     uv sync --locked --extra pyomo
 
@@ -444,3 +444,8 @@ lint-typos:
 [doc('License headers with the project-pinned tool')]
 lint-license:
     "{{ reuse }}" lint
+
+[group('scheduled')]
+[doc('Manually qualify all wheel platforms and the sdist on GitHub, without publishing')]
+wheels-check ref="main":
+    gh workflow run wheels.yml --ref "{{ ref }}" -f targets=all

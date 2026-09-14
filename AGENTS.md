@@ -34,6 +34,13 @@ re-learning them. If no recipe fits, say so rather than improvising a long comma
 `direnv` activates the environment on `cd` (run `direnv allow` once). It never installs
 or downloads — `just bootstrap` does that, visibly.
 
+For Python/native development, run `just py-sync` to refresh the editable extension
+using the dev profile, then `just py-test` and `just quality`. Use
+`just parity-container` when solver-backed parity is needed. Full wheel/sdist builds
+are manual (`just wheels-check <ref>`) or part of a release; ordinary PRs do not wait
+for distribution builds. CI uses editable development builds for Python and parity.
+
+
 ## Prime directives
 
 1. **The baseline is zero.** No quality baselines exist and none will be introduced. A

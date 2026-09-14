@@ -3,11 +3,9 @@
 #
 # Builds the `pse-arrow` wheels and sdist.
 #
-# Called two ways:
-#   * `workflow_call` — python.yml asks for just the Linux x86_64 wheel so the parity
-#     job tests the artifact that would actually ship; release.yml asks for all five.
-#   * `pull_request` with a path filter — packaging inputs changed, so prove the wheels
-#     still build. Not a required check.
+# Invoked manually with workflow_dispatch or by the release workflow. Ordinary
+# development pull requests use editable native builds in python.yml instead.
+# Full distribution qualification is not on the development critical path.
 #
 # Every wheel must be tagged `cp311-abi3`: one wheel per platform serves 3.11 upward,
 # which is the whole point of building against the abi3-py311 pyo3 feature. The check is
@@ -30,16 +28,6 @@ on:
         type: string
         required: false
         default: all
-  pull_request:
-    paths:
-      - "crates/**"
-      - "python/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - ".github/workflows/wheels.yml"
 
 permissions:
   contents: read

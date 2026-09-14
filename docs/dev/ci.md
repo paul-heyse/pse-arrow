@@ -5,7 +5,7 @@ job has a documented response for when it goes red — a red scheduled job that
 nobody has agreed to answer is a notification, not a control.
 
 Workflows: `rust.yml`, `rust-scheduled.yml`, `python.yml`, `wheels.yml`,
-`parity.yml`, `solvers-image.yml`, `release.yml`, `docs.yml`, `governance.yml`,
+`solvers-image.yml`, `release.yml`, `docs.yml`, `governance.yml`,
 `register-review.yml`, `repo-hygiene.yml`, plus the composite action
 `.github/actions/setup-rust`.
 
@@ -29,7 +29,7 @@ comment, kept current by Dependabot and `pinact`.
 | `rust / deny` | deny | `cargo deny check`; `cargo audit`; `cargo shear` |
 | `python / lint` | lint | `uv sync --locked --group quality --no-install-project`; ruff format/check, pyrefly, import-linter, `reuse lint`, typos, taplo, `uv lock --check`, `scripts/check_generated.py` |
 | `python / test` | test (3.11 and 3.14) | maturin-backed `uv sync`; `pytest -m "unit or component" -n auto --cov` |
-| `python / parity` | parity (container `ci` stage; 3.13 on PRs, 3.11–3.13 nightly) | installs the Linux x86_64 wheel artifact, `uv run --no-sync pytest --parity` |
+| `python / parity` | parity (container `ci` stage; 3.13 on PRs, 3.11–3.13 nightly) | editable native dev build, `uv run --no-sync pytest --parity` |
 | `docs / build` | build | `scripts/adr.py index --check`; `mdbook build docs`; `lychee --offline`; Pages artifact |
 | `governance / adr-lint` | adr-lint | `scripts/adr.py lint`; `scripts/check_register.py --lint`; the `needs-adr` label rule; the IDAES tag in `scripts/fetch-external.sh` equals the parity pin |
 | `governance / pr-title` | pr-title | Conventional-Commit title check, types and scopes from `cliff.toml` |
@@ -47,7 +47,7 @@ A newly declared check must report before its ruleset is activated.
 only on PRs labelled `release`), `rust / msrv-floors` (`cargo hack check
 --rust-version`, only when `Cargo.lock` changed), `rust / test-macos` and
 `rust / test-windows` (phase 1b, `continue-on-error` until a green week),
-`wheels / *` (paths-filtered), `governance / reuse`, `governance / agent-config`,
+`governance / reuse`, `governance / agent-config`,
 `repo-hygiene / *` (`actionlint`, `zizmor`, `pinact`). `docs / deploy` runs on
 `main` through `actions/deploy-pages`.
 
@@ -111,6 +111,19 @@ its CLI remains an exit-2 stub and scheduled checks retain the register trigger.
 does not prove a real schema or binding generator exists. The parity suite currently
 qualifies its environment and package boundaries, not numerical model parity.
 
-The wheel workflow supports manual, non-publishing qualification. It builds all
+The wheel workflow runs only by manual dispatch (`just wheels-check <ref>`) or
+from the release workflow. It builds all
 five native platform targets, checks `cp311-abi3` tags, installs each wheel under
 Python 3.11 and 3.14 outside the source tree, and builds/installs the sdist.
+
+## Development compile path
+
+`just py-sync` uses maturin's editable dev profile from `pyproject.toml`; dependency
+optimization stays in Cargo's dev profile and the local build cache is reused.
+Follow it with `just py-test` and `just quality`. `just parity-container` uses the
+same editable profile with the pinned solver image and a separate Python 3.13 venv.
+Automatic Python CI follows this path, with no dependency on a wheel or sdist job.
+Rust release-profile checks remain scheduled, and distribution acceptance is manual
+or release-time. Source changes, dependency changes and toolchain changes therefore
+run development checks without automatically rebuilding five distribution targets.
+Solver recipe changes retain their separate container build/linkage checks.
