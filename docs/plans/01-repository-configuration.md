@@ -329,6 +329,11 @@ and parity use editable dev-profile builds. `just py-sync`, `just py-test` and
 requests the five-platform distribution matrix. Release workflows still qualify
 artifacts before publishing. Packaging completion is not a development merge gate.
 
+**Implemented (maintainer clarification):** committing and pushing do not require
+native builds or full test suites. Local Git hooks retain static checks; Clippy is
+available through `just clippy` and remains a GitHub check. `just ci-pr` and parity
+recipes are optional local validation. Required GitHub checks continue to gate merge.
+
 **Implemented:** source/configuration parity is complete; this plan stays in progress
 until the remaining runtime activation is verified. In Codex, review and trust the three
 project hooks with `/hooks`, then start a fresh session and exercise an ordinary edit

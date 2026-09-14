@@ -39,7 +39,9 @@ using the dev profile, then `just py-test` and `just quality`. Use
 `just parity-container` when solver-backed parity is needed. Full wheel/sdist builds
 are manual (`just wheels-check <ref>`) or part of a release; ordinary PRs do not wait
 for distribution builds. CI uses editable development builds for Python and parity.
-
+These local recipes are available on demand, not prerequisites for committing or
+pushing. Git hooks run static checks only: no native compilation, Python tests,
+parity or distribution builds. GitHub runs the required suites before merging.
 
 ## Prime directives
 
