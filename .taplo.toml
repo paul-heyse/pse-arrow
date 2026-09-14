@@ -3,6 +3,7 @@
 # TOML formatting. One canonical shape so nobody argues about array wrapping.
 exclude = [
   ".venv*/**",
+  ".claude/worktrees/**",
   "target/**",
   "external/**",
   "build/**",

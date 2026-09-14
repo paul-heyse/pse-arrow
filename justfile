@@ -344,7 +344,6 @@ register-check:
 
 [group('mutating')]
 [doc('Format Rust, TOML and Python in place')]
-[confirm('Rewrite source files in place?')]
 fmt:
     cargo fmt --all
     "{{ taplo }}" fmt
@@ -352,13 +351,11 @@ fmt:
 
 [group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated and the Ipopt bindings')]
-[confirm('Regenerate committed generated sources?')]
 codegen *args:
     cargo xtask codegen {{ args }}
 
 [group('mutating')]
 [doc('Accept pending insta snapshots')]
-[confirm('Accept every pending snapshot?')]
 snapshots-accept:
     cargo insta accept
 
@@ -376,7 +373,6 @@ solver-image target="ci":
 
 [group('mutating')]
 [doc('Regenerate the capability-map evidence (rustdoc extraction, probes, exported requirements)')]
-[confirm('Regenerate evidence? This rebuilds the pinned scratch projects.')]
 evidence-regen:
     ./scripts/evidence-regen.sh
 
@@ -394,13 +390,11 @@ gh-setup *args:
 
 [group('mutating')]
 [doc('Move one Python pin deliberately: just lock-upgrade <package>')]
-[confirm('Re-resolve one package in uv.lock?')]
 lock-upgrade pkg:
     uv lock --upgrade-package {{ pkg }}
 
 [group('mutating')]
 [doc('Regenerate native Codex roles and materialize shared skill aliases')]
-[confirm('Synchronize agent configuration from canonical sources?')]
 agent-config-sync:
     python3 scripts/agent-config.py
 
