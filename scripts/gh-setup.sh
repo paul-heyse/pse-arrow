@@ -5,9 +5,9 @@
 # Apply the declared GitHub configuration in .github/setup/ to the repository,
 # idempotently (PUT/PATCH; rulesets are matched by name and updated in place).
 #
-#   scripts/gh-setup.sh            phase-0 ruleset (ruleset-main.json)
-#   scripts/gh-setup.sh --full     the full required-check list (ruleset-main-full.json),
-#                                  once the python/* checks report
+#   scripts/gh-setup.sh            full required-check list (ruleset-main-full.json)
+#   scripts/gh-setup.sh --full     compatibility alias for the default
+#   scripts/gh-setup.sh --check    read-only comparison with declared settings
 #   scripts/gh-setup.sh --dry-run  print what would be sent
 #
 # `gh ruleset` is read-only in gh 2.45, so rulesets go through `gh api`. Creating the
@@ -17,13 +17,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 SETUP=".github/setup"
 REPO="${PSE_GH_REPO:-paul-heyse/pse-arrow}"
-MAIN_RULESET="$SETUP/ruleset-main.json"
+MAIN_RULESET="$SETUP/ruleset-main-full.json"
 DRY=0
 for arg in "$@"; do
   case "$arg" in
     --full) MAIN_RULESET="$SETUP/ruleset-main-full.json" ;;
+    --check) exec python3 scripts/github-config.py ;;
     --dry-run) DRY=1 ;;
-    *) echo "usage: $0 [--full] [--dry-run]" >&2; exit 2 ;;
+    *) echo "usage: $0 [--full] [--dry-run] [--check]" >&2; exit 2 ;;
   esac
 done
 
@@ -42,13 +43,12 @@ say "security features"
 api PUT "repos/$REPO/vulnerability-alerts"
 api PUT "repos/$REPO/automated-security-fixes"
 api PUT "repos/$REPO/private-vulnerability-reporting"
-api PATCH "repos/$REPO" -f 'security_and_analysis[secret_scanning][status]=enabled' \
-  -f 'security_and_analysis[secret_scanning_push_protection][status]=enabled' || true
+
 
 apply_ruleset() { # file
   local file="$1" name id
   name="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$file")"
-  id="$(gh api "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$name\") | .id" 2>/dev/null || true)"
+  id="$(gh api "repos/$REPO/rulesets" --jq ".[] | select(.name == \"$name\") | .id")"
   if [ -n "$id" ]; then
     say "ruleset '$name' (update #$id)"
     api PUT "repos/$REPO/rulesets/$id" --input "$file"

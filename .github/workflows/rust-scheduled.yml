@@ -91,7 +91,7 @@ jobs:
             --cargo-profile release \
             --features pse-relations/force-validate
       - name: doctests at the release profile
-        run: cargo test --doc --workspace --locked --release
+        run: cargo test --doc --workspace --locked --release --features pse-relations/force-validate
 
   # Owner: maintainer. Response: remove the dependency, or record why it is kept
   # (a build-only or feature-gated use that udeps cannot see).
@@ -243,7 +243,7 @@ jobs:
         env:
           PUBLISHED_IMAGE: ${{ env.SOLVER_IMAGE }}
         run: |
-          set -uo pipefail
+          set -euo pipefail
           checksums() {
             docker run --rm --entrypoint sh "$1" -c \
               'cd /opt/pse-solvers/lib && sha256sum lib*.so* 2>/dev/null | sort'
@@ -253,11 +253,7 @@ jobs:
           cat "${RUNNER_TEMP}/rebuild.sha256"
           echo "::endgroup::"
 
-          if ! docker pull --quiet "${PUBLISHED_IMAGE}" >/dev/null 2>&1; then
-            echo "::warning::could not pull ${PUBLISHED_IMAGE}; recorded the rebuild checksums only."
-            echo "::warning::this is expected until solvers-image.yml has pushed the first image."
-            exit 0
-          fi
+          docker pull --quiet "${PUBLISHED_IMAGE}" > /dev/null
           checksums "${PUBLISHED_IMAGE}" > "${RUNNER_TEMP}/published.sha256"
           if diff -u "${RUNNER_TEMP}/published.sha256" "${RUNNER_TEMP}/rebuild.sha256"; then
             echo "solvers: the recipe reproduces the published libraries byte for byte"

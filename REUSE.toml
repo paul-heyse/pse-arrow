@@ -33,6 +33,7 @@ path = [
   ".github/**",
   ".claude/**",
   ".codex/**",
+  ".agents/**",
   "docs/**",
   "packages/**",
   "tests/golden/**",

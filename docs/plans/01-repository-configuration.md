@@ -8,7 +8,33 @@ phase: 0
 
 # Plan: repository configuration and working environment for `pse-arrow`
 
-## Context
+## Completion ledger (2026-09-13)
+
+The initial design below is historical planning context. The repository is now public
+at `paul-heyse/pse-arrow`; the starting commit for completion is `3c9c95f`, already
+pushed to `main`, with a clean working tree. Completion uses signed commits and a
+pull request, followed by verification of the merged commit. No release is published.
+
+| Work | Status / acceptance |
+|---|---|
+| Environment | Tested: bootstrap in a fresh clone with relative and absolute venv paths (including spaces); doctor clean; directory entry made zero network connections |
+| Solver access | Tested: immutable CI/dev pins agree with consumers; container preflight passes; no-cache rebuild matches published library checksums |
+| Claude/Codex | Implemented: nine native roles, shared skills/rules/hooks; Tested: ten setup fixtures and Codex role/skill discovery; interactive hook trust and Claude usage-limit recovery remain |
+| CI / packaging | Implemented: parity install, coverage artifact upload, unique check names, editable dev builds for automatic Python/parity CI; full wheels/sdist are manual or release-time |
+| GitHub | Tested: main/tag rulesets active; settings re-applied without duplicate objects; two consecutive comparisons report zero differences |
+| Qualification | Tested: local Rust/Python gates, depth-two feature combinations and release tests, fresh bootstrap, six negative controls; final PR/main checks remain the merge acceptance record |
+
+**Tested (starting state):** `just doctor`, local mode, reports 1 blocking failure
+and 3 warnings, baseline zero. `just lint-agents` and `just adr-lint`, read-only local
+mode, report 0 failures, baseline zero. These are structural checks, not runtime
+certification. The latest Python CI fails selecting the parity venv; Rust CI is pending.
+
+Keep the recorded phase boundaries: real model generators, API-reference doc lint,
+release tooling and numerical parity beyond the existing preflight are deferred.
+Neither a clean generated tree nor a successful preflight proves those capabilities.
+Registry publishing and new release tags are outside this completion pass.
+
+## Original context (historical)
 
 The revision-3 blueprint (`docs/design_review/Arrow-native-idaes-core-architecture-blueprint-rev3.md`) is the authoritative architecture: a Cargo workspace of 23 `pse-*` crates, a pyo3/pyo3-arrow extension, a Python package `pse`, shipped reference packages, and the §24.1 test/governance matrix that the repository has to be able to run. Nothing in the current working tree is under version control, no toolchain file exists, and the only pinned artifacts are the capability-map evidence lockfiles under `docs/design_review/evidence/`. The user asked for a best-in-class repo configuration and working environment (Rust and Python toolchains, testing, public GitHub setup, design-decision/ADR process) aligned to rev 3.
 
@@ -115,7 +141,7 @@ Phased OS coverage: phase 1a Linux container gating; phase 1b macOS (Homebrew `i
 
 **Decisions.** Distribution `pse-arrow`, import `pse`. One root `pyproject.toml`, no uv workspace, committed `uv.lock`. maturin backend, `dynamic = ["version"]` from `crates/pse-py/Cargo.toml` (workspace-inherited: one version authority). pyomo/pint/numpy are the `pyomo` extra, not core (`pse.open/compile/solve` are native; the adapter serves parity and ecosystem tools, §21.3); numpy/scipy otherwise only in the `test` group. pyrefly type-checks (`[tool.pyrefly]` in pyproject), ruff lints/formats, import-linter enforces module boundaries, REUSE enforces headers. Zero tolerance, no baselines.
 
-**`pyproject.toml` (key content).** `[build-system] requires = ["maturin>=1.15,<2"]`; `[project] name = "pse-arrow"`, `requires-python = ">=3.11"`, `license = "MIT OR Apache-2.0"`, `license-files = ["LICENSES/*.txt"]`, `dependencies = ["pyarrow==25.0.1", "attrs==26.1.0", "cattrs==26.2.0", "msgspec==0.21.1"]` (§3.1 `==` rule; O1 below), `[project.optional-dependencies] pyomo = ["pyomo==6.10.1", "pint==0.26.1", "numpy==2.5.3"]`. `[dependency-groups]`: `quality` (ruff, pyrefly, import-linter, reuse, taplo, typos, pre-commit, maturin, pyright for `--verifytypes` only; all `==`), `test` (pytest, pytest-cov, pytest-xdist, numpy==2.5.3, scipy==1.18.1), `parity` (includes `test` + `"idaes-pse==2.12.0; python_full_version < '3.14'"`), `evidence` (includes `parity`), `docs` (empty for mdBook; reserved), `dev` (quality + test). The marker keeps `uv sync --group parity` on 3.14 honest; if a future IDAES pin conflicts with the platform pins `uv lock` fails, which is the right signal. `[tool.uv]`: `package = true`, `required-version = "==0.12.13"`, `python-preference = "managed"`, `default-groups = ["dev"]`, `cache-keys` on `pyproject.toml`, `Cargo.toml`, `Cargo.lock`, `uv.lock`, `rust-toolchain.toml`, `crates/**/Cargo.toml`, `crates/**/*.rs`; `[[tool.uv.index]] name = "testpypi"` with `publish-url`, `explicit = true`. `[tool.maturin]`: `bindings = "pyo3"`, `manifest-path = "crates/pse-py/Cargo.toml"`, `module-name = "pse._native"`, `python-source = "python"`, `python-packages = ["pse"]`, `locked = true`, `profile = "release"`, `editable-profile = "dev"`, `strip = true`, `auditwheel = "repair"`, sdist `include` of `uv.lock`, `rust-toolchain.toml`, `REUSE.toml`; wheel `exclude` of `python/pse/tests/**`, `python/pse/parity/tests/**`; `abi3-py311` is a pyo3 feature in the crate, not a maturin key. `[tool.ruff]`: `target-version = "py311"`, `line-length = 88`, explicit `select` = idaes-arrow's set (E,W,F,I,B,C4,UP,SIM,RUF,PT,PERF,N,ARG,PTH,TRY,PLC,PLE,PLW,ISC) + ANN, TC, TID, D (google), S, T20, ERA, PGH, PIE, RET, SLF, FA, LOG, G, DTZ, PYI, NPY, FURB, FLY, INP, EXE, ICN, TD; `ignore = ["ISC001", "TD002"]`; `format.exclude = ["python/pse/contracts/**"]`; `runtime-evaluated-base-classes = ["msgspec.Struct"]` + attrs decorators; `banned-api` (TID251): `typing.Any`, `cattrs.Converter/GenConverter/structure/unstructure` (use `pse.codec.converter()`), `pyarrow.register_extension_type` (use `register_all()`), `assert_units_consistent` (use `identify_inconsistent_units`), `json`, `tomllib` (msgspec), `pickle`; per-file ignores for tests, generated contracts, codec, tools. `[tool.pyrefly]`: includes, `search-path = ["python", "python/stubs"]`, `python-version = "3.11"`, `check-unannotated-defs = true`, `ignore-errors-in-generated-code = false`, sub-configs `replace-imports-with-any` for `idaes.*`/`pyomo.*`/`pint.*` under `parity/**` and `adapters/pyomo/**` until typed stubs land in phase 1 (confirm key names with `pyrefly dump-config`; rely on venv auto-discovery rather than an OS-specific interpreter path). `[tool.importlinter]`: numpy/scipy only in `pse._array`, `pse.parity.**`, `pse.tests.**`; `idaes`, `pandas`, `pydantic`, `sympy`, `networkx`, `matplotlib`, `click` never outside `pse.parity`; pyomo/pint only in `pse.adapters.pyomo.**`, `pse.parity.**`, tests; `pse.contracts` depends on nothing in `pse`; layers `pse.parity` > `pse.adapters | pse.authoring` > `pse.codec` > `pse.contracts`. `[tool.pytest.ini_options]`: `--strict-markers --strict-config --import-mode=importlib -ra --durations=100 --durations-min=2`, `xfail_strict = true`, `filterwarnings = ["error"]` + commented allow-list policy (scoped entries with upstream issue links), `required_plugins`, markers `unit|component|integration|performance|parity|golden(name)`; `[tool.coverage]` branch, `source_pkgs = ["pse"]`, `fail_under = 90`, site-packages path mapping.
+**`pyproject.toml` (key content).** `[build-system] requires = ["maturin>=1.15,<2"]`; `[project] name = "pse-arrow"`, `requires-python = ">=3.11"`, `license = "MIT OR Apache-2.0"`, `license-files = ["LICENSES/*.txt"]`, `dependencies = ["pyarrow==25.0.1", "attrs==26.1.0", "cattrs==26.2.0", "msgspec==0.21.1"]` (§3.1 `==` rule; O1 below), `[project.optional-dependencies] pyomo = ["pyomo==6.10.1", "pint==0.26.1", "numpy==2.5.3"]`. `[dependency-groups]`: `quality` (ruff, pyrefly, import-linter, reuse, taplo, typos, pre-commit, maturin; all `==`), `test` (pytest, pytest-cov, pytest-xdist, numpy==2.5.3, scipy==1.18.1), `parity` (includes `test` + `"idaes-pse==2.12.0; python_full_version < '3.14'"`), `evidence` (includes `parity`), `docs` (empty for mdBook; reserved), `dev` (quality + test). The marker keeps `uv sync --group parity` on 3.14 honest; if a future IDAES pin conflicts with the platform pins `uv lock` fails, which is the right signal. `[tool.uv]`: `package = true`, `required-version = "==0.12.13"`, `python-preference = "managed"`, `default-groups = ["dev"]`, `cache-keys` on `pyproject.toml`, `Cargo.toml`, `Cargo.lock`, `uv.lock`, `rust-toolchain.toml`, `crates/**/Cargo.toml`, `crates/**/*.rs`; `[[tool.uv.index]] name = "testpypi"` with `publish-url`, `explicit = true`. `[tool.maturin]`: `bindings = "pyo3"`, `manifest-path = "crates/pse-py/Cargo.toml"`, `module-name = "pse._native"`, `python-source = "python"`, `python-packages = ["pse"]`, `locked = true`, `profile = "release"`, `editable-profile = "dev"`, `strip = true`, `auditwheel = "repair"`, sdist `include` of `uv.lock`, `rust-toolchain.toml`, `REUSE.toml`; wheel `exclude` of `python/pse/tests/**`, `python/pse/parity/tests/**`; `abi3-py311` is a pyo3 feature in the crate, not a maturin key. `[tool.ruff]`: `target-version = "py311"`, `line-length = 88`, explicit `select` = idaes-arrow's set (E,W,F,I,B,C4,UP,SIM,RUF,PT,PERF,N,ARG,PTH,TRY,PLC,PLE,PLW,ISC) + ANN, TC, TID, D (google), S, T20, ERA, PGH, PIE, RET, SLF, FA, LOG, G, DTZ, PYI, NPY, FURB, FLY, INP, EXE, ICN, TD; `ignore = ["ISC001", "TD002"]`; `format.exclude = ["python/pse/contracts/**"]`; `runtime-evaluated-base-classes = ["msgspec.Struct"]` + attrs decorators; `banned-api` (TID251): `typing.Any`, `cattrs.Converter/GenConverter/structure/unstructure` (use `pse.codec.converter()`), `pyarrow.register_extension_type` (use `register_all()`), `assert_units_consistent` (use `identify_inconsistent_units`), `json`, `tomllib` (msgspec), `pickle`; per-file ignores for tests, generated contracts, codec, tools. `[tool.pyrefly]`: includes, `search-path = ["python", "python/stubs"]`, `python-version = "3.11"`, `check-unannotated-defs = true`, `ignore-errors-in-generated-code = false`, sub-configs `replace-imports-with-any` for `idaes.*`/`pyomo.*`/`pint.*` under `parity/**` and `adapters/pyomo/**` until typed stubs land in phase 1 (confirm key names with `pyrefly dump-config`; rely on venv auto-discovery rather than an OS-specific interpreter path). `[tool.importlinter]`: numpy/scipy only in `pse._array`, `pse.parity.**`, `pse.tests.**`; `idaes`, `pandas`, `pydantic`, `sympy`, `networkx`, `matplotlib`, `click` never outside `pse.parity`; pyomo/pint only in `pse.adapters.pyomo.**`, `pse.parity.**`, tests; `pse.contracts` depends on nothing in `pse`; layers `pse.parity` > `pse.adapters | pse.authoring` > `pse.codec` > `pse.contracts`. `[tool.pytest.ini_options]`: `--strict-markers --strict-config --import-mode=importlib -ra --durations=100 --durations-min=2`, `xfail_strict = true`, `filterwarnings = ["error"]` + commented allow-list policy (scoped entries with upstream issue links), `required_plugins`, markers `unit|component|integration|performance|parity|golden(name)`; `[tool.coverage]` branch, `source_pkgs = ["pse"]`, `fail_under = 90`, site-packages path mapping.
 
 **Package layout.** `python/pse/{__init__.py, py.typed, _native.pyi (hand-written; a test diffs it against dir(_native)), _build.py (BuildInfo msgspec struct), _array.py (only non-parity numpy importer; zero_copy_only=True; copy_reason mandatory), contracts/ (GENERATED: attrs classes, msgspec manifest structs, ten ExtensionTypes, enums, GENERATED.sha256), codec/ (converter factory with forbid_extra_keys; msgspec helpers; transform_error → findings), governance.py (import-time attrs.fields walk failing on Any/bare dict/bare list), authoring/, adapters/pyomo/, parity/ (+tests), tests/}`. No `from __future__ import annotations` under `python/pse` (PEP 563 breaks the import-time `Any` lint); ast-grep enforces.
 
@@ -241,22 +267,90 @@ Each step is one PR after the seeding commits (a fresh repo cannot require check
 
 ---
 
-## Outcome (recorded after implementation)
-
-*Filled in when the plan's steps have landed. Every claim here carries a charter
-§D evidence label; `Proposed` is not allowed in an Outcome.*
+## Outcome and remaining runtime activation
 
 ### What was built
 
-<!-- What actually exists now, step by step, with the evidence label and the
-named test, benchmark or CI job for each claim. -->
+**Implemented:** setup completion is delivered through [PR #1](https://github.com/paul-heyse/pse-arrow/pull/1).
+The shared framework has nine repository-specific Claude roles and generated native
+Codex definitions, canonical skills with runtime aliases, and shared session/edit/
+format hooks. AGENTS.md routes both runtimes to the same scoped rules. Pyrefly is the
+only configured Python type checker; the unused alternative was removed from the
+quality group, lockfile, environment and Dependabot configuration.
 
-### A mistake made and corrected
+**Tested:** all counts below use a zero-failure baseline. Local Rust qualification
+uses toolchain 1.98.1; Rust test commands explicitly enable
+`pse-relations/force-validate`.
 
-<!-- At least one, concretely: what was wrong, how it was found, what changed.
-An outcome with no mistake was not executed or not read honestly. -->
+| Command / condition | Result and limit |
+|---|---|
+| `just ci-fast`, dev | 23 Rust tests passed, zero skipped; doctests passed (phase-zero crates contain no doctest cases) |
+| `just test-release`, release | 23 Rust tests passed, zero skipped |
+| `IPOPT_DIR=<prefix> just features-powerset`, libraries extracted from the pinned CI image | 47 depth-two feature configurations and 31 no-default-feature checks passed |
+| `just ci-pr`, local | Composite Rust, governance, policy, docs, benchmark smoke, Python quality and 36 Python tests passed |
+| `just quality` | Ruff, Pyrefly, import contracts and repository checks passed; ten setup fixtures passed |
+| `just parity-container`, pinned dev image, Python 3.13 | 41 existing package/preflight tests passed; numerical modeling parity is not established |
+| Fresh-clone `just bootstrap`, `just doctor`, `just quality` | Relative and absolute venv selection passed; an absolute path containing a space was exercised |
+| `strace -f -e connect direnv exec . true` | Zero IPv4/IPv6 connections during directory entry |
+| `just solver-rebuild-check` | No-cache source build reproduced published shared-library checksums byte for byte |
+| `just gh-setup-check` twice after re-applying setup | Zero configuration differences; main and tag rulesets remain unique and active |
 
-### Deviations from the plan, deliberate
+**Tested:** disposable fixtures rejected a staged generated-file edit (`just codegen-check`),
+a mixed family (`just family-check`), an invalid blueprint citation (`just adr-lint`),
+missing/double pytest cost markers, and parity on Python 3.14. The setup fixtures also
+reject accepted-ADR edits against a base ref; existing Python tests reject `typing.Any`.
+A temporary non-conventional title on PR #1 failed `governance / pr-title`; restoring
+the conventional title restored the check. No negative fixture remains in the source tree.
 
-<!-- What was done differently and why. A deviation that changed a decision is
-an ADR, not a paragraph here; link it. -->
+**Interface-checked:** a fresh Codex runtime listed all nine custom roles; the app server
+listed both skills and all three hooks without configuration errors. The hooks are
+reported as **untrusted**, so automatic execution is not certified. Shared hook behavior
+is covered directly by the setup fixtures.
+
+### Mistakes found and corrected
+
+**Implemented:** the previous Python parity job selected no environment when installing
+the wheel; it now names `.venv-parity`. Coverage uploads now run on a host runner with
+its verification tools. Windows fixture paths are normalized, directory skill aliases
+are excluded from sdists, and benchmark smoke selects the relations crate when enabling
+its validation feature. Doctor reads package metadata because invoking a tool wrapper's
+`--version` attempted network access. Dependabot's Cargo strategy is `auto`; GitHub
+rejected the earlier `increase` value. The wheel action's explicit `stable` override
+was removed so it reads the pinned toolchain; clean installs assert the embedded compiler
+version matches that pin. Full distribution qualification is invoked manually or at release time; a passing
+development PR does not claim packaged-artifact acceptance.
+
+### Deliberate boundaries and handoff
+
+**Implemented (maintainer clarification):** full wheel and sdist builds are removed
+from ordinary PR triggers and required parity dependencies. Automatic Python tests
+and parity use editable dev-profile builds. `just py-sync`, `just py-test` and
+`just quality` are the local development loop; `just wheels-check <ref>` explicitly
+requests the five-platform distribution matrix. Release workflows still qualify
+artifacts before publishing. Packaging completion is not a development merge gate.
+
+**Implemented (maintainer clarification):** committing and pushing do not require
+native builds or full test suites. Local Git hooks retain static checks; Clippy is
+available through `just clippy` and remains a GitHub check. `just ci-pr` and parity
+recipes are optional local validation. Required GitHub checks continue to gate merge.
+
+**Implemented:** source/configuration parity is complete; this plan stays in progress
+until the remaining runtime activation is verified. In Codex, review and trust the three
+project hooks with `/hooks`, then start a fresh session and exercise an ordinary edit
+and a protected-path rejection. In Claude Code, accept the repository trust dialog and
+repeat the `plan-scout` smoke check when the account limit permits: the attempted live
+check returned HTTP 429 with the existing monthly spend-limit message.
+
+**Interface-checked:** local commits carry SSH signatures, but GitHub reports the local
+key as unknown. Registering that public signing key needs the account's
+`admin:ssh_signing_key` scope, which the current credential does not have. The squash
+merge uses GitHub's verified signature; no admin bypass is used to waive required checks.
+The declared admin-role bypass remains, so an admin credential cannot prove ordinary
+contributors' direct pushes are rejected. No test push to main is attempted.
+
+**Implemented:** real model generators, API doc lint, numerical parity, automated solver
+pin PR credentials, and package publication retain their existing phase boundaries.
+The API-doc job reports its R-20 prerequisite explicitly while indexes are absent.
+Generic secret scanning is unavailable for this personal repository; supported secret
+scanning and push protection are enabled (see `.github/setup/README.md`). No registry
+publisher is activated, package uploaded, or release tag created by this completion pass.

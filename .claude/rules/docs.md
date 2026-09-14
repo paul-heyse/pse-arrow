@@ -35,7 +35,6 @@ citation targets: insert `§14.3.1`, never renumber.
 `just lib-outline <file>` to see the heading structure and read the section you need.
 Reading one end to end wastes a context window.
 
-A backticked `a::b::c` identifier or a `[rustdoc:…]` marker in `docs/**` is checked by
-`just doc-lint` against the extracted API facts. If an identifier does not resolve there,
-either it is wrong or the facts need regenerating — do not delete the marker to make the
-lint pass.
+API-reference doc lint is deferred in phase 0 (register R-20). Preserve backticked
+identifiers and rustdoc markers; their presence is not evidence that the stub checked
+them. Ordinary book building and internal-link checks remain active.

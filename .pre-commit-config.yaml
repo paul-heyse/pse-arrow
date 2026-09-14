@@ -3,8 +3,9 @@
 #
 # Two tiers. `pre-commit` holds the checks that are fast enough to run on every
 # commit and that catch a mistake while it is still cheap to fix; `pre-push`
-# holds the ones that need the whole project loaded (type checking, the Rust
-# toolchain) and would make committing feel slow.
+# holds static type/import checks and Rust formatting. Neither stage compiles
+# native code or runs tests; compilation and full suites run in GitHub or through
+# explicitly requested just recipes.
 #
 # Every local hook runs the project's own tool from `.venv/bin`, never whatever
 # is on PATH: a stale global ruff produces a different diff than CI, which is
@@ -30,20 +31,20 @@ repos:
       - id: taplo
         name: taplo fmt --check
         language: system
-        entry: .venv/bin/taplo fmt --check --diff
+        entry: just fmt-check
         files: \.toml$
         pass_filenames: false
 
       - id: typos
         name: typos
         language: system
-        entry: .venv/bin/typos
+        entry: just lint-typos
         pass_filenames: false
 
       - id: reuse
         name: reuse lint (SPDX headers)
         language: system
-        entry: .venv/bin/reuse lint
+        entry: just lint-license
         pass_filenames: false
 
       - id: uv-lock-check
@@ -83,14 +84,14 @@ repos:
       - id: pyrefly
         name: pyrefly check
         language: system
-        entry: .venv/bin/pyrefly check
+        entry: just typecheck
         pass_filenames: false
         stages: [pre-push]
 
       - id: import-linter
         name: import-linter contracts
         language: system
-        entry: .venv/bin/lint-imports
+        entry: just lint-imports
         pass_filenames: false
         stages: [pre-push]
 
@@ -98,14 +99,6 @@ repos:
         name: cargo fmt --all --check
         language: system
         entry: cargo fmt --all --check
-        types: [rust]
-        pass_filenames: false
-        stages: [pre-push]
-
-      - id: cargo-clippy
-        name: cargo clippy -D warnings
-        language: system
-        entry: cargo clippy --workspace --all-targets --locked -- -D warnings
         types: [rust]
         pass_filenames: false
         stages: [pre-push]

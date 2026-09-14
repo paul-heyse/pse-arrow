@@ -8,11 +8,10 @@
 
   // The `dev` stage of docker/solvers/Dockerfile: Ipopt 3.14.20 + MUMPS + ASL
   // at /opt/pse-solvers, uv with managed CPython 3.11-3.13, and the toolchain
-  // from /rust-toolchain.toml.  `dev-latest` is a moving alias that the
-  // solvers-image workflow repoints whenever docker/solvers/** changes; pin
-  // `dev-<tree-hash>` here instead if you need a frozen environment.
+  // from /rust-toolchain.toml. The immutable image is projected from
+  // .github/setup/solver-images.json by `just solver-pin-update`.
   // Build it yourself with `just solver-image` and swap in `pse-solvers:dev-local`.
-  "image": "ghcr.io/paul-heyse/pse-solvers:dev-latest",
+  "image": "ghcr.io/paul-heyse/pse-solvers:dev-e84fdce84e2f@sha256:39f6928ddcd3855ee097ac79244f87e3ebd4c9a2af371c44952e035e1ea45eb3",
 
   "containerEnv": {
     // Keep the venv inside the workspace so it survives container rebuilds and
@@ -29,13 +28,8 @@
     "source=pse-arrow-target,target=${containerWorkspaceFolder}/target,type=volume"
   ],
 
-  // `just doctor` is the repository's environment check: it reports the Rust and
-  // Python toolchains, the solver it found, and what is missing.  It is
-  // read-only.  On a brand-new container it EXITS NON-ZERO because .venv does
-  // not exist yet and prints `just bootstrap` as the fix; that first red
-  // postCreate is expected, and `just bootstrap` is the next thing to run.
-  // (The image sets UV_PYTHON_DOWNLOADS=automatic in its `dev` stage precisely
-  // so that bootstrap can fetch the 3.14.7 named in .python-version.)
+  // Bootstrap creates the environment and hooks, then runs doctor. The image
+  // permits downloading the interpreter named in .python-version.
   "postCreateCommand": "just bootstrap",
 
   "customizations": {

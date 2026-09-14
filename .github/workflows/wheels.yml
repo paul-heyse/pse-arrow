@@ -3,11 +3,9 @@
 #
 # Builds the `pse-arrow` wheels and sdist.
 #
-# Called two ways:
-#   * `workflow_call` — python.yml asks for just the Linux x86_64 wheel so the parity
-#     job tests the artifact that would actually ship; release.yml asks for all five.
-#   * `pull_request` with a path filter — packaging inputs changed, so prove the wheels
-#     still build. Not a required check.
+# Invoked manually with workflow_dispatch or by the release workflow. Ordinary
+# development pull requests use editable native builds in python.yml instead.
+# Full distribution qualification is not on the development critical path.
 #
 # Every wheel must be tagged `cp311-abi3`: one wheel per platform serves 3.11 upward,
 # which is the whole point of building against the abi3-py311 pyo3 feature. The check is
@@ -16,6 +14,13 @@
 name: wheels
 
 on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: Wheel target matrix (no publication)
+        type: choice
+        options: [all, linux-x86_64]
+        default: all
   workflow_call:
     inputs:
       targets:
@@ -23,16 +28,6 @@ on:
         type: string
         required: false
         default: all
-  pull_request:
-    paths:
-      - "crates/**"
-      - "python/**"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - "rust-toolchain.toml"
-      - ".github/workflows/wheels.yml"
 
 permissions:
   contents: read
@@ -59,6 +54,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      installs: ${{ steps.plan.outputs.installs }}
     steps:
       - name: choose the target matrix
         id: plan
@@ -88,6 +84,8 @@ jobs:
               if not chosen:
                   raise SystemExit(f"wheels: unknown target {wanted!r}")
           print("matrix=" + json.dumps({"include": chosen}))
+          installs = [{**t, "python-version": v} for t in chosen for v in ("3.11", "3.14")]
+          print("installs=" + json.dumps({"include": installs}))
           PY
 
   build:
@@ -108,9 +106,8 @@ jobs:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
           maturin-version: ${{ env.MATURIN_VERSION }}
-          # The toolchain still comes from rust-toolchain.toml; this only tells the
-          # action not to install one of its own choosing.
-          rust-toolchain: stable
+          # Omit rust-toolchain: the action reads rust-toolchain.toml. An explicit
+          # `stable` input overrides that pin with a moving channel.
           sccache: "true"
           args: --release --out dist --locked
       - name: every wheel is cp311-abi3
@@ -178,14 +175,15 @@ jobs:
           retention-days: 7
 
   verify-clean-install:
-    name: verify-clean-install (${{ matrix.python-version }})
-    needs: [build]
-    runs-on: ubuntu-24.04
+    name: verify-clean-install (${{ matrix.name }}, ${{ matrix.python-version }})
+    needs: [plan, build]
+    runs-on: ${{ matrix.runner }}
+    env:
+      INSTALL_PYTHON: ${{ matrix.python-version }}
     strategy:
       fail-fast: false
-      matrix:
-        # The two ends of the abi3 range the single wheel claims to serve.
-        python-version: ["3.11", "3.14"]
+      # Both ends of the abi3 range on every platform actually built.
+      matrix: ${{ fromJSON(needs.plan.outputs.installs) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -194,28 +192,40 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
           python-version: ${{ matrix.python-version }}
-      - name: fetch the Linux x86_64 wheel
+      - name: fetch the native wheel
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: wheel-linux-x86_64
+          name: wheel-${{ matrix.name }}
           path: dist
       - name: install into an empty environment and import
         # From a checkout, but deliberately NOT from the source tree: `--no-project` and
         # a cd out of the repository root make sure `import pse` resolves to the wheel.
         run: |
           set -euo pipefail
-          uv venv ".venv-${{ matrix.python-version }}" --python "${{ matrix.python-version }}"
-          uv pip install --python ".venv-${{ matrix.python-version }}" --no-cache dist/*.whl
+          uv venv ".venv-${INSTALL_PYTHON}" --python "${INSTALL_PYTHON}"
+          uv pip install --python ".venv-${INSTALL_PYTHON}" --no-cache dist/*.whl
           cd "${RUNNER_TEMP}"
-          uv run --python "${GITHUB_WORKSPACE}/.venv-${{ matrix.python-version }}" \
+          uv run --python "${GITHUB_WORKSPACE}/.venv-${INSTALL_PYTHON}" \
             --no-project python -c \
             'import pse, msgspec; print(msgspec.json.format(msgspec.json.encode(pse.build_info())).decode())'
-      - name: no numpy on import
+      - name: compiler provenance and no numpy on import
         # numpy must stay behind the pse._array boundary; importing pse must not pull it
         # in. A subprocess with a poisoned finder is the fixture; here a plain check.
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}"
-          uv run --python "${GITHUB_WORKSPACE}/.venv-${{ matrix.python-version }}" \
-            --no-project python -c \
-            'import sys, pse; assert "numpy" not in sys.modules, "importing pse pulled in numpy"; print("ok")'
+          uv run --python "${GITHUB_WORKSPACE}/.venv-${INSTALL_PYTHON}" \
+            --no-project python - <<'PY'
+          import os
+          import pathlib
+          import sys
+          import tomllib
+          import pse
+
+          pin = pathlib.Path(os.environ["GITHUB_WORKSPACE"]) / "rust-toolchain.toml"
+          expected = tomllib.loads(pin.read_text())["toolchain"]["channel"]
+          actual = pse.build_info().rustc_version
+          assert actual == expected, f"wheel compiler {actual} != pinned {expected}"
+          assert "numpy" not in sys.modules, "importing pse pulled in numpy"
+          print("compiler pin and import boundary verified")
+          PY

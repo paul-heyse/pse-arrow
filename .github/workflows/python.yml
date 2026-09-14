@@ -3,9 +3,7 @@
 #
 # The Python pull-request gate: `python / lint`, `python / test`, `python / parity`.
 #
-# These are NOT required checks yet. A required check that never reports blocks every
-# pull request forever, so they join the `main` ruleset only after they first report on
-# a pull request — see .github/setup/README.md §4 and `ruleset-main-full.json`.
+# These named contexts are required by the full main ruleset.
 #
 # `test` is an aggregating job over the interpreter matrix. A matrix leg's check name
 # carries its matrix values (`python / test (3.11)`), so a matrix job can never be a
@@ -32,7 +30,7 @@ env:
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
-  # PLACEHOLDER until the first solver image is pushed; see rust.yml for the full note.
+  # Immutable solver pin; synchronized by scripts/solver-images.py.
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
   UV_VERSION: 0.12.13
   # Never resolve or write the lockfile in CI. Every uv command here is `--locked`; this
@@ -42,7 +40,7 @@ env:
 
 jobs:
   lint:
-    name: lint
+    name: python / lint
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -84,7 +82,7 @@ jobs:
         run: python3 scripts/check_generated.py
 
   test-matrix:
-    name: test (${{ matrix.python-version }})
+    name: python / test (${{ matrix.python-version }})
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -101,7 +99,8 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
-          shared-key: python-ext
+          # Keep dev artifacts separate from the former release-profile cache.
+          shared-key: python-ext-dev-${{ matrix.python-version }}
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
@@ -109,13 +108,14 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - name: sync the project and the test group
-        # MATURIN_PEP517_ARGS builds the extension at the release profile: a debug
-        # extension makes the suite crawl and hides nothing useful.
-        env:
-          MATURIN_PEP517_ARGS: --profile release
+        # uv installs the project editably; pyproject.toml selects the dev profile.
+        # Distribution/release compilation belongs to the manual wheels workflow.
         run: |
           uv sync --locked --extra pyomo --group test --no-default-groups \
+            --reinstall-package pse-arrow \
             --python "${{ matrix.python-version }}"
+      - name: verify the development build profile
+        run: uv run --no-sync python -c 'import pse; assert pse.build_info().profile == "debug", pse.build_info()'
       - name: pytest
         # Parity items are deselected without --parity; performance items need
         # --performance. This job runs the always-on tiers only.
@@ -131,7 +131,7 @@ jobs:
           fail_ci_if_error: false
 
   test:
-    name: test
+    name: python / test
     # The single required context. It does no work: it exists because required status
     # checks cannot name a matrix leg.
     needs: [test-matrix]
@@ -146,19 +146,8 @@ jobs:
           echo "test-matrix result: ${MATRIX_RESULT}"
           test "${MATRIX_RESULT}" = "success"
 
-  # The Linux x86_64 wheel the parity job installs. Calling wheels.yml rather than
-  # rebuilding here means parity tests exactly the artifact that would ship.
-  wheel:
-    name: wheel
-    uses: ./.github/workflows/wheels.yml
-    permissions:
-      contents: read
-    with:
-      targets: linux-x86_64
-
   parity:
-    name: parity
-    needs: [wheel]
+    name: python / parity
     runs-on: ubuntu-24.04
     # The `ci` stage carries Ipopt 3.14.x + MUMPS + ASL and uv-managed CPython 3.11-3.13.
     # A literal, not ${{ env.SOLVER_IMAGE }} — see rust.yml.
@@ -172,20 +161,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: fetch the Linux x86_64 wheel
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: ./.github/actions/setup-rust
         with:
-          name: wheel-linux-x86_64
-          path: dist
-      - name: sync the parity environment
-        # 3.13 on pull requests; rust-scheduled.yml sweeps 3.11-3.13 weekly.
+          shared-key: python-parity-dev
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: sync the editable development build and parity environment
         run: |
           uv sync --locked --extra pyomo --group parity --python 3.13 \
-            --no-install-project
-      - name: install the built wheel
-        # --no-deps: the pins come from uv.lock, not from the wheel's metadata, and this
-        # guarantees the tested artifact is the one that was built, not a rebuild.
-        run: uv pip install --no-deps dist/*.whl
+            --reinstall-package pse-arrow
+      - name: verify the development build profile
+        run: uv run --no-sync python -c 'import pse; assert pse.build_info().profile == "debug", pse.build_info()'
       - name: parity suite
         # --parity turns the pre-flight from "skip" into "fail": the session fixture
         # asserts Python < 3.14, idaes 2.12.0, and ipopt 3.14.x on PATH before anything

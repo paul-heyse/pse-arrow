@@ -25,17 +25,18 @@ python := env("PSE_PYTHON", trim(read(".python-version")))
 venv := env("UV_PROJECT_ENVIRONMENT", ".venv")
 # Always the project's own tools, never whatever is on PATH: a stale global ruff
 # silently produces a different diff than CI.
-py := venv / "bin/python"
-ruff := venv / "bin/ruff"
-pyrefly := venv / "bin/pyrefly"
-lint_imports := venv / "bin/lint-imports"
-reuse := venv / "bin/reuse"
-taplo := venv / "bin/taplo"
-typos := venv / "bin/typos"
+bin := venv / if os() == "windows" { "Scripts" } else { "bin" }
+py := bin / if os() == "windows" { "python.exe" } else { "python" }
+ruff := bin / "ruff"
+pyrefly := bin / "pyrefly"
+lint_imports := bin / "lint-imports"
+reuse := bin / "reuse"
+taplo := bin / "taplo"
+typos := bin / "typos"
 # Arrow's `force_validate` is a feature, not a profile: every test invocation passes it.
 validate := "--features pse-relations/force-validate"
 evidence_locks := "--evidence docs/capability-maps/evidence/rust/apisurface-Cargo.lock --evidence docs/capability-maps/evidence/rust/support-Cargo.lock"
-solver_image := env("PSE_SOLVER_IMAGE", "ghcr.io/paul-heyse/pse-solvers:ci-latest")
+solver_image := env("PSE_SOLVER_IMAGE", `python3 scripts/solver-images.py ref ci`)
 
 default:
     @just --list --unsorted
@@ -94,7 +95,7 @@ fetch-external:
 versions:
     @mkdir -p target
     @{ rustc --version; cargo --version; uv --version; \
-       [ -x {{ py }} ] && {{ py }} --version || echo "python: no venv"; \
+       [ -x "{{ py }}" ] && "{{ py }}" --version || echo "python: no venv"; \
        cargo install --list | grep -E '^[a-z]' ; } | tee target/tooling-inventory.txt
 
 [group('discovery')]
@@ -124,7 +125,7 @@ clippy:
 [doc('rustfmt and taplo in check mode')]
 fmt-check:
     cargo fmt --all -- --check
-    {{ taplo }} fmt --check --diff
+    "{{ taplo }}" fmt --check --diff
 
 [group('local')]
 [doc('Rust tests via nextest with Arrow force_validate on')]
@@ -139,7 +140,7 @@ test-package pkg *args:
 [group('local')]
 [doc('Doctests (nextest does not run them)')]
 doctest:
-    cargo test --doc --workspace --locked
+    cargo test --doc --workspace --locked {{ validate }}
 
 [group('local')]
 [doc('rustdoc for the workspace with warnings as errors')]
@@ -147,7 +148,7 @@ docs-rust:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
 [group('local')]
-[doc('Generated sources and docs are current (git diff --exit-code on the generated paths)')]
+[doc('Phase-zero generated-tree hygiene; regeneration equivalence remains deferred')]
 codegen-check:
     cargo xtask codegen --check
 
@@ -166,29 +167,29 @@ governance:
 ci-fast: fmt-check check clippy test doctest
 
 [group('local')]
-[doc('uv sync the platform environment (locked) with the pyomo extra')]
+[doc('Sync locked dependencies and rebuild the editable native extension with the dev profile')]
 py-sync:
     uv sync --locked --extra pyomo
 
 [group('local')]
 [doc('ruff format in check mode')]
 fmt-py-check:
-    {{ ruff }} format --check
+    "{{ ruff }}" format --check
 
 [group('local')]
 [doc('ruff check (no --fix; the baseline is zero)')]
 lint-py:
-    {{ ruff }} check
+    "{{ ruff }}" check
 
 [group('local')]
 [doc('pyrefly type check')]
 typecheck:
-    {{ pyrefly }} check
+    "{{ pyrefly }}" check
 
 [group('local')]
 [doc('import-linter contracts (numpy/pyomo/idaes boundaries)')]
 lint-imports:
-    {{ lint_imports }}
+    "{{ lint_imports }}"
 
 [group('local')]
 [doc('Python tests (unit + component by default; pass -m to override)')]
@@ -198,9 +199,9 @@ py-test *args:
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
 lint-repo:
-    {{ taplo }} fmt --check --diff
-    {{ typos }}
-    {{ reuse }} lint
+    "{{ taplo }}" fmt --check --diff
+    "{{ typos }}"
+    "{{ reuse }}" lint
     actionlint
     uvx zizmor .github/workflows
     shellcheck scripts/*.sh .claude/hooks/*.sh
@@ -213,15 +214,15 @@ lint-agents:
 
 [group('local')]
 [doc('Python and repository quality gate')]
-quality: fmt-py-check lint-py typecheck lint-imports lint-repo lint-agents
+quality: fmt-py-check lint-py typecheck lint-imports lint-repo lint-agents setup-test solver-pin-check
 
 # ----------------------------------------------------------------------- pr --
 
 [group('pr')]
 [doc('cargo deny (advisories, bans, licenses, sources) + cargo audit')]
 policy:
-    cargo deny check
-    cargo audit
+    cargo deny --all-features --locked check
+    cargo audit --deny warnings
 
 [group('pr')]
 [doc('Coverage via cargo-llvm-cov + nextest -> lcov.info')]
@@ -232,7 +233,7 @@ coverage:
 [group('pr')]
 [doc('Every benchmark runs once (no timing gate)')]
 bench-smoke:
-    cargo test --benches -p pse-benches --locked
+    cargo test --benches -p pse-benches -p pse-relations --locked {{ validate }}
 
 [group('pr')]
 [doc('Identifiers named in docs resolve in the extracted API facts')]
@@ -263,8 +264,8 @@ parity *args:
     UV_PROJECT_ENVIRONMENT=.venv-parity uv run --no-sync pytest --parity -m "unit or component or integration" {{ args }}
 
 [group('pr')]
-[doc('Gate: everything a PR must pass, locally')]
-ci-pr: ci-fast governance policy docs-rust bench-smoke quality adr-lint docs
+[doc('Local Rust, Python, quality and documentation gates; container parity is separate')]
+ci-pr: ci-fast governance policy docs-rust bench-smoke quality adr-lint docs py-test
 
 # ---------------------------------------------------------------- scheduled --
 
@@ -346,8 +347,8 @@ register-check:
 [confirm('Rewrite source files in place?')]
 fmt:
     cargo fmt --all
-    {{ taplo }} fmt
-    {{ ruff }} format
+    "{{ taplo }}" fmt
+    "{{ ruff }}" format
 
 [group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated and the Ipopt bindings')]
@@ -380,7 +381,7 @@ evidence-regen:
     ./scripts/evidence-regen.sh
 
 [group('mutating')]
-[doc('Sync GitHub labels from .github/labels.json')]
+[doc('Sync GitHub labels from .github/labels.yml')]
 [confirm('Create/update labels on GitHub?')]
 labels-sync:
     ./scripts/labels-sync.sh
@@ -396,3 +397,55 @@ gh-setup *args:
 [confirm('Re-resolve one package in uv.lock?')]
 lock-upgrade pkg:
     uv lock --upgrade-package {{ pkg }}
+
+[group('mutating')]
+[doc('Regenerate native Codex roles and materialize shared skill aliases')]
+[confirm('Synchronize agent configuration from canonical sources?')]
+agent-config-sync:
+    python3 scripts/agent-config.py
+
+[group('local')]
+[doc('Behavioral tests for repository setup and agent guards (stdlib only)')]
+setup-test:
+    python3 -m unittest discover -s scripts/tests -p 'test_*.py' -v
+
+[group('mutating')]
+[doc('Update immutable solver pins and synchronize workflow/devcontainer literals')]
+[confirm('Update the solver image pins?')]
+solver-pin-update *args:
+    python3 scripts/solver-images.py update {{ args }}
+
+[group('local')]
+[doc('Verify every literal solver image consumer matches the manifest')]
+solver-pin-check:
+    python3 scripts/solver-images.py check
+
+[group('scheduled')]
+[doc('Rebuild the solver libraries without Docker layer cache and compare published checksums')]
+solver-rebuild-check:
+    bash scripts/solver-rebuild-check.sh
+
+[group('pr')]
+[doc('Parity preflight in the pinned dev image with isolated Linux caches')]
+parity-container *args:
+    ./scripts/parity-container.sh {{ args }}
+
+[group('discovery')]
+[doc('Read-only comparison of live GitHub configuration with full declarations')]
+gh-setup-check:
+    python3 scripts/github-config.py
+
+[group('local')]
+[doc('Spelling with the project-pinned tool')]
+lint-typos:
+    "{{ typos }}"
+
+[group('local')]
+[doc('License headers with the project-pinned tool')]
+lint-license:
+    "{{ reuse }}" lint
+
+[group('scheduled')]
+[doc('Manually qualify all wheel platforms and the sdist on GitHub, without publishing')]
+wheels-check ref="main":
+    gh workflow run wheels.yml --ref "{{ ref }}" -f targets=all

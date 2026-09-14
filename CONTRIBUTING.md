@@ -57,8 +57,11 @@ differently from the rest:
    `adr/0042-spill-policy`). Naming is documented, not enforced.
 3. **Decide whether an ADR is required** — the table in §4. If one is, the ADR lands in
    its own PR labeled `adr`, titled `adr: ADR-NNNN <title>`, before or with the code.
-4. **Work small.** Run `just ci-fast` constantly (`fmt-check check clippy test doctest`).
-   Before pushing, run `just ci-pr`, which is the PR gate set.
+4. **Work small.** Run focused checks when useful. `just ci-fast`, `just ci-pr` and
+   `just parity-container` are optional local checks, not prerequisites for committing
+   or pushing. Git hooks run static checks only; GitHub runs compilation and test
+   suites and requires passing checks before merge. Full wheels/sdists are manual
+   (`just wheels-check <ref>`) or release-time checks.
 5. **Commit** with Conventional Commit subjects. The *squash title* is what ships to the
    changelog and is checked by `governance / pr-title`. Types:
    `feat fix perf refactor docs test build ci chore deps adr design`. Scopes are the
@@ -109,10 +112,10 @@ observable trigger and a check; `just register-check` reports which are due.
 | `just quality` | ruff, pyrefly, import-linter, REUSE, lockfile freshness | that the Python surface matches the native extension |
 | `just parity` | agreement with `idaes-pse==2.12.0` on the trajectories under test, on Linux with Ipopt 3.14.x | agreement anywhere else, or that IDAES is right where we differ |
 | `just doc-lint` | every backticked `a::b::c` in `docs/**` resolves in the pinned API surface | that the prose describes what the API does |
-| `just ci-pr` | the same gates CI requires on a PR | the scheduled jobs (feature powerset, release profile, `udeps`, mutants, floors) |
+| `just ci-pr` | the local composite Rust, Python, quality and documentation checks pass | GitHub's interpreter matrix, container parity, or scheduled jobs |
 
-A green `just ci-pr` is necessary, not sufficient. Say what you verified using the §D
-vocabulary, and say what you did not.
+GitHub's required checks gate merging; running `just ci-pr` locally is optional.
+Say what you verified using the §D vocabulary, and say what you did not.
 
 ## 6. Generated code, pins, and lockfiles
 

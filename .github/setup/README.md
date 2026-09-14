@@ -9,8 +9,9 @@ Why `gh api` and not `gh ruleset`: `gh ruleset` is read-only in gh 2.45. Ruleset
 therefore created by `POST` and updated by `PUT` against the id you look up by name.
 
 `just gh-setup` runs `scripts/gh-setup.sh`, which performs steps 2 to 8 below;
-`scripts/gh-setup.sh --dry-run` prints the calls without making them, and `--full`
-applies `ruleset-main-full.json` instead of `ruleset-main.json`. **This file is the
+`scripts/gh-setup.sh --dry-run` prints the calls without making them. The default
+applies `ruleset-main-full.json`; `--full` is a compatibility alias.
+`just gh-setup-check` compares live settings without changing them. **This file is the
 reference for what those calls are** — when the script and this document disagree, one
 of them is a bug, and the fix belongs in the script.
 
@@ -27,8 +28,8 @@ gh auth status   # must be paul-heyse, with the `admin:org`-free but repo-admin 
 |---|---|
 | `repo.json` | `PATCH /repos/{owner}/{repo}` — merge policy, features, secret scanning |
 | `topics.json` | `PUT /repos/{owner}/{repo}/topics` |
-| `ruleset-main.json` | the `main` branch ruleset, **phase-0 required checks** |
-| `ruleset-main-full.json` | the same ruleset with `python / *` added — the later re-run |
+| `ruleset-main.json` | historical bootstrap subset; no longer applied |
+| `ruleset-main-full.json` | active `main` branch ruleset, including Python checks |
 | `ruleset-tags.json` | the `tags` ruleset on `refs/tags/v*` |
 | `env-test-release.json` | the `test-release` environment (TestPyPI) |
 | `env-release.json` | the `release` environment (PyPI) |
@@ -105,69 +106,33 @@ apply_ruleset() {            # $1 = path to the ruleset JSON
   fi
 }
 
-apply_ruleset "$SETUP/ruleset-main.json"
+apply_ruleset "$SETUP/ruleset-main-full.json"
 apply_ruleset "$SETUP/ruleset-tags.json"
 ```
 
 **`main`** enforces: no deletion, no non-fast-forward, linear history, signed commits,
 pull request required (0 approvals — a sole maintainer cannot approve their own PR;
-stale reviews dismissed; threads must be resolved; squash only), and the phase-0 required
+stale reviews dismissed; threads must be resolved; squash only), and the full declared required
 status checks with `strict_required_status_checks_policy` (the branch must be up to date
 with `main` before merge).
 
 **`tags`** restricts creation, update and deletion of `refs/tags/v*` to bypass actors and
 requires signatures, so only the maintainer can cut a release tag.
 
-### The bypass actor, and the fallback
+### The bypass actor
 
-Both rulesets list one bypass actor:
+Both rulesets retain the declared admin-role bypass (`RepositoryRole`, id 5,
+`always`). GitHub accepted this actor during setup qualification. Bypass is
+break-glass only: every bypass push needs the follow-up required by
+GOVERNANCE.md §4. The setup PR is merged only after its required checks pass.
+An admin credential cannot demonstrate that an ordinary contributor's direct
+push would be rejected; no destructive test push is used as evidence.
 
-```json
-{ "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
-```
+### Required checks
 
-`5` is the built-in **admin** repository role. GitHub occasionally rejects a built-in
-role id here with `422 Invalid actors`. If that happens, swap in the maintainer as a
-user actor — `218986190` is `paul-heyse`:
-
-```json
-{ "actor_id": 218986190, "actor_type": "User", "bypass_mode": "always" }
-```
-
-```bash
-# Non-destructive rewrite of both files, if and only if the role id is rejected:
-python3 - <<'PY'
-import json, pathlib
-fallback = {"actor_id": 218986190, "actor_type": "User", "bypass_mode": "always"}
-for name in ("ruleset-main.json", "ruleset-main-full.json", "ruleset-tags.json"):
-    path = pathlib.Path(".github/setup") / name
-    data = json.loads(path.read_text())
-    data["bypass_actors"] = [fallback]
-    path.write_text(json.dumps(data, indent=2) + "\n")
-    print("rewrote", path)
-PY
-```
-
-Confirm the id for any other account with
-`gh api users/<login> --jq .id`. Bypass is break-glass only: every bypass push needs a
-follow-up issue labeled `governance` (GOVERNANCE.md §4).
-
-### Required checks are staged deliberately
-
-`ruleset-main.json` lists only the checks that report in phase 0:
-
-```text
-rust / fmt            rust / clippy        rust / test
-rust / codegen-diff   rust / family-check  rust / deny
-docs / build          governance / adr-lint governance / pr-title
-```
-
-A required check that never reports blocks **every** pull request forever. Once the
-Python package first reports on a pull request, re-run with the full list:
-
-```bash
-apply_ruleset "$SETUP/ruleset-main-full.json"    # adds python / lint, test, parity
-```
+The full required set is active. Its twelve exact names first reported on the
+setup PR before the ruleset was enabled. The historical `ruleset-main.json`
+subset is retained for context and is no longer applied.
 
 `ruleset-main-full.json` has the same `"name": "main"`, so this updates the existing
 ruleset rather than creating a second one. `python / test` is a single aggregating job
@@ -284,5 +249,15 @@ gh api "repos/$OWNER/$REPO/environments" --jq '.environments[].name'
 gh label list --repo "$OWNER/$REPO" --limit 100 | wc -l     # expect 35
 ```
 
-Then the acceptance test for this whole file: **re-run `just gh-setup` and confirm it is
-a no-op** — no ruleset duplicated, no label churn, no environment recreated.
+Then run `just gh-setup-check`, re-run `just gh-setup`, and check again: zero
+configuration differences, no duplicate rulesets or environments. Labels are managed
+separately with `just labels-sync`. Publishing remains a separate release operation.
+
+## Service capability limits
+
+Generic (non-provider) secret scanning is unavailable for this personal repository;
+GitHub ignores that requested repository field and reports it disabled. It is not
+part of the applied settings. Standard secret scanning and push protection remain
+enabled. See [GitHub generic-pattern availability](https://docs.github.com/en/code-security/how-tos/secure-your-secrets/detect-secret-leaks/enabling-secret-scanning-for-generic-patterns).
+The obsolete `automatic_copilot_code_review_enabled` ruleset field is also omitted:
+GitHub does not return or apply it. Neither omission disables an active control.

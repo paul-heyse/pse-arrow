@@ -8,9 +8,10 @@ Agent instructions are the one class of document with no compiler and no test: a
 at the moment an agent tries to follow it. This script is the missing compiler. It
 checks four things:
 
-1. **The two symlinks resolve.** Skills are canonical in ``.codex/skills`` with
-   ``.claude/skills`` pointing at them; agents are canonical in ``.claude/agents`` with
-   ``.codex/agents`` pointing at them. One copy each is what keeps the Claude Code and
+1. **Skill aliases resolve and native agent definitions match.** Skills are canonical in ``.codex/skills`` with
+   ``.claude/skills`` and ``.agents/skills`` pointing at them; agents are canonical in
+   ``.claude/agents`` with
+   native Codex TOML definitions generated from them. One copy each is what keeps the Claude Code and
    Codex views from drifting. A Windows checkout without developer mode materialises a
    symlink as a directory (or as a one-line text file), so a materialised pair is
    accepted when the two trees are byte-identical -- and rejected when they are not,
@@ -31,6 +32,7 @@ Standard library only: it has to run before any environment exists.
 from __future__ import annotations
 
 import filecmp
+import json
 import re
 import subprocess
 import sys
@@ -214,7 +216,24 @@ def main() -> int:
 
     # 1. symlinks
     check_link(ROOT / ".claude" / "skills", ROOT / ".codex" / "skills", problems)
-    check_link(ROOT / ".codex" / "agents", ROOT / ".claude" / "agents", problems)
+    check_link(ROOT / ".agents" / "skills", ROOT / ".codex" / "skills", problems)
+    native = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/agent-config.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if native.returncode:
+        problems.append(native.stdout + native.stderr)
+    for config in (ROOT / ".codex/hooks.json", ROOT / ".claude/settings.json"):
+        hooks = json.loads(config.read_text())["hooks"]
+        for event in ("SessionStart", "PreToolUse", "PostToolUse"):
+            if not hooks.get(event):
+                problems.append(f"{config}: missing {event} hook")
+            for group in hooks.get(event, []):
+                for hook in group["hooks"]:
+                    if "scripts/agent-hooks.py" not in hook["command"]:
+                        problems.append(f"{config}: hook does not use shared policy")
 
     # 2. the CLAUDE.md import
     claude_md = ROOT / "CLAUDE.md"
