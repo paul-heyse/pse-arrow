@@ -4,12 +4,10 @@
 //! Owned stage controls: wire DTOs remain caller-owned; catalog results retain leases.
 
 use super::stage::StageHint;
-use super::stage_context::StageContext;
 use crate::{CatalogError, RelationMember};
 use std::collections::BTreeMap;
 
-/// Immutable catalog-owned stage context; clones share data and its reservation.
-/// Explicitly cloning the underlying [`StageHint`] creates a caller-owned wire DTO.
+/// Immutable catalog-owned hint; clones share its metadata and reservation.
 pub type OwnedStageHint = super::control::OwnedControl<StageHint>;
 
 pub(super) fn hint_extent(hint: &StageHint) -> Result<usize, CatalogError> {
@@ -19,41 +17,9 @@ pub(super) fn hint_extent(hint: &StageHint) -> Result<usize, CatalogError> {
         bytes = add(bytes, name.capacity())?;
     }
     bytes = add(bytes, member_extent(hint.pass_record.member())?)?;
-    if let Some(context) = &hint.context {
-        bytes = add(bytes, context_extent(context)?)?;
-    }
     Ok(bytes)
 }
 
-pub(super) fn context_extent(context: &StageContext) -> Result<usize, CatalogError> {
-    let mut bytes = vector_slots(&context.declarations)?;
-    for (name, rows) in &context.declarations {
-        bytes = add(bytes, add(name.capacity(), rows_extent(rows)?)?)?;
-    }
-    bytes = add(bytes, vector_slots(&context.sources)?)?;
-    for source in &context.sources {
-        bytes = add(bytes, add(source.path.capacity(), source.text.capacity())?)?;
-    }
-    bytes = add(bytes, map_slots(&context.policies)?)?;
-    for (name, policy) in &context.policies {
-        bytes = add(bytes, add(name.capacity(), policy.relation.capacity())?)?;
-        bytes = add(bytes, rows_extent(&policy.rows)?)?;
-    }
-    if let Some(engine) = &context.engine {
-        bytes = add(bytes, engine_extent(engine)?)?;
-    }
-    Ok(bytes)
-}
-
-fn engine_extent(engine: &crate::session::SessionSemantics) -> Result<usize, CatalogError> {
-    engine_parts_extent(
-        engine.engine_version.capacity(),
-        engine.arrow_version.capacity(),
-        &engine.profile,
-        &engine.settings,
-        &engine.functions,
-    )
-}
 pub(super) fn engine_parts_extent(
     engine_version_bytes: usize,
     arrow_version_bytes: usize,
@@ -95,11 +61,6 @@ pub(super) fn member_extent(member: &RelationMember) -> Result<usize, CatalogErr
         )?;
     }
     Ok(bytes)
-}
-fn rows_extent(rows: &Vec<Vec<String>>) -> Result<usize, CatalogError> {
-    rows.iter().try_fold(vector_slots(rows)?, |bytes, row| {
-        add(bytes, strings_extent(row)?)
-    })
 }
 fn strings_extent(values: &Vec<String>) -> Result<usize, CatalogError> {
     values

@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    234u8, 119u8, 5u8, 67u8, 159u8, 140u8, 12u8, 73u8, 217u8, 235u8, 213u8, 57u8, 29u8,
-    118u8, 115u8, 130u8, 19u8, 50u8, 178u8, 7u8, 3u8, 5u8, 45u8, 253u8, 15u8, 189u8,
-    223u8, 240u8, 226u8, 21u8, 230u8, 222u8,
+    31u8, 130u8, 106u8, 83u8, 255u8, 148u8, 83u8, 104u8, 24u8, 25u8, 130u8, 164u8, 195u8,
+    143u8, 162u8, 24u8, 220u8, 159u8, 163u8, 142u8, 235u8, 62u8, 230u8, 93u8, 141u8,
+    221u8, 143u8, 212u8, 122u8, 15u8, 165u8, 33u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -44,12 +44,12 @@ impl crate::typed::CellCodec for NormalizedStateBoundsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#property_package_id), crate
-                ::typed::CellCodec::into_cell(self.r#state_symbol), crate
-                ::typed::CellCodec::into_cell(self.r#lower), crate
-                ::typed::CellCodec::into_cell(self.r#initial), crate
-                ::typed::CellCodec::into_cell(self.r#upper), crate
-                ::typed::CellCodec::into_cell(self.r#unit_id)
+                crate::typed::CellCodec::into_cell(self.r#property_package_id),
+                crate::typed::CellCodec::into_cell(self.r#state_symbol),
+                crate::typed::CellCodec::into_cell(self.r#lower),
+                crate::typed::CellCodec::into_cell(self.r#initial),
+                crate::typed::CellCodec::into_cell(self.r#upper),
+                crate::typed::CellCodec::into_cell(self.r#unit_id),
             ],
         )
     }
@@ -107,6 +107,88 @@ impl crate::typed::CellCodec for NormalizedStateBoundsRow {
         })
     }
 }
+impl crate::columnar::ArrowValue for NormalizedStateBoundsRow {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#property_package_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#state_symbol,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#lower, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#initial, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#upper, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#unit_id, children[5usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::extension_values::Bound as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <crate::generated::extension_values::Bound as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#property_package_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#state_symbol: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#lower: <crate::generated::extension_values::Bound as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#initial: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#upper: <crate::generated::extension_values::Bound as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 /// The concrete generated relation row.
 pub type Row = NormalizedStateBoundsRow;
 /// The concrete generated relation view.
@@ -117,12 +199,12 @@ impl NormalizedStateBoundsRow {
     /// Values in exact declared column order.
     pub fn into_cells(self) -> Vec<pse_schema::model::Cell> {
         vec![
-            crate ::typed::CellCodec::into_cell(self.r#property_package_id), crate
-            ::typed::CellCodec::into_cell(self.r#state_symbol), crate
-            ::typed::CellCodec::into_cell(self.r#lower), crate
-            ::typed::CellCodec::into_cell(self.r#initial), crate
-            ::typed::CellCodec::into_cell(self.r#upper), crate
-            ::typed::CellCodec::into_cell(self.r#unit_id)
+            crate::typed::CellCodec::into_cell(self.r#property_package_id),
+            crate::typed::CellCodec::into_cell(self.r#state_symbol),
+            crate::typed::CellCodec::into_cell(self.r#lower),
+            crate::typed::CellCodec::into_cell(self.r#initial),
+            crate::typed::CellCodec::into_cell(self.r#upper),
+            crate::typed::CellCodec::into_cell(self.r#unit_id),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -136,7 +218,7 @@ impl NormalizedStateBoundsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"1d7061457937988e96aef72e6a20af51\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"state_bounds\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"property_package_id\"],[\"text\",\"state_symbol\"]]],[\"list\",[[\"struct\",[[\"text\",\"property_package_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"key\"],[\"text\",\"property_package_id\"],[\"struct\",[[\"text\",\"property_package_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]]]],[\"struct\",[[\"text\",\"state_symbol\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"key\"],[\"text\",\"state_symbol\"],[\"struct\",[[\"text\",\"state_symbol\"],[\"text\",\"Utf8\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]]]],[\"struct\",[[\"text\",\"lower\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"bound\"],[\"text\",\"pse.bound\"],[\"struct\",[[\"text\",\"Struct\"],[\"list\",[[\"struct\",[[\"text\",\"kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int8\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"value\"],[\"text\",\"Float64\"],[\"bool\",true],[\"list\",[]]]]]]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"An explicit bound, `finite` or `unbounded`; never an infinity or a null sentinel.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"lower\"],[\"struct\",[[\"text\",\"lower\"],[\"struct\",[[\"text\",\"Struct\"],[\"list\",[[\"struct\",[[\"text\",\"kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int8\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"value\"],[\"text\",\"Float64\"],[\"bool\",true],[\"list\",[]]]]]]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"initial\"],[\"struct\",[[\"text\",\"f64\"],[\"text\",\"Float64\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"initial\"],[\"struct\",[[\"text\",\"initial\"],[\"text\",\"Float64\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"f64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"upper\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"bound\"],[\"text\",\"pse.bound\"],[\"struct\",[[\"text\",\"Struct\"],[\"list\",[[\"struct\",[[\"text\",\"kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int8\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"value\"],[\"text\",\"Float64\"],[\"bool\",true],[\"list\",[]]]]]]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"An explicit bound, `finite` or `unbounded`; never an infinity or a null sentinel.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"upper\"],[\"struct\",[[\"text\",\"upper\"],[\"struct\",[[\"text\",\"Struct\"],[\"list\",[[\"struct\",[[\"text\",\"kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int8\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"value\"],[\"text\",\"Float64\"],[\"bool\",true],[\"list\",[]]]]]]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"unit_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"unit_id\"],[\"struct\",[[\"text\",\"unit_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]]]],[\"text\",\"blueprint §6.5 property: state_bounds.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"1d7061457937988e96aef72e6a20af51\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"1d7061457937988e96aef72e6a20af51\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"state_bounds\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"property_package_id\"],[\"text\",\"state_symbol\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"property_package_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"property_package_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"property_package_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"state_symbol\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"state_symbol\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"state_symbol\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"lower\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"2a210de257dce67bfcca3df1197a5db6\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:BoundKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"value\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"lower\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.bound\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"lower\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"2a210de257dce67bfcca3df1197a5db6\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:BoundKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"value\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"bound\"],[\"text\",\"pse.bound\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"2a210de257dce67bfcca3df1197a5db6\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:BoundKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"value\\\",\\\"nullable\\\":true}]}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"An explicit bound, `finite` or `unbounded`; never an infinity or a null sentinel.\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"2a210de257dce67bfcca3df1197a5db6\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:BoundKind\"]]]]]]],[\"struct\",[[\"id\",\"2a210de257dce67bfcca3df1197a5db6\"],[\"text\",\"BoundKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"finite\"],[\"null\",null],[\"bool\",false],[\"text\",\"finite\"]]],[\"struct\",[[\"text\",\"unbounded\"],[\"null\",null],[\"bool\",false],[\"text\",\"unbounded\"]]]]]]],[\"list\",[]]]],[\"struct\",[[\"struct\",[[\"text\",\"value\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",true],[\"list\",[]]]],[\"null\",null],[\"list\",[]]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"initial\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"initial\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"initial\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"f64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"upper\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"2a210de257dce67bfcca3df1197a5db6\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:BoundKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"value\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"upper\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.bound\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"upper\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"2a210de257dce67bfcca3df1197a5db6\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:BoundKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"value\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bound\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"bound\"],[\"text\",\"pse.bound\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"2a210de257dce67bfcca3df1197a5db6\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:BoundKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"value\\\",\\\"nullable\\\":true}]}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"An explicit bound, `finite` or `unbounded`; never an infinity or a null sentinel.\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"2a210de257dce67bfcca3df1197a5db6\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"2a210de257dce67bfcca3df1197a5db6\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:BoundKind\"]]]]]]],[\"struct\",[[\"id\",\"2a210de257dce67bfcca3df1197a5db6\"],[\"text\",\"BoundKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"finite\"],[\"null\",null],[\"bool\",false],[\"text\",\"finite\"]]],[\"struct\",[[\"text\",\"unbounded\"],[\"null\",null],[\"bool\",false],[\"text\",\"unbounded\"]]]]]]],[\"list\",[]]]],[\"struct\",[[\"struct\",[[\"text\",\"value\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",true],[\"list\",[]]]],[\"null\",null],[\"list\",[]]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"unit_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"unit_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"unit_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.5 property: state_bounds.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"1d7061457937988e96aef72e6a20af51\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -162,9 +244,7 @@ fn check_declaration(
             actual: spec.fingerprint,
         });
     }
-    if pse_schema::compiled_contract::relation(reg, spec)?.literal_spec()
-        != COMPILED_DECLARATION
-    {
+    if reg.compiled_declaration(spec)? != COMPILED_DECLARATION {
         return Err(crate::RelationError::Contract {
             relation: "normalized.state_bounds".to_owned(),
             reason: "runtime declaration differs from the complete generated contract"
@@ -187,94 +267,464 @@ pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationErr
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
     crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
 }
-/// A borrowed batch admitted against the complete generated contract.
+impl crate::columnar::RelationRow for NormalizedStateBoundsRow {
+    type Builder = NormalizedStateBoundsBuilder;
+    fn relation(
+        registry: &pse_schema::Registry,
+    ) -> Result<&pse_schema::model::RelationSpec, crate::RelationError> {
+        spec(registry)
+    }
+    fn builder(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self::Builder, crate::RelationError> {
+        NormalizedStateBoundsBuilder::with_registry(registry, capacity)
+    }
+    fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
+        builder.push(row)
+    }
+    fn finish(
+        builder: Self::Builder,
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        builder.finish()
+    }
+    fn rows(
+        batch: &crate::columnar::FieldCheckedBatch,
+    ) -> Result<Vec<Self>, crate::RelationError> {
+        NormalizedStateBoundsView::from_checked(batch)?.rows()
+    }
+    fn builder_allocation_size() -> usize {
+        99_384_usize + size_of::<Self::Builder>()
+    }
+    fn minimum_row_allocation_size() -> usize {
+        160usize
+    }
+    fn allocation_size(&self) -> Result<usize, crate::RelationError> {
+        let mut bytes = 0usize;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#state_symbol).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#lower).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#lower).r#value).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#upper).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#upper).r#value).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            Ok::<usize, crate::RelationError>(8usize)?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        Ok(bytes)
+    }
+}
+/// The complete declared relation key.
+pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::RelationKey {
+    namespace: NAMESPACE,
+    name: NAME,
+    version: VERSION,
+};
+/// Stable field references projected from the declared column order.
+pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "property_package_id",
+        position: 0usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "state_symbol",
+        position: 1usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "lower",
+        position: 2usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "initial",
+        position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "upper",
+        position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "unit_id",
+        position: 5usize,
+    },
+];
+/// Borrowed Arrow columns with checked layout and local values.
+/// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct NormalizedStateBoundsView<'a> {
     batch: &'a crate::RecordBatch,
-    registry: &'a pse_schema::Registry,
+    property_package_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    state_symbol_column: &'a arrow_array::StringArray,
+    lower_column: &'a arrow_array::StructArray,
+    initial_column: &'a arrow_array::Float64Array,
+    upper_column: &'a arrow_array::StructArray,
+    unit_id_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> NormalizedStateBoundsView<'a> {
-    /// Admits the actual schema and visible values, including extension metadata.
+    /// Admits a raw candidate's actual schema and visible local values.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
     }
-    /// Admits a batch with an explicitly bound registry.
+    /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch_with_registry(
-        registry: &'a pse_schema::Registry,
+        registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         crate::validate::validate_batch(registry, spec(registry)?, batch)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Ok(Self { batch, registry })
+        Self::borrow_columns(batch)
     }
-    /// The admitted batch, preserving its owners and reservations.
+    /// Borrows a checked owner without rescanning visible values.
+    /// The private owner must carry this exact relation and complete declaration.
+    /// # Errors
+    /// A different generated declaration or an incompatible Arrow layout.
+    pub fn from_checked(
+        owner: &'a crate::columnar::FieldCheckedBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Self::borrow_columns(owner.for_declaration(RELATION_ID, COMPILED_DECLARATION)?)
+    }
+    fn borrow_columns(
+        batch: &'a crate::RecordBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Ok(Self {
+            batch,
+            property_package_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(0usize).as_ref())?,
+            state_symbol_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(1usize).as_ref())?,
+            lower_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(2usize).as_ref())?,
+            initial_column: crate::columnar::array::<
+                arrow_array::Float64Array,
+            >(batch.column(3usize).as_ref())?,
+            upper_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(4usize).as_ref())?,
+            unit_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(5usize).as_ref())?,
+        })
+    }
+    /// The immutable batch, preserving its buffer owners and reservations.
     pub const fn batch(&self) -> &'a crate::RecordBatch {
         self.batch
     }
-    /// Decode dictionary values and nested fields into generated typed rows.
+    /// The number of visible relation rows.
+    pub fn len(&self) -> usize {
+        self.batch.num_rows()
+    }
+    /// Whether this view has no relation rows.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "property_package_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn property_package_id_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.property_package_id_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "property_package_id",
+        "`.",
+    )]
+    pub fn property_package_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[0usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "state_symbol",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn state_symbol_column(&self) -> &'a arrow_array::StringArray {
+        self.state_symbol_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "state_symbol", "`.")]
+    pub fn state_symbol_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "lower",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn lower_column(&self) -> &'a arrow_array::StructArray {
+        self.lower_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "lower", "`.")]
+    pub fn lower_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "initial",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn initial_column(&self) -> &'a arrow_array::Float64Array {
+        self.initial_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "initial", "`.")]
+    pub fn initial_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "upper",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn upper_column(&self) -> &'a arrow_array::StructArray {
+        self.upper_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "upper", "`.")]
+    pub fn upper_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "unit_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn unit_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.unit_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "unit_id", "`.")]
+    pub fn unit_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    /// Decodes one row for an explicit scalar algorithm boundary.
+    /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
-    /// A typed decoding error.
+    /// The row is out of range or its physical value cannot be decoded.
+    pub fn row(
+        &self,
+        index: usize,
+    ) -> Result<NormalizedStateBoundsRow, crate::RelationError> {
+        if index >= self.len() {
+            return Err(crate::columnar::mismatch("a row within the generated view"));
+        }
+        Ok(NormalizedStateBoundsRow {
+            r#property_package_id: crate::columnar::ArrowValue::read(
+                self.property_package_id_column,
+                index,
+            )?,
+            r#state_symbol: crate::columnar::ArrowValue::read(
+                self.state_symbol_column,
+                index,
+            )?,
+            r#lower: crate::columnar::ArrowValue::read(self.lower_column, index)?,
+            r#initial: crate::columnar::ArrowValue::read(self.initial_column, index)?,
+            r#upper: crate::columnar::ArrowValue::read(self.upper_column, index)?,
+            r#unit_id: crate::columnar::ArrowValue::read(self.unit_id_column, index)?,
+        })
+    }
+    /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
+    /// This performs no schema/value admission and creates no `Cell` intermediates.
+    /// # Errors
+    /// A physical value cannot be decoded.
     pub fn rows(&self) -> Result<Vec<NormalizedStateBoundsRow>, crate::RelationError> {
-        crate::cells::cells_from_batch(self.registry, spec(self.registry)?, self.batch)?
-            .into_iter()
-            .map(NormalizedStateBoundsRow::from_cells)
-            .collect()
+        (0..self.len()).map(|index| self.row(index)).collect()
     }
 }
-/// Builds a batch under the declared schema, with admission before return.
-#[derive(Debug, Default)]
+/// Appends typed values directly into the declared Arrow column builders.
+/// Finish establishes layout and local value contracts, not relational validity.
+#[derive(Debug)]
 pub struct NormalizedStateBoundsBuilder {
-    rows: Vec<NormalizedStateBoundsRow>,
+    columns: crate::columnar::BatchBuilder,
 }
 impl NormalizedStateBoundsBuilder {
-    /// An empty builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-    /// Reserves row capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            rows: Vec::with_capacity(capacity),
-        }
-    }
-    /// Checks one candidate row before adding it. Bundle constraints run at P2.
+    /// Opens empty Arrow builders under the generated declaration.
     /// # Errors
-    /// An extension value or field contract violation.
+    /// The runtime registry or declared storage is incompatible.
+    pub fn new() -> Result<Self, crate::RelationError> {
+        Self::with_capacity(0)
+    }
+    /// Reserves initial Arrow column capacity.
+    /// # Errors
+    /// The runtime registry or declared storage is incompatible.
+    pub fn with_capacity(capacity: usize) -> Result<Self, crate::RelationError> {
+        Self::with_registry(pse_schema::registry()?, capacity)
+    }
+    /// Opens Arrow builders after checking the exact runtime declaration once.
+    /// # Errors
+    /// A generated declaration mismatch or unrepresentable storage capacity.
+    pub fn with_registry(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let schema = std::sync::Arc::new(
+            pse_schema::arrow::relation_schema(registry, spec(registry)?)?,
+        );
+        Ok(Self {
+            columns: crate::columnar::BatchBuilder::new(
+                RELATION_ID,
+                COMPILED_DECLARATION,
+                schema,
+                capacity,
+            )?,
+        })
+    }
+    /// Number of appended rows, including retained bulk column chunks.
+    pub const fn len(&self) -> usize {
+        self.columns.len()
+    }
+    /// Whether the builder contains no rows.
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Checks local logical values before appending directly to Arrow buffers.
+    /// Local refusal does not modify the builder; storage failure closes it.
+    /// # Errors
+    /// An extension value, quantity sibling or Arrow storage violation.
     pub fn push(
         &mut self,
         row: NormalizedStateBoundsRow,
     ) -> Result<(), crate::RelationError> {
-        let reg = pse_schema::registry()?;
-        crate::cells::batch_from_cells(reg, spec(reg)?, &[row.clone().into_cells()])?;
-        self.rows.push(row);
-        Ok(())
+        let row_index = self.columns.len();
+        if !(crate::validate::local_values::bound(
+            (row.r#lower).kind.as_str(),
+            (row.r#lower).value,
+        )) {
+            return Err(
+                crate::columnar::value_error(
+                    "lower",
+                    row_index,
+                    crate::validate::local_values::BOUND_ERROR,
+                ),
+            );
+        }
+        if !(crate::validate::local_values::bound(
+            (row.r#upper).kind.as_str(),
+            (row.r#upper).value,
+        )) {
+            return Err(
+                crate::columnar::value_error(
+                    "upper",
+                    row_index,
+                    crate::validate::local_values::BOUND_ERROR,
+                ),
+            );
+        }
+        self.columns
+            .append(move |columns| {
+                let row = &row;
+                crate::columnar::ArrowValue::append(
+                    &row.r#property_package_id,
+                    columns[0usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#state_symbol,
+                    columns[1usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#lower,
+                    columns[2usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#initial,
+                    columns[3usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#upper,
+                    columns[4usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#unit_id,
+                    columns[5usize].as_mut(),
+                )?;
+                Ok(())
+            })
     }
-    /// Builds and admits the complete batch.
+    /// Appends an admitted view's actual Arrow arrays without decoding rows.
     /// # Errors
-    /// A schema, value or Arrow layout failure.
-    pub fn finish(self) -> Result<crate::RecordBatch, crate::RelationError> {
-        self.finish_with_registry(pse_schema::registry()?)
+    /// A different field contract, Arrow failure or row-count overflow.
+    pub fn append_view(
+        &mut self,
+        view: &NormalizedStateBoundsView<'_>,
+    ) -> Result<(), crate::RelationError> {
+        self.columns.append_batch(view.batch())
     }
-    /// Builds under an explicitly bound runtime registry.
+    /// Finishes Arrow buffers and retains private local field evidence.
     /// # Errors
-    /// A contract mismatch or batch admission failure.
-    pub fn finish_with_registry(
+    /// Arrow rejected the physical layout or a previous append failed.
+    pub fn finish(
         self,
-        reg: &pse_schema::Registry,
-    ) -> Result<crate::RecordBatch, crate::RelationError> {
-        let cells = self
-            .rows
-            .into_iter()
-            .map(NormalizedStateBoundsRow::into_cells)
-            .collect::<Vec<_>>();
-        crate::cells::batch_from_cells(reg, spec(reg)?, &cells)
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        self.columns.finish()
     }
 }

@@ -11,7 +11,7 @@ review: docs/design_review/reviews/design_review_wave-1-contract-corrections_202
 evidence: Proposed
 supersedes: []
 superseded-by: null
-revisit: Measured result-copy cost justifies a zero-copy export with a demonstrated allocation ownership contract
+revisit: A new external buffer or execution operator cannot retain the required final-owner lease
 verification: `just family-check`; `just test-package pse-ids -p pse-relations`; last-owner, query/result/decode budget and cancellation fixtures
 
 ---
@@ -23,6 +23,11 @@ verification: `just family-check`; `just test-package pse-ids -p pse-relations`;
 A guard on a snapshot or query report releases too early when a RecordBatch/ArrayRef/Buffer clone survives it. The already-resolved bytes 1.12.1 offers a safe owner-preserving route into Arrow Buffer.
 
 ## Scope
+
+**Current construction target:** ADR-0067 and blueprint revision 37 replace this
+record's former local replay, row-copy and phase-limited execution mechanisms.
+Plan 05 owns implementation; the domain/identity/lifetime requirements retained
+below are implemented through its single native preparation/completion route.
 
 Amends the cited blueprint sections within the approved Wave 1 boundary. It supplements existing accepted decisions; their arguments remain immutable. Implementation is authorized by the maintainer's approved execution plan; formal ADR acceptance remains the decision-PR lifecycle.
 
@@ -36,7 +41,7 @@ Retain the inconsistent scaffold: rejected because its consumers cannot preserve
 
 ## Outcome
 
-Promote bytes =1.12.1 to a direct workspace pin with pse-ids as the reservation-buffer helper owner. Wrap allocated buffers with Bytes::from_owner and Arrow Buffer::from; the owner retains the original buffer and shared reservation lease. Recursively cover values, offsets, null bitmaps, dictionaries and children. Clone/slice readers retain the lease without duplicate charges. Use alignment-required IPC decoding; make a reserved aligned copy when needed. Phase-0 public query results use a separately reserved copy with owned buffers, accounting for coexistence with engine output instead of inferring allocation identity from pointers. Preserve ADR-0046's exclusion of infallible/native allocations from the fallible guarantee. No new unsafe surface or pointer-dedup registry is introduced.
+Promote bytes =1.12.1 to a direct workspace pin with pse-ids as the reservation-buffer helper owner. Wrap allocated buffers with Bytes::from_owner and Arrow Buffer::from; the owner retains the original buffer and shared reservation lease. Recursively cover values, offsets, null bitmaps, dictionaries and children. Clone/slice readers retain the lease without duplicate charges. Use alignment-required IPC decoding; make a reserved aligned copy when needed. Native query results transfer owned streams and final-buffer leases. Use an explicitly reserved copy only when the boundary cannot safely transfer ownership, accounting for coexisting buffers without inferring allocation identity from pointers. Preserve ADR-0046's exclusion of infallible/native allocations from the fallible guarantee. No new unsafe surface or pointer-dedup registry is introduced.
 
 ### Consequences
 
@@ -52,7 +57,7 @@ The scoped design review, negative fixtures and plan 03 terminal gates guard the
 
 ## Pros and cons
 
-The correction removes an ambiguity or false guarantee with bounded implementation work. Conservative rejection/copying/recomputation may cost more until a separately measured refinement is justified.
+The correction removes an ambiguity or false guarantee with bounded implementation work. Explicit ownership removes routine copies while preserving required external isolation; actual target workloads measure remaining transfer costs.
 
 ## More information
 
@@ -61,3 +66,5 @@ The correction removes an ambiguity or false guarantee with bounded implementati
 ## Status history
 
 - 2026-09-14 — proposed before implementation; maintainer approved the correction plan and its validation-before-hashing clarification.
+
+- 2026-09-14 — reconciled with ADR-0067 and Plan 05; prior receipts describe their original code and do not certify the hard-pivot implementation.

@@ -19,10 +19,10 @@ use pse_authoring::{
 };
 use pse_catalog::{
     Catalog, ExecutionSettings, FixedClock, RefName, ThreadBudget, TrustLevel,
-    session::{SessionFactory, phase0_reference_profile},
+    session::{SessionFactory, native_engine_profile},
 };
 use pse_compiler::{
-    ExternalInputs, PassStatus, PolicySet,
+    PassStatus, PolicySet,
     driver::{CommitBase, CommitRequest, Driver, PipelineRequest},
 };
 use pse_ids::{CancellationToken, MemoryReserver, SemanticId};
@@ -83,35 +83,31 @@ fn fixture() -> Fixture {
     })
     .unwrap();
     let reserver: Arc<dyn MemoryReserver> = runtime.reserver();
-    let validator = pse_rules::validator::InvariantValidator::new(
-        Arc::clone(&registry),
-        runtime.runtime_env(),
-        Arc::clone(&reserver),
-        ExecutionSettings::default(),
-        threads,
-        phase0_reference_profile(),
+    let sessions = Arc::new(
+        SessionFactory::new(
+            runtime.runtime_env(),
+            Arc::clone(&reserver),
+            ExecutionSettings::default(),
+            threads,
+            native_engine_profile(),
+        )
+        .unwrap(),
     );
+
+    let validator = pse_rules::validator::InvariantValidator::new(Arc::clone(&registry));
     let catalog = Arc::new(
         Catalog::open(
             Arc::new(InMemory::new()),
             Arc::clone(&registry),
             TrustLevel::Owned,
             Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-            Arc::clone(&reserver),
+            Arc::clone(&sessions),
         )
         .with_semantic_validator(Arc::new(
-            pse_compiler::validator::CompilerValidator::new(Arc::new(validator)),
+            pse_compiler::validator::CompilerValidator::new(Arc::new(validator), &registry)
+                .unwrap()
+                .with_sessions(Arc::clone(&sessions)),
         )),
-    );
-    let sessions = Arc::new(
-        SessionFactory::new(
-            runtime.runtime_env(),
-            reserver,
-            ExecutionSettings::default(),
-            threads,
-            phase0_reference_profile(),
-        )
-        .unwrap(),
     );
     Fixture {
         registry,
@@ -126,10 +122,10 @@ async fn actual_commit_preserves_source_and_distinguishes_revisions_with_equal_c
     let Fixture {
         registry,
         catalog,
-        sessions,
+        sessions: _,
         _spill,
     } = fixture();
-    let mut driver = Driver::new(Arc::clone(&catalog), Arc::clone(&sessions)).unwrap();
+    let mut driver = Driver::new(Arc::clone(&catalog)).unwrap();
     let reference = RefName::parse("commit-test").unwrap();
     let cancel = CancellationToken::default();
     let source = document(&registry);
@@ -148,9 +144,10 @@ async fn actual_commit_preserves_source_and_distinguishes_revisions_with_equal_c
         .await
         .unwrap();
     assert_eq!(
-        first.validation.error_count, 0,
+        first.validation.error_count(),
+        0,
         "{:?}",
-        first.validation.findings
+        first.validation.findings()
     );
     let tip = first.tip.unwrap();
     let model = first.model.unwrap();
@@ -186,7 +183,7 @@ async fn actual_commit_preserves_source_and_distinguishes_revisions_with_equal_c
         )
         .await
         .unwrap();
-    assert_eq!(second.validation.error_count, 0);
+    assert_eq!(second.validation.error_count(), 0);
     assert_eq!(
         second.model.as_ref().unwrap().snapshot_id(),
         model.snapshot_id()
@@ -225,10 +222,10 @@ async fn actual_p3_outputs_match_in_process_durable_and_uncached_execution() {
     let Fixture {
         registry,
         catalog,
-        sessions,
+        sessions: _,
         _spill,
     } = fixture();
-    let mut driver = Driver::new(Arc::clone(&catalog), Arc::clone(&sessions)).unwrap();
+    let mut driver = Driver::new(Arc::clone(&catalog)).unwrap();
     let reference = RefName::parse("commit-test").unwrap();
     let cancel = CancellationToken::default();
     let source = document(&registry);
@@ -247,17 +244,16 @@ async fn actual_p3_outputs_match_in_process_durable_and_uncached_execution() {
         .await
         .unwrap();
     assert_eq!(
-        first.validation.error_count, 0,
+        first.validation.error_count(),
+        0,
         "{:?}",
-        first.validation.findings
+        first.validation.findings()
     );
     let tip = first.tip.unwrap();
     let pipeline = PipelineRequest {
         through: "P3".to_owned(),
         snapshot: Arc::clone(&tip),
         policies: PolicySet::default(),
-        external_bindings: ExternalInputs::default(),
-        fixture_mode: false,
         reuse: true,
     };
     let normalized = driver
@@ -271,8 +267,7 @@ async fn actual_p3_outputs_match_in_process_durable_and_uncached_execution() {
         .await
         .expect("in-process P3 reuse");
     assert_eq!(reused.stages[0].status, PassStatus::Reused);
-    let mut reopened_driver =
-        Driver::new(Arc::clone(&catalog), Arc::clone(&sessions)).expect("fresh driver");
+    let mut reopened_driver = Driver::new(Arc::clone(&catalog)).expect("fresh driver");
     let durable = reopened_driver
         .run(pipeline.clone(), &cancel)
         .await
@@ -305,6 +300,8 @@ async fn assert_changed_normalization_refused(catalog: &Catalog, snapshot: &pse_
         publish::{BundleDraft, RelationDraft},
     };
     let context = AdmissionContext {
+        traversal: Arc::default(),
+        invocation: snapshot.invocation().cloned(),
         parents: snapshot.parents().clone(),
         stage_pass: snapshot.stage_pass(),
     };
@@ -359,10 +356,10 @@ async fn case_publication_requires_the_actual_selected_model_revision() {
     let Fixture {
         registry,
         catalog,
-        sessions,
+        sessions: _,
         _spill,
     } = fixture();
-    let mut driver = Driver::new(Arc::clone(&catalog), Arc::clone(&sessions)).unwrap();
+    let mut driver = Driver::new(Arc::clone(&catalog)).unwrap();
     let cancel = CancellationToken::default();
     // Cases bind an explicitly selected revision; the compiler never rewrites authored IDs.
     let case_ref = RefName::parse("nonempty-case").unwrap();
@@ -386,9 +383,10 @@ async fn case_publication_requires_the_actual_selected_model_revision() {
         .await
         .expect("nonempty admitted case");
     assert_eq!(
-        case_commit.validation.error_count, 0,
+        case_commit.validation.error_count(),
+        0,
         "{:?}",
-        case_commit.validation.findings
+        case_commit.validation.findings()
     );
     let tip = case_commit.tip.expect("published case");
     let observed = catalog.read_ref(&case_ref, &cancel).await.unwrap().unwrap();
@@ -445,21 +443,32 @@ async fn case_publication_requires_the_actual_selected_model_revision() {
         .await
         .expect("case with exact next model binding");
     assert_eq!(
-        next.validation.error_count, 0,
+        next.validation.error_count(),
+        0,
         "{:?}",
-        next.validation.findings
+        next.validation.findings()
     );
     assert_eq!(next.model_revision_id, Some(next_ids.model));
     assert_eq!(next.revision_id, Some(next_ids.case));
 }
 
 fn rename_source(registry: &pse_schema::Registry, model: SemanticId) -> DocumentBundle {
-    let physical = pse_compiler::passes::p10::fixture::physical_package(registry).unwrap();
-    let mut texts: BTreeMap<_, _> = physical
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let physical = pse_authoring::document::load_package(
+        &root.join("tests/fixtures/packages/physical-primitives"),
+        registry,
+        ParseBudget::default(),
+    )
+    .unwrap();
+    let mut texts = physical
         .documents
-        .into_iter()
-        .map(|document| (document.path, document.text))
-        .collect();
+        .iter()
+        .map(|document| (document.path.clone(), document.text.clone()))
+        .collect::<BTreeMap<_, _>>();
     let sid = |value| SemanticId::from_bytes([value; 16]);
     texts.insert("templates/model.yaml".to_owned(),format!(
         "templates:\n  - id: '{}'\n    name: heater\n    version: '1.0.0'\n    kind: unit\n    doc: ''\ntemplate_symbols:\n  - id: '{}'\n    template_id: '{}'\n    name: x\n    role: variable\n    quantity_type_id: '{}'\n    indexed_by: []\n    doc: ''\ntemplate_equations:\n  - id: '{}'\n    template_id: '{}'\n    name: equation\n    indexed_by: []\n    expression: 'x == (x + 1 where x = 3)'\n    sense: eq\n    doc: ''\n",
@@ -470,22 +479,32 @@ fn rename_source(registry: &pse_schema::Registry, model: SemanticId) -> Document
     load_package_texts(texts, registry, ParseBudget::default()).unwrap()
 }
 
-fn rename_with_case_revision(
+async fn rename_with_case_revision(
     source: &DocumentBundle,
     reader: &pse_compiler::driver::BaseReader,
-    registry: &pse_schema::Registry,
+    session: &pse_catalog::session::SnapshotSession,
     old_model: SemanticId,
     new_model: SemanticId,
-) -> pse_authoring::change_set::ChangeSet {
-    use pse_authoring::document::{DocumentEdit, amend_rename_sources, rename};
-    let changes = rename(
+) -> pse_authoring::change_set::OwnedChangeSet {
+    use pse_authoring::document::{DocumentEdit, amend_rename_sources_owned, rename_owned};
+    let cancel = CancellationToken::new();
+    let sources = pse_authoring::document::load_bundles_owned(
         std::slice::from_ref(source),
+        session.registry(),
+        session.reserver(),
+        &cancel,
+    )
+    .unwrap();
+    let changes = rename_owned(
+        &sources,
         reader,
         header(reader.revision_id()),
         SemanticId::from_bytes([103; 16]),
         "temperature",
-        registry,
+        session,
+        &cancel,
     )
+    .await
     .unwrap();
     let renamed_case = changes
         .document_edits()
@@ -504,14 +523,9 @@ fn rename_with_case_revision(
         additional.before, additional.after,
         "the next model identity is explicitly authored"
     );
-    amend_rename_sources(
-        &changes,
-        std::slice::from_ref(source),
-        reader,
-        &[additional],
-        registry,
-    )
-    .unwrap()
+    amend_rename_sources_owned(&changes, &sources, reader, &[additional], session, &cancel)
+        .await
+        .unwrap()
 }
 
 #[tokio::test]
@@ -523,7 +537,7 @@ async fn full_rename_publishes_exact_sources_targets_and_explicit_case_revision_
         sessions,
         _spill,
     } = fixture();
-    let mut driver = Driver::new(Arc::clone(&catalog), sessions).unwrap();
+    let mut driver = Driver::new(Arc::clone(&catalog)).unwrap();
     let cancel = CancellationToken::default();
     let reference = RefName::parse("full-rename").unwrap();
     let ids = CommitRevisionIds {
@@ -533,9 +547,10 @@ async fn full_rename_publishes_exact_sources_targets_and_explicit_case_revision_
     let source = rename_source(&registry, ids.model);
     let first = commit_initial_source(&mut driver, &reference, ids, source.clone(), &cancel).await;
     assert_eq!(
-        first.validation.error_count, 0,
+        first.validation.error_count(),
+        0,
         "{:?}",
-        first.validation.findings
+        first.validation.findings()
     );
     let observed = catalog
         .read_ref(&reference, &cancel)
@@ -551,7 +566,12 @@ async fn full_rename_publishes_exact_sources_targets_and_explicit_case_revision_
         model: pse_authoring::ids::uuid_v7(),
         case: pse_authoring::ids::uuid_v7(),
     };
-    let changes = rename_with_case_revision(&source, &reader, &registry, ids.model, next_ids.model);
+    let rename_session = sessions
+        .candidate(BTreeMap::new(), Arc::clone(&registry), &cancel)
+        .unwrap();
+    let changes =
+        rename_with_case_revision(&source, &reader, &rename_session, ids.model, next_ids.model)
+            .await;
     assert_eq!(
         catalog
             .read_ref(&reference, &cancel)
@@ -582,11 +602,12 @@ async fn full_rename_publishes_exact_sources_targets_and_explicit_case_revision_
             &cancel,
         )
         .await
-        .unwrap();
+        .unwrap_or_else(|error| panic!("rename commit failed: {error}"));
     assert_eq!(
-        second.validation.error_count, 0,
+        second.validation.error_count(),
+        0,
         "{:?}",
-        second.validation.findings
+        second.validation.findings()
     );
     let tip = second.tip.unwrap();
     let observed = catalog

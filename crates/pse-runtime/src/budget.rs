@@ -11,7 +11,7 @@
 //!
 //! # What the budget does not promise
 //!
-//! The fallible guarantee covers *accounted* consumers: DataFusion's query operators and
+//! The fallible guarantee covers *accounted* consumers: DataFusion's reserving operators and
 //! the platform buffers that reserve through [`pse_ids::MemoryReserver`] before
 //! allocating. It does not cover the global allocator, a solver process, or any Arrow
 //! array built outside a reservation. ADR-0046 states this in the same breath as the
@@ -27,9 +27,6 @@ use crate::error::RuntimeError;
 
 /// The configuration key naming the spill directory.
 const KEY_SPILL_DIR: &str = "pse.runtime.spill_dir";
-
-/// The configuration key naming the hashing thread policy.
-const KEY_HASHING_MAY_USE_POOL: &str = "pse.runtime.hashing_may_use_pool";
 
 /// Everything one process may consume (blueprint §14.3, §18.8).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -49,10 +46,8 @@ pub struct ResourceBudget {
     pub execution: ExecutionSettings,
     /// Whether artifact hashing may take pool threads (`blake3::update_rayon`).
     ///
-    /// `false` in phase 0. §18.8 gives the pool to DataFusion and says hashing and
-    /// diagnostics never take pool threads during a solve; until there is a measurement
-    /// that says which side wins when they compete, the honest setting is the one that
-    /// cannot compete.
+    /// This grants permission; it does not require parallel hashing or change canonical
+    /// framing. The caller selects the scheduling policy for its workload.
     pub hashing_may_use_pool: bool,
 }
 
@@ -61,51 +56,23 @@ impl ResourceBudget {
     ///
     /// # Errors
     ///
-    /// - [`RuntimeError::Catalog`] wrapping `config::invalid` when the thread budget
-    ///   oversubscribes its pool (§18.8).
+    /// - [`RuntimeError::Catalog`] wrapping `config::invalid` when the thread or selected
+    ///   execution settings are invalid.
     /// - [`RuntimeError::ConfigInvalid`] when the spill directory is absent, is not a
-    ///   directory, or is marked read-only, and when `hashing_may_use_pool` is set in
-    ///   phase 0.
+    ///   directory, is marked read-only, or the memory limit exceeds addressable storage.
     ///
     /// The spill directory is checked here, at construction, rather than at the first
     /// spill: a full or missing temp filesystem discovered mid-pass is
     /// `runtime::infrastructure` after an hour of work, and discovered here it is a
     /// configuration error before any.
     pub fn validate(&self) -> Result<(), RuntimeError> {
-        self.threads.validate()?;
+        self.execution.validate()?;
         if isize::try_from(self.memory_limit_bytes.get()).is_err() {
             return Err(RuntimeError::ConfigInvalid {
                 key: "datafusion.runtime.memory_limit".to_owned(),
                 reason: "the memory limit must fit the platform allocation envelope".to_owned(),
             });
         }
-        for (key, invalid) in [
-            (
-                "datafusion.execution.batch_size",
-                self.execution.batch_size == 0,
-            ),
-            (
-                "datafusion.execution.max_spill_file_size_bytes",
-                self.execution.max_spill_file_size_bytes == 0,
-            ),
-            (
-                "datafusion.execution.spill_compression",
-                self.execution.spill_compression != "uncompressed",
-            ),
-            (
-                "datafusion.execution.time_zone",
-                self.execution.time_zone != "UTC",
-            ),
-        ] {
-            if invalid {
-                return Err(RuntimeError::ConfigInvalid {
-                    key: key.to_owned(),
-                    reason: "the setting is outside the declared phase-0 execution contract"
-                        .to_owned(),
-                });
-            }
-        }
-
         let metadata =
             std::fs::metadata(&self.spill_dir).map_err(|error| RuntimeError::ConfigInvalid {
                 key: KEY_SPILL_DIR.to_owned(),
@@ -124,14 +91,6 @@ impl ResourceBudget {
             });
         }
 
-        if self.hashing_may_use_pool {
-            return Err(RuntimeError::ConfigInvalid {
-                key: KEY_HASHING_MAY_USE_POOL.to_owned(),
-                reason: "phase 0 hashes on the calling thread; §18.8 gives the pool to \
-                         DataFusion and register R-23 owns any change"
-                    .to_owned(),
-            });
-        }
         Ok(())
     }
 }
@@ -139,8 +98,6 @@ impl ResourceBudget {
 #[cfg(test)]
 mod tests {
     use std::fs;
-
-    use pse_catalog::CatalogError;
 
     use super::*;
 
@@ -208,28 +165,27 @@ mod tests {
     }
 
     #[test]
-    fn hashing_may_not_take_pool_threads_in_phase_0() {
+    fn hashing_pool_permission_is_a_selected_policy() {
         let directory = scratch("hashing");
         let mut budget = budget(directory);
         budget.hashing_may_use_pool = true;
-        let refused = budget.validate();
-        assert!(matches!(
-            refused,
-            Err(RuntimeError::ConfigInvalid { ref key, .. })
-                if key == "pse.runtime.hashing_may_use_pool"
-        ));
+        assert!(budget.validate().is_ok());
     }
 
     #[test]
-    fn an_oversubscribed_thread_budget_is_refused_with_the_catalog_class() {
+    fn partitions_may_exceed_worker_threads() {
         let directory = scratch("threads");
         let mut budget = budget(directory);
         budget.threads.target_partitions = count(16);
-        let refused = budget.validate();
-        assert!(matches!(
-            refused,
-            Err(RuntimeError::Catalog(CatalogError::ConfigInvalid { ref key, .. }))
-                if key == "datafusion.execution.target_partitions"
-        ));
+        assert!(budget.validate().is_ok());
+    }
+
+    #[test]
+    #[cfg(target_pointer_width = "64")]
+    fn workstation_resource_policy_is_not_a_fixture_sized_ceiling() {
+        let mut budget = budget(scratch("workstation"));
+        budget.memory_limit_bytes = count(32 << 30);
+        budget.max_temp_dir_bytes = 256 << 30;
+        assert!(budget.validate().is_ok());
     }
 }

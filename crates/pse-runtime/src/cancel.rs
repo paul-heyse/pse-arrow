@@ -3,10 +3,7 @@
 
 //! Driver cancellation shared with cooperative loops and asynchronous work.
 
-use std::sync::Arc;
-
 use pse_ids::CancellationToken;
-use tokio::sync::watch;
 
 use crate::RuntimeError;
 
@@ -15,7 +12,6 @@ use crate::RuntimeError;
 #[derive(Clone, Debug)]
 pub struct CancelSource {
     token: CancellationToken,
-    notification: Arc<watch::Sender<bool>>,
 }
 
 impl Default for CancelSource {
@@ -27,10 +23,8 @@ impl Default for CancelSource {
 impl CancelSource {
     /// Opens an uncancelled source.
     pub fn new() -> Self {
-        let (notification, _) = watch::channel(false);
         Self {
             token: CancellationToken::new(),
-            notification: Arc::new(notification),
         }
     }
 
@@ -42,7 +36,6 @@ impl CancelSource {
     /// Cancels all tokens and wakes asynchronous waiters; idempotent.
     pub fn cancel(&self) {
         self.token.cancel();
-        self.notification.send_replace(true);
     }
 
     /// Refuses cancelled work before starting or publishing it.
@@ -59,11 +52,6 @@ impl CancelSource {
 
     /// Waits for driver cancellation, including cancellation before this call.
     pub async fn cancelled(&self) {
-        let mut receiver = self.notification.subscribe();
-        while !self.token.is_cancelled() {
-            if receiver.changed().await.is_err() {
-                return;
-            }
-        }
+        self.token.cancelled().await;
     }
 }

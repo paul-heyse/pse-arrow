@@ -27,6 +27,10 @@ datafusion-expr.workspace = true
 datafusion-physical-expr.workspace = true
 datafusion-optimizer.workspace = true
 datafusion-proto.workspace = true
+deltalake.workspace = true
+async-trait.workspace = true
+url.workspace = true
+futures-util.workspace = true
 object_store.workspace = true
 bytes.workspace = true
 tokio.workspace = true
@@ -38,3 +42,7 @@ pse-ids.workspace = true
 pse-schema.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[dev-dependencies]
+futures-core.workspace = true
+tempfile.workspace = true

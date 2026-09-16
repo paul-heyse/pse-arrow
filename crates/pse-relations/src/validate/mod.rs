@@ -6,6 +6,7 @@
 
 mod bundle;
 mod field;
+pub(crate) mod local_values;
 mod values;
 
 use arrow_array::{Array, RecordBatch};
@@ -111,46 +112,17 @@ pub fn validate_schema(
         if let Err(found) = validate_field(reg, actual) {
             errors.extend(found);
         }
-        if let Some(expected) = expected.fields().get(index) {
-            compare_field(
-                &format!("{}.{index}", spec.key),
-                expected,
+        if let Some(expected) = expected.fields().get(index)
+            && let Err(error) = pse_schema::field_contract::execution_field(
                 actual,
-                &mut errors,
-            );
+                expected,
+                &format!("{}.{index}", spec.key),
+            )
+        {
+            errors.push(error.into());
         }
     }
     finish(errors)
-}
-
-fn compare_field(path: &str, expected: &Field, actual: &Field, errors: &mut Vec<RelationError>) {
-    if expected.name() != actual.name() {
-        errors.push(mismatch(path, "field name or column order differs"));
-    }
-    if expected.data_type() != actual.data_type() {
-        errors.push(RelationError::Storage {
-            field: path.to_owned(),
-            expected: expected.data_type().to_string(),
-            actual: actual.data_type().to_string(),
-        });
-    }
-    if expected.is_nullable() != actual.is_nullable() {
-        errors.push(RelationError::Nullability {
-            field: path.to_owned(),
-            declared: if expected.is_nullable() {
-                "nullable"
-            } else {
-                "non-null"
-            },
-            actual: format!("nullable={}", actual.is_nullable()),
-        });
-    }
-    if expected.metadata() != actual.metadata() {
-        errors.push(mismatch(
-            path,
-            "field metadata differs from declared metadata",
-        ));
-    }
 }
 
 /// Admits storage, schema declarations and visible values, respecting null parent masks.

@@ -23,6 +23,11 @@ The blanket requirement that every authored primary key appear in authored.entit
 
 ## Scope
 
+**Current construction target:** ADR-0067 and blueprint revision 37 replace this
+record's former local replay, row-copy and phase-limited execution mechanisms.
+Plan 05 owns implementation; the domain/identity/lifetime requirements retained
+below are implemented through its single native preparation/completion route.
+
 Complete the existing DocumentSpec authoring projection within Wave 1. Amend blueprint §4.2, §6.1 and §22.1 before changing those fields. The maintainer authorized this bounded correction; formal acceptance remains the decision-PR lifecycle.
 
 ## Drivers
@@ -88,3 +93,5 @@ Required negative controls: stale source bytes/rows with unchanged identifiers; 
 The existing normalized predicate relation appends `left_kind`, `left_enum_id`, `left_enum_member`, `right_kind`, `right_enum_id`, and `right_enum_member`. The kind vocabulary is `expression|enum_literal`. An expression alternative retains the corresponding existing expression node; an enum literal carries the exact enum identity and member with no mathematical node. Each present operand selects exactly one complete alternative. All fields are projected through the registry and compared during actual-source P3 stage validation. Ordinary domain membership remains unchanged; an enum scalar is not a set and no enum-as-domain mapping is inferred.
 
 The binder is shared by P3 and rename, so literal membership and declaration references remain distinct under edits. Positive controls cover left/right literal positions and actual feature/parameter context. Negative controls cover wrong/missing enum identities, unknown members, same spelling from a different enum, ambiguous lexical/entity bindings, ordered comparisons, arithmetic leakage and guessed membership context. No hash, fingerprint or numeric placeholder establishes any of these facts.
+
+- 2026-09-14 — reconciled with ADR-0067 and Plan 05; prior receipts describe their original code and do not certify the hard-pivot implementation.

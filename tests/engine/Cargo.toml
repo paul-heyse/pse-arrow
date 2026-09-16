@@ -34,8 +34,11 @@ pse-compiler.workspace = true
 arrow.workspace = true
 parquet.workspace = true
 datafusion.workspace = true
+datafusion-proto.workspace = true
 object_store.workspace = true
 tokio.workspace = true
 proptest.workspace = true
 insta.workspace = true
 tempfile.workspace = true
+serde_json.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

@@ -1,27 +1,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! The DataFusion provider stack over a pinned snapshot (blueprint §5.4).
+//! Native catalogs, scoped schemas and actual provider bindings (blueprint §5.4).
 //!
-//! Catalogs are snapshots, schemas are the seven namespaces, tables are relations. The
-//! traits live in `datafusion::catalog`, and three of their properties shape everything
-//! in this module:
-//!
-//! - **`SchemaProvider::table()` is `async`.** It is served from the
-//!   [`crate::snapshot::Snapshot`] loaded at session creation and performs no I/O, so
-//!   planning latency does not grow with catalog size.
-//! - **The mutation methods are defaulted.** `insert_into`, `delete_from`, `update`,
-//!   `truncate` and `merge_into` are left unimplemented and a governance test asserts the
-//!   *set* of implemented methods, because the set grows release over release and
-//!   "nobody implemented it" is not a guarantee.
-//! - **`supports_filters_pushdown` is pure.** A provider that advertises `Exact` must
-//!   actually apply the filter; §24.1's `pushdown_vs_unpruned` oracle compares complete
-//!   values and row multiplicities against an otherwise identical `Unsupported` provider,
-//!   and rechecking returned rows cannot detect a lost match.
-//!
-//! Snapshot providers refuse ambiguous relation names when distinct output ports share
-//! a schema; callers must bind the exact producer port before query construction.
+//! One binding inventory supplies lookup, metadata and semantic preparation. Native
+//! registration changes only an attempt's private namespace. Catalog/schema scopes
+//! include operation inputs, outputs and external sources as well as domain relations.
+//! Immutable admitted relation providers retain their established contracts; mutable
+//! implementations expose their own native support under composed effect policy.
+//! Exact filter pushdown must preserve values and multiplicities, including columns
+//! referenced only by pushed predicates. Lookup never executes a producer.
 
+pub(crate) mod batches;
+pub(crate) mod binding;
 pub mod catalog;
 pub mod list;
 pub mod pushdown;

@@ -10,7 +10,7 @@ use datafusion::physical_optimizer::PhysicalOptimizerRule;
 use pse_ids::{ContentHash, FramedHasher, derive::context};
 use std::sync::Arc;
 
-/// Ordered engine rules are semantic input, never read from evolving engine defaults.
+/// Ordered rule descriptions for the exact pinned execution pipeline.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EngineProfile {
@@ -23,26 +23,10 @@ pub struct EngineProfile {
     /// Physical optimizer names.
     pub physical_optimizer_rules: Vec<String>,
 }
-/// A small explicit profile supporting the Wave 1 relational algebra.
-pub fn phase0_reference_profile() -> EngineProfile {
-    EngineProfile {
-        version: "pse.engine.wave1.v1".to_owned(),
-        analyzer_rules: vec![
-            "type_coercion".to_owned(),
-            "resolve_grouping_function".to_owned(),
-        ],
-        optimizer_rules: vec![
-            "simplify_expressions".to_owned(),
-            "push_down_filter".to_owned(),
-            "eliminate_filter".to_owned(),
-            "replace_distinct_aggregate".to_owned(),
-        ],
-        physical_optimizer_rules: vec![
-            "EnsureRequirements".to_owned(),
-            "SanityCheckPlan".to_owned(),
-            "EnsureCooperative".to_owned(),
-        ],
-    }
+/// The complete native pipeline of the pinned engine, in library-defined order.
+/// This is a selected configuration, not a capability allow-list.
+pub fn native_engine_profile() -> EngineProfile {
+    EngineRules::native().profile("pse.engine.native.v1")
 }
 impl EngineProfile {
     /// Identify the exact versioned rule lists and read-back semantic settings.
@@ -66,55 +50,78 @@ impl EngineProfile {
         hash.finish_hash()
     }
 }
-/// Resolve only declared implementations. Unknown rules are configuration errors.
-#[derive(Debug, Default)]
-pub struct RuleCatalog;
-impl RuleCatalog {
-    /// Resolve an analyzer implementation.
-    /// # Errors
-    /// An unregistered implementation name.
-    pub fn analyzer(name: &str) -> Result<Arc<dyn AnalyzerRule + Send + Sync>, CatalogError> {
-        use datafusion::optimizer::analyzer::{
-            resolve_grouping_function::ResolveGroupingFunction, type_coercion::TypeCoercion,
-        };
-        match name {
-            "type_coercion" => Ok(Arc::new(TypeCoercion::new())),
-            "resolve_grouping_function" => Ok(Arc::new(ResolveGroupingFunction::new())),
-            _ => Err(unknown(name)),
+/// Actual analyzer and optimizer objects frozen before preparation.
+/// Custom rules use the same native traits as the built-in pipeline.
+#[derive(Clone, Debug)]
+pub struct EngineRules {
+    /// Ordered semantic analyzers.
+    pub analyzers: Vec<Arc<dyn AnalyzerRule + Send + Sync>>,
+    /// Ordered logical optimizers.
+    pub optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
+    /// Ordered physical optimizers, including distinct repeated rule instances.
+    pub physical: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>>,
+}
+impl EngineRules {
+    /// Capture the pinned library's complete recommended pipeline.
+    pub fn native() -> Self {
+        Self {
+            analyzers: datafusion::optimizer::analyzer::Analyzer::new().rules,
+            optimizers: datafusion::optimizer::Optimizer::new().rules,
+            physical: datafusion::physical_optimizer::optimizer::PhysicalOptimizer::new().rules,
         }
     }
-    /// Resolve a logical optimizer implementation.
-    /// # Errors
-    /// An unregistered implementation name.
-    pub fn optimizer(name: &str) -> Result<Arc<dyn OptimizerRule + Send + Sync>, CatalogError> {
-        use datafusion::optimizer::{
-            eliminate_filter::EliminateFilter, push_down_filter::PushDownFilter,
-            simplify_expressions::SimplifyExpressions,
-        };
-        match name { "replace_distinct_aggregate"=>Ok(Arc::new(datafusion::optimizer::replace_distinct_aggregate::ReplaceDistinctWithAggregate::new())), "simplify_expressions"=>Ok(Arc::new(SimplifyExpressions::new())),"push_down_filter"=>Ok(Arc::new(PushDownFilter::new())),
-            "eliminate_filter"=>Ok(Arc::new(EliminateFilter::new())),_=>Err(unknown(name)) }
-    }
-    /// Resolve a physical optimizer implementation.
-    /// # Errors
-    /// An unregistered implementation name.
-    pub fn physical(
-        name: &str,
-    ) -> Result<Arc<dyn PhysicalOptimizerRule + Send + Sync>, CatalogError> {
-        use datafusion::physical_optimizer::{
-            ensure_coop::EnsureCooperative, ensure_requirements::EnsureRequirements,
-            sanity_checker::SanityCheckPlan,
-        };
-        match name {
-            "EnsureRequirements" => Ok(Arc::new(EnsureRequirements::new())),
-            "SanityCheckPlan" => Ok(Arc::new(SanityCheckPlan::new())),
-            "EnsureCooperative" => Ok(Arc::new(EnsureCooperative::new())),
-            _ => Err(unknown(name)),
+    /// Describe these actual implementations for diagnostics and persisted context.
+    pub fn profile(&self, version: &str) -> EngineProfile {
+        EngineProfile {
+            version: version.to_owned(),
+            analyzer_rules: self
+                .analyzers
+                .iter()
+                .map(|rule| rule.name().to_owned())
+                .collect(),
+            optimizer_rules: self
+                .optimizers
+                .iter()
+                .map(|rule| rule.name().to_owned())
+                .collect(),
+            physical_optimizer_rules: self
+                .physical
+                .iter()
+                .map(|rule| rule.name().to_owned())
+                .collect(),
         }
+    }
+    /// Bind an explicit selection from the pinned native pipeline.
+    /// Repeated names consume distinct instances in native order (for example,
+    /// adding and removing output requirements are different implementations).
+    /// # Errors
+    /// A requested implementation is absent from this pinned native inventory.
+    pub fn from_profile(profile: &EngineProfile) -> Result<Self, CatalogError> {
+        let native = Self::native();
+        Ok(Self {
+            analyzers: select(&profile.analyzer_rules, native.analyzers, |rule| {
+                rule.name()
+            })?,
+            optimizers: select(&profile.optimizer_rules, native.optimizers, |rule| {
+                rule.name()
+            })?,
+            physical: select(&profile.physical_optimizer_rules, native.physical, |rule| {
+                rule.name()
+            })?,
+        })
     }
 }
-fn unknown(name: &str) -> CatalogError {
-    CatalogError::ConfigInvalid {
-        key: "engine_profile.rules".to_owned(),
-        reason: format!("unknown rule implementation {name}"),
-    }
+fn select<T>(
+    names: &[String],
+    mut available: Vec<T>,
+    name: impl Fn(&T) -> &str,
+) -> Result<Vec<T>, CatalogError> {
+    names.iter().map(|requested| {
+        let index = available.iter().position(|rule| name(rule) == requested)
+            .ok_or_else(|| CatalogError::ConfigInvalid {
+                key: "engine_profile.rules".to_owned(),
+                reason: format!("native rule instance {requested} is absent; supply custom implementations through EngineRules"),
+            })?;
+        Ok(available.remove(index))
+    }).collect()
 }

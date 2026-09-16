@@ -10,15 +10,24 @@ use crate::{
 use datafusion_common::{
     Column as EngineColumn, JoinType, NullEquality as EngineNullEquality, UnnestOptions,
 };
-use datafusion_expr::{ExprSchemable, LogicalPlanBuilder, col, lit};
-use pse_schema::model::{
-    AggregateEmptyPolicy, AggregateNullPolicy, ColumnSpec, LogicalType, NullEquality,
-    NullListPolicy, RuleAggregateFn, RulePlan,
-};
+use datafusion_expr::{ExprSchemable, LogicalPlanBuilder, col};
+use pse_schema::model::{FieldContract, NullEquality, NullListPolicy, RulePlan};
 
 impl Compiler<'_> {
     pub(super) fn lower(&mut self, source: &RulePlan) -> Result<Planned, RuleError> {
+        if let Some((_, output)) = self
+            .native
+            .results
+            .iter()
+            .rev()
+            .find(|(plan, _)| super::identity::same_plan(plan, source))
+        {
+            return Ok(output.clone());
+        }
         match source {
+            RulePlan::Assert { .. } => Err(internal(
+                "assertion predicate must be split into native truth queries before lowering",
+            )),
             RulePlan::Scan { relation, port } => self.scan(relation, port),
             RulePlan::RecursiveRef { name } => self
                 .binders
@@ -29,46 +38,26 @@ impl Compiler<'_> {
                 .ok_or_else(|| internal("recursive reference is outside its lexical step")),
             RulePlan::Filter { input, predicate } => {
                 let mut input = self.lower(input)?;
-                let (predicate, ty) = expr::lower(predicate, &input, self.registry)?;
+                let (predicate, ty) = expr::lower(predicate, &input, self.registry, self.session)?;
                 expr::boolean(&ty)?;
                 input.plan = LogicalPlanBuilder::from(input.plan)
                     .filter(predicate)
                     .map_err(engine)?
                     .build()
                     .map_err(engine)?;
-                if let RulePlan::Filter { predicate, .. } = source {
-                    refine_nonnull(predicate, &mut input.columns);
+                input.plan = pse_catalog::session::scalar::refine_filtered_fields(input.plan)
+                    .map_err(engine)?;
+                for column in &mut input.columns {
+                    column.spec = column.spec.clone().with_nullable(
+                        expr::column_expression(column)
+                            .nullable(input.plan.schema())
+                            .map_err(engine)?,
+                    );
                 }
                 Ok(input)
             }
-            RulePlan::Project { input, columns } => {
-                let input = self.lower(input)?;
-                let mut expressions = vec![];
-                let mut contracts = vec![];
-                for (name, expression) in columns {
-                    let (value, mut contract) = expr::lower(expression, &input, self.registry)?;
-                    contract.spec.name = name;
-                    let field = pse_schema::arrow::field_for(self.registry, &contract.spec)
-                        .map_err(|error| internal(error.to_string()))?;
-                    expressions.push(value.alias_with_metadata(
-                        *name,
-                        Some(datafusion_common::metadata::FieldMetadata::from(&field)),
-                    ));
-                    contract.qualifier = None;
-                    contracts.push(contract);
-                }
-                expressions.extend(input.hidden.iter().map(col));
-                let plan = LogicalPlanBuilder::from(input.plan)
-                    .project(expressions)
-                    .map_err(engine)?
-                    .build()
-                    .map_err(engine)?;
-                Ok(Planned {
-                    plan,
-                    columns: contracts,
-                    hidden: input.hidden,
-                })
-            }
+            RulePlan::Project { input, columns } => self.project(input, columns),
+
             RulePlan::EquiJoin {
                 left,
                 right,
@@ -102,7 +91,7 @@ impl Compiler<'_> {
                 value_name,
                 null_list,
                 ..
-            } => self.unnest(input, column, value_name, *null_list),
+            } => self.unnest(input, column, value_name.clone(), *null_list),
             RulePlan::Recursive {
                 name,
                 seed,
@@ -112,12 +101,120 @@ impl Compiler<'_> {
             } => self.recursive(name, seed, step, *is_distinct, *depth_bound),
         }
     }
+    fn project(
+        &mut self,
+        input: &RulePlan,
+        columns: &[(std::borrow::Cow<'static, str>, pse_schema::model::RuleExpr)],
+    ) -> Result<Planned, RuleError> {
+        let input = self.lower(input)?;
+        let mut expressions = vec![];
+        let mut contracts = vec![];
+        for (name, expression) in columns {
+            let (value, mut contract) =
+                expr::lower(expression, &input, self.registry, self.session)?;
+            // A direct same-name column already carries its field meaning.
+            // Retain its native qualification instead of wrapping it in an
+            // identity metadata alias. At this pin leaf-expression pushdown
+            // treats Alias(Column) as a computation and may append the same
+            // source column again beside it while merging projections.
+            let passthrough = matches!(&value, datafusion_expr::Expr::Column(column)
+                        if column.name == name.as_ref());
+            contract.name.clone_from(name);
+            if passthrough {
+                expressions.push(value);
+            } else {
+                let field = pse_schema::arrow::field_for(self.registry, &contract.spec)
+                    .map_err(|error| internal(error.to_string()))?;
+                expressions.push(value.alias_with_metadata(
+                    name.as_ref(),
+                    Some(datafusion_common::metadata::FieldMetadata::from(&field)),
+                ));
+                contract.qualifier = None;
+                contract.physical = None;
+            }
+            contracts.push(contract);
+        }
+        expressions.extend(input.hidden.iter().map(col));
+        let plan = LogicalPlanBuilder::from(input.plan)
+            .project(expressions)
+            .map_err(engine)?
+            .build()
+            .map_err(engine)?;
+        Ok(Planned {
+            plan,
+            columns: contracts,
+            hidden: input.hidden,
+        })
+    }
     fn union(&mut self, inputs: &[RulePlan]) -> Result<Planned, RuleError> {
-        let mut inputs = inputs.iter();
-        let mut output = self.lower(inputs.next().ok_or_else(|| internal("empty union"))?)?;
+        let mut inputs = inputs
+            .iter()
+            .map(|input| self.lower(input))
+            .collect::<Result<Vec<_>, _>>()?;
+        let first = inputs.first().ok_or_else(|| internal("empty union"))?;
+        let mut columns = first.columns.clone();
+        for input in &inputs[1..] {
+            if columns.len() != input.columns.len() || first.hidden != input.hidden {
+                return Err(internal("union branches have different column inventories"));
+            }
+            for (left, right) in columns.iter_mut().zip(&input.columns) {
+                if left.name != right.name
+                    || left.spec.value_type() != right.spec.value_type()
+                    || left.spec.quantity() != right.spec.quantity()
+                {
+                    return Err(internal("union branches have different semantic types"));
+                }
+                left.spec = left
+                    .spec
+                    .clone()
+                    .with_nullable(left.spec.nullable() || right.spec.nullable());
+                if !super::identity::same_literal(left.literal.as_ref(), right.literal.as_ref()) {
+                    left.literal = None;
+                }
+                // A union cannot inherit one branch's source key role or foreign
+                // key when another branch carries no such contract. Preserve only
+                // relational claims proved by every input; semantic types above
+                // remain exact, including nested metadata and quantity contracts.
+                if left.spec.role() != right.spec.role() {
+                    left.spec = left
+                        .spec
+                        .clone()
+                        .with_role(pse_schema::model::ColumnRole::Payload);
+                }
+                if left.spec.fk() != right.spec.fk() {
+                    left.spec = left.spec.clone().without_fk();
+                }
+            }
+        }
+        for input in &mut inputs {
+            let mut expressions = input
+                .columns
+                .iter()
+                .zip(&columns)
+                .map(|(source, target)| {
+                    let field = pse_schema::arrow::field_for(self.registry, &target.spec)
+                        .map_err(|error| internal(error.to_string()))?;
+                    Ok(expr::column_expression(source).alias_with_metadata(
+                        target.name.as_ref(),
+                        Some(datafusion_common::metadata::FieldMetadata::from(&field)),
+                    ))
+                })
+                .collect::<Result<Vec<_>, RuleError>>()?;
+            expressions.extend(input.hidden.iter().map(col));
+            input.plan = LogicalPlanBuilder::from(input.plan.clone())
+                .project(expressions)
+                .map_err(engine)?
+                .build()
+                .map_err(engine)?;
+        }
+        for column in &mut columns {
+            column.qualifier = None;
+            column.physical = None;
+        }
+        let mut inputs = inputs.into_iter();
+        let mut output = inputs.next().ok_or_else(|| internal("empty union"))?;
+        output.columns = columns;
         for input in inputs {
-            let input = self.lower(input)?;
-            compatible(&output, &input)?;
             output.plan = LogicalPlanBuilder::from(output.plan)
                 .union(input.plan)
                 .map_err(engine)?
@@ -158,8 +255,10 @@ impl Compiler<'_> {
             .columns
             .iter()
             .map(|spec| Column {
+                name: spec.name().to_owned().into(),
                 spec: spec.clone(),
                 qualifier: Some(port.to_owned()),
+                physical: None,
                 literal: None,
             })
             .collect();
@@ -170,13 +269,15 @@ impl Compiler<'_> {
         })
     }
     pub(super) fn key(&self, column: &Column) -> Result<(), RuleError> {
-        if column.spec.logical_type == LogicalType::F64 {
+        if column.spec.value_type()
+            == FieldContract::native(datafusion::arrow::datatypes::DataType::Float64)
+        {
             return Err(RuleError::FloatKey {
                 rule: self.rule.qualified_name(),
-                column: column.spec.name.to_owned(),
+                column: column.name.to_string(),
             });
         }
-        if !column.spec.logical_type.admits_exact_key() {
+        if !column.spec.value_type().admits_exact_key() {
             return Err(internal("rule key has no admitted exact equality"));
         }
         Ok(())
@@ -185,12 +286,15 @@ impl Compiler<'_> {
         &mut self,
         left: &RulePlan,
         right: &RulePlan,
-        keys: &[(&str, &str)],
+        keys: &[(
+            std::borrow::Cow<'static, str>,
+            std::borrow::Cow<'static, str>,
+        )],
         anti: bool,
         null: NullEquality,
     ) -> Result<Planned, RuleError> {
         let mut left = self.lower(left)?;
-        let right = self.lower(right)?;
+        let mut right = self.lower(right)?;
         if keys.is_empty() {
             return Err(internal("rule joins require explicit equality keys"));
         }
@@ -199,19 +303,27 @@ impl Compiler<'_> {
             let right_key = expr::lookup(&right, r)?;
             self.key(left_key)?;
             self.key(right_key)?;
-            if left_key.spec.logical_type != right_key.spec.logical_type
-                || left_key.spec.quantity != right_key.spec.quantity
+            if left_key.spec.value_type() != right_key.spec.value_type()
+                || left_key.spec.quantity() != right_key.spec.quantity()
             {
                 return Err(internal("join key physical contracts differ"));
             }
         }
+        self.scope_unqualified(&mut left)?;
+        self.scope_unqualified(&mut right)?;
+        let key = |input: &Planned, name: &str| {
+            let column = expr::lookup(input, name)?;
+            Ok(column.physical.clone().unwrap_or_else(|| {
+                EngineColumn::new(column.qualifier.clone(), column.name.as_ref())
+            }))
+        };
         let join_keys = (
             keys.iter()
-                .map(|(l, _)| EngineColumn::from_qualified_name(*l))
-                .collect::<Vec<_>>(),
+                .map(|(name, _)| key(&left, name))
+                .collect::<Result<Vec<_>, RuleError>>()?,
             keys.iter()
-                .map(|(_, r)| EngineColumn::from_qualified_name(*r))
-                .collect::<Vec<_>>(),
+                .map(|(_, name)| key(&right, name))
+                .collect::<Result<Vec<_>, RuleError>>()?,
         );
         left.plan = LogicalPlanBuilder::from(left.plan)
             .join_detailed(
@@ -237,95 +349,67 @@ impl Compiler<'_> {
         }
         Ok(left)
     }
-    fn aggregate(
-        &mut self,
-        source: &RulePlan,
-        group: &[&'static str],
-        aggregates: &[pse_schema::model::RuleAggregate],
-    ) -> Result<Planned, RuleError> {
-        let input = self.lower(source)?;
-        let mut groups = vec![];
-        let mut output = vec![];
-        for name in group {
-            let mut column = expr::lookup(&input, name)?.clone();
-            self.key(&column)?;
-            groups.push(expr::column_expression(&column));
-            column.qualifier = None;
-            output.push(column);
+    /// DataFusion rejects an unqualified field beside a qualified field of the
+    /// same name. Scope only those native addresses; rule lookup still resolves
+    /// the declared projected name independently from each scan's port name.
+    fn scope_unqualified(&mut self, input: &mut Planned) -> Result<(), RuleError> {
+        if input.columns.iter().all(|column| {
+            column
+                .physical
+                .as_ref()
+                .map_or(column.qualifier.is_some(), |address| {
+                    address.relation.is_some()
+                })
+        }) {
+            return Ok(());
         }
-        groups.extend(input.hidden.iter().map(col));
-        let mut expressions = vec![];
-        for aggregate in aggregates {
-            if aggregate.function != RuleAggregateFn::Count
-                || aggregate.empty_policy != AggregateEmptyPolicy::Zero
-                || !aggregate.order_by.is_empty()
-            {
-                return Err(internal(
-                    "phase-0 supports unordered count with explicit zero for empty input",
-                ));
-            }
-            let value = if let Some(source) = &aggregate.input {
-                let (value, column) = expr::lower(source, &input, self.registry)?;
-                if aggregate.null_policy == AggregateNullPolicy::Reject && column.spec.nullable {
-                    let check = LogicalPlanBuilder::from(input.plan.clone())
-                        .filter(value.clone().is_null())
-                        .map_err(engine)?
-                        .build()
-                        .map_err(engine)?;
-                    self.checks
-                        .push((check, "aggregate rejects null input".to_owned()));
-                }
-                value
-            } else {
-                lit(1u64)
+        let qualifier = format!("__pse_binding_{}", self.binding_counter);
+        self.binding_counter += 1;
+        let mut projection = Vec::with_capacity(input.columns.len() + input.hidden.len());
+        for column in &mut input.columns {
+            let value = expr::column_expression(column);
+            let datafusion_expr::Expr::Column(address) = &value else {
+                return Err(internal("rule column binding is not a native column"));
             };
-            expressions.push(
-                datafusion::functions_aggregate::expr_fn::count(value)
-                    .cast_to(
-                        &datafusion::arrow::datatypes::DataType::UInt64,
-                        input.plan.schema(),
-                    )
-                    .map_err(engine)?
-                    .alias(aggregate.output_name),
-            );
-            output.push(Column {
-                spec: ColumnSpec::payload(
-                    aggregate.output_name,
-                    LogicalType::U64,
-                    "Exact nonnegative row count",
-                ),
-                qualifier: None,
-                literal: None,
-            });
+            if address.relation.is_none() {
+                let physical_name = address.name.clone();
+                projection.push(datafusion_expr::Expr::Alias(
+                    datafusion_expr::expr::Alias::new(
+                        value,
+                        Some(qualifier.clone()),
+                        &physical_name,
+                    ),
+                ));
+                column.physical = Some(EngineColumn::new(Some(qualifier.clone()), physical_name));
+            } else {
+                projection.push(value);
+            }
         }
-        let plan = LogicalPlanBuilder::from(input.plan)
-            .aggregate(groups, expressions)
-            .map_err(engine)?
-            .build()
+        projection.extend(input.hidden.iter().map(col));
+        input.plan = LogicalPlanBuilder::from(input.plan.clone())
+            .project(projection)
+            .and_then(LogicalPlanBuilder::build)
             .map_err(engine)?;
-        Ok(Planned {
-            plan,
-            columns: output,
-            hidden: input.hidden,
-        })
+        Ok(())
     }
     fn unnest(
         &mut self,
         source: &RulePlan,
         name: &str,
-        value_name: &'static str,
+        value_name: std::borrow::Cow<'static, str>,
         null: NullListPolicy,
     ) -> Result<Planned, RuleError> {
         let mut input = self.lower(source)?;
         let column = expr::lookup(&input, name)?;
-        let (LogicalType::List(element) | LogicalType::FixedList(element, _)) =
-            &column.spec.logical_type
+        let (datafusion::arrow::datatypes::DataType::List(element)
+        | datafusion::arrow::datatypes::DataType::FixedSizeList(element, _)) =
+            column.spec.data_type()
         else {
             return Err(internal("unnest requires a declared list"));
         };
-        let element = element.as_ref().clone();
+        let element = FieldContract::from_field((*element).clone());
         let value = expr::column_expression(column);
-        if null == NullListPolicy::Reject && column.spec.nullable {
+        if null == NullListPolicy::Reject && column.spec.nullable() {
             let check = LogicalPlanBuilder::from(input.plan.clone())
                 .filter(value.clone().is_null())
                 .map_err(engine)?
@@ -336,78 +420,38 @@ impl Compiler<'_> {
         }
         let mut projected: Vec<_> = input.columns.iter().map(expr::column_expression).collect();
         projected.extend(input.hidden.iter().map(col));
-        projected.push(value.alias(value_name));
+        projected.push(value.alias(value_name.as_ref()));
         input.plan = LogicalPlanBuilder::from(input.plan)
             .project(projected)
             .map_err(engine)?
             .unnest_columns_with_options(
-                vec![EngineColumn::from_name(value_name)],
+                vec![EngineColumn::from_name(value_name.as_ref())],
                 UnnestOptions::new().with_preserve_nulls(false),
             )
             .map_err(engine)?
             .build()
             .map_err(engine)?;
         input.columns.push(Column {
-            spec: ColumnSpec::payload(value_name, element, "Declared list member"),
+            name: value_name,
+            spec: FieldContract::payload("_member", element, "Declared list member"),
             qualifier: None,
+            physical: None,
             literal: None,
         });
-        let mut projected = input
-            .columns
-            .iter()
-            .map(|column| {
-                let field = pse_schema::arrow::field_for(self.registry, &column.spec)
-                    .map_err(|error| internal(error.to_string()))?;
-                Ok(expr::column_expression(column).alias_with_metadata(
-                    column.spec.name,
-                    Some(datafusion_common::metadata::FieldMetadata::from(&field)),
-                ))
-            })
-            .collect::<Result<Vec<_>, RuleError>>()?;
-        projected.extend(input.hidden.iter().map(col));
-        input.plan = LogicalPlanBuilder::from(input.plan)
-            .project(projected)
-            .map_err(engine)?
-            .build()
-            .map_err(engine)?;
-        for column in &mut input.columns {
-            column.qualifier = None;
-        }
+        // The common native preparation derives the element field from this
+        // UNNEST's exact source child. A second self-alias projection neither adds
+        // meaning nor changes values, and triggers the pinned leaf-pushdown alias
+        // collision when a consumer extracts a member from a struct element.
         Ok(input)
-    }
-}
-fn refine_nonnull(predicate: &pse_schema::model::RuleExpr, columns: &mut [Column]) {
-    use pse_schema::model::RuleExpr;
-    match predicate {
-        RuleExpr::IsTrue(inner) => refine_nonnull(inner, columns),
-        RuleExpr::And(parts) => {
-            for part in parts {
-                refine_nonnull(part, columns);
-            }
-        }
-        RuleExpr::IsNotNull(inner) => {
-            if let RuleExpr::Col(name) = inner.as_ref() {
-                for column in columns {
-                    if column.spec.name == *name
-                        || column.qualifier.as_ref().is_some_and(|qualifier| {
-                            *name == format!("{qualifier}.{}", column.spec.name)
-                        })
-                    {
-                        column.spec.nullable = false;
-                    }
-                }
-            }
-        }
-        _ => {}
     }
 }
 pub(super) fn compatible(left: &Planned, right: &Planned) -> Result<(), RuleError> {
     if left.columns.len() != right.columns.len()
         || left.columns.iter().zip(&right.columns).any(|(l, r)| {
-            l.spec.name != r.spec.name
-                || l.spec.logical_type != r.spec.logical_type
-                || l.spec.quantity != r.spec.quantity
-                || l.spec.nullable != r.spec.nullable
+            l.name != r.name
+                || l.spec.value_type() != r.spec.value_type()
+                || l.spec.quantity() != r.spec.quantity()
+                || l.spec.nullable() != r.spec.nullable()
         })
         || left.hidden != right.hidden
     {

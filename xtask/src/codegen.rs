@@ -3,6 +3,12 @@
 
 //! Filesystem boundary for pure schema generators (ADR-0051).
 
+#[cfg(feature = "package-fixtures")]
+mod physical;
+
+mod ipopt;
+pub(super) mod python_stubs;
+
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::fs;
@@ -16,28 +22,14 @@ use sha2::{Digest, Sha256};
 use crate::Target;
 
 const BINDINGS: &str = "crates/pse-ipopt-sys/src/bindings.rs";
+const PYTHON_ROOT: &str = "python/pse/contracts";
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
-    if only == Some(Target::Bindgen) {
-        if std::env::var_os("IPOPT_DIR").is_none() {
-            eprintln!(
-                "bindgen requires IPOPT_DIR from the solver container; the arm remains deferred (R-3)"
-            );
-            std::process::exit(2);
-        }
-        if !check {
-            eprintln!(
-                "bindgen generation requires the deferred solver-container arm (R-3); IPOPT_DIR alone does not implement it"
-            );
-            std::process::exit(2);
-        }
-        return bindings_hygiene(root);
-    }
     let languages = match only {
-        Some(Target::Relations) => vec![Language::Rust],
+        Some(Target::Relations | Target::RustContracts) => vec![Language::Rust],
         Some(Target::Python) => vec![Language::Python],
         Some(Target::Docs) => vec![Language::Markdown],
-        Some(Target::Bindgen) => return bindings_hygiene(root),
+        Some(Target::Bindgen) => return ipopt::run(root, check),
         None => Language::ALL.to_vec(),
     };
     let registry = pse_schema::registry()?;
@@ -53,6 +45,13 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         if language == Language::Python {
             add_python_manifest(&mut tree)?;
         }
+        if language == Language::Rust {
+            if only == Some(Target::RustContracts) {
+                contract_roots(&mut tree);
+            } else {
+                append_physical(root, registry, &mut tree)?;
+            }
+        }
         validate_tree(&tree)?;
         trees.push(tree);
     }
@@ -67,12 +66,9 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         }
     }
     if only.is_none() {
-        if check {
-            bindings_hygiene(root)?;
-        } else {
-            println!("codegen: bindgen skipped; R-3 remains deferred (solver-container generator)");
-        }
+        ipopt::run(root, check)?;
     }
+
     println!(
         "codegen{}: OK ({} schema target(s))",
         if check { " --check" } else { "" },
@@ -81,8 +77,31 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     Ok(())
 }
 
+#[cfg(feature = "package-fixtures")]
+fn append_physical(
+    root: &Path,
+    registry: &pse_schema::Registry,
+    tree: &mut GeneratedTree,
+) -> Result<()> {
+    physical::append(root, registry, tree)
+}
+
+#[cfg(not(feature = "package-fixtures"))]
+fn append_physical(_: &Path, _: &pse_schema::Registry, _: &mut GeneratedTree) -> Result<()> {
+    bail!(
+        "complete Rust generation requires package-fixtures; use codegen-bootstrap to rebuild its admitted package loader"
+    )
+}
+
+// The pure registry emitter has no physical package data. Its bootstrap phase
+// must not claim those empty roots and prune the previously compiled fixtures.
+fn contract_roots(tree: &mut GeneratedTree) {
+    tree.roots
+        .retain(|root| tree.files.keys().any(|path| path.starts_with(root)));
+}
+
 fn add_python_manifest(tree: &mut GeneratedTree) -> Result<()> {
-    let root = Path::new("python/pse/contracts");
+    let root = Path::new(PYTHON_ROOT);
     let manifest_path = root.join("GENERATED.sha256");
     if tree.files.contains_key(&manifest_path) {
         bail!("the Python generator must leave GENERATED.sha256 to the xtask writer");
@@ -152,13 +171,43 @@ fn reject_symlinks(root: &Path, relative: &Path) -> Result<()> {
     Ok(())
 }
 
-fn inventory(root: &Path, roots: &[PathBuf]) -> Result<BTreeSet<PathBuf>> {
+fn inventory(root: &Path, tree: &GeneratedTree) -> Result<BTreeSet<PathBuf>> {
     let mut files = BTreeSet::new();
-    for relative in roots {
+    for relative in &tree.roots {
         reject_symlinks(root, relative)?;
         collect_files(root, relative, &mut files)?;
     }
+    // Inspect every path first: a cache directory cannot hide symlinks or other
+    // non-files. Explicit generator output always remains subject to comparison.
+    files.retain(|path| tree.files.contains_key(path) || !python_bytecode_path(path));
     Ok(files)
+}
+
+fn python_bytecode_path(relative: &Path) -> bool {
+    if !relative.starts_with(PYTHON_ROOT)
+        || relative.parent().and_then(Path::file_name) != Some("__pycache__".as_ref())
+    {
+        return false;
+    }
+    let Some(stem) = relative
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix(".pyc"))
+    else {
+        return false;
+    };
+    let Some((module, tag)) = stem.rsplit_once(".cpython-") else {
+        return false;
+    };
+    let (version, optimization) = tag
+        .split_once(".opt-")
+        .map_or((tag, None), |(version, level)| (version, Some(level)));
+    !module.is_empty()
+        && !version.is_empty()
+        && version.bytes().all(|byte| byte.is_ascii_digit())
+        && optimization.is_none_or(|level| {
+            !level.is_empty() && level.bytes().all(|byte| byte.is_ascii_alphanumeric())
+        })
 }
 
 fn collect_files(root: &Path, relative: &Path, files: &mut BTreeSet<PathBuf>) -> Result<()> {
@@ -185,7 +234,7 @@ fn collect_files(root: &Path, relative: &Path, files: &mut BTreeSet<PathBuf>) ->
 
 fn write_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
     validate_tree(tree)?;
-    let existing = inventory(root, &tree.roots)?;
+    let existing = inventory(root, tree)?;
     for path in tree.files.keys() {
         reject_symlinks(root, path)?;
     }
@@ -209,8 +258,8 @@ fn write_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
 }
 
 fn compare_tree(root: &Path, scratch: &Path, tree: &GeneratedTree) -> Result<()> {
-    let expected = inventory(scratch, &tree.roots)?;
-    let actual = inventory(root, &tree.roots)?;
+    let expected = inventory(scratch, tree)?;
+    let actual = inventory(root, tree)?;
     let mut differences = Vec::new();
     for path in expected.union(&actual) {
         let difference = match (expected.contains(path), actual.contains(path)) {
@@ -255,30 +304,177 @@ fn untracked_check(root: &Path, paths: &[PathBuf]) -> Result<()> {
     Ok(())
 }
 
-fn bindings_hygiene(root: &Path) -> Result<()> {
-    let status = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(["diff", "HEAD", "--exit-code", "--stat", "--", BINDINGS])
-        .status()
-        .context("checking deferred bindgen output")?;
-    if !status.success() {
-        bail!("bindgen output differs from HEAD; the deferred arm checks hygiene only");
-    }
-    untracked_check(root, &[PathBuf::from(BINDINGS)])?;
-    println!("codegen: bindgen hygiene only; regeneration remains deferred (R-3)");
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn contract_bootstrap_preserves_package_fixture_outputs() {
+        let checkout = tempfile::tempdir().unwrap();
+        let mut tree = GeneratedTree::empty(Language::Rust.roots());
+        tree.files.insert(
+            PathBuf::from("crates/pse-authoring/src/generated/mod.rs"),
+            b"new contracts".to_vec(),
+        );
+        let fixture = checkout
+            .path()
+            .join("crates/pse-quantity/src/generated/mod.rs");
+        fs::create_dir_all(fixture.parent().unwrap()).unwrap();
+        fs::write(&fixture, b"retained fixture").unwrap();
+        contract_roots(&mut tree);
+        write_tree(checkout.path(), &tree).unwrap();
+        assert_eq!(fs::read(fixture).unwrap(), b"retained fixture");
+        assert_eq!(
+            tree.roots,
+            vec![PathBuf::from("crates/pse-authoring/src/generated")]
+        );
+    }
 
     fn tree() -> GeneratedTree {
         GeneratedTree {
             roots: vec![PathBuf::from("generated")],
             files: [(PathBuf::from("generated/a.txt"), b"exact bytes\n".to_vec())].into(),
         }
+    }
+
+    fn python_tree() -> GeneratedTree {
+        GeneratedTree {
+            roots: vec![PathBuf::from(PYTHON_ROOT)],
+            files: [(Path::new(PYTHON_ROOT).join("a.py"), b"value = 1\n".to_vec())].into(),
+        }
+    }
+
+    #[test]
+    fn python_caches_survive_writing_and_do_not_hide_source_changes() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let tree = python_tree();
+        write_tree(checkout.path(), &tree).unwrap();
+        write_tree(scratch.path(), &tree).unwrap();
+        let cache = checkout.path().join(PYTHON_ROOT).join("__pycache__");
+        fs::create_dir(&cache).unwrap();
+        let caches = [
+            "a.cpython-313.pyc",
+            "a.cpython-314.pyc",
+            "a.cpython-313.opt-1.pyc",
+            "a.cpython-314.opt-2.pyc",
+        ];
+        for name in caches {
+            fs::write(cache.join(name), name.as_bytes()).unwrap();
+        }
+        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        let source = checkout.path().join(PYTHON_ROOT).join("a.py");
+        fs::write(&source, b"changed source\n").unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        assert_eq!(fs::read(&source).unwrap(), b"changed source\n");
+        fs::remove_file(&source).unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        assert!(!source.exists());
+        write_tree(checkout.path(), &tree).unwrap();
+        let stale = checkout.path().join(PYTHON_ROOT).join("stale.py");
+        fs::write(&stale, b"stale source\n").unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        write_tree(checkout.path(), &tree).unwrap();
+        assert!(!stale.exists());
+        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        for name in caches {
+            assert_eq!(fs::read(cache.join(name)).unwrap(), name.as_bytes());
+        }
+    }
+
+    #[test]
+    fn cache_directories_do_not_hide_unexpected_source_or_malformed_cache_names() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let tree = python_tree();
+        write_tree(checkout.path(), &tree).unwrap();
+        write_tree(scratch.path(), &tree).unwrap();
+        let cache = checkout.path().join(PYTHON_ROOT).join("__pycache__");
+        fs::create_dir(&cache).unwrap();
+        for name in [
+            "unexpected.py",
+            "unexpected.txt",
+            "a.pyc",
+            "a.cpython-.pyc",
+            "a.cpython-source.pyc",
+            "a.cpython-314.opt-.pyc",
+            "a.cpython-314.pyc.py",
+        ] {
+            let path = cache.join(name);
+            fs::write(&path, b"unexpected source\n").unwrap();
+            assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+            assert!(path.is_file());
+            write_tree(checkout.path(), &tree).unwrap();
+            assert!(!path.exists());
+        }
+        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+    }
+
+    #[test]
+    fn bytecode_exclusion_requires_the_python_root_and_immediate_cache_parent() {
+        for relative in [
+            "docs/generated/__pycache__/a.cpython-314.pyc",
+            "python/pse/contracts/a.cpython-314.pyc",
+            "python/pse/contracts/__pycache__/nested/a.cpython-314.pyc",
+        ] {
+            let checkout = tempfile::tempdir().unwrap();
+            let path = checkout.path().join(relative);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"unexpected file\n").unwrap();
+            let tree = GeneratedTree::empty(vec![
+                PathBuf::from("docs/generated"),
+                PathBuf::from(PYTHON_ROOT),
+            ]);
+            assert_eq!(
+                inventory(checkout.path(), &tree).unwrap(),
+                [PathBuf::from(relative)].into()
+            );
+        }
+    }
+
+    #[test]
+    fn explicit_generator_outputs_are_compared_even_with_bytecode_names() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let mut tree = python_tree();
+        let relative = Path::new(PYTHON_ROOT).join("__pycache__/a.cpython-314.pyc");
+        tree.files
+            .insert(relative.clone(), b"declared bytes".to_vec());
+        write_tree(checkout.path(), &tree).unwrap();
+        write_tree(scratch.path(), &tree).unwrap();
+        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        let path = checkout.path().join(relative);
+        fs::write(&path, b"changed bytes").unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        fs::remove_file(path).unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bytecode_names_and_cache_directories_cannot_hide_symlinks() {
+        let checkout = tempfile::tempdir().unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
+        let tree = python_tree();
+        write_tree(checkout.path(), &tree).unwrap();
+        write_tree(scratch.path(), &tree).unwrap();
+        let cache = checkout.path().join(PYTHON_ROOT).join("__pycache__");
+        fs::create_dir(&cache).unwrap();
+        let target = external.path().join("untouched");
+        fs::write(&target, b"external source\n").unwrap();
+        let link = cache.join("a.cpython-314.pyc");
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        assert!(write_tree(checkout.path(), &tree).is_err());
+        assert!(fs::symlink_metadata(&link).unwrap().is_symlink());
+        assert_eq!(fs::read(&target).unwrap(), b"external source\n");
+        fs::remove_file(link).unwrap();
+        fs::remove_dir(&cache).unwrap();
+        std::os::unix::fs::symlink(external.path(), &cache).unwrap();
+        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        assert!(write_tree(checkout.path(), &tree).is_err());
+        assert_eq!(fs::read(target).unwrap(), b"external source\n");
     }
 
     #[test]

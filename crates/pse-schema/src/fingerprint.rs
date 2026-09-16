@@ -44,7 +44,10 @@ pub fn registry(rows: &[(RelationKey, Vec<Vec<Cell>>)]) -> ContentHash {
 /// in its own row: a `pse.enum` column that kept its name while its enumeration lost a
 /// member would otherwise keep its fingerprint. Exact schema and enum-domain validation
 /// remains required even when the fingerprint matches.
-pub fn relation(reg: &Registry, spec: &RelationSpec) -> ContentHash {
+///
+/// # Errors
+/// Native field serialization fails. No incomplete fingerprint is emitted.
+pub fn relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, crate::SchemaError> {
     let mut hasher = FramedHasher::new(context::REGISTRY);
     hasher.part(FRAME_VERSION.as_bytes());
     hasher.str("relation");
@@ -52,31 +55,28 @@ pub fn relation(reg: &Registry, spec: &RelationSpec) -> ContentHash {
 
     frame_row(&mut hasher, &Registry::schema_relations_row(spec));
 
-    let column_rows = reg.schema_columns_rows_of(spec);
+    let column_rows = reg.schema_columns_rows_of(spec)?;
     hasher.u64(len(column_rows.len()));
     for row in &column_rows {
         frame_row(&mut hasher, row);
     }
 
     let mut type_names: Vec<String> = Vec::new();
-    let mut enum_names: Vec<&'static str> = Vec::new();
+    let mut enum_names: Vec<String> = Vec::new();
     for column in &spec.columns {
+        enum_names.extend(column.enum_domains());
         let mut reachable = Vec::new();
-        column.logical_type.walk(&mut reachable);
+        column.value_type().walk(&mut reachable);
         for ty in reachable {
-            let name = ty.name();
+            let name = ty.type_name()?;
             if !type_names.contains(&name) {
                 type_names.push(name);
-            }
-            if let Some(crate::model::ExtensionUse::Enum(enum_name)) = ty.extension()
-                && !enum_names.contains(enum_name)
-            {
-                enum_names.push(enum_name);
             }
         }
     }
     type_names.sort_unstable();
     enum_names.sort_unstable();
+    enum_names.dedup();
 
     hasher.u64(len(type_names.len()));
     for name in &type_names {
@@ -98,7 +98,7 @@ pub fn relation(reg: &Registry, spec: &RelationSpec) -> ContentHash {
         }
     }
 
-    hasher.finish_hash()
+    Ok(hasher.finish_hash())
 }
 
 /// Frames one relation's table: its key, its row count and its rows.

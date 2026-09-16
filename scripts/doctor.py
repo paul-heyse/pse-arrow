@@ -42,11 +42,11 @@ ROOT = Path(__file__).resolve().parent.parent
 VENV = ROOT / Path(os.environ.get("UV_PROJECT_ENVIRONMENT", ".venv"))
 
 
-def cargo_tool_pins() -> dict[str, str]:
-    """Read the bootstrap authority rather than duplicating its tool pins."""
+def cargo_tool_names() -> list[str]:
+    """Read the bootstrap authority rather than duplicating its tool list."""
     text = (ROOT / "scripts/bootstrap.sh").read_text()
     block = text.split("CARGO_TOOLS=(", 1)[1].split(")", 1)[0]
-    return dict(re.findall(r'"([a-z0-9-]+)@([0-9.]+)"', block))
+    return re.findall(r'"([a-z0-9-]+)"', block)
 
 
 REPO_LINTERS = ("actionlint", "ast-grep", "shellcheck")
@@ -92,14 +92,19 @@ def pyproject() -> dict:
     return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
-def pinned_quality_versions() -> dict[str, str]:
-    """Exact pins from [dependency-groups].quality; this script carries no copies."""
-    pins: dict[str, str] = {}
+def quality_tool_names() -> list[str]:
+    """Tool names from [dependency-groups].quality; this script carries no copies.
+
+    The group declares floors, not exact pins, so only the distribution name is read;
+    whatever uv.lock resolved is the version that runs.
+    """
+    names: list[str] = []
     for spec in pyproject().get("dependency-groups", {}).get("quality", []):
-        if isinstance(spec, str) and "==" in spec:
-            name, _, version = spec.partition("==")
-            pins[name.strip()] = version.strip()
-    return pins
+        if isinstance(spec, str):
+            name = re.split(r"[<>=!~;\[ ]", spec, maxsplit=1)[0].strip()
+            if name:
+                names.append(name)
+    return names
 
 
 # --------------------------------------------------------------------- checks
@@ -127,18 +132,16 @@ def check_interpreter() -> Check:
 
 
 def check_uv() -> Check:
-    wanted = pyproject().get("tool", {}).get("uv", {}).get("required-version", "")
+    """Any uv that can read uv.lock is fine; no release is required."""
     if shutil.which("uv") is None:
         return Check("uv", False, "uv not installed", "https://docs.astral.sh/uv/")
     code, out = run("uv", "--version")
-    actual = out.split()[1] if code == 0 and len(out.split()) > 1 else "?"
-    ok = not wanted or wanted.lstrip("=") == actual
-    return Check(
-        "uv",
-        ok,
-        f"uv {actual}" + ("" if ok else f" (pyproject wants {wanted})"),
-        "" if ok else f"uv self update {wanted.lstrip('=')}",
-    )
+    if code != 0:
+        return Check(
+            "uv", False, out.splitlines()[0] if out else "uv failed", "uv self update"
+        )
+    actual = out.split()[1] if len(out.split()) > 1 else "?"
+    return Check("uv", True, f"uv {actual}")
 
 
 def check_env_synced() -> Check:
@@ -157,9 +160,10 @@ def check_env_synced() -> Check:
 
 
 def check_quality_tools() -> Check:
-    pins = pinned_quality_versions()
-    if not pins:
-        return Check("quality", False, "no [dependency-groups] quality pins", "")
+    """Every quality tool is present in .venv; the version that resolved is reported."""
+    tools = quality_tool_names()
+    if not tools:
+        return Check("quality", False, "no [dependency-groups] quality entries", "")
     # CLI wrappers can initialize runtimes even for --version.
     # Read installed distribution metadata through the selected interpreter instead.
     code, out = run(
@@ -169,28 +173,25 @@ def check_quality_tools() -> Check:
         "installed = {d.metadata['Name'].lower().replace('_', '-'): d.version "
         "for d in m.distributions()}; "
         "print(json.dumps({n: installed.get(n, '?') for n in sys.argv[1:]}))",
-        *pins,
+        *tools,
     )
     installed = json.loads(out) if code == 0 else {}
     problems, found = [], []
-    for tool, wanted in pins.items():
+    for tool in tools:
         exe = venv_bin(tool if tool != "import-linter" else "lint-imports")
         if not exe.exists():
             problems.append(f"{tool} not in .venv")
             continue
-        actual = installed.get(tool, "?")
-        found.append(f"{tool} {actual}")
-        if actual != wanted:
-            problems.append(f"{tool} {actual} != pinned {wanted}")
+        found.append(f"{tool} {installed.get(tool, '?')}")
     if problems:
         return Check(
             "quality",
             False,
             "; ".join(problems),
             "just bootstrap-quality",
-            extra={"pins": pins},
+            extra={"tools": tools},
         )
-    return Check("quality", True, " / ".join(found), extra={"pins": pins})
+    return Check("quality", True, " / ".join(found), extra={"tools": tools})
 
 
 def check_rust() -> Check:
@@ -239,18 +240,17 @@ def check_cargo_tools() -> Check:
             blocking=False,
         )
     installed = dict(re.findall(r"^([a-z0-9-]+) v([0-9.]+)", out, re.MULTILINE))
-    pins = cargo_tool_pins()
-    problems = [
-        f"{name}: {installed.get(name, 'missing')} (want {wanted})"
-        for name, wanted in pins.items()
-        if installed.get(name) != wanted
-    ]
+    tools = cargo_tool_names()
+    missing = [name for name in tools if name not in installed]
     return Check(
         "cargo-tools",
-        not problems,
-        "; ".join(problems) if problems else f"{len(pins)} pinned tools match",
-        "just bootstrap-rust-tools" if problems else "",
+        not missing,
+        f"missing: {', '.join(missing)}" if missing else f"{len(tools)} tools present",
+        "just bootstrap-rust-tools" if missing else "",
         blocking=True,
+        extra={
+            "installed": {name: installed[name] for name in tools if name in installed}
+        },
     )
 
 

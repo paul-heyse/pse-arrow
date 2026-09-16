@@ -17,17 +17,26 @@ default_stages: [pre-commit]
 minimum_pre_commit_version: "4.6.0"
 
 repos:
-  # Keep this rev equal to the `ruff` pin in [dependency-groups].quality.
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.7
-    hooks:
-      - id: ruff-format
-      - id: ruff-check
-        # No --fix: the baseline is zero, and an auto-fix hides the lesson.
-        args: [--no-fix]
-
   - repo: local
     hooks:
+      # ruff runs from the project environment, so the hook and `just quality` use the
+      # release uv.lock resolved; there is no second ruff version declared here.
+      # `--force-exclude` is load-bearing: pre-commit passes explicit paths, and without
+      # it ruff formats files the config excludes (the generated contracts), which then
+      # fail the generated-manifest check. The upstream ruff-pre-commit hook sets it too.
+      - id: ruff-format
+        name: ruff format
+        language: system
+        entry: uv run --no-sync ruff format --force-exclude
+        types_or: [python, pyi]
+
+      - id: ruff-check
+        name: ruff check
+        language: system
+        # No --fix: the baseline is zero, and an auto-fix hides the lesson.
+        entry: uv run --no-sync ruff check --no-fix --force-exclude
+        types_or: [python, pyi]
+
       - id: taplo
         name: taplo fmt --check
         language: system

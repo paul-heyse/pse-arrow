@@ -5,23 +5,30 @@
 
 use super::{invalid, lower::Lowered};
 use crate::CompilerError;
-use pse_ids::{CancellationToken, SemanticId};
+use pse_ids::{CancellationToken, Reservation, SemanticId};
 use pse_mathir::{GuardRef, NodeId, Payload, ValueRef};
-use pse_schema::model::Cell;
+use pse_relations::generated::enums::{EquationSyntax, PredicateKind, PredicateOperandKind};
 use std::collections::BTreeSet;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Task {
     Math(NodeId),
     Predicate(u64),
     Equation(u64),
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(super) enum Read {
+    Symbol { symbol: SemanticId, node: u64 },
+    Path { path: u64, node: u64 },
 }
 pub(super) fn collect(
     lowered: &mut Lowered,
     source: SemanticId,
     offset: u64,
     cancel: &CancellationToken,
-) -> Result<BTreeSet<(SemanticId, Option<u64>)>, CompilerError> {
+    work: &mut dyn Reservation,
+) -> Result<BTreeSet<(Read, Option<u64>)>, CompilerError> {
+    work.try_grow(4096).map_err(pse_ids::CanonError::from)?;
     let root = match lowered.syntax {
         "expression" => Task::Math(local(lowered.root, offset)?),
         "predicate" => Task::Predicate(lowered.root),
@@ -35,16 +42,20 @@ pub(super) fn collect(
         cancel,
         pending: vec![(root, None)],
         demands: BTreeSet::new(),
-        steps: 0,
+        seen: BTreeSet::new(),
+        synthesized: std::collections::BTreeMap::new(),
+        work,
     };
     while let Some((task, guard)) = walker.pending.pop() {
         walker.cancel.checkpoint()?;
-        walker.steps += 1;
-        if walker.steps > 65_536 {
-            return Err(invalid(
-                "conditional demand traversal exceeds finite budget",
-            ));
+        if walker.seen.contains(&(task, guard)) {
+            continue;
         }
+        walker
+            .work
+            .try_grow(4096)
+            .map_err(pse_ids::CanonError::from)?;
+        walker.seen.insert((task, guard));
         match task {
             Task::Math(node) => walker.math(node, guard)?,
             Task::Predicate(node) => walker.predicate(node, guard)?,
@@ -59,15 +70,13 @@ struct Walker<'a> {
     offset: u64,
     cancel: &'a CancellationToken,
     pending: Vec<(Task, Option<u64>)>,
-    demands: BTreeSet<(SemanticId, Option<u64>)>,
-    steps: usize,
+    demands: BTreeSet<(Read, Option<u64>)>,
+    seen: BTreeSet<(Task, Option<u64>)>,
+    synthesized: std::collections::BTreeMap<(&'static str, u64, Option<u64>), u64>,
+    work: &'a mut dyn Reservation,
 }
-fn ordinal(cell: &Cell) -> Result<u64, CompilerError> {
-    if let Cell::U64(id) = cell {
-        Ok(*id)
-    } else {
-        Err(invalid("missing demand graph ordinal"))
-    }
+fn ordinal(value: Option<u64>) -> Result<u64, CompilerError> {
+    value.ok_or_else(|| invalid("missing demand graph ordinal"))
 }
 fn local(id: u64, offset: u64) -> Result<NodeId, CompilerError> {
     id.checked_sub(offset)
@@ -75,9 +84,9 @@ fn local(id: u64, offset: u64) -> Result<NodeId, CompilerError> {
         .ok_or_else(|| invalid("demand node is outside source family"))
 }
 impl Walker<'_> {
-    fn push_math(&mut self, cell: &Cell, guard: Option<u64>) -> Result<(), CompilerError> {
+    fn push_math(&mut self, value: Option<u64>, guard: Option<u64>) -> Result<(), CompilerError> {
         self.pending
-            .push((Task::Math(local(ordinal(cell)?, self.offset)?), guard));
+            .push((Task::Math(local(ordinal(value)?, self.offset)?), guard));
         Ok(())
     }
     fn predicate(&mut self, id: u64, guard: Option<u64>) -> Result<(), CompilerError> {
@@ -87,27 +96,26 @@ impl Walker<'_> {
             .get(usize::try_from(id).map_err(|_| invalid("predicate ordinal overflow"))?)
             .cloned()
             .ok_or_else(|| invalid("demand predicate absent"))?;
-        match row[2] {
-            Cell::Enum("atom" | "in") => self.push_math(&row[5], guard)?,
-            Cell::Enum("compare") => {
-                if row[12] == Cell::Enum("expression") {
-                    self.push_math(&row[5], guard)?;
+        match row.kind {
+            PredicateKind::Atom | PredicateKind::In => self.push_math(row.left_expr, guard)?,
+            PredicateKind::Compare => {
+                if row.left_kind == Some(PredicateOperandKind::Expression) {
+                    self.push_math(row.left_expr, guard)?;
                 }
-                if row[15] == Cell::Enum("expression") {
-                    self.push_math(&row[6], guard)?;
+                if row.right_kind == Some(PredicateOperandKind::Expression) {
+                    self.push_math(row.right_expr, guard)?;
                 }
             }
-            Cell::Enum("not") => self
+            PredicateKind::Not => self
                 .pending
-                .push((Task::Predicate(ordinal(&row[7])?), guard)),
-            Cell::Enum("and" | "or") => {
+                .push((Task::Predicate(ordinal(row.left_predicate)?), guard)),
+            PredicateKind::And | PredicateKind::Or => {
                 self.pending
-                    .push((Task::Predicate(ordinal(&row[7])?), guard));
+                    .push((Task::Predicate(ordinal(row.left_predicate)?), guard));
                 self.pending
-                    .push((Task::Predicate(ordinal(&row[8])?), guard));
+                    .push((Task::Predicate(ordinal(row.right_predicate)?), guard));
             }
-            Cell::Enum("boolean" | "null") => {}
-            _ => return Err(invalid("unknown demand predicate")),
+            PredicateKind::Boolean | PredicateKind::Null => {}
         }
         Ok(())
     }
@@ -118,26 +126,34 @@ impl Walker<'_> {
             .get(usize::try_from(id).map_err(|_| invalid("equation ordinal overflow"))?)
             .cloned()
             .ok_or_else(|| invalid("demand equation absent"))?;
-        match row[2] {
-            Cell::Enum("relation") => {
-                self.push_math(&row[4], guard)?;
-                self.push_math(&row[5], guard)?;
+        match row.kind {
+            EquationSyntax::Relation => {
+                self.push_math(row.left_expr, guard)?;
+                self.push_math(row.right_expr, guard)?;
             }
-            Cell::Enum("conditional") => {
-                let condition = ordinal(&row[6])?;
+            EquationSyntax::Conditional => {
+                let condition = ordinal(row.guard_predicate)?;
                 self.pending.push((Task::Predicate(condition), guard));
                 let yes = self.combine(guard, condition, false)?;
                 let no = self.combine(guard, condition, true)?;
                 self.pending
-                    .push((Task::Equation(ordinal(&row[7])?), Some(yes)));
+                    .push((Task::Equation(ordinal(row.then_equation)?), Some(yes)));
                 self.pending
-                    .push((Task::Equation(ordinal(&row[8])?), Some(no)));
+                    .push((Task::Equation(ordinal(row.else_equation)?), Some(no)));
             }
-            _ => return Err(invalid("unknown demand equation")),
         }
         Ok(())
     }
     fn math(&mut self, id: NodeId, guard: Option<u64>) -> Result<(), CompilerError> {
+        let children = self.lowered.graph.node(id)?.children.len();
+        self.work
+            .try_grow(
+                children
+                    .checked_mul(512)
+                    .and_then(|bytes| bytes.checked_add(8192))
+                    .ok_or_else(|| invalid("demand graph traversal extent overflow"))?,
+            )
+            .map_err(pse_ids::CanonError::from)?;
         let node = self.lowered.graph.node(id)?.clone();
         match &node.payload {
             Payload::SymbolRef {
@@ -145,7 +161,29 @@ impl Walker<'_> {
             }
             | Payload::Gather { group: symbol, .. }
             | Payload::PendingGather { group: symbol, .. } => {
-                self.demands.insert((*symbol, guard));
+                self.demands.insert((
+                    Read::Symbol {
+                        symbol: *symbol,
+                        node: self.global(id)?,
+                    },
+                    guard,
+                ));
+            }
+            Payload::PendingPath {
+                source_id, path_id, ..
+            } => {
+                if *source_id != self.source {
+                    return Err(invalid(
+                        "path demand belongs to a different expression source",
+                    ));
+                }
+                self.demands.insert((
+                    Read::Path {
+                        path: *path_id,
+                        node: self.global(id)?,
+                    },
+                    guard,
+                ));
             }
             Payload::Conditional { guard: condition } => {
                 let condition = self.guard(condition)?;
@@ -186,6 +224,10 @@ impl Walker<'_> {
         }
         Ok(())
     }
+    fn global(&self, id: NodeId) -> Result<u64, CompilerError> {
+        id.0.checked_add(self.offset)
+            .ok_or_else(|| invalid("read occurrence ordinal overflow"))
+    }
     fn guard(&self, guard: &GuardRef) -> Result<u64, CompilerError> {
         match guard {
             GuardRef::Predicate {
@@ -216,18 +258,26 @@ impl Walker<'_> {
         left: u64,
         right: Option<u64>,
     ) -> Result<u64, CompilerError> {
-        if self.lowered.predicates.len() >= 65_536 {
-            return Err(invalid("demand predicate budget exceeded"));
+        if let Some(id) = self.synthesized.get(&(op, left, right)) {
+            return Ok(*id);
         }
+        self.cancel.checkpoint()?;
+        self.work
+            .try_grow(4096)
+            .map_err(pse_ids::CanonError::from)?;
         let id = u64::try_from(self.lowered.predicates.len())
             .map_err(|_| invalid("predicate ordinal overflow"))?;
-        let mut row = vec![Cell::Null; 18];
-        row[0] = Cell::Id(self.source);
-        row[1] = Cell::U64(id);
-        row[2] = Cell::Enum(op);
-        row[7] = Cell::U64(left);
-        row[8] = right.map_or(Cell::Null, Cell::U64);
+        let kind = match op {
+            "not" => PredicateKind::Not,
+            "and" => PredicateKind::And,
+            _ => return Err(invalid("unsupported synthesized guard operator")),
+        };
+        let mut row = super::lower::predicate_row(self.source, kind);
+        row.predicate_id = id;
+        row.left_predicate = Some(left);
+        row.right_predicate = right;
         self.lowered.predicates.push(row);
+        self.synthesized.insert((op, left, right), id);
         Ok(id)
     }
 }

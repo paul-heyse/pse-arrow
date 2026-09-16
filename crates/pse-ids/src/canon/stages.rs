@@ -40,7 +40,7 @@ pub(super) fn admit_and_order(
         for row in 0..source.num_rows() {
             if array.is_null(row) {
                 return Err(CanonError::NullKey {
-                    column: contract.schema.field(*index).name().clone(),
+                    column: contract.schema.field(*index).name().to_owned(),
                     row,
                 });
             }

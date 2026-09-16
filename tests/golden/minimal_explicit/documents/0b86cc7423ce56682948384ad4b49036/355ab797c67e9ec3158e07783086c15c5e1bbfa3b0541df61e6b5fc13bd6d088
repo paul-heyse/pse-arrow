@@ -1,8 +1,0 @@
-species:
-  - id: "01991d6a-13a0-7000-8000-000000000002"
-    name: water
-    formula: H2O
-    mw: 0.01801528
-    component_type: Component
-    charge: 0
-    doc: Water species.

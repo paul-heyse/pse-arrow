@@ -417,3 +417,89 @@ fn registered_integral_removes_only_its_actual_lexical_binder() {
         .is_err()
     );
 }
+
+#[test]
+fn registered_sum_contract_changes_kind_and_never_falls_back_after_refusal() {
+    let original = fixture(1);
+    let mut builder = original.to_builder();
+    let mut body = original.quantity_type(qty(2)).unwrap().clone();
+    body.id = qty(20);
+    body.key.shape = vec![DomainKind::Species];
+    builder.quantity_type(body.clone());
+    let mut kind = original.kind(body.key.kind).unwrap().clone();
+    kind.id = QuantityKindId::from_id(raw(21));
+    builder.kind(kind.clone());
+    let mut total = original.quantity_type(qty(2)).unwrap().clone();
+    total.id = qty(21);
+    total.key.kind = kind.id;
+    let mut operation = original.operations_for(Opcode::Mul).next().unwrap().clone();
+    operation.id = OperationId::from_id(raw(41));
+    operation.opcode = Opcode::SumOver;
+    operation.input_kinds.truncate(1);
+    operation.result_kind = kind.id;
+    operation.scale_rule = QuantityScaleRule::Preserve;
+    operation.scale_source = Some(0);
+    operation.shape_rule = QuantityShapeRule::ReduceBoundIndex;
+    builder.operation(operation.clone());
+    assert!(builder.clone().build().is_err());
+    builder.reduction_domain(operation.id, DomainKind::Species);
+    let mut phase_body = body.clone();
+    phase_body.id = qty(22);
+    phase_body.key.shape = vec![DomainKind::Phase];
+    builder.quantity_type(phase_body.clone());
+    let missing_result = builder.clone().build().unwrap();
+    builder.quantity_type(total.clone());
+    let registry = builder.build().unwrap();
+    let bound = BoundIndexRef::new(
+        BoundIndexId::from_id(raw(50)),
+        DomainId::from_id(raw(51)),
+        DomainKind::Species,
+    );
+    let indices = IndexSet::try_from_iter([bound]).unwrap();
+    let request = OpRequest::Reduce {
+        kind: ReductionKind::Sum,
+        bound,
+    };
+    let operands = [Operand {
+        quantity_type: body.id,
+        indices: &indices,
+    }];
+    let result = infer(&request, &operands, &registry).unwrap();
+    assert_eq!(result.result, total.id);
+    assert!(result.indices.is_empty());
+    assert!(
+        matches!(result.selected, OperationSelection::Registered { operation: selected, .. } if selected == operation.id)
+    );
+    // A shape-only scalar of the original kind exists, but must not mask a broken contraction.
+    assert!(matches!(
+        infer(&request, &operands, &missing_result),
+        Err(QuantityError::UnregisteredResultType { .. })
+    ));
+    let wrong = OpRequest::Reduce {
+        kind: ReductionKind::Sum,
+        bound: BoundIndexRef {
+            bound_index: BoundIndexId::from_id(raw(52)),
+            ..bound
+        },
+    };
+    assert!(infer(&wrong, &operands, &registry).is_err());
+    let phase = BoundIndexRef {
+        kind: DomainKind::Phase,
+        ..bound
+    };
+    let phase_indices = IndexSet::try_from_iter([phase]).unwrap();
+    let result = infer(
+        &OpRequest::Reduce {
+            kind: ReductionKind::Sum,
+            bound: phase,
+        },
+        &[Operand {
+            quantity_type: phase_body.id,
+            indices: &phase_indices,
+        }],
+        &registry,
+    )
+    .unwrap();
+    assert_eq!(result.result, qty(2));
+    assert!(matches!(result.selected, OperationSelection::BuiltIn(_)));
+}

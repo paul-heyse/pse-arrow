@@ -19,10 +19,10 @@ use pse_authoring::{
 };
 use pse_catalog::{
     Catalog, ExecutionSettings, FixedClock, RefName, Snapshot, ThreadBudget, TrustLevel,
-    session::{SessionFactory, phase0_reference_profile},
+    session::{SessionFactory, native_engine_profile},
 };
 use pse_compiler::{
-    ExternalInputs, PassStatus, PolicySet,
+    PassStatus, PolicySet,
     driver::{CommitBase, CommitReport, CommitRequest, Driver, PipelineRequest, StageResult},
 };
 use pse_ids::{CancellationToken, MemoryReserver, SemanticId};
@@ -85,37 +85,33 @@ fn fixture() -> Fixture {
     })
     .unwrap();
     let reserver: Arc<dyn MemoryReserver> = runtime.reserver();
-    let validator = pse_rules::validator::InvariantValidator::new(
-        Arc::clone(&registry),
-        runtime.runtime_env(),
-        Arc::clone(&reserver),
-        ExecutionSettings::default(),
-        threads,
-        phase0_reference_profile(),
+    let sessions = Arc::new(
+        SessionFactory::new(
+            runtime.runtime_env(),
+            Arc::clone(&reserver),
+            ExecutionSettings::default(),
+            threads,
+            native_engine_profile(),
+        )
+        .unwrap(),
     );
+
+    let validator = pse_rules::validator::InvariantValidator::new(Arc::clone(&registry));
     let catalog = Arc::new(
         Catalog::open(
             Arc::new(InMemory::new()),
             Arc::clone(&registry),
             TrustLevel::Owned,
             Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-            Arc::clone(&reserver),
+            Arc::clone(&sessions),
         )
         .with_semantic_validator(Arc::new(
-            pse_compiler::validator::CompilerValidator::new(Arc::new(validator)),
+            pse_compiler::validator::CompilerValidator::new(Arc::new(validator), &registry)
+                .unwrap()
+                .with_sessions(Arc::clone(&sessions)),
         )),
     );
-    let sessions = Arc::new(
-        SessionFactory::new(
-            runtime.runtime_env(),
-            reserver,
-            ExecutionSettings::default(),
-            threads,
-            phase0_reference_profile(),
-        )
-        .unwrap(),
-    );
-    let driver = Driver::new(Arc::clone(&catalog), sessions).unwrap();
+    let driver = Driver::new(Arc::clone(&catalog)).unwrap();
     Fixture {
         registry,
         catalog,
@@ -163,9 +159,10 @@ async fn commit(
         .await
         .expect("real P0/P1/P2 commit");
     assert_eq!(
-        result.validation.error_count, 0,
+        result.validation.error_count(),
+        0,
         "{:?}",
-        result.validation.findings
+        result.validation.findings()
     );
     assert!(result.model.is_some() && result.tip.is_some());
     result
@@ -189,8 +186,6 @@ async fn normalize(fixture: &mut Fixture, tip: Arc<Snapshot>, reuse: bool) -> St
                 through: "P3".to_owned(),
                 snapshot: tip,
                 policies: PolicySet::default(),
-                external_bindings: ExternalInputs::default(),
-                fixture_mode: false,
                 reuse,
             },
             &CancellationToken::new(),

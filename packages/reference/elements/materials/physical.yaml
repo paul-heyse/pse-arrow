@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "elements": [
+    {
+      "element_id": "2fb5ca65384a2466d41fc32d22a0c40d",
+      "symbol": "H",
+      "name": "hydrogen",
+      "atomic_mass": 0.001008
+    },
+    {
+      "element_id": "baaceaac974a24b0f4b0e1b880368a39",
+      "symbol": "He",
+      "name": "helium",
+      "atomic_mass": 0.0040026
+    },
+    {
+      "element_id": "c22602340a78b85ec4a0da4fc418a6af",
+      "symbol": "C",
+      "name": "carbon",
+      "atomic_mass": 0.012010999999999999
+    },
+    {
+      "element_id": "fc9744e59f95042db7f36df279602748",
+      "symbol": "N",
+      "name": "nitrogen",
+      "atomic_mass": 0.014007
+    },
+    {
+      "element_id": "0b238b1504393021f5c19d87528e9c7f",
+      "symbol": "O",
+      "name": "oxygen",
+      "atomic_mass": 0.015999
+    },
+    {
+      "element_id": "2684a153d116b947d2f1685b496bde76",
+      "symbol": "F",
+      "name": "fluorine",
+      "atomic_mass": 0.018998
+    },
+    {
+      "element_id": "41ef24d056eaab96a686b56af72bce9b",
+      "symbol": "Na",
+      "name": "sodium",
+      "atomic_mass": 0.02299
+    },
+    {
+      "element_id": "b27420fac7577d8c85ebbf31cde8f520",
+      "symbol": "Mg",
+      "name": "magnesium",
+      "atomic_mass": 0.024305
+    },
+    {
+      "element_id": "e68b413afac4e94e81268eeaed50b27c",
+      "symbol": "Al",
+      "name": "aluminium",
+      "atomic_mass": 0.026982
+    },
+    {
+      "element_id": "4a2d7db2f55cdd149ae5b0e22e346698",
+      "symbol": "Si",
+      "name": "silicon",
+      "atomic_mass": 0.028085000000000002
+    },
+    {
+      "element_id": "81ca231c74198e0a3d218fc374aae18b",
+      "symbol": "P",
+      "name": "phosphorus",
+      "atomic_mass": 0.030974
+    },
+    {
+      "element_id": "b162ce1ec7e035ad4e4caadea3adf181",
+      "symbol": "S",
+      "name": "sulfur",
+      "atomic_mass": 0.032060000000000005
+    },
+    {
+      "element_id": "0e5fc3ecff3d97bf91e0f77e03508f2d",
+      "symbol": "Cl",
+      "name": "chlorine",
+      "atomic_mass": 0.03545
+    },
+    {
+      "element_id": "e9ba8f6e5b689ec8eac6dacb0b6347e2",
+      "symbol": "Ar",
+      "name": "argon",
+      "atomic_mass": 0.03995
+    },
+    {
+      "element_id": "e2e27d26620b881b8fc71108b5fa4fe8",
+      "symbol": "K",
+      "name": "potassium",
+      "atomic_mass": 0.039098
+    },
+    {
+      "element_id": "374e5f9940afd32be500ae9ff83ee6c7",
+      "symbol": "Ca",
+      "name": "calcium",
+      "atomic_mass": 0.040078
+    },
+    {
+      "element_id": "08ae872fad328c4e73a2ca4ae1426070",
+      "symbol": "Fe",
+      "name": "iron",
+      "atomic_mass": 0.055845
+    },
+    {
+      "element_id": "076c1f2a09cb38c1093d0bf755b4d179",
+      "symbol": "Cu",
+      "name": "copper",
+      "atomic_mass": 0.063546
+    },
+    {
+      "element_id": "bec4907ef715c48c2ec6ace7b9b068ad",
+      "symbol": "Zn",
+      "name": "zinc",
+      "atomic_mass": 0.06538
+    },
+    {
+      "element_id": "946acbf5e40aceb0b0a961ff128d19c6",
+      "symbol": "Br",
+      "name": "bromine",
+      "atomic_mass": 0.079904
+    },
+    {
+      "element_id": "27e1f07b8970a8453b4ad288a5e733ec",
+      "symbol": "I",
+      "name": "iodine",
+      "atomic_mass": 0.1269
+    }
+  ]
+}

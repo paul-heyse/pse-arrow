@@ -29,6 +29,8 @@ pub(crate) enum Fault {
     FlipByte,
     /// Cancel after a successful immutable object write.
     Cancel(CancellationToken),
+    /// Commit the conditional write, then lose its response.
+    LostResponse,
 }
 /// Explicit operation/path/call selection independent of hashing or object identity.
 #[derive(Clone, Debug)]
@@ -143,6 +145,9 @@ impl ObjectStore for FaultStore {
             _ => {}
         }
         let result = self.inner.put_opts(location, payload, opts).await?;
+        if matches!(action, Some(Fault::LostResponse)) {
+            return Err(failure(location, false));
+        }
         if let Some(Fault::Cancel(cancel)) = action {
             cancel.cancel();
         }

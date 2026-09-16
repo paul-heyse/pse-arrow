@@ -44,8 +44,6 @@ env:
   CARGO_INCREMENTAL: "0"
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: "1"
-  UV_VERSION: 0.12.13
-  MATURIN_VERSION: 1.15.0
   UV_NO_PROGRESS: "1"
 
 jobs:
@@ -105,7 +103,6 @@ jobs:
           command: build
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux }}
-          maturin-version: ${{ env.MATURIN_VERSION }}
           # Omit rust-toolchain: the action reads rust-toolchain.toml. An explicit
           # `stable` input overrides that pin with a moving channel.
           sccache: "true"
@@ -152,7 +149,6 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: build sdist
         run: uv build --sdist --out-dir dist
@@ -190,7 +186,6 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: ${{ env.UV_VERSION }}
           python-version: ${{ matrix.python-version }}
       - name: fetch the native wheel
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

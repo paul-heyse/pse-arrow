@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 
 use std::collections::BTreeMap;
 
-use crate::model::{EXTENSION_TYPES, PortSource};
+use crate::model::{EXTENSION_TYPES, FieldContract, PortSource, QuantityContract};
 use crate::{Registry, SchemaError};
 
 use super::{GeneratedTree, Language};
@@ -24,6 +24,44 @@ fn emit(tree: &mut GeneratedTree, name: &str, mut source: String) {
     );
 }
 
+fn describe_field(source: &mut String, field: &FieldContract, path: &str) {
+    use arrow_schema::DataType as D;
+    let ty = field.extension().map_or_else(
+        || match field.data_type() {
+            D::Struct(_) => "Struct".to_owned(),
+            D::List(_) => "List".to_owned(),
+            D::LargeList(_) => "LargeList".to_owned(),
+            D::ListView(_) => "ListView".to_owned(),
+            D::LargeListView(_) => "LargeListView".to_owned(),
+            D::FixedSizeList(_, width) => format!("FixedSizeList({width})"),
+            D::Map(_, sorted) => format!("Map(sorted={sorted})"),
+            D::Union(_, mode) => format!("Union({mode:?})"),
+            D::RunEndEncoded(..) => "RunEndEncoded".to_owned(),
+            other => other.to_string(),
+        },
+        |use_| use_.name(),
+    );
+    let fk = field
+        .fk()
+        .map_or_else(|| "—".to_owned(), |fk| format!("`{fk}`"));
+    let quantity = match field.quantity() {
+        QuantityContract::None => "—".to_owned(),
+        QuantityContract::Column(name) => format!("`{name}`"),
+        QuantityContract::PerRow => "Per row".to_owned(),
+    };
+    let _ = writeln!(
+        source,
+        "| `{path}` | `{ty}` | {} | `{}` | {fk} | {quantity} |",
+        field.nullable(),
+        field.role().as_str()
+    );
+    if field.extension().is_none() {
+        for child in field.children() {
+            describe_field(source, &child, &format!("{path}.{}", child.name()));
+        }
+    }
+}
+
 pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     let mut tree = GeneratedTree::empty(Language::Markdown.roots());
     let mut namespaces = BTreeMap::<&str, String>::new();
@@ -33,7 +71,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             .or_default();
         let _ = writeln!(
             source,
-            "## `{}`\n\n{}\n\nVersion: {}. Snapshot class: `{}`. Primary key: `{}`.\n\n| Column | Type | Nullable | Role | Reference |\n|---|---|---|---|---|",
+            "## `{}`\n\n{}\n\nVersion: {}. Snapshot class: `{}`. Primary key: `{}`.\n\n| Field path | Type | Nullable | Role | Reference | Quantity |\n|---|---|---|---|---|---|",
             relation.key.name,
             relation.doc,
             relation.key.version,
@@ -41,17 +79,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             relation.primary_key.join(", ")
         );
         for column in &relation.columns {
-            let _ = writeln!(
-                source,
-                "| `{}` | `{}` | {} | `{}` | {} |",
-                column.name,
-                column.logical_type.name(),
-                column.nullable,
-                column.role.as_str(),
-                column
-                    .fk
-                    .map_or_else(|| "—".to_owned(), |fk| format!("`{fk}`"))
-            );
+            describe_field(source, column, column.name());
         }
         source.push('\n');
     }
@@ -97,7 +125,9 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
 }
 
 fn enums(reg: &Registry) -> String {
-    let mut source = String::from("# Enumerations\n\nDictionary codes are presentation only.\n\n");
+    let mut source = String::from(
+        "# Enumerations\n\nMember names are canonical string values; declaration order is presentation only.\n\n",
+    );
     for spec in reg.enums() {
         let _ = writeln!(source, "## `{}`\n", spec.name);
         if let Some(module) = spec.idaes_source {
@@ -134,8 +164,8 @@ fn passes(reg: &Registry) -> String {
     for pass in reg.passes() {
         let _ = writeln!(
             source,
-            "## {}\n\nVersion: `{}`. Determinism: `{}`. Executes plans: {}.\n\n| Direction | Port | Relation |\n|---|---|---|",
-            pass.name, pass.version, pass.determinism, pass.executes_plans
+            "## {}\n\nVersion: `{}`. Determinism: `{}`. Native effects: {:?}.\n\n| Direction | Port | Relation |\n|---|---|---|",
+            pass.name, pass.version, pass.determinism, pass.effects
         );
         for input in &pass.inputs {
             let _ = writeln!(

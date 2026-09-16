@@ -11,28 +11,36 @@ pub struct AssertionsDocument {
     pub r#assertions: Vec<pse_relations::generated::r#provenance::r#assertions::Row>,
 }
 impl AssertionsDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#provenance::r#assertions::RELATION_ID)
+        let mut builder = pse_relations::generated::r#provenance::r#assertions::Builder::with_registry(
+            registry,
+            self.r#assertions.len(),
+        )?;
+        for row in self.r#assertions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#provenance::r#assertions::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#assertions
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#provenance::r#assertions::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -99,176 +107,203 @@ pub struct CasesDocument {
     >,
 }
 impl CasesDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#authored::r#instances::RELATION_ID)
+        let mut builder = pse_relations::generated::r#authored::r#instances::Builder::with_registry(
+            registry,
+            self.r#instances.len(),
+        )?;
+        for row in self.r#instances {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#instances::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#instances
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#instances::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#instance_domain_bindings::Builder::with_registry(
+            registry,
+            self.r#instance_domain_bindings.len(),
+        )?;
+        for row in self.r#instance_domain_bindings {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#instance_domain_bindings::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#instance_domain_bindings
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#instance_domain_bindings::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#flowsheets::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#flowsheets::Builder::with_registry(
+            registry,
+            self.r#flowsheets.len(),
+        )?;
+        for row in self.r#flowsheets {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#flowsheets::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#flowsheets
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#flowsheets::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#scopes::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#scopes::Builder::with_registry(
+            registry,
+            self.r#scopes.len(),
+        )?;
+        for row in self.r#scopes {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#scopes::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#scopes
-                    .into_iter()
-                    .map(pse_relations::generated::r#authored::r#scopes::Row::into_cells),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#selector_terms::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#selector_terms::Builder::with_registry(
+            registry,
+            self.r#selector_terms.len(),
+        )?;
+        for row in self.r#selector_terms {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#selector_terms::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#selector_terms
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#selector_terms::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#connections::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#connections::Builder::with_registry(
+            registry,
+            self.r#connections.len(),
+        )?;
+        for row in self.r#connections {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#connections::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#connections
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#connections::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#cases::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#cases::Builder::with_registry(
+            registry,
+            self.r#cases.len(),
+        )?;
+        for row in self.r#cases {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#cases::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#cases
-                    .into_iter()
-                    .map(pse_relations::generated::r#authored::r#cases::Row::into_cells),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#case_specs::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#case_specs::Builder::with_registry(
+            registry,
+            self.r#case_specs.len(),
+        )?;
+        for row in self.r#case_specs {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#case_specs::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#case_specs
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#case_specs::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#case_activations::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#case_activations::Builder::with_registry(
+            registry,
+            self.r#case_activations.len(),
+        )?;
+        for row in self.r#case_activations {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#case_activations::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#case_activations
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#case_activations::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#case_objectives::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#case_objectives::Builder::with_registry(
+            registry,
+            self.r#case_objectives.len(),
+        )?;
+        for row in self.r#case_objectives {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#case_objectives::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#case_objectives
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#case_objectives::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#case_policies::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#case_policies::Builder::with_registry(
+            registry,
+            self.r#case_policies.len(),
+        )?;
+        for row in self.r#case_policies {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#case_policies::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#case_policies
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#case_policies::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#datasets::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#datasets::Builder::with_registry(
+            registry,
+            self.r#datasets.len(),
+        )?;
+        for row in self.r#datasets {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#datasets::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#datasets
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#datasets::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#observations::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#observations::Builder::with_registry(
+            registry,
+            self.r#observations.len(),
+        )?;
+        for row in self.r#observations {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#observations::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#observations
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#observations::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#scenarios::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#scenarios::Builder::with_registry(
+            registry,
+            self.r#scenarios.len(),
+        )?;
+        for row in self.r#scenarios {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#scenarios::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#scenarios
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#scenarios::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#case_sets::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#case_sets::Builder::with_registry(
+            registry,
+            self.r#case_sets.len(),
+        )?;
+        for row in self.r#case_sets {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#case_sets::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#case_sets
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#case_sets::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#case_set_samples::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#case_set_samples::Builder::with_registry(
+            registry,
+            self.r#case_set_samples.len(),
+        )?;
+        for row in self.r#case_set_samples {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#case_set_samples::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#case_set_samples
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#case_set_samples::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -286,48 +321,193 @@ pub struct CostingDocument {
     pub r#constants: Vec<pse_relations::generated::r#reference::r#constants::Row>,
 }
 impl CostingDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#authored::r#templates::RELATION_ID)
+        let mut builder = pse_relations::generated::r#authored::r#templates::Builder::with_registry(
+            registry,
+            self.r#templates.len(),
+        )?;
+        for row in self.r#templates {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#templates::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#templates
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#templates::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#method_specs::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_specs::Builder::with_registry(
+            registry,
+            self.r#method_specs.len(),
+        )?;
+        for row in self.r#method_specs {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#method_specs::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#method_specs
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#method_specs::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#constants::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#constants::Builder::with_registry(
+            registry,
+            self.r#constants.len(),
+        )?;
+        for row in self.r#constants {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#constants::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#constants
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#constants::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        Ok(batches)
+    }
+}
+///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InstancesDocument {
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#instances: Vec<pse_relations::generated::r#authored::r#instances::Row>,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#instance_equations: Vec<
+        pse_relations::generated::r#authored::r#instance_equations::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#instance_domain_bindings: Vec<
+        pse_relations::generated::r#authored::r#instance_domain_bindings::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#flowsheets: Vec<pse_relations::generated::r#authored::r#flowsheets::Row>,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#scopes: Vec<pse_relations::generated::r#authored::r#scopes::Row>,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#selector_terms: Vec<
+        pse_relations::generated::r#authored::r#selector_terms::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#connections: Vec<pse_relations::generated::r#authored::r#connections::Row>,
+}
+impl InstancesDocument {
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
+        self,
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        > = std::collections::BTreeMap::new();
+        let mut builder = pse_relations::generated::r#authored::r#instances::Builder::with_registry(
+            registry,
+            self.r#instances.len(),
+        )?;
+        for row in self.r#instances {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#instances::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#instance_equations::Builder::with_registry(
+            registry,
+            self.r#instance_equations.len(),
+        )?;
+        for row in self.r#instance_equations {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#instance_equations::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#instance_domain_bindings::Builder::with_registry(
+            registry,
+            self.r#instance_domain_bindings.len(),
+        )?;
+        for row in self.r#instance_domain_bindings {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#instance_domain_bindings::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#flowsheets::Builder::with_registry(
+            registry,
+            self.r#flowsheets.len(),
+        )?;
+        for row in self.r#flowsheets {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#flowsheets::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#scopes::Builder::with_registry(
+            registry,
+            self.r#scopes.len(),
+        )?;
+        for row in self.r#scopes {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#scopes::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#selector_terms::Builder::with_registry(
+            registry,
+            self.r#selector_terms.len(),
+        )?;
+        for row in self.r#selector_terms {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#selector_terms::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#connections::Builder::with_registry(
+            registry,
+            self.r#connections.len(),
+        )?;
+        for row in self.r#connections {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#connections::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -342,42 +522,101 @@ pub struct LawsDocument {
     pub r#template_law_instances: Vec<
         pse_relations::generated::r#authored::r#template_law_instances::Row,
     >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#template_law_contracts: Vec<
+        pse_relations::generated::r#authored::r#template_law_contracts::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#law_bindings: Vec<pse_relations::generated::r#reference::r#law_bindings::Row>,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#element_projection_contracts: Vec<
+        pse_relations::generated::r#reference::r#element_projection_contracts::Row,
+    >,
 }
 impl LawsDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#authored::r#templates::RELATION_ID)
+        let mut builder = pse_relations::generated::r#authored::r#templates::Builder::with_registry(
+            registry,
+            self.r#templates.len(),
+        )?;
+        for row in self.r#templates {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#templates::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#templates
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#templates::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_law_instances::Builder::with_registry(
+            registry,
+            self.r#template_law_instances.len(),
+        )?;
+        for row in self.r#template_law_instances {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_law_instances::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_law_instances
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_law_instances::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_law_contracts::Builder::with_registry(
+            registry,
+            self.r#template_law_contracts.len(),
+        )?;
+        for row in self.r#template_law_contracts {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_law_contracts::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#law_bindings::Builder::with_registry(
+            registry,
+            self.r#law_bindings.len(),
+        )?;
+        for row in self.r#law_bindings {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#law_bindings::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#element_projection_contracts::Builder::with_registry(
+            registry,
+            self.r#element_projection_contracts.len(),
+        )?;
+        for row in self.r#element_projection_contracts {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#element_projection_contracts::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -423,10 +662,23 @@ pub struct MaterialsDocument {
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
+    pub r#quantity_operation_reductions: Vec<
+        pse_relations::generated::r#reference::r#quantity_operation_reductions::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#quantity_preconditions: Vec<
+        pse_relations::generated::r#reference::r#quantity_preconditions::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
     pub r#constants: Vec<pse_relations::generated::r#reference::r#constants::Row>,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
     pub r#elements: Vec<pse_relations::generated::r#reference::r#elements::Row>,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#math_context: Vec<pse_relations::generated::r#reference::r#math_context::Row>,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
     pub r#domains: Vec<pse_relations::generated::r#authored::r#domains::Row>,
@@ -487,274 +739,349 @@ pub struct MaterialsDocument {
     >,
 }
 impl MaterialsDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#reference::r#dimensions::RELATION_ID)
+        let mut builder = pse_relations::generated::r#reference::r#dimensions::Builder::with_registry(
+            registry,
+            self.r#dimensions.len(),
+        )?;
+        for row in self.r#dimensions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#dimensions::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#dimensions
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#dimensions::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#units::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#units::Builder::with_registry(
+            registry,
+            self.r#units.len(),
+        )?;
+        for row in self.r#units {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#units::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#units
-                    .into_iter()
-                    .map(pse_relations::generated::r#reference::r#units::Row::into_cells),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#unit_sets::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#unit_sets::Builder::with_registry(
+            registry,
+            self.r#unit_sets.len(),
+        )?;
+        for row in self.r#unit_sets {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#unit_sets::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#unit_sets
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#unit_sets::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#quantity_kinds::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#quantity_kinds::Builder::with_registry(
+            registry,
+            self.r#quantity_kinds.len(),
+        )?;
+        for row in self.r#quantity_kinds {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#quantity_kinds::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#quantity_kinds
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#quantity_kinds::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#bases::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#bases::Builder::with_registry(
+            registry,
+            self.r#bases.len(),
+        )?;
+        for row in self.r#bases {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#bases::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#bases
-                    .into_iter()
-                    .map(pse_relations::generated::r#reference::r#bases::Row::into_cells),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#reference_states::Builder::with_registry(
+            registry,
+            self.r#reference_states.len(),
+        )?;
+        for row in self.r#reference_states {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#reference::r#reference_states::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#reference_states
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#reference_states::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#quantity_types::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#quantity_types::Builder::with_registry(
+            registry,
+            self.r#quantity_types.len(),
+        )?;
+        for row in self.r#quantity_types {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#quantity_types::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#quantity_types
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#quantity_types::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#conversion_rules::Builder::with_registry(
+            registry,
+            self.r#conversion_rules.len(),
+        )?;
+        for row in self.r#conversion_rules {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#reference::r#conversion_rules::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#conversion_rules
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#conversion_rules::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#quantity_operations::Builder::with_registry(
+            registry,
+            self.r#quantity_operations.len(),
+        )?;
+        for row in self.r#quantity_operations {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#reference::r#quantity_operations::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#quantity_operations
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#quantity_operations::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#constants::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#quantity_operation_reductions::Builder::with_registry(
+            registry,
+            self.r#quantity_operation_reductions.len(),
+        )?;
+        for row in self.r#quantity_operation_reductions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#quantity_operation_reductions::RELATION_ID,
+            )
             .or_default()
-            .extend(
-                self
-                    .r#constants
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#constants::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#elements::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#quantity_preconditions::Builder::with_registry(
+            registry,
+            self.r#quantity_preconditions.len(),
+        )?;
+        for row in self.r#quantity_preconditions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#quantity_preconditions::RELATION_ID,
+            )
             .or_default()
-            .extend(
-                self
-                    .r#elements
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#elements::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#domains::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#constants::Builder::with_registry(
+            registry,
+            self.r#constants.len(),
+        )?;
+        for row in self.r#constants {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#constants::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#domains
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#domains::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#domain_members::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#elements::Builder::with_registry(
+            registry,
+            self.r#elements.len(),
+        )?;
+        for row in self.r#elements {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#elements::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#domain_members
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#domain_members::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#math_context::Builder::with_registry(
+            registry,
+            self.r#math_context.len(),
+        )?;
+        for row in self.r#math_context {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#math_context::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#domains::Builder::with_registry(
+            registry,
+            self.r#domains.len(),
+        )?;
+        for row in self.r#domains {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#domains::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#domain_members::Builder::with_registry(
+            registry,
+            self.r#domain_members.len(),
+        )?;
+        for row in self.r#domain_members {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#domain_members::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#continuous_domains::Builder::with_registry(
+            registry,
+            self.r#continuous_domains.len(),
+        )?;
+        for row in self.r#continuous_domains {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#continuous_domains::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#continuous_domains
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#continuous_domains::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#species::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#species::Builder::with_registry(
+            registry,
+            self.r#species.len(),
+        )?;
+        for row in self.r#species {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#species::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#species
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#species::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#species_elements::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#species_elements::Builder::with_registry(
+            registry,
+            self.r#species_elements.len(),
+        )?;
+        for row in self.r#species_elements {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#species_elements::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#species_elements
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#species_elements::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#phases::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#phases::Builder::with_registry(
+            registry,
+            self.r#phases.len(),
+        )?;
+        for row in self.r#phases {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#phases::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#phases
-                    .into_iter()
-                    .map(pse_relations::generated::r#authored::r#phases::Row::into_cells),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#phase_species::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#phase_species::Builder::with_registry(
+            registry,
+            self.r#phase_species.len(),
+        )?;
+        for row in self.r#phase_species {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#phase_species::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#phase_species
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#phase_species::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#henry_declarations::Builder::with_registry(
+            registry,
+            self.r#henry_declarations.len(),
+        )?;
+        for row in self.r#henry_declarations {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#henry_declarations::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#henry_declarations
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#henry_declarations::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#material_systems::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#material_systems::Builder::with_registry(
+            registry,
+            self.r#material_systems.len(),
+        )?;
+        for row in self.r#material_systems {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#material_systems::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#material_systems
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#material_systems::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#reactions::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#reactions::Builder::with_registry(
+            registry,
+            self.r#reactions.len(),
+        )?;
+        for row in self.r#reactions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#reactions::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#reactions
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#reactions::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#stoichiometry::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#stoichiometry::Builder::with_registry(
+            registry,
+            self.r#stoichiometry.len(),
+        )?;
+        for row in self.r#stoichiometry {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#stoichiometry::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#stoichiometry
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#stoichiometry::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#reaction_methods::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#reaction_methods::Builder::with_registry(
+            registry,
+            self.r#reaction_methods.len(),
+        )?;
+        for row in self.r#reaction_methods {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#reaction_methods::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#reaction_methods
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#reaction_methods::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#reaction_packages::Builder::with_registry(
+            registry,
+            self.r#reaction_packages.len(),
+        )?;
+        for row in self.r#reaction_packages {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#reaction_packages::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#reaction_packages
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#reaction_packages::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#parameter_values::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#parameter_values::Builder::with_registry(
+            registry,
+            self.r#parameter_values.len(),
+        )?;
+        for row in self.r#parameter_values {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#parameter_values::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#parameter_values
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#parameter_values::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -769,40 +1096,189 @@ pub struct MethodsDocument {
     ///Typed rows under the declared relation contract.
     #[serde(default)]
     pub r#method_specs: Vec<pse_relations::generated::r#reference::r#method_specs::Row>,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#method_precedence: Vec<
+        pse_relations::generated::r#reference::r#method_precedence::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#method_dependencies: Vec<
+        pse_relations::generated::r#reference::r#method_dependencies::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#method_provisions: Vec<
+        pse_relations::generated::r#reference::r#method_provisions::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#method_parameters: Vec<
+        pse_relations::generated::r#reference::r#method_parameters::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#method_state_parameters: Vec<
+        pse_relations::generated::r#reference::r#method_state_parameters::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#method_parameter_axes: Vec<
+        pse_relations::generated::r#reference::r#method_parameter_axes::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#method_kernel_inputs: Vec<
+        pse_relations::generated::r#reference::r#method_kernel_inputs::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#kernel_specs: Vec<pse_relations::generated::r#reference::r#kernel_specs::Row>,
 }
 impl MethodsDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#reference::r#property_kinds::RELATION_ID)
+        let mut builder = pse_relations::generated::r#reference::r#property_kinds::Builder::with_registry(
+            registry,
+            self.r#property_kinds.len(),
+        )?;
+        for row in self.r#property_kinds {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#property_kinds::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#property_kinds
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#property_kinds::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#reference::r#method_specs::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_specs::Builder::with_registry(
+            registry,
+            self.r#method_specs.len(),
+        )?;
+        for row in self.r#method_specs {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#method_specs::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#method_specs
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#reference::r#method_specs::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_precedence::Builder::with_registry(
+            registry,
+            self.r#method_precedence.len(),
+        )?;
+        for row in self.r#method_precedence {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#method_precedence::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_dependencies::Builder::with_registry(
+            registry,
+            self.r#method_dependencies.len(),
+        )?;
+        for row in self.r#method_dependencies {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#method_dependencies::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_provisions::Builder::with_registry(
+            registry,
+            self.r#method_provisions.len(),
+        )?;
+        for row in self.r#method_provisions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#method_provisions::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_parameters::Builder::with_registry(
+            registry,
+            self.r#method_parameters.len(),
+        )?;
+        for row in self.r#method_parameters {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#method_parameters::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_state_parameters::Builder::with_registry(
+            registry,
+            self.r#method_state_parameters.len(),
+        )?;
+        for row in self.r#method_state_parameters {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#method_state_parameters::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_parameter_axes::Builder::with_registry(
+            registry,
+            self.r#method_parameter_axes.len(),
+        )?;
+        for row in self.r#method_parameter_axes {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#method_parameter_axes::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#method_kernel_inputs::Builder::with_registry(
+            registry,
+            self.r#method_kernel_inputs.len(),
+        )?;
+        for row in self.r#method_kernel_inputs {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#method_kernel_inputs::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#kernel_specs::Builder::with_registry(
+            registry,
+            self.r#kernel_specs.len(),
+        )?;
+        for row in self.r#kernel_specs {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#reference::r#kernel_specs::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package identity, exact dependencies and authored identity policy.
@@ -816,33 +1292,49 @@ pub struct PackageHeaderDocument {
     pub r#unit_sets: Vec<pse_relations::generated::r#authored::r#package_unit_sets::Row>,
 }
 impl PackageHeaderDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#authored::r#packages::RELATION_ID)
+        let mut builder = pse_relations::generated::r#authored::r#packages::Builder::with_registry(
+            registry,
+            1,
+        )?;
+        for row in std::iter::once(self.r#package) {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#packages::RELATION_ID)
             .or_default()
-            .extend(std::iter::once(self.r#package.into_cells()));
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#package_unit_sets::Builder::with_registry(
+            registry,
+            self.r#unit_sets.len(),
+        )?;
+        for row in self.r#unit_sets {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#package_unit_sets::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#unit_sets
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#package_unit_sets::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -874,74 +1366,86 @@ pub struct PropertiesDocument {
     >,
 }
 impl PropertiesDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(
+        let mut builder = pse_relations::generated::r#authored::r#property_packages::Builder::with_registry(
+            registry,
+            self.r#property_packages.len(),
+        )?;
+        for row in self.r#property_packages {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#property_packages::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#property_packages
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#property_packages::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#state_bounds::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#state_bounds::Builder::with_registry(
+            registry,
+            self.r#state_bounds.len(),
+        )?;
+        for row in self.r#state_bounds {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#state_bounds::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#state_bounds
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#state_bounds::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#phase_equilibrium_pairs::Builder::with_registry(
+            registry,
+            self.r#phase_equilibrium_pairs.len(),
+        )?;
+        for row in self.r#phase_equilibrium_pairs {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#phase_equilibrium_pairs::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#phase_equilibrium_pairs
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#phase_equilibrium_pairs::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#method_selections::Builder::with_registry(
+            registry,
+            self.r#method_selections.len(),
+        )?;
+        for row in self.r#method_selections {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#method_selections::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#method_selections
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#method_selections::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#default_scaling::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#default_scaling::Builder::with_registry(
+            registry,
+            self.r#default_scaling.len(),
+        )?;
+        for row in self.r#default_scaling {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#default_scaling::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#default_scaling
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#default_scaling::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
 ///Package sections use declared relation fields; identity and provenance are resolved before typed decoding.
@@ -978,8 +1482,38 @@ pub struct TemplatesDocument {
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
+    pub r#template_domain_bindings: Vec<
+        pse_relations::generated::r#authored::r#template_domain_bindings::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#template_material_constraints: Vec<
+        pse_relations::generated::r#authored::r#template_material_constraints::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
     pub r#template_symbols: Vec<
         pse_relations::generated::r#authored::r#template_symbols::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#template_symbol_contracts: Vec<
+        pse_relations::generated::r#authored::r#template_symbol_contracts::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#template_derivatives: Vec<
+        pse_relations::generated::r#authored::r#template_derivatives::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#template_scopes: Vec<
+        pse_relations::generated::r#authored::r#template_scopes::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#template_symbol_expressions: Vec<
+        pse_relations::generated::r#authored::r#template_symbol_expressions::Row,
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
@@ -1003,13 +1537,28 @@ pub struct TemplatesDocument {
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
+    pub r#template_port_members: Vec<
+        pse_relations::generated::r#authored::r#template_port_members::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
     pub r#template_contributions: Vec<
         pse_relations::generated::r#authored::r#template_contributions::Row,
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
+    pub r#template_contribution_contracts: Vec<
+        pse_relations::generated::r#authored::r#template_contribution_contracts::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
     pub r#template_law_instances: Vec<
         pse_relations::generated::r#authored::r#template_law_instances::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#template_law_contracts: Vec<
+        pse_relations::generated::r#authored::r#template_law_contracts::Row,
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
@@ -1023,250 +1572,497 @@ pub struct TemplatesDocument {
     >,
     ///Typed rows under the declared relation contract.
     #[serde(default)]
+    pub r#template_display_indices: Vec<
+        pse_relations::generated::r#authored::r#template_display_indices::Row,
+    >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
     pub r#template_property_requirements: Vec<
         pse_relations::generated::r#authored::r#template_property_requirements::Row,
     >,
+    ///Typed rows under the declared relation contract.
+    #[serde(default)]
+    pub r#connection_bindings: Vec<
+        pse_relations::generated::r#reference::r#connection_bindings::Row,
+    >,
 }
 impl TemplatesDocument {
-    /// Converts admitted document fields into the exact declared relation rows.
-    pub fn into_rows(
+    /// Projects strict document fields directly into generated Arrow columns.
+    /// This establishes local field construction, not keys or foreign keys.
+    /// # Errors
+    /// An incompatible declaration or invalid scalar/nested field value.
+    pub fn into_batches(
         self,
-    ) -> std::collections::BTreeMap<
-        pse_ids::SemanticId,
-        Vec<Vec<pse_schema::model::Cell>>,
-    > {
-        let mut rows: std::collections::BTreeMap<
+        registry: &pse_schema::Registry,
+    ) -> Result<
+        std::collections::BTreeMap<
             pse_ids::SemanticId,
-            Vec<Vec<pse_schema::model::Cell>>,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        pse_relations::RelationError,
+    > {
+        let mut batches: std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
         > = std::collections::BTreeMap::new();
-        rows.entry(pse_relations::generated::r#authored::r#templates::RELATION_ID)
+        let mut builder = pse_relations::generated::r#authored::r#templates::Builder::with_registry(
+            registry,
+            self.r#templates.len(),
+        )?;
+        for row in self.r#templates {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#templates::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#templates
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#templates::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#template_params::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_params::Builder::with_registry(
+            registry,
+            self.r#template_params.len(),
+        )?;
+        for row in self.r#template_params {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#template_params::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#template_params
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_params::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_features::Builder::with_registry(
+            registry,
+            self.r#template_features.len(),
+        )?;
+        for row in self.r#template_features {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_features::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_features
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_features::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_feature_rules::Builder::with_registry(
+            registry,
+            self.r#template_feature_rules.len(),
+        )?;
+        for row in self.r#template_feature_rules {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_feature_rules::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_feature_rules
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_feature_rules::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#template_guards::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_guards::Builder::with_registry(
+            registry,
+            self.r#template_guards.len(),
+        )?;
+        for row in self.r#template_guards {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#template_guards::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#template_guards
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_guards::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#template_domains::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_domains::Builder::with_registry(
+            registry,
+            self.r#template_domains.len(),
+        )?;
+        for row in self.r#template_domains {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#template_domains::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#template_domains
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_domains::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#template_symbols::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_domain_bindings::Builder::with_registry(
+            registry,
+            self.r#template_domain_bindings.len(),
+        )?;
+        for row in self.r#template_domain_bindings {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_domain_bindings::RELATION_ID,
+            )
             .or_default()
-            .extend(
-                self
-                    .r#template_symbols
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_symbols::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_material_constraints::Builder::with_registry(
+            registry,
+            self.r#template_material_constraints.len(),
+        )?;
+        for row in self.r#template_material_constraints {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_material_constraints::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_symbols::Builder::with_registry(
+            registry,
+            self.r#template_symbols.len(),
+        )?;
+        for row in self.r#template_symbols {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#template_symbols::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_symbol_contracts::Builder::with_registry(
+            registry,
+            self.r#template_symbol_contracts.len(),
+        )?;
+        for row in self.r#template_symbol_contracts {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_symbol_contracts::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_derivatives::Builder::with_registry(
+            registry,
+            self.r#template_derivatives.len(),
+        )?;
+        for row in self.r#template_derivatives {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_derivatives::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_scopes::Builder::with_registry(
+            registry,
+            self.r#template_scopes.len(),
+        )?;
+        for row in self.r#template_scopes {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#template_scopes::RELATION_ID)
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_symbol_expressions::Builder::with_registry(
+            registry,
+            self.r#template_symbol_expressions.len(),
+        )?;
+        for row in self.r#template_symbol_expressions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_symbol_expressions::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_symbol_properties::Builder::with_registry(
+            registry,
+            self.r#template_symbol_properties.len(),
+        )?;
+        for row in self.r#template_symbol_properties {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_symbol_properties::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_symbol_properties
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_symbol_properties::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_equations::Builder::with_registry(
+            registry,
+            self.r#template_equations.len(),
+        )?;
+        for row in self.r#template_equations {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_equations::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_equations
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_equations::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_submodels::Builder::with_registry(
+            registry,
+            self.r#template_submodels.len(),
+        )?;
+        for row in self.r#template_submodels {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_submodels::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_submodels
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_submodels::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#template_ports::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_ports::Builder::with_registry(
+            registry,
+            self.r#template_ports.len(),
+        )?;
+        for row in self.r#template_ports {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#template_ports::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#template_ports
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_ports::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_port_members::Builder::with_registry(
+            registry,
+            self.r#template_port_members.len(),
+        )?;
+        for row in self.r#template_port_members {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_port_members::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_contributions::Builder::with_registry(
+            registry,
+            self.r#template_contributions.len(),
+        )?;
+        for row in self.r#template_contributions {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_contributions::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_contributions
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_contributions::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_contribution_contracts::Builder::with_registry(
+            registry,
+            self.r#template_contribution_contracts.len(),
+        )?;
+        for row in self.r#template_contribution_contracts {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_contribution_contracts::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_law_instances::Builder::with_registry(
+            registry,
+            self.r#template_law_instances.len(),
+        )?;
+        for row in self.r#template_law_instances {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_law_instances::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_law_instances
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_law_instances::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_law_contracts::Builder::with_registry(
+            registry,
+            self.r#template_law_contracts.len(),
+        )?;
+        for row in self.r#template_law_contracts {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_law_contracts::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_requirements::Builder::with_registry(
+            registry,
+            self.r#template_requirements.len(),
+        )?;
+        for row in self.r#template_requirements {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_requirements::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_requirements
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_requirements::Row::into_cells,
-                    ),
-            );
-        rows.entry(pse_relations::generated::r#authored::r#template_display::RELATION_ID)
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_display::Builder::with_registry(
+            registry,
+            self.r#template_display.len(),
+        )?;
+        for row in self.r#template_display {
+            builder.push(row)?;
+        }
+        batches
+            .entry(pse_relations::generated::r#authored::r#template_display::RELATION_ID)
             .or_default()
-            .extend(
-                self
-                    .r#template_display
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_display::Row::into_cells,
-                    ),
-            );
-        rows.entry(
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_display_indices::Builder::with_registry(
+            registry,
+            self.r#template_display_indices.len(),
+        )?;
+        for row in self.r#template_display_indices {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#authored::r#template_display_indices::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#authored::r#template_property_requirements::Builder::with_registry(
+            registry,
+            self.r#template_property_requirements.len(),
+        )?;
+        for row in self.r#template_property_requirements {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
                 pse_relations::generated::r#authored::r#template_property_requirements::RELATION_ID,
             )
             .or_default()
-            .extend(
-                self
-                    .r#template_property_requirements
-                    .into_iter()
-                    .map(
-                        pse_relations::generated::r#authored::r#template_property_requirements::Row::into_cells,
-                    ),
-            );
-        rows
+            .push(builder.finish()?);
+        let mut builder = pse_relations::generated::r#reference::r#connection_bindings::Builder::with_registry(
+            registry,
+            self.r#connection_bindings.len(),
+        )?;
+        for row in self.r#connection_bindings {
+            builder.push(row)?;
+        }
+        batches
+            .entry(
+                pse_relations::generated::r#reference::r#connection_bindings::RELATION_ID,
+            )
+            .or_default()
+            .push(builder.finish()?);
+        Ok(batches)
     }
 }
-/// Deserializes one declared document shape without a second dispatch inventory.
+/// Deserializes one declared document directly into generated column builders.
 /// # Errors
-/// Unknown document names and all strict serde shape/type violations.
-pub fn rows_from_document<'de, D: serde::Deserializer<'de>>(
+/// Unknown document kinds, strict serde shape errors and invalid field values.
+pub fn batches_from_document<'de, D: serde::Deserializer<'de>>(
     name: &str,
     deserializer: D,
+    registry: &pse_schema::Registry,
 ) -> Result<
-    std::collections::BTreeMap<pse_ids::SemanticId, Vec<Vec<pse_schema::model::Cell>>>,
-    D::Error,
+    std::collections::BTreeMap<
+        pse_ids::SemanticId,
+        Vec<pse_relations::columnar::FieldCheckedBatch>,
+    >,
+    crate::AuthoringError,
 > {
     match name {
         "assertions" => {
-            <AssertionsDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(AssertionsDocument::into_rows)
+            let document = <AssertionsDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "cases" => {
-            <CasesDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(CasesDocument::into_rows)
+            let document = <CasesDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "costing" => {
-            <CostingDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(CostingDocument::into_rows)
+            let document = <CostingDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
+        }
+        "instances" => {
+            let document = <InstancesDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "laws" => {
-            <LawsDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(LawsDocument::into_rows)
+            let document = <LawsDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "materials" => {
-            <MaterialsDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(MaterialsDocument::into_rows)
+            let document = <MaterialsDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "methods" => {
-            <MethodsDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(MethodsDocument::into_rows)
+            let document = <MethodsDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "package_header" => {
-            <PackageHeaderDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(PackageHeaderDocument::into_rows)
+            let document = <PackageHeaderDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "properties" => {
-            <PropertiesDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(PropertiesDocument::into_rows)
+            let document = <PropertiesDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
         "templates" => {
-            <TemplatesDocument as serde::Deserialize>::deserialize(deserializer)
-                .map(TemplatesDocument::into_rows)
+            let document = <TemplatesDocument as serde::Deserialize>::deserialize(
+                    deserializer,
+                )
+                .map_err(|error| crate::AuthoringError::Contract {
+                    at: None,
+                    reason: error.to_string(),
+                })?;
+            Ok(document.into_batches(registry)?)
         }
-        _ => Err(serde::de::Error::custom(format!("unknown document kind {name}"))),
+        _ => {
+            Err(crate::AuthoringError::Contract {
+                at: None,
+                reason: format!("unknown document kind {name}"),
+            })
+        }
     }
 }

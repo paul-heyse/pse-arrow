@@ -175,13 +175,13 @@ pub enum QuantityError {
     },
 
     /// Two complete quantity types could not be combined.
-    #[error("incompatible quantity types ({reason}) across {} operands", .operands.len())]
+    #[error("incompatible quantity types ({reason}): {}", operand_contracts(.operands))]
     #[diagnostic(code(compile::math::unit_inconsistent))]
     Incompatible {
         /// Which component, or which origin-sensitive rule, refused.
         reason: IncompatibilityReason,
-        /// The operand types, in argument order.
-        operands: Vec<QuantityTypeId>,
+        /// Actual operand quantity and free-index contracts, in argument order.
+        operands: Vec<(QuantityTypeId, crate::IndexSet)>,
         /// A registered conversion that would make the operands compatible, when one
         /// exists; the author has to ask for it explicitly (§8.4).
         hint: Option<ConversionId>,
@@ -244,6 +244,21 @@ pub enum QuantityError {
         /// The identity that does not resolve.
         id: SemanticId,
     },
+}
+
+fn operand_contracts(operands: &[(QuantityTypeId, crate::IndexSet)]) -> String {
+    operands
+        .iter()
+        .map(|(quantity, indices)| {
+            let axes = indices
+                .iter()
+                .map(|index| format!("{}@{}:{}", index.bound_index, index.domain, index.kind))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{quantity}[{axes}]")
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 #[cfg(test)]

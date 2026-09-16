@@ -195,6 +195,7 @@ fn classify_borrowed(error: &DataFusionError, origin: PlanOrigin) -> Vec<Catalog
 fn copy_platform_diagnostic(error: &CatalogError) -> CatalogError {
     match error {
         CatalogError::Semantic(source) => CatalogError::Semantic(Arc::clone(source)),
+        CatalogError::Relation(source) => CatalogError::Relation(Arc::clone(source)),
         CatalogError::Multiple { errors } => CatalogError::Multiple {
             errors: errors.iter().map(copy_platform_diagnostic).collect(),
         },
@@ -222,6 +223,10 @@ fn copy_platform_diagnostic(error: &CatalogError) -> CatalogError {
             actual: actual.clone(),
         },
         CatalogError::RefConflict { name } => CatalogError::RefConflict { name: name.clone() },
+        CatalogError::Publication { outcomes, source } => CatalogError::Publication {
+            outcomes: outcomes.clone(),
+            source: Box::new(copy_platform_diagnostic(source)),
+        },
         CatalogError::ManifestInvalid { reason } => CatalogError::ManifestInvalid {
             reason: reason.clone(),
         },

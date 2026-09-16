@@ -18,6 +18,7 @@ pub(super) async fn validate(
     kind: SnapshotKind,
     context: &AdmissionContext,
     candidates: &BTreeMap<RelationKey, RecordBatch>,
+    sessions: &pse_catalog::session::SessionFactory,
     cancel: &CancellationToken,
 ) -> Result<(), CompilerError> {
     let registry = catalog.registry();
@@ -33,9 +34,15 @@ pub(super) async fn validate(
             }
         }
     }
-    let documents = inputs::documents(catalog, &rows, cancel).await?;
-    pse_authoring::p0::resolve(documents.bundles(), registry)?;
+    let documents = inputs::documents(catalog, &rows, cancel)?;
+    let session = sessions.candidate(rows.clone(), std::sync::Arc::clone(registry), cancel)?;
+    let source = pse_authoring::p1::source_batches(documents.bundles(), registry)?;
+    let packages = source
+        .get(&authored::packages::RELATION_ID)
+        .ok_or_else(|| invalid("source package headers absent"))?;
+    pse_authoring::p0::resolve(packages, &session, cancel).await?;
     let base = BaseReader {
+        checked: None,
         revision: SemanticId::NIL,
         rows: inputs::primitive_rows(&rows, registry),
         documents: documents.clone(),
@@ -50,10 +57,10 @@ pub(super) async fn validate(
             message: "compare exact source projection".to_owned(),
             created_at: 0,
         },
-        registry,
-        catalog.reserver().as_ref(),
+        &session,
         cancel,
-    )?;
+    )
+    .await?;
     let class = match kind {
         SnapshotKind::Model => SnapshotClass::Model,
         SnapshotKind::Case => SnapshotClass::Case,

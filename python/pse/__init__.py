@@ -14,7 +14,7 @@ Importing this package has three deliberate side effects and no others:
 * every generated contract class is linted for ``typing.Any``, bare ``dict``
   and bare ``list`` fields, which are the ways a contract stops constraining
   anything;
-* nothing else. In particular numpy, scipy, pyomo, pint, pandas and idaes are
+* nothing else. In particular numpy, scipy, pyomo, pint and idaes are
   *not* imported -- a test asserts that in a subprocess. The numpy boundary is
   :mod:`pse._array`, which imports numpy lazily.
 
@@ -32,14 +32,30 @@ import subprocess
 import msgspec
 
 from pse import governance
-from pse._build import BuildInfo, build_info, native_version
+from pse._build import (
+    BuildInfo,
+    EngineSettings,
+    InspectionError,
+    build_info,
+    native_version,
+)
+from pse._inspection import ResourceUsage, Snapshot, Store, TableStream, open
+from pse._transfer import FieldTransfer
 from pse.contracts import extension_types
 
 __all__ = [
     "BuildInfo",
+    "EngineSettings",
+    "FieldTransfer",
     "HostCapabilities",
+    "InspectionError",
+    "ResourceUsage",
+    "Snapshot",
+    "Store",
+    "TableStream",
     "__version__",
     "build_info",
+    "open",
     "probe_host",
 ]
 

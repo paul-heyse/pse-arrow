@@ -46,7 +46,7 @@ pub(super) fn render(reg: &Registry) -> Result<String, SchemaError> {
         };
         let _ = writeln!(
             source,
-            "\n\nclass {name}(_PseExtensionType):\n    \"\"\"The declared {} extension.\"\"\"\n\n    _extension_name = {:?}\n    _storage_type = {storage}\n    _metadata_version = {}\n    _binding_key = {binding}\n    _prototype_binding = {prototype}",
+            "\n\nclass {name}(_PseExtensionType):\n    \"\"\"The declared {} extension.\"\"\"\n\n    _extension_name = {:?}\n    _metadata_version = {}\n    _binding_key = {binding}\n    _prototype_binding = {prototype}\n\n    @classmethod\n    def _declared_storage(cls) -> pa.DataType:\n        return {storage}",
             extension.name, extension.name, extension.metadata_version
         );
         classes.push(name);
@@ -63,11 +63,44 @@ pub(super) fn render(reg: &Registry) -> Result<String, SchemaError> {
 }
 
 fn field(field: &Field) -> Result<String, SchemaError> {
+    let mut metadata = field
+        .metadata()
+        .iter()
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let data_type =
+        if let Some(name) = metadata.remove(&crate::arrow::KEY_EXTENSION_NAME.to_owned()) {
+            let encoded = metadata
+                .remove(&crate::arrow::KEY_EXTENSION_METADATA.to_owned())
+                .ok_or_else(|| super::error("nested extension lacks metadata".to_owned()))?;
+            let class = format!("Pse{}", pascal(name.trim_start_matches("pse.")));
+            let spec = EXTENSION_TYPES
+                .iter()
+                .find(|spec| spec.name == name)
+                .ok_or_else(|| super::error(format!("unknown nested extension {name}")))?;
+            let value: serde_json::Value =
+                serde_json::from_str(encoded).map_err(|error| super::error(error.to_string()))?;
+            let argument = spec
+                .metadata
+                .id_key()
+                .map(|key| {
+                    value
+                        .get(key)
+                        .and_then(serde_json::Value::as_str)
+                        .map(|value| format!("{value:?}"))
+                        .ok_or_else(|| super::error(format!("nested extension lacks {key}")))
+                })
+                .transpose()?
+                .unwrap_or_default();
+            format!("{class}({argument})")
+        } else {
+            storage(field.data_type())?
+        };
     Ok(format!(
-        "pa.field({:?}, {}, nullable={})",
+        "pa.field({:?}, {}, nullable={}, metadata={})",
         field.name(),
-        storage(field.data_type())?,
-        if field.is_nullable() { "True" } else { "False" }
+        data_type,
+        if field.is_nullable() { "True" } else { "False" },
+        serde_json::to_string(&metadata).map_err(|error| super::error(error.to_string()))?
     ))
 }
 

@@ -31,6 +31,18 @@ pub mod validator;
 
 pub use crate::error::CompilerError;
 pub use crate::passes::{
-    BoundInput, ExternalInputs, InputBundle, Pass, PassContext, PassOutput, PassRecordDraft,
-    PassStatus, PolicySet, StageKey,
+    BoundInput, InputBundle, Pass, PassContext, PassStatus, PolicySet, StageKey,
 };
+
+/// Compose native process inference with Delta operations for the actual caller.
+/// Further domain planners can be composed through `UnifiedPlanner::new`.
+#[must_use]
+pub fn query_planner() -> std::sync::Arc<pse_catalog::session::planner::UnifiedPlanner> {
+    std::sync::Arc::new(pse_catalog::session::planner::UnifiedPlanner::new(vec![
+        std::sync::Arc::new(pse_rules::strata::native::RuleExtensionPlanner),
+    ]))
+}
+
+// Generated formatting is owned by the registry's pinned prettyplease emitter.
+#[rustfmt::skip]
+mod generated;

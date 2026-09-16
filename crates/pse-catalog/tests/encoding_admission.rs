@@ -10,8 +10,7 @@ use pse_ids::{CancellationToken, Envelope, FixedBudget, SemanticId};
 use pse_schema::Registry;
 use pse_schema::builder::RegistryBuilder;
 use pse_schema::model::{
-    Authority, Cell, ColumnSpec, EnumDecl, EnumMember, LogicalType, Namespace, RelationDecl,
-    SnapshotClass,
+    Authority, Cell, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl, SnapshotClass,
 };
 
 fn fixture() -> Registry {
@@ -31,9 +30,14 @@ fn fixture() -> Registry {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::id(), "identity"),
-            ColumnSpec::payload("choice", LogicalType::enumeration("Choice"), "choice"),
-            ColumnSpec::payload("text", LogicalType::Text, "text").optional(),
+            FieldContract::key("id", FieldContract::id(), "identity"),
+            FieldContract::payload("choice", FieldContract::enumeration("Choice"), "choice"),
+            FieldContract::payload(
+                "text",
+                FieldContract::native(datafusion::arrow::datatypes::DataType::Utf8),
+                "text",
+            )
+            .optional(),
         ]),
     );
     builder.build().unwrap()
@@ -161,7 +165,7 @@ fn truncated_and_schema_mislabeled_ipc_fail_without_hash_admission() {
         );
     }
     let mut forged = spec.clone();
-    forged.columns[1].nullable = true;
+    forged.columns[1] = forged.columns[1].clone().optional();
     assert!(
         pse_catalog::store::verify::ipc_file(
             &encoded.bytes,

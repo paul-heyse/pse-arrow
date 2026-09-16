@@ -2,8 +2,8 @@
 # Copyright (c) 2026 Paul Heyse
 """Fixtures for the Python boundary tests (plan §5).
 
-The four fixtures here encode invariants that no single test owns: the golden
-stores are read-only and produced by Rust, the extension types are registered,
+These fixtures encode invariants that no single test owns: current inspection
+stores are produced by Rust, the extension types are registered,
 ``import pse`` stays free of the scientific stack, and the built extension
 belongs to this checkout.
 """
@@ -27,7 +27,13 @@ from pse.contracts.extension_types import EXTENSION_NAMES
 #: `import pyarrow` already costs is the baseline, and `import pse` must add
 #: nothing to it. `pse._array` is watched alongside because it is the module
 #: whose import *would* be ours, and the crisp statement of the invariant.
-FORBIDDEN_ON_IMPORT = ("numpy", "scipy", "pyomo", "pint", "idaes", "pandas")
+#:
+#: Each name here answers to a live import-linter contract in `pyproject.toml`:
+#: numpy/scipy to the array boundary, pyomo/pint to the adapter, idaes to the
+#: parity environment. `pandas` was dropped with the dependency-hygiene contract
+#: that held it (ADR-0066) -- this tuple is an import-COST check against those
+#: boundaries, not a list of libraries the project may not use.
+FORBIDDEN_ON_IMPORT = ("numpy", "scipy", "pyomo", "pint", "idaes")
 WATCHED_ON_IMPORT = (*FORBIDDEN_ON_IMPORT, "pse._array")
 
 #: Repository root: python/pse/tests/conftest.py -> pse-arrow/
@@ -35,46 +41,16 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture(scope="session")
-def golden_root() -> Path:
-    """Locate the golden stores.
-
-    Returns:
-        The directory ``cargo xtask golden`` writes to, honouring
-        ``PSE_GOLDEN_DIR`` from ``.envrc``.
-    """
-    configured = os.environ.get("PSE_GOLDEN_DIR")
-    return Path(configured) if configured else REPO_ROOT / "tests" / "golden"
-
-
-@pytest.fixture
-def golden(request: pytest.FixtureRequest, golden_root: Path) -> Path:
-    """Open the golden store named by the test's ``golden(name)`` marker.
-
-    Golden stores are produced by ``cargo xtask golden`` and are read-only from
-    Python: a Python test that could rewrite the oracle is not an oracle.
-
-    Args:
-        request: The requesting test, whose ``golden`` marker names the store.
-        golden_root: Where the stores live.
-
-    Returns:
-        The store's directory.
-    """
-    marker = request.node.get_closest_marker("golden")
-    if marker is None or not marker.args:
+def native_inspection_store() -> Path:
+    """Read the fresh store produced before workers start by ``just py-test``."""
+    configured = os.environ.get("PSE_INSPECTION_STORE")
+    if configured is None:
         pytest.fail(
-            "the `golden` fixture requires @pytest.mark.golden(<name>) on the test",
-            pytrace=False,
+            "Run just py-test to build a fresh native inspection store.", pytrace=False
         )
-    name = str(marker.args[0])
-    store = golden_root / name
-    if not store.is_dir():
-        pytest.fail(
-            f"golden store {name!r} is missing at {store}. Golden stores are "
-            "produced by `cargo xtask golden` (Rust writes them, Python only "
-            "reads them); none exist in phase 0.",
-            pytrace=False,
-        )
+    store = Path(configured)
+    if not (store / "store-index.json").is_file():
+        pytest.fail(f"Native inspection store is incomplete: {store}", pytrace=False)
     return store
 
 
@@ -126,8 +102,9 @@ def no_numpy_on_import() -> frozenset[str]:
     leaked = after_pse - baseline - {"pse._array"}
     assert not leaked, (
         f"`import pse` imported {sorted(leaked)} beyond what `import pyarrow` "
-        "already costs; numpy, scipy, pyomo, pint, idaes and pandas are not "
-        "platform dependencies (blueprint §3.1, §21.6)"
+        "already costs; numpy and scipy live at the array boundary, pyomo and "
+        "pint in the adapter, and idaes in the parity environment "
+        "(blueprint §3.1, §21.6)"
     )
     return leaked
 

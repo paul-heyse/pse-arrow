@@ -16,14 +16,16 @@ use pse_ids::{CancellationToken, FixedBudget};
 use std::sync::Arc;
 
 fn open(directory: &std::path::Path, budget: &Arc<FixedBudget>) -> Catalog {
-    Catalog::open_local(
-        directory,
-        support::registry(),
-        TrustLevel::Untrusted,
-        Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        budget.clone(),
+    support::with_invariants(
+        Catalog::open_local(
+            directory,
+            support::registry(),
+            TrustLevel::Untrusted,
+            Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
+            support::session_factory::factory(budget.clone()),
+        )
+        .expect("local catalog"),
     )
-    .expect("local catalog")
 }
 
 #[tokio::test]

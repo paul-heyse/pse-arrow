@@ -112,11 +112,13 @@ pub enum Function {
     Convert,
     /// Alternating ordered weight/value pairs.
     WeightedMean,
+    /// Add one explicitly named lexical index to a value.
+    Broadcast,
 }
 
 impl Function {
     /// All function spellings paired with their syntax variant.
-    pub const SPELLINGS: [(&'static str, Self); 19] = [
+    pub const SPELLINGS: [(&'static str, Self); 20] = [
         ("exp", Self::Exp),
         ("log", Self::Log),
         ("log10", Self::Log10),
@@ -136,6 +138,7 @@ impl Function {
         ("max", Self::Max),
         ("convert", Self::Convert),
         ("weighted_mean", Self::WeightedMean),
+        ("broadcast", Self::Broadcast),
     ];
     /// Resolve one exact authored spelling.
     pub fn parse(name: &str) -> Option<Self> {

@@ -5,7 +5,7 @@
 
 use super::declarations::{column, relation};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.8 symbol contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -28,20 +28,30 @@ fn declare_compiled_symbols(builder: &mut RegistryBuilder) {
         &["symbol_id"],
         vec![
             column("symbol_id", T::id()),
-            column("ordinal", T::U64),
+            column("ordinal", T::native(arrow_schema::DataType::UInt64)),
             column("owner_instance_id", T::id()),
             column("symbol_decl_id", T::id()),
-            column("qualified_name", T::Text),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)),
+            column("qualified_name", T::native(arrow_schema::DataType::Utf8)),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)),
             column("quantity_type_id", T::id()),
             column("unit_id", T::id()),
             column("role", T::enumeration("SymbolRole")),
             column("solver_type", T::enumeration("SolverVariableType")),
             column("semantic_role", T::enumeration("VariableSemanticRole")),
             column("lifecycle", T::enumeration("VariableLifecycle")),
-            column("default_lower", T::Ext(crate::model::ExtensionUse::Bound)),
-            column("default_upper", T::Ext(crate::model::ExtensionUse::Bound)),
-            column("default_initial", T::F64).optional(),
+            column(
+                "default_lower",
+                T::extended(crate::model::ExtensionUse::Bound),
+            ),
+            column(
+                "default_upper",
+                T::extended(crate::model::ExtensionUse::Bound),
+            ),
+            column(
+                "default_initial",
+                T::native(arrow_schema::DataType::Float64),
+            )
+            .optional(),
             column("derivation_id", T::id()),
         ],
         "blueprint §6.8 symbol: symbols.",
@@ -74,7 +84,7 @@ fn declare_compiled_symbol_groups(builder: &mut RegistryBuilder) {
         vec![
             column("group_id", T::id()),
             column("owner_instance_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("product_id", T::id()),
         ],
         "blueprint §6.8 symbol: symbol_groups.",
@@ -90,7 +100,7 @@ fn declare_compiled_symbol_group_members(builder: &mut RegistryBuilder) {
         &["group_id", "tuple"],
         vec![
             column("group_id", T::id()),
-            column("tuple", T::Ext(crate::model::ExtensionUse::IndexTuple)),
+            column("tuple", T::extended(crate::model::ExtensionUse::IndexTuple)),
             column("symbol_id", T::id()),
         ],
         "blueprint §6.8 symbol: symbol_group_members.",
@@ -126,6 +136,7 @@ fn declare_variable_lifecycle_vocabulary(builder: &mut RegistryBuilder) {
         "VariableLifecycle",
         [
             "authored",
+            "generated_semantic",
             "generated_discretization",
             "generated_reformulation",
             "generated_relaxation",

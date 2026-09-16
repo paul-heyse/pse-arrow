@@ -13,12 +13,12 @@ use datafusion::execution::{
 use datafusion::logical_expr::LogicalPlanBuilder;
 use pse_catalog::session::{
     ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
-    phase0_reference_profile,
+    native_engine_profile,
 };
 use pse_ids::{CancellationToken, FixedBudget, MemoryReserver};
 use pse_schema::{
     RegistryBuilder,
-    model::{Authority, Cell, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
@@ -41,8 +41,16 @@ fn fixture() -> (SnapshotSession, RecordBatch, Arc<FixedBudget>) {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::U64, "Key."),
-            ColumnSpec::payload("label", LogicalType::Text, "Value."),
+            FieldContract::key(
+                "id",
+                FieldContract::native(datafusion::arrow::datatypes::DataType::UInt64),
+                "Key.",
+            ),
+            FieldContract::payload(
+                "label",
+                FieldContract::native(datafusion::arrow::datatypes::DataType::Utf8),
+                "Value.",
+            ),
         ]),
     );
     let registry = Arc::new(builder.build().expect("registry"));
@@ -73,7 +81,7 @@ fn fixture() -> (SnapshotSession, RecordBatch, Arc<FixedBudget>) {
             pool_threads: thread,
             target_partitions: thread,
         },
-        phase0_reference_profile(),
+        native_engine_profile(),
     )
     .expect("session");
     (session, batch, budget)

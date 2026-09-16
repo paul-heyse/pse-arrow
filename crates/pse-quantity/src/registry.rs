@@ -14,7 +14,7 @@ use crate::reference_state::ReferenceState;
 use crate::unit::Unit;
 use crate::unit_set::UnitSet;
 use crate::{
-    BasisId, BasisKind, BasisRule, ConversionId, ConversionKind, Opcode, OperationId,
+    BasisId, BasisKind, BasisRule, ConversionId, ConversionKind, DomainKind, Opcode, OperationId,
     QuantityAdditionKind, QuantityError, QuantityKindId, QuantityScaleRule, QuantityShapeRule,
     QuantityTypeId, ReferenceRule, ReferenceStateId, ScaleKind, SubjectKind, SubjectRule, UnitId,
     UnitSetId,
@@ -32,6 +32,7 @@ pub struct QuantityRegistryBuilder {
     quantity_types: Vec<QuantityType>,
     conversions: Vec<ConversionRule>,
     operations: Vec<QuantityOperation>,
+    reduction_domains: Vec<(OperationId, DomainKind)>,
     unit_sets: Vec<UnitSet>,
     neutral: Vec<QuantityTypeId>,
 }
@@ -56,6 +57,11 @@ impl QuantityRegistryBuilder {
     add_declaration!(quantity_type, quantity_types, QuantityType);
     add_declaration!(conversion, conversions, ConversionRule);
     add_declaration!(operation, operations, QuantityOperation);
+    /// Declare the exact domain kind consumed by a registered index reduction.
+    pub fn reduction_domain(&mut self, operation: OperationId, domain: DomainKind) -> &mut Self {
+        self.reduction_domains.push((operation, domain));
+        self
+    }
     add_declaration!(unit_set, unit_sets, UnitSet);
     /// Explicitly bind the package's neutral scalar type; dimension equality cannot pick it.
     pub fn neutral_dimensionless(&mut self, id: QuantityTypeId) -> &mut Self {
@@ -87,6 +93,14 @@ impl QuantityRegistryBuilder {
             quantity_types: index(self.quantity_types, |x| x.id, "quantity_type")?,
             conversions: index(self.conversions, |x| x.id, "conversion")?,
             operations: index(self.operations, |x| x.id, "operation")?,
+            reduction_domains: index(
+                self.reduction_domains,
+                |x| x.0,
+                "operation.reduction_domain",
+            )?
+            .into_iter()
+            .map(|(id, (_, kind))| (id, kind))
+            .collect(),
             unit_sets: index(self.unit_sets, |x| x.id, "unit_set")?,
             neutral,
         };
@@ -104,6 +118,7 @@ pub struct QuantityRegistry {
     quantity_types: BTreeMap<QuantityTypeId, QuantityType>,
     conversions: BTreeMap<ConversionId, ConversionRule>,
     operations: BTreeMap<OperationId, QuantityOperation>,
+    reduction_domains: BTreeMap<OperationId, DomainKind>,
     unit_sets: BTreeMap<UnitSetId, UnitSet>,
     neutral: Option<QuantityTypeId>,
 }
@@ -134,6 +149,11 @@ impl QuantityRegistry {
             quantity_types: self.quantity_types.values().cloned().collect(),
             conversions: self.conversions.values().cloned().collect(),
             operations: self.operations.values().cloned().collect(),
+            reduction_domains: self
+                .reduction_domains
+                .iter()
+                .map(|(id, kind)| (*id, *kind))
+                .collect(),
             unit_sets: self.unit_sets.values().cloned().collect(),
             neutral: self.neutral.into_iter().collect(),
         }
@@ -150,6 +170,16 @@ impl QuantityRegistry {
     lookup!(quantity_type, quantity_types, QuantityTypeId, QuantityType);
     lookup!(conversion, conversions, ConversionId, ConversionRule);
     lookup!(operation, operations, OperationId, QuantityOperation);
+    /// Exact admitted reduction dispatch contract, separate from applicability preconditions.
+    pub fn reduction_domain(&self, operation: OperationId) -> Option<DomainKind> {
+        self.reduction_domains.get(&operation).copied()
+    }
+    /// Every exact operation/domain dispatch declaration in stable operation order.
+    pub fn reduction_domains(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (OperationId, DomainKind)> + '_ {
+        self.reduction_domains.iter().map(|(id, kind)| (*id, *kind))
+    }
     lookup!(unit_set, unit_sets, UnitSetId, UnitSet);
     /// Lookup by the unique resolved unit symbol.
     pub fn unit_by_symbol(&self, symbol: &str) -> Option<&Unit> {
@@ -158,6 +188,34 @@ impl QuantityRegistry {
     /// All quantity types in stable identity order.
     pub fn quantity_types(&self) -> impl Iterator<Item = &QuantityType> {
         self.quantity_types.values()
+    }
+    /// All admitted units in stable identity order.
+    pub fn units(&self) -> impl ExactSizeIterator<Item = &Unit> {
+        self.units.values()
+    }
+    /// All admitted quantity kinds in stable identity order.
+    pub fn kinds(&self) -> impl ExactSizeIterator<Item = &QuantityKind> {
+        self.kinds.values()
+    }
+    /// All admitted bases in stable identity order.
+    pub fn bases(&self) -> impl ExactSizeIterator<Item = &Basis> {
+        self.bases.values()
+    }
+    /// All admitted reference states in stable identity order.
+    pub fn reference_states(&self) -> impl ExactSizeIterator<Item = &ReferenceState> {
+        self.reference_states.values()
+    }
+    /// All admitted conversions in stable identity order.
+    pub fn conversions(&self) -> impl ExactSizeIterator<Item = &ConversionRule> {
+        self.conversions.values()
+    }
+    /// All admitted operation contracts in stable identity order.
+    pub fn operations(&self) -> impl ExactSizeIterator<Item = &QuantityOperation> {
+        self.operations.values()
+    }
+    /// All admitted unit sets in stable identity order.
+    pub fn unit_sets(&self) -> impl ExactSizeIterator<Item = &UnitSet> {
+        self.unit_sets.values()
     }
     /// Resolve by exact semantic components, never by dimension or a digest.
     ///
@@ -247,6 +305,23 @@ impl QuantityRegistry {
         }
         for operation in self.operations.values() {
             self.validate_operation(operation)?;
+            require(
+                operation.opcode != Opcode::SumOver
+                    || self.reduction_domains.contains_key(&operation.id),
+                "operation.reduction_domain",
+                operation.id.as_id(),
+                "registered SumOver requires its explicit consumed domain kind",
+            )?;
+        }
+        for operation in self.reduction_domains.keys() {
+            let declared = self.operation(*operation)?;
+            require(
+                declared.shape_rule == QuantityShapeRule::ReduceBoundIndex
+                    && matches!(declared.opcode, Opcode::SumOver | Opcode::Integral),
+                "operation.reduction_domain",
+                operation.as_id(),
+                "domain dispatch requires an explicit indexed reduction operation",
+            )?;
         }
         for set in self.unit_sets.values() {
             set.validate(self)?;

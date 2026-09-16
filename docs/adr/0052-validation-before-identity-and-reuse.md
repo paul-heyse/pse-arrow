@@ -24,6 +24,11 @@ A checksum establishes encoded integrity, not validity. The implemented manifest
 
 ## Scope
 
+**Current construction target:** ADR-0067 and blueprint revision 37 replace this
+record's former local replay, row-copy and phase-limited execution mechanisms.
+Plan 05 owns implementation; the domain/identity/lifetime requirements retained
+below are implemented through its single native preparation/completion route.
+
 Amends the cited blueprint sections within the approved Wave 1 boundary. It supplements existing accepted decisions; their arguments remain immutable. Implementation is authorized by the maintainer's approved execution plan; formal ADR acceptance remains the decision-PR lifecycle.
 
 ## Drivers
@@ -36,13 +41,13 @@ Retain the inconsistent scaffold: rejected because its consumers cannot preserve
 
 ## Outcome
 
-Run P2 on unpublished schema-admitted candidates without canonical snapshot identity, memo entries, planner constraints or functional dependencies. Only zero-error candidates gain validated PK/unique constraints and enter canonical publication/ref CAS. Hashes index content and reuse candidates; explicit contracts, invariant results and complete bound dependencies establish admissibility. Compare a cache candidate's complete dependency description and validation scope, not its key alone. Trusted immutable validation may be reused only while the validator, contracts, assumptions and dependency context remain applicable; untrusted restore repeats substantive admission. Implement uncached execution and value-level differential checks before enabling memoization. A changed declared dependency invalidates affected stages even if resulting values happen to be equal; preserve fresh lineage. No generic validation platform or second dependency engine is introduced.
+Run P2 on unpublished schema-admitted candidates without canonical snapshot identity, memo entries, planner constraints or functional dependencies. Only zero-error candidates gain validated PK/unique constraints and enter canonical publication/ref CAS. Hashes index content and reuse candidates; explicit contracts, invariant results and complete bound dependencies establish admissibility. Compare a cache candidate's complete dependency description and validation scope, not its key alone. Trusted immutable validation may be reused only while the validator, contracts, assumptions and dependency context remain applicable; untrusted restore repeats substantive admission. Implement exact target-runtime dependencies and independently specified cold/warm cases; the discarded engine is not an oracle. A changed declared dependency invalidates affected stages even if resulting values happen to be equal; preserve fresh lineage. No generic validation platform or second dependency engine is introduced.
 
 Store reads and publication receive explicit, privately admitted parent snapshot handles bound by semantic role. They check the exact role set and actual schema/row contracts, retaining each handle's snapshot/manifest-checksum pair. A claimed parent digest does not locate or validate its content. Stage admission also binds one executable registered pass and requires its exact complete output ports; unsupported runtime producers do not gain admission from a run-kind label.
 
 ### Consequences
 
-Findings about unpublished candidates have `subject_snapshot = null`; candidate validation must not invent a snapshot hash before acceptance. Store publication, reopening and queryable snapshot construction execute the registry's applicable semantic invariants over the actual candidate and explicit parent rows through a required validator. Missing validation implementation is a typed refusal, never an implicit pass. The catalog owns that validator interface and the rule engine implements it without a dependency cycle.
+Findings about unpublished candidates have `subject_snapshot = null`; candidate validation must not invent a snapshot hash before acceptance. Publication consumes an immutable complete result; current-format imports/reopening establish unresolved registry properties over actual candidate and parent rows through the same immutable admission program. A new query wrapper does not rescan unchanged admitted owners. Missing validation implementation is a typed refusal, never an implicit pass. The catalog owns that validator interface and the rule engine implements it without a dependency cycle.
 
 The same prepublication distinction applies to `provenance.derivations.snapshot_id`: it is null until a snapshot exists. Derivation identities and exact supporting row keys can be recorded without asserting a nonexistent snapshot identity.
 
@@ -70,4 +75,6 @@ The correction removes an ambiguity or false guarantee with bounded implementati
 
 ### Complete durable reuse context
 
-Proposed before implementation: a durable stage hint stores an optional typed semantic context, separate from its lookup key. The context contains every actual registry declaration row using the existing lossless tagged Cell codec, the complete original source inventory (package/document IDs, path and text), every selected policy ID and actual policy row, and the exact engine profile, semantic settings, built-in function inventory and pinned implementation versions when applicable. Durable reuse requires equality of these complete values plus exact required/absent input roles and manifest references, re-admission of the complete output and current preconditions. Old hints without the context remain diagnostics and force recomputation. Reused attempts get new pass records; output lineage is never silently backdated. The context is bounded by the existing control-artifact limit and shared resource budget. Hashes select buckets and identify transport artifacts only.
+Proposed before implementation: a durable stage hint stores an optional typed semantic context, separate from its lookup key. The context contains every actual registry declaration row through the declared current context encoding; in-process preparations share immutable owners instead of copying Cells, the complete original source inventory (package/document IDs, path and text), every selected policy ID and actual policy row, and the exact engine profile, semantic settings, built-in function inventory and pinned implementation versions when applicable. Durable reuse requires equality of these complete values plus exact required/absent input roles and manifest references, required current-format boundary admission and current preconditions. Retired formats are unsupported; a current-format hint missing required context forces recomputation. Reused attempts get new pass records; output lineage is never silently backdated. The context is bounded by the existing control-artifact limit and shared resource budget. Hashes select buckets and identify transport artifacts only.
+
+- 2026-09-14 — reconciled with ADR-0067 and Plan 05; prior receipts describe their original code and do not certify the hard-pivot implementation.

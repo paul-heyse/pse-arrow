@@ -7,7 +7,7 @@ use datafusion::common::{
     DataFusionError, Result,
     tree_node::{TreeNode, TreeNodeRecursion},
 };
-use datafusion::execution::session_state::SessionStateBuilder;
+use datafusion::execution::session_state::SessionState;
 use datafusion::logical_expr::{
     AggregateUDF, Expr, HigherOrderUDF, LogicalPlan, ScalarUDF, WindowFunctionDefinition, WindowUDF,
 };
@@ -21,12 +21,12 @@ pub(super) struct Functions {
     higher_order: Vec<Arc<HigherOrderUDF>>,
 }
 impl Functions {
-    pub(super) fn from_builder(builder: &mut SessionStateBuilder) -> Arc<Self> {
+    pub(super) fn from_state(state: &SessionState) -> Arc<Self> {
         Arc::new(Self {
-            scalar: builder.scalar_functions().clone().unwrap_or_default(),
-            aggregate: builder.aggregate_functions().clone().unwrap_or_default(),
-            window: builder.window_functions().clone().unwrap_or_default(),
-            higher_order: builder.higher_order_functions().clone().unwrap_or_default(),
+            scalar: state.scalar_functions().values().cloned().collect(),
+            aggregate: state.aggregate_functions().values().cloned().collect(),
+            window: state.window_functions().values().cloned().collect(),
+            higher_order: state.higher_order_functions().values().cloned().collect(),
         })
     }
     pub(super) fn scalar(&self, value: &ScalarUDF) -> Result<()> {

@@ -53,7 +53,7 @@ impl Fixture {
                             .iter()
                             .map(|column| {
                                 Cell::from_literal_spec(
-                                    row.get(column.name).expect("explicit column"),
+                                    row.get(column.name()).expect("explicit column"),
                                     registry,
                                 )
                                 .expect("typed literal")
@@ -93,7 +93,7 @@ pub(crate) fn directory(invariant: &InvariantSpec) -> PathBuf {
 }
 pub(crate) async fn execute(registry: &Arc<Registry>, fixture: &Fixture) -> Vec<Vec<Cell>> {
     use pse_catalog::session::{
-        ExecutionSettings, ThreadBudget, build_candidate_session, phase0_reference_profile,
+        ExecutionSettings, ThreadBudget, build_candidate_session, native_engine_profile,
     };
     use pse_ids::{CancellationToken, FixedBudget};
     use std::num::NonZeroUsize;
@@ -127,7 +127,7 @@ pub(crate) async fn execute(registry: &Arc<Registry>, fixture: &Fixture) -> Vec<
             pool_threads: thread,
             target_partitions: thread,
         },
-        phase0_reference_profile(),
+        native_engine_profile(),
     )
     .expect("candidate session without constraints");
     let plan =

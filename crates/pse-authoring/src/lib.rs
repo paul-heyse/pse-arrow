@@ -28,6 +28,7 @@ pub mod document;
 pub mod dsl;
 pub mod error;
 pub mod ids;
+pub mod native;
 pub mod p0;
 pub mod p1;
 pub mod span;

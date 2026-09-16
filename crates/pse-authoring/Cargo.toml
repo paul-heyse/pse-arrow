@@ -23,6 +23,8 @@ winnow = { workspace = true, features = ["ascii", "parser"] }
 serde.workspace = true
 semver.workspace = true
 arrow-array.workspace = true
+datafusion.workspace = true
+pse-catalog.workspace = true
 uuid.workspace = true
 pse-ids.workspace = true
 pse-schema.workspace = true
@@ -39,3 +41,4 @@ arbitrary = ["dep:proptest"]
 [dev-dependencies]
 proptest.workspace = true
 insta.workspace = true
+tokio.workspace = true

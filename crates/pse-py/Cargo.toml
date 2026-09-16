@@ -30,7 +30,20 @@ doctest = false
 bench = false
 
 [dependencies]
-pyo3 = { workspace = true, features = ["extension-module", "abi3-py311"] }
+pyo3 = { workspace = true, features = [
+  "extension-module",
+  "abi3-py311",
+  "experimental-inspect",
+] }
 pyo3-arrow.workspace = true
 pse-runtime.workspace = true
 pse-buildinfo.workspace = true
+pse-catalog.workspace = true
+pse-schema.workspace = true
+pse-ids.workspace = true
+pse-rules.workspace = true
+pse-compiler.workspace = true
+arrow-array.workspace = true
+arrow-schema.workspace = true
+tokio.workspace = true
+miette.workspace = true

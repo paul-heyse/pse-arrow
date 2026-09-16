@@ -17,7 +17,7 @@ and are living documents; an ADR is immutable once accepted.
 
 | Change | Needs |
 |---|---|
-| Alters D1–D14; adds or removes a crate; adds, drops or major-bumps a dependency family; changes the hashing contract, the Python boundary contract, the metadata conventions or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** — label the PR `needs-review`; the review's verdict must be Accept or Accept-scoped before the record's status becomes `accepted` |
+| Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, the metadata conventions or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** — label the PR `needs-review`; the review's verdict must be Accept or Accept-scoped before the record's status becomes `accepted` |
 | New relation family, pass, kernel contract or backend binding **within** an accepted decision; a small local SHOULD deviation; moving the IDAES parity pin; a deferred trigger in `docs/adr/register.md` fires | **ADR (short)**; review at maintainer discretion |
 | Bug fixes; refactors inside existing contracts; tests; documentation wording; a patch bump inside a pinned family; tooling | **Neither** — an ordinary PR with the Evidence field of the PR template filled |
 

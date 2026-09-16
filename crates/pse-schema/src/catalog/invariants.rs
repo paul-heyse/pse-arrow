@@ -2,71 +2,20 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Relational invariants derived from declarations and explicitly stated domain contracts.
-use super::inv::{count, declare as invariant, filter, project, scan};
+use super::inv::{declare as invariant, filter, project, scan};
 use crate::RegistryBuilder;
 use crate::model::{Cell, CmpOp, InvariantKind, RuleExpr, RulePlan};
 
-/// Project every primary key and foreign key into an executable violating-keys rule.
+/// Add mechanical integrity projections and explicitly declared domain contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
-    let relations = builder.declared_relations().to_vec();
-    for relation in &relations {
-        let name = relation.key.qualified_name();
-        let keys = &relation.primary_key;
-        if keys.is_empty() {
-            continue;
-        }
-        let grouped = RulePlan::Aggregate {
-            input: Box::new(scan(&name, "subject")),
-            group: keys.clone(),
-            aggregates: vec![count("__pse_count")],
-        };
-        let repeated = filter(
-            grouped,
-            RuleExpr::cmp(
-                CmpOp::Gt,
-                RuleExpr::Col("__pse_count"),
-                RuleExpr::Lit(Cell::U64(1)),
-            ),
-        );
-        invariant(
-            builder,
-            &name,
-            "unique:pk",
-            InvariantKind::Unique,
-            keys,
-            project(repeated, keys),
-            "The declared primary key identifies exactly one row.",
-        );
-        for column in &relation.columns {
-            let Some(fk) = column.fk else {
-                continue;
-            };
-            let present = filter(
-                scan(&name, "subject"),
-                RuleExpr::IsNotNull(Box::new(RuleExpr::Col(column.name))),
-            );
-            let missing = RulePlan::AntiJoin {
-                left: Box::new(present),
-                right: Box::new(scan(fk.relation, "referenced")),
-                keys: vec![(column.name, fk.column)],
-            };
-            invariant(
-                builder,
-                &name,
-                &format!("foreign_key:{}", column.name),
-                InvariantKind::ForeignKey,
-                keys,
-                RulePlan::Distinct(Box::new(project(missing, keys))),
-                "Every present foreign-key value resolves to its declared relation and column.",
-            );
-        }
-    }
+    builder.derive_integrity();
     entity_registration(builder);
     physical_checks(builder);
     target_checks(builder);
     domain_reference_checks(builder);
     super::invariant_closure::declare(builder);
     super::invariant_domain::declare(builder);
+    super::invariant_semantic::declare(builder);
 }
 fn entity_registration(builder: &mut RegistryBuilder) {
     let mut mappings = std::collections::BTreeMap::new();
@@ -90,14 +39,17 @@ fn entity_registration(builder: &mut RegistryBuilder) {
             scan("authored.entities", "registered"),
             RuleExpr::cmp(
                 CmpOp::Eq,
-                RuleExpr::Col("kind"),
+                RuleExpr::col("kind"),
                 RuleExpr::Lit(Cell::Enum(kind)),
             ),
         );
         let missing = RulePlan::AntiJoin {
             left: Box::new(scan(relation, "subject")),
             right: Box::new(entities),
-            keys: vec![(identity, "entity_id")],
+            keys: (vec![(identity, "entity_id")])
+                .into_iter()
+                .map(|(left, right)| (left.into(), right.into()))
+                .collect(),
         };
         invariant(
             builder,
@@ -120,30 +72,36 @@ fn entity_fields(
 ) {
     let registered = RulePlan::Project {
         input: Box::new(scan("authored.entities", "registered")),
-        columns: vec![
-            ("__entity", RuleExpr::Col("entity_id")),
-            ("__entity_package", RuleExpr::Col("package_id")),
-            ("__entity_name", RuleExpr::Col("name")),
-            ("__entity_parent", RuleExpr::Col("parent_entity_id")),
-        ],
+        columns: (vec![
+            ("__entity", RuleExpr::col("entity_id")),
+            ("__entity_package", RuleExpr::col("package_id")),
+            ("__entity_name", RuleExpr::col("name")),
+            ("__entity_parent", RuleExpr::col("parent_entity_id")),
+        ])
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     };
     let mut joined = RulePlan::EquiJoin {
         left: Box::new(scan(relation, "subject")),
         right: Box::new(registered),
-        keys: vec![(identity, "__entity")],
+        keys: (vec![(identity, "__entity")])
+            .into_iter()
+            .map(|(left, right)| (left.into(), right.into()))
+            .collect(),
         null_equality: crate::model::NullEquality::NullEqualsNothing,
     };
     let mut mismatches = vec![];
     let distinct = |left, right| RuleExpr::IsDistinctFrom(Box::new(left), Box::new(right));
     if let Some(name) = name {
         mismatches.push(distinct(
-            RuleExpr::Col(name),
-            RuleExpr::Col("__entity_name"),
+            RuleExpr::col(name),
+            RuleExpr::col("__entity_name"),
         ));
     }
     mismatches.push(distinct(
-        owner.map_or(RuleExpr::Lit(Cell::Null), RuleExpr::Col),
-        RuleExpr::Col("__entity_parent"),
+        owner.map_or(RuleExpr::Lit(Cell::Null), RuleExpr::col),
+        RuleExpr::col("__entity_parent"),
     ));
     let has_package = builder
         .declared_relations()
@@ -152,30 +110,36 @@ fn entity_fields(
         .is_some_and(|spec| {
             spec.columns
                 .iter()
-                .any(|column| column.name == "package_id")
+                .any(|column| column.name() == "package_id")
         });
     if has_package {
         mismatches.push(distinct(
-            RuleExpr::Col("package_id"),
-            RuleExpr::Col("__entity_package"),
+            RuleExpr::col("package_id"),
+            RuleExpr::col("__entity_package"),
         ));
     } else if let Some(owner) = owner {
         let parents = RulePlan::Project {
             input: Box::new(scan("authored.entities", "owners")),
-            columns: vec![
-                ("__owner", RuleExpr::Col("entity_id")),
-                ("__owner_package", RuleExpr::Col("package_id")),
-            ],
+            columns: (vec![
+                ("__owner", RuleExpr::col("entity_id")),
+                ("__owner_package", RuleExpr::col("package_id")),
+            ])
+            .into_iter()
+            .map(|(name, expression)| (name.to_owned().into(), expression))
+            .collect(),
         };
         joined = RulePlan::EquiJoin {
             left: Box::new(joined),
             right: Box::new(parents),
-            keys: vec![(owner, "__owner")],
+            keys: (vec![(owner, "__owner")])
+                .into_iter()
+                .map(|(left, right)| (left.into(), right.into()))
+                .collect(),
             null_equality: crate::model::NullEquality::NullEqualsNothing,
         };
         mismatches.push(distinct(
-            RuleExpr::Col("__owner_package"),
-            RuleExpr::Col("__entity_package"),
+            RuleExpr::col("__owner_package"),
+            RuleExpr::col("__entity_package"),
         ));
     }
     invariant(
@@ -218,7 +182,7 @@ fn physical_checks(builder: &mut RegistryBuilder) {
         builder,
         "reference.units",
         "check:positive_scale",
-        RuleExpr::cmp(CmpOp::LtEq, RuleExpr::Col("scale_to_canonical"), zero()),
+        RuleExpr::cmp(CmpOp::LtEq, RuleExpr::col("scale_to_canonical"), zero()),
         "Unit representation scale is strictly positive.",
     );
     check(
@@ -226,8 +190,8 @@ fn physical_checks(builder: &mut RegistryBuilder) {
         "reference.quantity_types",
         "check:positive_nominal",
         RuleExpr::And(vec![
-            RuleExpr::IsNotNull(Box::new(RuleExpr::Col("nominal_magnitude"))),
-            RuleExpr::cmp(CmpOp::LtEq, RuleExpr::Col("nominal_magnitude"), zero()),
+            RuleExpr::IsNotNull(Box::new(RuleExpr::col("nominal_magnitude"))),
+            RuleExpr::cmp(CmpOp::LtEq, RuleExpr::col("nominal_magnitude"), zero()),
         ]),
         "A present nominal magnitude is strictly positive.",
     );
@@ -235,7 +199,7 @@ fn physical_checks(builder: &mut RegistryBuilder) {
         builder,
         "authored.continuous_domains",
         "check:ordered_bounds",
-        RuleExpr::cmp(CmpOp::GtEq, RuleExpr::Col("lower"), RuleExpr::Col("upper")),
+        RuleExpr::cmp(CmpOp::GtEq, RuleExpr::col("lower"), RuleExpr::col("upper")),
         "Continuous-domain bounds are strictly increasing.",
     );
 }
@@ -245,12 +209,12 @@ fn target_checks(builder: &mut RegistryBuilder) {
         "authored.case_activation_targets",
         "authored.observation_targets",
     ] {
-        let has = |name| RuleExpr::IsNotNull(Box::new(RuleExpr::Col(name)));
-        let missing = |name| RuleExpr::IsNull(Box::new(RuleExpr::Col(name)));
+        let has = |name| RuleExpr::IsNotNull(Box::new(RuleExpr::col(name)));
+        let missing = |name| RuleExpr::IsNull(Box::new(RuleExpr::col(name)));
         let kind = |name| {
             RuleExpr::cmp(
                 CmpOp::Eq,
-                RuleExpr::Col("member_kind"),
+                RuleExpr::col("member_kind"),
                 RuleExpr::Lit(Cell::Enum(name)),
             )
         };
@@ -260,7 +224,7 @@ fn target_checks(builder: &mut RegistryBuilder) {
             missing("equation_decl_id"),
             missing("port_template_id"),
             missing("port_name"),
-            RuleExpr::Not(Box::new(RuleExpr::Col("wildcard"))),
+            RuleExpr::Not(Box::new(RuleExpr::col("wildcard"))),
         ]);
         let equation = RuleExpr::And(vec![
             kind("equation"),
@@ -268,7 +232,7 @@ fn target_checks(builder: &mut RegistryBuilder) {
             has("equation_decl_id"),
             missing("port_template_id"),
             missing("port_name"),
-            RuleExpr::Not(Box::new(RuleExpr::Col("wildcard"))),
+            RuleExpr::Not(Box::new(RuleExpr::col("wildcard"))),
         ]);
         let port = RuleExpr::And(vec![
             kind("port"),
@@ -276,7 +240,7 @@ fn target_checks(builder: &mut RegistryBuilder) {
             missing("equation_decl_id"),
             has("port_template_id"),
             has("port_name"),
-            RuleExpr::Not(Box::new(RuleExpr::Col("wildcard"))),
+            RuleExpr::Not(Box::new(RuleExpr::col("wildcard"))),
         ]);
         let wildcard = RuleExpr::And(vec![
             kind("instance_wildcard"),
@@ -285,7 +249,7 @@ fn target_checks(builder: &mut RegistryBuilder) {
             missing("port_template_id"),
             missing("port_name"),
             missing("index"),
-            RuleExpr::Col("wildcard"),
+            RuleExpr::col("wildcard"),
         ]);
         check(
             builder,
@@ -325,36 +289,48 @@ fn target_port_owner(builder: &mut RegistryBuilder, relation: &str) {
         .unwrap_or_default();
     let subject = filter(
         scan(relation, "subject"),
-        RuleExpr::IsNotNull(Box::new(RuleExpr::Col("port_template_id"))),
+        RuleExpr::IsNotNull(Box::new(RuleExpr::col("port_template_id"))),
     );
     let owners = RulePlan::Project {
         input: Box::new(scan("authored.instances", "owners")),
-        columns: vec![
-            ("__owner_instance", RuleExpr::Col("instance_id")),
-            ("__owner_template", RuleExpr::Col("template_id")),
-        ],
+        columns: (vec![
+            ("__owner_instance", RuleExpr::col("instance_id")),
+            ("__owner_template", RuleExpr::col("template_id")),
+        ])
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     };
     let joined = RulePlan::EquiJoin {
         left: Box::new(subject),
         right: Box::new(owners),
-        keys: vec![("instance_id", "__owner_instance")],
+        keys: (vec![("instance_id", "__owner_instance")])
+            .into_iter()
+            .map(|(left, right)| (left.into(), right.into()))
+            .collect(),
         null_equality: crate::model::NullEquality::NullEqualsNothing,
     };
     let ports = RulePlan::Project {
         input: Box::new(scan("authored.template_ports", "ports")),
-        columns: vec![
-            ("__port_template", RuleExpr::Col("template_id")),
-            ("__port_name", RuleExpr::Col("name")),
-        ],
+        columns: (vec![
+            ("__port_template", RuleExpr::col("template_id")),
+            ("__port_name", RuleExpr::col("name")),
+        ])
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     };
     let missing = RulePlan::AntiJoin {
         left: Box::new(joined),
         right: Box::new(ports),
-        keys: vec![
+        keys: (vec![
             ("port_template_id", "__port_template"),
             ("__owner_template", "__port_template"),
             ("port_name", "__port_name"),
-        ],
+        ])
+        .into_iter()
+        .map(|(left, right)| (left.into(), right.into()))
+        .collect(),
     };
     invariant(
         builder,
@@ -381,35 +357,47 @@ fn target_owner(
         .unwrap_or_default();
     let owners = RulePlan::Project {
         input: Box::new(scan("authored.instances", "owners")),
-        columns: vec![
-            ("owner_instance", RuleExpr::Col("instance_id")),
-            ("owner_template", RuleExpr::Col("template_id")),
-        ],
+        columns: (vec![
+            ("owner_instance", RuleExpr::col("instance_id")),
+            ("owner_template", RuleExpr::col("template_id")),
+        ])
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     };
     let subject = filter(
         scan(relation, "subject"),
-        RuleExpr::IsNotNull(Box::new(RuleExpr::Col(column))),
+        RuleExpr::IsNotNull(Box::new(RuleExpr::col(column))),
     );
     let joined = RulePlan::EquiJoin {
         left: Box::new(subject),
         right: Box::new(owners),
-        keys: vec![("instance_id", "owner_instance")],
+        keys: (vec![("instance_id", "owner_instance")])
+            .into_iter()
+            .map(|(left, right)| (left.into(), right.into()))
+            .collect(),
         null_equality: crate::model::NullEquality::NullEqualsNothing,
     };
     let declared = RulePlan::Project {
         input: Box::new(scan(declarations, "declarations")),
-        columns: vec![
-            ("decl_identity", RuleExpr::Col(identity)),
-            ("decl_template", RuleExpr::Col("template_id")),
-        ],
+        columns: (vec![
+            ("decl_identity", RuleExpr::col(identity)),
+            ("decl_template", RuleExpr::col("template_id")),
+        ])
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     };
     let wrong = RulePlan::AntiJoin {
         left: Box::new(joined),
         right: Box::new(declared),
-        keys: vec![
+        keys: (vec![
             (column, "decl_identity"),
             ("owner_template", "decl_template"),
-        ],
+        ])
+        .into_iter()
+        .map(|(left, right)| (left.into(), right.into()))
+        .collect(),
     };
     invariant(
         builder,
@@ -429,27 +417,31 @@ fn domain_reference_checks(builder: &mut RegistryBuilder) {
             || !spec
                 .columns
                 .iter()
-                .any(|column| column.name == "domain_name")
+                .any(|column| column.name() == "domain_name")
             || !spec
                 .columns
                 .iter()
-                .any(|column| column.name == "template_id")
+                .any(|column| column.name() == "template_id")
         {
             continue;
         }
         let actual = if spec
             .columns
             .iter()
-            .any(|column| column.name == "wrt_domain_id")
+            .any(|column| column.name() == "wrt_domain_id")
         {
             "wrt_domain_id"
-        } else if spec.columns.iter().any(|column| column.name == "domain_id") {
+        } else if spec
+            .columns
+            .iter()
+            .any(|column| column.name() == "domain_id")
+        {
             "domain_id"
         } else {
             continue;
         };
-        let has = |name| RuleExpr::IsNotNull(Box::new(RuleExpr::Col(name)));
-        let missing = |name| RuleExpr::IsNull(Box::new(RuleExpr::Col(name)));
+        let has = |name| RuleExpr::IsNotNull(Box::new(RuleExpr::col(name)));
+        let missing = |name| RuleExpr::IsNull(Box::new(RuleExpr::col(name)));
         let valid = RuleExpr::Or(vec![
             RuleExpr::And(vec![
                 has(actual),
@@ -462,7 +454,7 @@ fn domain_reference_checks(builder: &mut RegistryBuilder) {
                 has("domain_name"),
                 RuleExpr::cmp(
                     CmpOp::NotEq,
-                    RuleExpr::Col("domain_name"),
+                    RuleExpr::col("domain_name"),
                     RuleExpr::Lit(Cell::Text(String::new())),
                 ),
             ]),

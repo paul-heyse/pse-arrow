@@ -63,9 +63,21 @@ impl fmt::Display for CmpOp {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RuleExpr {
     /// A column of the input.
-    Col(&'static str),
+    Col(std::borrow::Cow<'static, str>),
     /// A literal.
     Lit(Cell),
+    /// A registered native scalar function. The result describes an obligation;
+    /// its actual implementation and return field are bound during planning.
+    Call {
+        /// Exact function name in the retained session inventory.
+        function: String,
+        /// Ordered scalar arguments.
+        args: Vec<RuleExpr>,
+        /// Expected complete logical result, checked against native inference.
+        result: crate::model::FieldContract,
+        /// Whether the declared output permits nulls.
+        nullable: bool,
+    },
     /// Kleene conjunction of every operand.
     And(Vec<RuleExpr>),
     /// Kleene disjunction of every operand.
@@ -101,7 +113,7 @@ pub enum RuleExpr {
         /// The struct-valued operand.
         expr: Box<RuleExpr>,
         /// The child name.
-        name: &'static str,
+        name: std::borrow::Cow<'static, str>,
     },
     /// The length of a list.
     ListLen(Box<RuleExpr>),
@@ -115,8 +127,23 @@ pub enum RuleExpr {
 
 impl RuleExpr {
     /// A column reference.
-    pub const fn col(name: &'static str) -> Self {
-        Self::Col(name)
+    pub fn col(name: impl Into<std::borrow::Cow<'static, str>>) -> Self {
+        Self::Col(name.into())
+    }
+
+    /// A function call with an explicit result obligation, never a value certificate.
+    pub fn call(
+        function: impl Into<String>,
+        args: Vec<Self>,
+        result: crate::model::FieldContract,
+        nullable: bool,
+    ) -> Self {
+        Self::Call {
+            function: function.into(),
+            args,
+            result,
+            nullable,
+        }
     }
 
     /// A comparison of two expressions.
@@ -133,6 +160,7 @@ impl RuleExpr {
         match self {
             Self::Col(_) => RuleExprOp::Col.as_str(),
             Self::Lit(_) => RuleExprOp::Lit.as_str(),
+            Self::Call { .. } => RuleExprOp::Call.as_str(),
             Self::And(_) => RuleExprOp::And.as_str(),
             Self::Or(_) => RuleExprOp::Or.as_str(),
             Self::Not(_) => RuleExprOp::Not.as_str(),
@@ -151,22 +179,22 @@ impl RuleExpr {
     }
 
     /// Every column this expression reads, in first-seen order.
-    pub fn columns(&self) -> Vec<&'static str> {
+    pub fn columns(&self) -> Vec<&str> {
         let mut out = Vec::new();
         self.collect_columns(&mut out);
         out
     }
 
     /// Appends this expression's columns to `out`, skipping repeats.
-    fn collect_columns(&self, out: &mut Vec<&'static str>) {
+    fn collect_columns<'a>(&'a self, out: &mut Vec<&'a str>) {
         match self {
             Self::Col(name) => {
-                if !out.contains(name) {
-                    out.push(name);
+                if !out.contains(&name.as_ref()) {
+                    out.push(name.as_ref());
                 }
             }
             Self::Lit(_) => {}
-            Self::And(operands) | Self::Or(operands) => {
+            Self::And(operands) | Self::Or(operands) | Self::Call { args: operands, .. } => {
                 for operand in operands {
                     operand.collect_columns(out);
                 }
@@ -195,6 +223,8 @@ pub enum RuleExprOp {
     Col,
     /// `lit`.
     Lit,
+    /// `call`.
+    Call,
     /// `and`.
     And,
     /// `or`.
@@ -226,9 +256,10 @@ pub enum RuleExprOp {
 }
 impl RuleExprOp {
     /// Every admitted spelling, in declaration order.
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 17] = [
         Self::Col,
         Self::Lit,
+        Self::Call,
         Self::And,
         Self::Or,
         Self::Not,
@@ -249,6 +280,7 @@ impl RuleExprOp {
         match self {
             Self::Col => "col",
             Self::Lit => "lit",
+            Self::Call => "call",
             Self::And => "and",
             Self::Or => "or",
             Self::Not => "not",

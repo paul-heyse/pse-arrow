@@ -46,7 +46,7 @@ impl Count {
 fn overflow() -> CanonError {
     CanonError::Envelope {
         what: EnvelopeBound::Bytes,
-        limit: Envelope::PHASE1.max_normalized_bytes,
+        limit: Envelope::DEFAULT.max_normalized_bytes,
         actual: u64::MAX,
     }
 }
@@ -111,7 +111,7 @@ pub(super) fn estimate(
     envelope: Envelope,
     cancel: &CancellationToken,
 ) -> Result<Estimate, CanonError> {
-    Envelope::lowered(envelope.max_rows, envelope.max_normalized_bytes)?;
+    Envelope::new(envelope.max_rows, envelope.max_normalized_bytes)?;
     validate_contract(contract)?;
     let mut counts = contract.layouts.iter().map(Count::new).collect::<Vec<_>>();
     let mut rows = 0usize;
@@ -236,7 +236,7 @@ fn validate_contract(contract: &CanonicalContract) -> Result<(), CanonError> {
     for index in &contract.primary_key {
         if floating(&contract.layouts[*index]) {
             return Err(CanonError::InvalidKey {
-                column: contract.schema.field(*index).name().clone(),
+                column: contract.schema.field(*index).name().to_owned(),
                 reason: "floating descendants cannot form a canonical key".to_owned(),
             });
         }

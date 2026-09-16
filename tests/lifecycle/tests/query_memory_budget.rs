@@ -4,7 +4,7 @@
 
 mod support;
 use pse_catalog::CatalogError;
-use pse_catalog::session::{SnapshotSession, phase0_reference_profile};
+use pse_catalog::session::{SnapshotSession, native_engine_profile};
 use pse_ids::{CancellationToken, MemoryReserver, ReserveError};
 use std::sync::Arc;
 
@@ -25,7 +25,7 @@ async fn two_sessions_share_snapshot_charges_and_only_64_kib_of_query_headroom()
         .await
         .expect("admitted owned snapshot");
     let factory = runtime
-        .session_factory(phase0_reference_profile())
+        .session_factory(native_engine_profile())
         .expect("factory");
     let left = factory
         .open_session(vec![Arc::clone(&snapshot)], Arc::clone(&reg), &cancel)
@@ -114,7 +114,7 @@ async fn small_snapshot_admission_fits_64_kib_but_expansion_exhausts_the_engine(
         .await
         .expect("small fully admitted snapshot");
     let factory = runtime
-        .session_factory(phase0_reference_profile())
+        .session_factory(native_engine_profile())
         .expect("factory");
     let left = factory
         .open_session(vec![Arc::clone(&snapshot)], Arc::clone(&reg), &cancel)

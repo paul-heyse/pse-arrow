@@ -9,14 +9,12 @@
 //! second, undeclared description of what it is — and nothing would keep the two in step.
 //!
 //! The logical-type catalog of §4.5 and the eleven extension types of §4.4 are not
-//! declared here as relations; they are the registry's [`crate::model::LogicalType`] and
+//! declared here as relations; they are the registry's [`crate::model::FieldContract`] and
 //! [`crate::model::EXTENSION_TYPES`], and `reference.schema_logical_types` is generated
 //! from them at assembly (see [`crate::builder`]).
 
 use crate::builder::RegistryBuilder;
-use crate::model::{
-    Authority, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass, Stability,
-};
+use crate::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass, Stability};
 
 /// Declares the six `reference.schema_*` relations.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -47,7 +45,8 @@ fn reference(name: &'static str, doc: &'static str) -> RelationDecl {
 }
 
 /// `reference.schema_relations @1` (blueprint §4.1).
-fn declare_relations(builder: &mut RegistryBuilder) {
+/// Assemblies that need only the relation catalog can reuse this exact declaration.
+pub fn declare_relations(builder: &mut RegistryBuilder) {
     builder.declare_relation(
         reference(
             "schema_relations",
@@ -55,49 +54,57 @@ fn declare_relations(builder: &mut RegistryBuilder) {
         )
         .pk(&["relation_id"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "relation_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "`named_id(REGISTRY_PACKAGE_ID, \"relation:<ns>.<name>@<v>\")` (ADR-0050).",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "namespace",
-                LogicalType::enumeration("Namespace"),
+                FieldContract::enumeration("Namespace"),
                 "The namespace, which is also the catalog schema name.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The relation name inside its namespace.",
             ),
-            ColumnSpec::payload("version", LogicalType::U32, "The schema version."),
-            ColumnSpec::label(
+            FieldContract::payload(
+                "version",
+                FieldContract::native(arrow_schema::DataType::UInt32),
+                "The schema version.",
+            ),
+            FieldContract::label(
                 "authority",
-                LogicalType::enumeration("Authority"),
+                FieldContract::enumeration("Authority"),
                 "Who may write it.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "snapshot_class",
-                LogicalType::enumeration("SnapshotClass"),
+                FieldContract::enumeration("SnapshotClass"),
                 "Explicit snapshot membership (blueprint §5.3 step 7).",
             ),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "primary_key",
-                LogicalType::list(LogicalType::Text),
+                FieldContract::list(FieldContract::native(arrow_schema::DataType::Utf8)),
                 "The primary key column names, in key order.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "derivation_granularity",
-                LogicalType::enumeration("DerivationGranularity"),
+                FieldContract::enumeration("DerivationGranularity"),
                 "Required when `authority = derived` (blueprint §14.2 rule 4).",
             )
             .optional(),
-            ColumnSpec::label(
+            FieldContract::label(
                 "stability",
-                LogicalType::enumeration("Stability"),
+                FieldContract::enumeration("Stability"),
                 "How much a consumer may rely on the shape.",
             ),
-            ColumnSpec::label("doc", LogicalType::Text, "What the relation means."),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "What the relation means.",
+            ),
         ]),
     );
 }
@@ -111,54 +118,55 @@ fn declare_columns(builder: &mut RegistryBuilder) {
         )
         .pk(&["relation_id", "ordinal"])
         .columns(vec![
-            ColumnSpec::key("relation_id", LogicalType::id(), "The owning relation.")
+            FieldContract::key("relation_id", FieldContract::id(), "The owning relation.")
                 .with_fk("reference.schema_relations", "relation_id"),
-            ColumnSpec::key(
+            FieldContract::key(
                 "ordinal",
-                LogicalType::U16,
+                FieldContract::native(arrow_schema::DataType::UInt16),
                 "The column's position, which is its ordinal.",
             ),
-            ColumnSpec::label("name", LogicalType::Text, "The column name."),
-            ColumnSpec::reference(
+            FieldContract::label("name", FieldContract::native(arrow_schema::DataType::Utf8), "The column name."),
+            FieldContract::reference(
                 "logical_type_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The declared logical type.",
             )
             .with_fk("reference.schema_logical_types", "logical_type_id"),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "nullable",
-                LogicalType::Bool,
+                FieldContract::native(arrow_schema::DataType::Boolean),
                 "Whether the column admits nulls.",
             ),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "quantity_type_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "One quantity contract for the whole column.",
             )
             .optional(),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "per_row_quantity",
-                LogicalType::Bool,
+                FieldContract::native(arrow_schema::DataType::Boolean),
                 "True when a sibling column named `<name>_quantity_type_id` carries the contract.",
             ),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "fk_relation_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The referenced relation, when the column is a reference.",
             )
             .optional(),
-            ColumnSpec::label(
+            FieldContract::label(
                 "fk_column",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The referenced column, when the column is a reference.",
             )
             .optional(),
-            ColumnSpec::label(
+            FieldContract::label(
                 "role",
-                LogicalType::enumeration("ColumnRole"),
+                FieldContract::enumeration("ColumnRole"),
                 "What the column is for.",
             ),
-            ColumnSpec::label("doc", LogicalType::Text, "What the column means."),
+            FieldContract::label("doc", FieldContract::native(arrow_schema::DataType::Utf8), "What the column means."),
+            FieldContract::payload("native_field", FieldContract::native(arrow_schema::DataType::Utf8), "Complete canonical Arrow field declaration, including every nested domain facet and metadata entry."),
         ]),
     );
 }
@@ -172,30 +180,30 @@ fn declare_logical_types(builder: &mut RegistryBuilder) {
         )
         .pk(&["logical_type_id"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "logical_type_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "`named_id(REGISTRY_PACKAGE_ID, \"logical_type:<name>\")` (ADR-0050).",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The registry name, for example `semantic_id` or `enum:PhaseType`.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "arrow_storage",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The canonical Arrow storage rendering. Never a `Debug` rendering (blueprint §5.3).",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "extension_name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The `ARROW:extension:name`, when the type is an extension use.",
             )
             .optional(),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "metadata_schema",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The JSON Schema of `ARROW:extension:metadata`, when the type is an extension use.",
             )
             .optional(),
@@ -212,29 +220,37 @@ fn declare_enums(builder: &mut RegistryBuilder) {
         )
         .pk(&["enum_id", "member_ordinal"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "enum_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "`named_id(REGISTRY_PACKAGE_ID, \"enum:<Name>\")` (ADR-0050).",
             ),
-            ColumnSpec::key(
+            FieldContract::key(
                 "member_ordinal",
-                LogicalType::U16,
+                FieldContract::native(arrow_schema::DataType::UInt16),
                 "The member's declaration position.",
             ),
-            ColumnSpec::label("member", LogicalType::Text, "The stored dictionary value."),
-            ColumnSpec::label(
+            FieldContract::label(
+                "member",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "The stored dictionary value.",
+            ),
+            FieldContract::label(
                 "idaes_name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The IDAES spelling, for the §6.14 parity enumerations.",
             )
             .optional(),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "deprecated",
-                LogicalType::Bool,
+                FieldContract::native(arrow_schema::DataType::Boolean),
                 "Declared but no longer selectable; kept so old artifacts still decode.",
             ),
-            ColumnSpec::label("doc", LogicalType::Text, "What the member means."),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "What the member means.",
+            ),
         ]),
     );
 }
@@ -248,32 +264,36 @@ fn declare_invariants(builder: &mut RegistryBuilder) {
         )
         .pk(&["invariant_id"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "invariant_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "`named_id(REGISTRY_PACKAGE_ID, \"invariant:<relation>:<name>\")` (ADR-0050).",
             ),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "relation_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The relation the invariant constrains.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "kind",
-                LogicalType::enumeration("InvariantKind"),
+                FieldContract::enumeration("InvariantKind"),
                 "What kind of statement it makes.",
             ),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "rule_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The typed rule plan that returns the violating keys (blueprint §6.11).",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "severity",
-                LogicalType::enumeration("Severity"),
+                FieldContract::enumeration("Severity"),
                 "Whether a violation stops a commit.",
             ),
-            ColumnSpec::label("doc", LogicalType::Text, "What the invariant means."),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "What the invariant means.",
+            ),
         ]),
     );
 }
@@ -287,24 +307,28 @@ fn declare_migrations(builder: &mut RegistryBuilder) {
         )
         .pk(&["relation_id", "from_version", "to_version"])
         .columns(vec![
-            ColumnSpec::key("relation_id", LogicalType::id(), "The migrated relation.")
+            FieldContract::key("relation_id", FieldContract::id(), "The migrated relation.")
                 .with_fk("reference.schema_relations", "relation_id"),
-            ColumnSpec::key(
+            FieldContract::key(
                 "from_version",
-                LogicalType::U32,
+                FieldContract::native(arrow_schema::DataType::UInt32),
                 "The version the migration reads.",
             ),
-            ColumnSpec::key(
+            FieldContract::key(
                 "to_version",
-                LogicalType::U32,
+                FieldContract::native(arrow_schema::DataType::UInt32),
                 "The version the migration writes.",
             ),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "plan_spec",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The migration steps, one per line, in application order.",
             ),
-            ColumnSpec::label("doc", LogicalType::Text, "Why the schema changed."),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Why the schema changed.",
+            ),
         ]),
     );
 }
@@ -318,77 +342,116 @@ fn declare_document_contracts(builder: &mut RegistryBuilder) {
         )
         .pk(&["document_name"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "document_name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "Document declaration name.",
             ),
-            ColumnSpec::label("kind", LogicalType::Text, "DocumentKind spelling."),
-            ColumnSpec::label(
+            FieldContract::label(
+                "kind",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "DocumentKind spelling.",
+            ),
+            FieldContract::label(
                 "path_glob",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "Package-relative file selection.",
             ),
-            ColumnSpec::label("doc", LogicalType::Text, "Document meaning."),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Document meaning.",
+            ),
         ]),
     );
+    declare_document_sections(builder);
+}
+
+fn declare_document_sections(builder: &mut RegistryBuilder) {
     builder.declare_relation(
-        reference(
-            "schema_document_sections",
-            "Exact identity and row projections (ADR-0059).",
-        )
+        {
+            let mut declaration = reference(
+                "schema_document_sections",
+                "Exact identity and row projections (ADR-0059, ADR-0063).",
+            );
+            declaration.key.version = 2;
+            declaration
+        }
         .pk(&["document_name", "ordinal"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "document_name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "Owning document declaration.",
             )
             .with_fk("reference.schema_documents", "document_name"),
-            ColumnSpec::key("ordinal", LogicalType::U32, "Section declaration ordinal."),
-            ColumnSpec::label("key", LogicalType::Text, "Authoring section key."),
-            ColumnSpec::reference("relation_id", LogicalType::id(), "Exact target relation.")
+            FieldContract::key(
+                "ordinal",
+                FieldContract::native(arrow_schema::DataType::UInt32),
+                "Section declaration ordinal.",
+            ),
+            FieldContract::label(
+                "key",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Authoring section key.",
+            ),
+            FieldContract::reference("relation_id", FieldContract::id(), "Exact target relation.")
                 .with_fk("reference.schema_relations", "relation_id"),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "repeated",
-                LogicalType::Bool,
+                FieldContract::native(arrow_schema::DataType::Boolean),
                 "Sequence rather than singleton.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "identity_column",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "Explicit identity alias.",
             )
             .optional(),
-            ColumnSpec::label(
+            FieldContract::label(
                 "entity_kind",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "Registered EntityKind member.",
             )
             .optional(),
-            ColumnSpec::label("name_column", LogicalType::Text, "Entity local name.").optional(),
-            ColumnSpec::label(
+            FieldContract::label(
+                "name_column",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Entity local name.",
+            )
+            .optional(),
+            FieldContract::label(
                 "naming_scope_column",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "Owning entity foreign key.",
             )
             .optional(),
-            ColumnSpec::label(
+            FieldContract::label(
                 "expression_owner_column",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "Explicit source expression owner.",
             )
             .optional(),
-            ColumnSpec::label("doc", LogicalType::Text, "Section meaning."),
-            ColumnSpec::payload(
+            FieldContract::payload(
+                "expression_owner_kind",
+                FieldContract::enumeration("ExpressionOwnerKind"),
+                "Explicit expression ownership alternative.",
+            )
+            .optional(),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Section meaning.",
+            ),
+            FieldContract::payload(
                 "expression_fields",
-                LogicalType::list(LogicalType::Struct(vec![
-                    ("path", LogicalType::Text, false),
-                    (
-                        "syntax",
-                        LogicalType::enumeration("ExpressionSyntax"),
-                        false,
-                    ),
+                FieldContract::list(FieldContract::structure(vec![
+                    FieldContract::native(arrow_schema::DataType::Utf8)
+                        .with_name("path")
+                        .with_nullable(false),
+                    FieldContract::enumeration("ExpressionSyntax")
+                        .with_name("syntax")
+                        .with_nullable(false),
                 ])),
                 "Complete exact DSL field grammar mapping.",
             ),

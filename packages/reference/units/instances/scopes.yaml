@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "scopes": [
+    {
+      "scope_id": "6b483e9c05dc431b87a7c9be1872ddfa",
+      "root_term_id": "8e4209de16394a9da7a4b1d129858c9b"
+    },
+    {
+      "scope_id": "9bd5b8d5d7624397a405432221c3b34f",
+      "root_term_id": "033a19ae0e9946238378557c97da63ab"
+    },
+    {
+      "scope_id": "d56d54d837a840a3b9ed4d06c2fd5244",
+      "root_term_id": "891b47b4e4c64b6c9ad9fd2a53dd05a9"
+    },
+    {
+      "scope_id": "8a43641e281748649d056fce800918bd",
+      "root_term_id": "2dc0328034e242e28cb031588c65bb15"
+    },
+    {
+      "scope_id": "a48c4bdef5c243519993d2ce70a87ac3",
+      "root_term_id": "c1a5fb718f424d6d91b76315d7374700"
+    },
+    {
+      "scope_id": "0d2a983b28e9435581bfb20d4723844a",
+      "root_term_id": "88cdbebf07ce491290f76f5e41681944"
+    },
+    {
+      "scope_id": "a2a31b06159e4fdabd11974de220643f",
+      "root_term_id": "9ca63d6bad054e8086c652e940b867e2"
+    },
+    {
+      "scope_id": "9a083edae37f4eef968155e38d432918",
+      "root_term_id": "6cb83a950567469a9751ac9d174dc232"
+    }
+  ],
+  "selector_terms": [
+    {
+      "term_id": "8e4209de16394a9da7a4b1d129858c9b",
+      "scope_id": "6b483e9c05dc431b87a7c9be1872ddfa",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "033a19ae0e9946238378557c97da63ab",
+      "scope_id": "9bd5b8d5d7624397a405432221c3b34f",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "891b47b4e4c64b6c9ad9fd2a53dd05a9",
+      "scope_id": "d56d54d837a840a3b9ed4d06c2fd5244",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "2dc0328034e242e28cb031588c65bb15",
+      "scope_id": "8a43641e281748649d056fce800918bd",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "c1a5fb718f424d6d91b76315d7374700",
+      "scope_id": "a48c4bdef5c243519993d2ce70a87ac3",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "88cdbebf07ce491290f76f5e41681944",
+      "scope_id": "0d2a983b28e9435581bfb20d4723844a",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "9ca63d6bad054e8086c652e940b867e2",
+      "scope_id": "a2a31b06159e4fdabd11974de220643f",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "6cb83a950567469a9751ac9d174dc232",
+      "scope_id": "9a083edae37f4eef968155e38d432918",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    }
+  ]
+}

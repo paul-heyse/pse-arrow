@@ -1,133 +1,132 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Stage admission re-executes the actual producer and compares complete values.
-mod compare;
-mod fixture;
+//! One actual producer registration for local execution and external admission.
+pub(crate) mod physical;
+mod producer;
+mod source_producer;
 mod sources;
+mod traversal;
 
-use crate::passes::{dag::invalid, p3::P3, p10::P10};
-use crate::{BoundInput, CompilerError, ExternalInputs, InputBundle, Pass, PassContext, PolicySet};
+use crate::{CompilerError, passes::registry::PassRegistry};
 use pse_catalog::{
     Catalog, CatalogError,
+    computation::StageProducer,
     store::membership::{AdmissionContext, SemanticValidator},
 };
-use pse_ids::CancellationToken;
+use pse_ids::{CancellationToken, SemanticId};
 use pse_relations::RecordBatch;
-use pse_schema::{
-    Registry,
-    model::{PassSpec, PortSource, RelationKey},
-};
+use pse_schema::{Registry, model::RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 
-/// Registered rule admission plus actual P3 source-to-output verification.
-/// P10 and its fixed complete predecessor fixture require explicit opt-in.
+pub(crate) use producer::InvocationArguments;
+pub(crate) use source_producer::SourceArguments;
+
+/// Registered invariant execution and the single inventory of actual producers.
 #[derive(Debug)]
 pub struct CompilerValidator {
     invariants: Arc<dyn SemanticValidator>,
-    p10_fixture: bool,
+    passes: PassRegistry,
+    producers: BTreeMap<SemanticId, Arc<dyn StageProducer>>,
+    sources: Option<Arc<dyn pse_catalog::source_production::SourceProducer>>,
+    sessions: Option<Arc<pse_catalog::session::SessionFactory>>,
 }
 impl CompilerValidator {
-    /// Compose with the existing actual-row invariant validator.
-    #[must_use]
-    pub fn new(invariants: Arc<dyn SemanticValidator>) -> Self {
-        Self {
+    /// Bind every available production implementation to its exact declaration once.
+    /// # Errors
+    /// A production implementation differs from its authoritative pass specification.
+    pub fn new(
+        invariants: Arc<dyn SemanticValidator>,
+        registry: &Registry,
+    ) -> Result<Self, CompilerError> {
+        Ok(Self {
             invariants,
-            p10_fixture: false,
-        }
+            passes: PassRegistry::production(registry)?,
+            producers: BTreeMap::new(),
+            sources: None,
+            sessions: None,
+        })
     }
-    /// Admit the complete, declared arithmetic P10 fixture and its importer.
-    /// This is restricted to the fixed fixture's actual values and never invents P4–P9.
+    /// Seal the actual shared engine into every selected producer implementation.
     #[must_use]
-    pub fn with_p10_fixture(mut self) -> Self {
-        self.p10_fixture = true;
+    pub fn with_sessions(mut self, sessions: Arc<pse_catalog::session::SessionFactory>) -> Self {
+        self.sources = Some(Arc::new(source_producer::RegisteredSources));
+        self.producers = self
+            .passes
+            .implementations()
+            .map(|pass| {
+                let implementation: Arc<dyn StageProducer> = Arc::new(producer::RegisteredPass {
+                    pass: Arc::clone(pass),
+                    sessions: Arc::clone(&sessions),
+                });
+                (pass.spec().id, implementation)
+            })
+            .collect();
+        self.sessions = Some(sessions);
         self
     }
-    async fn stage(
-        &self,
-        catalog: &Catalog,
-        context: &AdmissionContext,
-        candidates: &BTreeMap<String, RecordBatch>,
-        cancel: &CancellationToken,
+    /// Register a custom implementation before sealing its runtime and opening a catalog.
+    /// # Errors
+    /// A runtime has already been sealed, or the implementation is duplicate/undeclared.
+    pub fn register(
+        &mut self,
+        pass: Arc<dyn crate::Pass>,
+        registry: &Registry,
     ) -> Result<(), CompilerError> {
-        let registry = catalog.registry();
-        let spec = context
-            .stage_pass
-            .and_then(|id| registry.passes().iter().find(|spec| spec.id == id))
-            .ok_or_else(|| invalid("stage has no actual registered producer"))?;
-        let inputs = bind(spec, registry, context)?;
-        if self.p10_fixture && spec.name == "FixtureP10Inputs" && spec.version == "1" {
-            return fixture::validate(catalog, spec, &inputs, candidates, cancel);
+        if self.sessions.is_some() {
+            return Err(crate::passes::dag::invalid(
+                "register producers before sealing the engine",
+            ));
         }
-        let pass: Box<dyn Pass> = match (spec.name, spec.version) {
-            ("P3", "1") => Box::new(P3::new(registry)?),
-            ("P10", "1") if self.p10_fixture => Box::new(P10::new(registry)?),
-            _ => {
-                return Err(invalid(
-                    "stage has no executable semantic admission contract",
-                ));
-            }
-        };
-        let documents =
-            crate::driver::inputs::documents(catalog, &inputs.rows(registry)?, cancel).await?;
-        let policies = PolicySet::default();
-        let external = ExternalInputs::default();
-        let ctx = PassContext {
-            registry,
-            documents: &documents,
-            policies: &policies,
-            external: &external,
-            cancel,
-            reserver: catalog.reserver().as_ref(),
-            session: None,
-        };
-        let expected = pass.run(&ctx, &inputs).await?;
-        crate::passes::bundle::validate_output(&expected, spec, registry)?;
-        for port in &spec.outputs {
-            compare::rows(
-                catalog,
-                &port.relation,
-                &expected.ports[port.port],
-                std::slice::from_ref(
-                    candidates
-                        .get(port.port)
-                        .ok_or_else(|| invalid("stage candidate output absent"))?,
-                ),
-                cancel,
-            )?;
-        }
-        Ok(())
+        self.passes.register(pass, registry)
     }
 }
 impl SemanticValidator for CompilerValidator {
+    fn validate_affected<'a>(
+        &'a self,
+        registry: &'a Registry,
+        rows: &'a BTreeMap<RelationKey, pse_relations::columnar::FieldCheckedBatch>,
+        changed: &'a std::collections::BTreeSet<RelationKey>,
+        session: &'a pse_catalog::session::SnapshotSession,
+        cancel: &'a CancellationToken,
+    ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
+        self.invariants
+            .validate_affected(registry, rows, changed, session, cancel)
+    }
+    fn source_producer(&self) -> Option<Arc<dyn pse_catalog::source_production::SourceProducer>> {
+        self.sources.clone()
+    }
+    fn validate_checked<'a>(
+        &'a self,
+        registry: &'a Registry,
+        rows: &'a BTreeMap<RelationKey, pse_relations::columnar::FieldCheckedBatch>,
+        session: &'a pse_catalog::session::SnapshotSession,
+        cancel: &'a CancellationToken,
+    ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
+        self.invariants
+            .validate_checked(registry, rows, session, cancel)
+    }
+    fn stage_producer(&self, pass: SemanticId) -> Option<Arc<dyn StageProducer>> {
+        self.producers.get(&pass).cloned()
+    }
     fn validate<'a>(
         &'a self,
         registry: &'a Registry,
         rows: &'a BTreeMap<RelationKey, RecordBatch>,
+        session: &'a pse_catalog::session::SnapshotSession,
         cancel: &'a CancellationToken,
     ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
-        self.invariants.validate(registry, rows, cancel)
+        self.invariants.validate(registry, rows, session, cancel)
     }
     fn validate_sidecar<'a>(
         &'a self,
         registry: &'a Registry,
         rows: &'a BTreeMap<RelationKey, RecordBatch>,
+        session: &'a pse_catalog::session::SnapshotSession,
         cancel: &'a CancellationToken,
     ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
-        self.invariants.validate_sidecar(registry, rows, cancel)
-    }
-    fn validate_stage<'a>(
-        &'a self,
-        catalog: &'a Catalog,
-        context: &'a AdmissionContext,
-        candidates: &'a BTreeMap<String, RecordBatch>,
-        cancel: &'a CancellationToken,
-    ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
-        Box::pin(async move {
-            self.stage(catalog, context, candidates, cancel)
-                .await
-                .map_err(|error| CatalogError::Semantic(Arc::new(error)))
-        })
+        self.invariants
+            .validate_sidecar(registry, rows, session, cancel)
     }
     fn validate_snapshot_sources<'a>(
         &'a self,
@@ -138,37 +137,16 @@ impl SemanticValidator for CompilerValidator {
         cancel: &'a CancellationToken,
     ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
         Box::pin(async move {
-            sources::validate(catalog, kind, context, candidates, cancel)
+            let sessions = self
+                .sessions
+                .as_ref()
+                .ok_or_else(|| CatalogError::Admission {
+                    path: "source admission".to_owned(),
+                    reason: "shared engine has not been sealed".to_owned(),
+                })?;
+            sources::validate(catalog, kind, context, candidates, sessions, cancel)
                 .await
                 .map_err(|error| CatalogError::Semantic(Arc::new(error)))
         })
     }
-}
-
-fn bind(
-    spec: &PassSpec,
-    registry: &Registry,
-    context: &AdmissionContext,
-) -> Result<InputBundle, CompilerError> {
-    let mut inputs = InputBundle::new();
-    for port in &spec.inputs {
-        let relation = registry
-            .relation(&port.relation)
-            .ok_or_else(|| invalid("stage input declaration missing"))?;
-        let binding = context
-            .parents
-            .get(port.port)
-            .map(|snapshot| match port.source {
-                PortSource::Pinned => {
-                    BoundInput::bind(Arc::clone(snapshot), relation.key, registry)
-                }
-                PortSource::Derived { port, .. } => {
-                    BoundInput::bind_port(Arc::clone(snapshot), relation.key, port, registry)
-                }
-            })
-            .transpose()?;
-        inputs.ports.insert(port.port, binding);
-    }
-    inputs.validate(spec, registry)?;
-    Ok(inputs)
 }

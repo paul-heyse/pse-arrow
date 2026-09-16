@@ -2,50 +2,31 @@
 // Copyright (c) 2026 Paul Heyse
 
 use crate::{RelationError, ext::ExtMetadata};
-use arrow_schema::{DataType, Field, TimeUnit};
+use arrow_schema::{DataType, Field};
 use pse_ids::SemanticId;
 use pse_schema::Registry;
 use pse_schema::arrow::{
     KEY_ENUM, KEY_EXTENSION_METADATA, KEY_EXTENSION_NAME, KEY_FK, KEY_LOGICAL_TYPE,
     KEY_QUANTITY_TYPE, KEY_ROLE,
 };
-use pse_schema::model::{ColumnRole, EXTENSION_TYPES, render_data_type};
+use pse_schema::model::{ColumnRole, EXTENSION_TYPES, FieldContract};
 
 /// Recursively checks field declarations and invokes the typed extension factories.
-/// Fields without semantic declarations may use ordinary supported Arrow scalar layouts;
+/// Fields without semantic declarations may use any native Arrow layout;
 /// relation admission separately requires their exact declared metadata.
 ///
 /// # Errors
-/// Unknown metadata, unsupported storage, malformed extensions and unresolved declarations.
+/// Malformed PSE extensions and unresolved or inconsistent domain declarations.
 pub fn validate_field(reg: &Registry, field: &Field) -> Result<(), Vec<RelationError>> {
     let mut errors = Vec::new();
-    visit(reg, field, field.name(), false, &mut errors);
+    visit(reg, field, field.name(), &mut errors);
     super::finish(errors)
 }
 
-fn visit(
-    reg: &Registry,
-    field: &Field,
-    path: &str,
-    inside_extension: bool,
-    errors: &mut Vec<RelationError>,
-) {
-    for key in field.metadata().keys() {
-        if !matches!(
-            key.as_str(),
-            KEY_LOGICAL_TYPE
-                | KEY_QUANTITY_TYPE
-                | KEY_ROLE
-                | KEY_FK
-                | KEY_ENUM
-                | KEY_EXTENSION_NAME
-                | KEY_EXTENSION_METADATA
-        ) {
-            errors.push(RelationError::UnknownMetadata {
-                field: path.to_owned(),
-                key: key.clone(),
-            });
-        }
+fn visit(reg: &Registry, field: &Field, path: &str, errors: &mut Vec<RelationError>) {
+    let declaration = FieldContract::from_field(field.clone());
+    if let Err(error) = pse_schema::model::IntegerRange::from_field(field) {
+        errors.push(error.into());
     }
     check_semantics(reg, field, path, errors);
     let extension = field.metadata().get(KEY_EXTENSION_NAME);
@@ -59,52 +40,13 @@ fn visit(
             "extension metadata or enum identity without an extension name",
         ));
     }
-    match field.data_type() {
-        DataType::Struct(children) => {
-            for child in children {
-                visit(
-                    reg,
-                    child,
-                    &format!("{path}.{}", child.name()),
-                    inside_extension || extension.is_some(),
-                    errors,
-                );
-            }
-        }
-        DataType::List(child) => visit(
+    for child in declaration.children() {
+        visit(
             reg,
-            child,
-            &format!("{path}.item"),
-            inside_extension || extension.is_some(),
+            child.field(),
+            &format!("{path}.{}", child.name()),
             errors,
-        ),
-        DataType::FixedSizeList(child, width) if *width > 0 => visit(
-            reg,
-            child,
-            &format!("{path}.item"),
-            inside_extension || extension.is_some(),
-            errors,
-        ),
-        DataType::Dictionary(key, value)
-            if value.as_ref() == &DataType::Utf8
-                && ((key.as_ref() == &DataType::Int32 && extension.is_some())
-                    || (key.as_ref() == &DataType::Int8 && inside_extension)) => {}
-        DataType::Boolean
-        | DataType::Float64
-        | DataType::Int32
-        | DataType::Int64
-        | DataType::UInt8
-        | DataType::UInt16
-        | DataType::UInt32
-        | DataType::UInt64
-        | DataType::Utf8 => {}
-        DataType::Int16 if inside_extension => {}
-        DataType::FixedSizeBinary(16 | 32) if inside_extension || extension.is_some() => {}
-        DataType::Timestamp(TimeUnit::Nanosecond, zone) if zone.as_deref() == Some("UTC") => {}
-        other => errors.push(super::mismatch(
-            path,
-            format!("unsupported declared layout {other}"),
-        )),
+        );
     }
 }
 
@@ -112,14 +54,31 @@ fn check_semantics(reg: &Registry, field: &Field, path: &str, errors: &mut Vec<R
     let metadata = field.metadata();
     if let Some(name) = metadata.get(KEY_LOGICAL_TYPE) {
         if let Some(logical) = reg.logical_type(name) {
-            match render_data_type(field.data_type()) {
-                Ok(actual) if actual == logical.arrow_storage => {}
-                _ => errors.push(super::mismatch(
+            let expected =
+                serde_json::from_str::<DataType>(&logical.arrow_storage)
+                    .map_err(|error| error.to_string())
+                    .and_then(|storage| {
+                        if logical.extension_name.as_ref().is_some_and(|name| {
+                            EXTENSION_TYPES.iter().any(|spec| spec.name == name)
+                        }) {
+                            Ok(storage)
+                        } else {
+                            pse_schema::arrow::bind_type(reg, &storage, path)
+                                .map_err(|error| error.to_string())
+                        }
+                    });
+            if expected.as_ref().ok() != Some(field.data_type()) {
+                errors.push(super::mismatch(
                     path,
-                    "logical-type declaration differs from storage",
-                )),
+                    format!(
+                        "logical-type declaration differs from storage: expected {expected:?}, actual {:?}",
+                        field.data_type()
+                    ),
+                ));
             }
-            if logical.extension_name != metadata.get(KEY_EXTENSION_NAME).map(String::as_str) {
+            if logical.extension_name.as_deref()
+                != metadata.get(KEY_EXTENSION_NAME).map(String::as_str)
+            {
                 errors.push(super::mismatch(
                     path,
                     "logical type and extension name disagree",
@@ -191,6 +150,12 @@ fn check_extension(
     name: &str,
     errors: &mut Vec<RelationError>,
 ) {
+    if !EXTENSION_TYPES.iter().any(|spec| spec.name == name) {
+        if name.starts_with("pse.") {
+            errors.push(super::mismatch(path, "unknown PSE domain extension"));
+        }
+        return;
+    }
     if let Err(error) = crate::ext::validate_extension(field) {
         errors.push(RelationError::ExtensionType {
             field: path.to_owned(),

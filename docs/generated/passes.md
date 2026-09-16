@@ -7,6 +7,189 @@ This is the registered executable surface. The later-pass design inventory remai
 ```mermaid
 graph TD
   P0[P0]
+  P10[P10]
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P6 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P6 --> P10
+  P6 --> P10
+  P9 --> P10
+  P9 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P9 --> P10
+  P9 --> P10
+  P9 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P9 --> P10
+  P9 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P9 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
+  P3 --> P10
   P1[P1]
   P0 --> P1
   P2[P2]
@@ -88,12 +271,829 @@ graph TD
   P1 --> P2
   P1 --> P2
   P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
+  P1 --> P2
   P3[P3]
+  P4[P4]
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P3 --> P4
+  P5[P5]
+  P4 --> P5
+  P4 --> P5
+  P4 --> P5
+  P4 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P3 --> P5
+  P6[P6]
+  P5 --> P6
+  P4 --> P6
+  P5 --> P6
+  P5 --> P6
+  P4 --> P6
+  P4 --> P6
+  P5 --> P6
+  P5 --> P6
+  P5 --> P6
+  P5 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P3 --> P6
+  P7[P7]
+  P4 --> P7
+  P5 --> P7
+  P6 --> P7
+  P5 --> P7
+  P5 --> P7
+  P5 --> P7
+  P5 --> P7
+  P5 --> P7
+  P5 --> P7
+  P4 --> P7
+  P4 --> P7
+  P6 --> P7
+  P5 --> P7
+  P5 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P3 --> P7
+  P8[P8]
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P5 --> P8
+  P5 --> P8
+  P4 --> P8
+  P5 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P7 --> P8
+  P6 --> P8
+  P5 --> P8
+  P5 --> P8
+  P5 --> P8
+  P5 --> P8
+  P5 --> P8
+  P4 --> P8
+  P6 --> P8
+  P5 --> P8
+  P5 --> P8
+  P5 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P3 --> P8
+  P9[P9]
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P6 --> P9
+  P5 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P8 --> P9
+  P6 --> P9
+  P5 --> P9
+  P4 --> P9
+  P4 --> P9
+  P6 --> P9
+  P6 --> P9
+  P6 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
+  P3 --> P9
 ```
 
 ## P0
 
-Version: `1`. Determinism: `deterministic`. Executes plans: false.
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
 
 | Direction | Port | Relation |
 |---|---|---|
@@ -108,9 +1108,270 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 | input | `packages` | `authored.packages` |
 | output | `package_graph` | `normalized.package_graph` |
 
+## P10
+
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
+
+| Direction | Port | Relation |
+|---|---|---|
+| input | `contributions` | `compiled.contributions` |
+| input | `element_projection_coefficients` | `compiled.element_projection_coefficients` |
+| input | `element_projection_groups` | `compiled.element_projection_groups` |
+| input | `equation_branches` | `compiled.equation_branches` |
+| input | `expression_root_indices` | `compiled.expression_root_indices` |
+| input | `expression_roots` | `compiled.expression_roots` |
+| input | `group_collection_members` | `compiled.group_collection_members` |
+| input | `group_collections` | `compiled.group_collections` |
+| input | `group_projections` | `compiled.group_projections` |
+| input | `group_reindexing_members` | `compiled.group_reindexing_members` |
+| input | `group_reindexings` | `compiled.group_reindexings` |
+| input | `kernel_output_symbols` | `compiled.kernel_output_symbols` |
+| input | `law_applications` | `compiled.law_applications` |
+| input | `law_participation` | `compiled.law_participation` |
+| input | `method_parameter_bindings` | `compiled.method_parameter_bindings` |
+| input | `method_realizations` | `compiled.method_realizations` |
+| input | `port_member_groups` | `compiled.port_member_groups` |
+| input | `predicate_mask_members` | `compiled.predicate_mask_members` |
+| input | `predicate_masks` | `compiled.predicate_masks` |
+| input | `symbol_expressions` | `compiled.symbol_expressions` |
+| input | `symbol_group_members` | `compiled.symbol_group_members` |
+| input | `symbol_groups` | `compiled.symbol_groups` |
+| input | `symbol_references` | `compiled.symbol_references` |
+| input | `symbols` | `compiled.symbols` |
+| input | `connection_equations` | `inferred.connection_equations` |
+| input | `instance_features` | `inferred.instance_features` |
+| input | `instances` | `inferred.instances` |
+| input | `kernel_bindings` | `inferred.kernel_bindings` |
+| input | `math_affine` | `inferred.math_affine` |
+| input | `math_broadcasts` | `inferred.math_broadcasts` |
+| input | `math_complementarity` | `inferred.math_complementarity` |
+| input | `math_conditionals` | `inferred.math_conditionals` |
+| input | `math_dae_links` | `inferred.math_dae_links` |
+| input | `math_derivatives` | `inferred.math_derivatives` |
+| input | `math_equations` | `inferred.math_equations` |
+| input | `math_expr_args` | `inferred.math_expr_args` |
+| input | `math_expr_nodes` | `inferred.math_expr_nodes` |
+| input | `math_float_constants` | `inferred.math_float_constants` |
+| input | `math_free_indices` | `inferred.math_free_indices` |
+| input | `math_gathers` | `inferred.math_gathers` |
+| input | `math_implicit_refs` | `inferred.math_implicit_refs` |
+| input | `math_implicit_systems` | `inferred.math_implicit_systems` |
+| input | `math_indexed_equations` | `inferred.math_indexed_equations` |
+| input | `math_int_constants` | `inferred.math_int_constants` |
+| input | `math_integrals` | `inferred.math_integrals` |
+| input | `math_kernel_calls` | `inferred.math_kernel_calls` |
+| input | `math_objectives` | `inferred.math_objectives` |
+| input | `math_piecewise_linear` | `inferred.math_piecewise_linear` |
+| input | `math_quantity_selections` | `inferred.math_quantity_selections` |
+| input | `math_reductions` | `inferred.math_reductions` |
+| input | `math_smooth_ops` | `inferred.math_smooth_ops` |
+| input | `math_symbol_refs` | `inferred.math_symbol_refs` |
+| input | `math_unit_converts` | `inferred.math_unit_converts` |
+| input | `math_weighted_means` | `inferred.math_weighted_means` |
+| input | `method_resolutions` | `inferred.method_resolutions` |
+| input | `path_targets` | `inferred.path_targets` |
+| input | `port_member_domains` | `inferred.port_member_domains` |
+| input | `port_members` | `inferred.port_members` |
+| input | `port_state_domains` | `inferred.port_state_domains` |
+| input | `port_state_targets` | `inferred.port_state_targets` |
+| input | `ports` | `inferred.ports` |
+| input | `predicate_axes` | `inferred.predicate_axes` |
+| input | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| input | `property_requirements` | `inferred.property_requirements` |
+| input | `state_scopes` | `inferred.state_scopes` |
+| input | `valid_index_tuples` | `inferred.valid_index_tuples` |
+| input | `config_values` | `normalized.config_values` |
+| input | `continuous_domains` | `normalized.continuous_domains` |
+| input | `contribution_expr_affine` | `normalized.contribution_expr_affine` |
+| input | `contribution_expr_args` | `normalized.contribution_expr_args` |
+| input | `contribution_expr_broadcasts` | `normalized.contribution_expr_broadcasts` |
+| input | `contribution_expr_conditionals` | `normalized.contribution_expr_conditionals` |
+| input | `contribution_expr_derivatives` | `normalized.contribution_expr_derivatives` |
+| input | `contribution_expr_float_constants` | `normalized.contribution_expr_float_constants` |
+| input | `contribution_expr_gathers` | `normalized.contribution_expr_gathers` |
+| input | `contribution_expr_implicit_refs` | `normalized.contribution_expr_implicit_refs` |
+| input | `contribution_expr_int_constants` | `normalized.contribution_expr_int_constants` |
+| input | `contribution_expr_integrals` | `normalized.contribution_expr_integrals` |
+| input | `contribution_expr_kernel_calls` | `normalized.contribution_expr_kernel_calls` |
+| input | `contribution_expr_nodes` | `normalized.contribution_expr_nodes` |
+| input | `contribution_expr_piecewise_linear` | `normalized.contribution_expr_piecewise_linear` |
+| input | `contribution_expr_reductions` | `normalized.contribution_expr_reductions` |
+| input | `contribution_expr_smooth_ops` | `normalized.contribution_expr_smooth_ops` |
+| input | `contribution_expr_symbol_refs` | `normalized.contribution_expr_symbol_refs` |
+| input | `contribution_expr_unit_converts` | `normalized.contribution_expr_unit_converts` |
+| input | `contribution_expr_weighted_means` | `normalized.contribution_expr_weighted_means` |
+| input | `display_expr_affine` | `normalized.display_expr_affine` |
+| input | `display_expr_args` | `normalized.display_expr_args` |
+| input | `display_expr_broadcasts` | `normalized.display_expr_broadcasts` |
+| input | `display_expr_conditionals` | `normalized.display_expr_conditionals` |
+| input | `display_expr_derivatives` | `normalized.display_expr_derivatives` |
+| input | `display_expr_float_constants` | `normalized.display_expr_float_constants` |
+| input | `display_expr_gathers` | `normalized.display_expr_gathers` |
+| input | `display_expr_implicit_refs` | `normalized.display_expr_implicit_refs` |
+| input | `display_expr_int_constants` | `normalized.display_expr_int_constants` |
+| input | `display_expr_integrals` | `normalized.display_expr_integrals` |
+| input | `display_expr_kernel_calls` | `normalized.display_expr_kernel_calls` |
+| input | `display_expr_nodes` | `normalized.display_expr_nodes` |
+| input | `display_expr_piecewise_linear` | `normalized.display_expr_piecewise_linear` |
+| input | `display_expr_reductions` | `normalized.display_expr_reductions` |
+| input | `display_expr_smooth_ops` | `normalized.display_expr_smooth_ops` |
+| input | `display_expr_symbol_refs` | `normalized.display_expr_symbol_refs` |
+| input | `display_expr_unit_converts` | `normalized.display_expr_unit_converts` |
+| input | `display_expr_weighted_means` | `normalized.display_expr_weighted_means` |
+| input | `domain_members` | `normalized.domain_members` |
+| input | `domain_products` | `normalized.domain_products` |
+| input | `domains` | `normalized.domains` |
+| input | `expression_index_bindings` | `normalized.expression_index_bindings` |
+| input | `expression_paths` | `normalized.expression_paths` |
+| input | `expression_sources` | `normalized.expression_sources` |
+| input | `guard_expr_affine` | `normalized.guard_expr_affine` |
+| input | `guard_expr_args` | `normalized.guard_expr_args` |
+| input | `guard_expr_broadcasts` | `normalized.guard_expr_broadcasts` |
+| input | `guard_expr_conditionals` | `normalized.guard_expr_conditionals` |
+| input | `guard_expr_derivatives` | `normalized.guard_expr_derivatives` |
+| input | `guard_expr_float_constants` | `normalized.guard_expr_float_constants` |
+| input | `guard_expr_gathers` | `normalized.guard_expr_gathers` |
+| input | `guard_expr_implicit_refs` | `normalized.guard_expr_implicit_refs` |
+| input | `guard_expr_int_constants` | `normalized.guard_expr_int_constants` |
+| input | `guard_expr_integrals` | `normalized.guard_expr_integrals` |
+| input | `guard_expr_kernel_calls` | `normalized.guard_expr_kernel_calls` |
+| input | `guard_expr_nodes` | `normalized.guard_expr_nodes` |
+| input | `guard_expr_piecewise_linear` | `normalized.guard_expr_piecewise_linear` |
+| input | `guard_expr_reductions` | `normalized.guard_expr_reductions` |
+| input | `guard_expr_smooth_ops` | `normalized.guard_expr_smooth_ops` |
+| input | `guard_expr_symbol_refs` | `normalized.guard_expr_symbol_refs` |
+| input | `guard_expr_unit_converts` | `normalized.guard_expr_unit_converts` |
+| input | `guard_expr_weighted_means` | `normalized.guard_expr_weighted_means` |
+| input | `instance_bindings` | `normalized.instance_bindings` |
+| input | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| input | `instance_expr_affine` | `normalized.instance_expr_affine` |
+| input | `instance_expr_args` | `normalized.instance_expr_args` |
+| input | `instance_expr_broadcasts` | `normalized.instance_expr_broadcasts` |
+| input | `instance_expr_conditionals` | `normalized.instance_expr_conditionals` |
+| input | `instance_expr_derivatives` | `normalized.instance_expr_derivatives` |
+| input | `instance_expr_float_constants` | `normalized.instance_expr_float_constants` |
+| input | `instance_expr_gathers` | `normalized.instance_expr_gathers` |
+| input | `instance_expr_implicit_refs` | `normalized.instance_expr_implicit_refs` |
+| input | `instance_expr_int_constants` | `normalized.instance_expr_int_constants` |
+| input | `instance_expr_integrals` | `normalized.instance_expr_integrals` |
+| input | `instance_expr_kernel_calls` | `normalized.instance_expr_kernel_calls` |
+| input | `instance_expr_nodes` | `normalized.instance_expr_nodes` |
+| input | `instance_expr_piecewise_linear` | `normalized.instance_expr_piecewise_linear` |
+| input | `instance_expr_reductions` | `normalized.instance_expr_reductions` |
+| input | `instance_expr_smooth_ops` | `normalized.instance_expr_smooth_ops` |
+| input | `instance_expr_symbol_refs` | `normalized.instance_expr_symbol_refs` |
+| input | `instance_expr_unit_converts` | `normalized.instance_expr_unit_converts` |
+| input | `instance_expr_weighted_means` | `normalized.instance_expr_weighted_means` |
+| input | `material_domain_members` | `normalized.material_domain_members` |
+| input | `parameter_values` | `normalized.parameter_values` |
+| input | `predicate_nodes` | `normalized.predicate_nodes` |
+| input | `property_packages` | `normalized.property_packages` |
+| input | `species` | `normalized.species` |
+| input | `species_elements` | `normalized.species_elements` |
+| input | `template_derivatives` | `normalized.template_derivatives` |
+| input | `template_domains` | `normalized.template_domains` |
+| input | `template_expr_affine` | `normalized.template_expr_affine` |
+| input | `template_expr_args` | `normalized.template_expr_args` |
+| input | `template_expr_broadcasts` | `normalized.template_expr_broadcasts` |
+| input | `template_expr_conditionals` | `normalized.template_expr_conditionals` |
+| input | `template_expr_derivatives` | `normalized.template_expr_derivatives` |
+| input | `template_expr_float_constants` | `normalized.template_expr_float_constants` |
+| input | `template_expr_gathers` | `normalized.template_expr_gathers` |
+| input | `template_expr_implicit_refs` | `normalized.template_expr_implicit_refs` |
+| input | `template_expr_int_constants` | `normalized.template_expr_int_constants` |
+| input | `template_expr_integrals` | `normalized.template_expr_integrals` |
+| input | `template_expr_kernel_calls` | `normalized.template_expr_kernel_calls` |
+| input | `template_expr_nodes` | `normalized.template_expr_nodes` |
+| input | `template_expr_piecewise_linear` | `normalized.template_expr_piecewise_linear` |
+| input | `template_expr_reductions` | `normalized.template_expr_reductions` |
+| input | `template_expr_smooth_ops` | `normalized.template_expr_smooth_ops` |
+| input | `template_expr_symbol_refs` | `normalized.template_expr_symbol_refs` |
+| input | `template_expr_unit_converts` | `normalized.template_expr_unit_converts` |
+| input | `template_expr_weighted_means` | `normalized.template_expr_weighted_means` |
+| input | `template_features` | `normalized.template_features` |
+| input | `template_params` | `normalized.template_params` |
+| input | `template_ports` | `normalized.template_ports` |
+| input | `template_submodels` | `normalized.template_submodels` |
+| input | `template_symbol_properties` | `normalized.template_symbol_properties` |
+| input | `template_symbols` | `normalized.template_symbols` |
+| input | `templates` | `normalized.templates` |
+| input | `normalized_units` | `normalized.units` |
+| input | `bases` | `reference.bases` |
+| input | `conversion_rules` | `reference.conversion_rules` |
+| input | `element_projection_contracts` | `reference.element_projection_contracts` |
+| input | `elements` | `reference.elements` |
+| input | `kernel_specs` | `reference.kernel_specs` |
+| input | `math_context` | `reference.math_context` |
+| input | `method_dependencies` | `reference.method_dependencies` |
+| input | `method_kernel_inputs` | `reference.method_kernel_inputs` |
+| input | `method_parameter_axes` | `reference.method_parameter_axes` |
+| input | `method_parameters` | `reference.method_parameters` |
+| input | `method_provisions` | `reference.method_provisions` |
+| input | `method_specs` | `reference.method_specs` |
+| input | `method_state_parameters` | `reference.method_state_parameters` |
+| input | `quantity_kinds` | `reference.quantity_kinds` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_operations` | `reference.quantity_operations` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `quantity_types` | `reference.quantity_types` |
+| input | `reference_states` | `reference.reference_states` |
+| input | `unit_sets` | `reference.unit_sets` |
+| input | `units` | `reference.units` |
+| output | `contributions` | `compiled.contributions` |
+| output | `element_projection_coefficients` | `compiled.element_projection_coefficients` |
+| output | `element_projection_groups` | `compiled.element_projection_groups` |
+| output | `equation_branches` | `compiled.equation_branches` |
+| output | `expression_root_indices` | `compiled.expression_root_indices` |
+| output | `expression_roots` | `compiled.expression_roots` |
+| output | `group_collection_members` | `compiled.group_collection_members` |
+| output | `group_collections` | `compiled.group_collections` |
+| output | `group_projections` | `compiled.group_projections` |
+| output | `group_reindexing_members` | `compiled.group_reindexing_members` |
+| output | `group_reindexings` | `compiled.group_reindexings` |
+| output | `kernel_bindings` | `compiled.kernel_bindings` |
+| output | `kernel_output_symbols` | `compiled.kernel_output_symbols` |
+| output | `law_applications` | `compiled.law_applications` |
+| output | `law_participation` | `compiled.law_participation` |
+| output | `math_affine` | `compiled.math_affine` |
+| output | `math_broadcasts` | `compiled.math_broadcasts` |
+| output | `math_complementarity` | `compiled.math_complementarity` |
+| output | `math_conditionals` | `compiled.math_conditionals` |
+| output | `math_dae_links` | `compiled.math_dae_links` |
+| output | `math_derivatives` | `compiled.math_derivatives` |
+| output | `math_equations` | `compiled.math_equations` |
+| output | `math_expr_args` | `compiled.math_expr_args` |
+| output | `math_expr_nodes` | `compiled.math_expr_nodes` |
+| output | `math_float_constants` | `compiled.math_float_constants` |
+| output | `math_free_indices` | `compiled.math_free_indices` |
+| output | `math_gathers` | `compiled.math_gathers` |
+| output | `math_implicit_refs` | `compiled.math_implicit_refs` |
+| output | `math_implicit_systems` | `compiled.math_implicit_systems` |
+| output | `math_indexed_equations` | `compiled.math_indexed_equations` |
+| output | `math_int_constants` | `compiled.math_int_constants` |
+| output | `math_integrals` | `compiled.math_integrals` |
+| output | `math_kernel_calls` | `compiled.math_kernel_calls` |
+| output | `math_objectives` | `compiled.math_objectives` |
+| output | `math_piecewise_linear` | `compiled.math_piecewise_linear` |
+| output | `math_quantity_selections` | `compiled.math_quantity_selections` |
+| output | `math_reductions` | `compiled.math_reductions` |
+| output | `math_smooth_ops` | `compiled.math_smooth_ops` |
+| output | `math_symbol_refs` | `compiled.math_symbol_refs` |
+| output | `math_unit_converts` | `compiled.math_unit_converts` |
+| output | `math_weighted_means` | `compiled.math_weighted_means` |
+| output | `method_parameter_bindings` | `compiled.method_parameter_bindings` |
+| output | `method_realizations` | `compiled.method_realizations` |
+| output | `port_member_groups` | `compiled.port_member_groups` |
+| output | `predicate_mask_members` | `compiled.predicate_mask_members` |
+| output | `predicate_masks` | `compiled.predicate_masks` |
+| output | `symbol_expressions` | `compiled.symbol_expressions` |
+| output | `symbol_group_members` | `compiled.symbol_group_members` |
+| output | `symbol_groups` | `compiled.symbol_groups` |
+| output | `symbol_references` | `compiled.symbol_references` |
+| output | `symbols` | `compiled.symbols` |
+
 ## P1
 
-Version: `1`. Determinism: `deterministic`. Executes plans: false.
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
 
 | Direction | Port | Relation |
 |---|---|---|
@@ -185,9 +1446,34 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 | input | `scenarios` | `authored.scenarios` |
 | input | `case_sets` | `authored.case_sets` |
 | input | `case_set_samples` | `authored.case_set_samples` |
+| input | `kernel_specs` | `reference.kernel_specs` |
 | input | `discretization_policies` | `authored.discretization_policies` |
 | input | `solver_profiles` | `authored.solver_profiles` |
 | input | `assertions` | `provenance.assertions` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `template_scopes` | `authored.template_scopes` |
+| input | `template_domain_bindings` | `authored.template_domain_bindings` |
+| input | `math_context` | `reference.math_context` |
+| input | `instance_equations` | `authored.instance_equations` |
+| input | `element_projection_contracts` | `reference.element_projection_contracts` |
+| input | `method_kernel_inputs` | `reference.method_kernel_inputs` |
+| input | `template_material_constraints` | `authored.template_material_constraints` |
+| input | `method_parameter_axes` | `reference.method_parameter_axes` |
+| input | `method_state_parameters` | `reference.method_state_parameters` |
+| input | `method_precedence` | `reference.method_precedence` |
+| input | `method_dependencies` | `reference.method_dependencies` |
+| input | `method_provisions` | `reference.method_provisions` |
+| input | `method_parameters` | `reference.method_parameters` |
+| input | `template_symbol_expressions` | `authored.template_symbol_expressions` |
+| input | `template_contribution_contracts` | `authored.template_contribution_contracts` |
+| input | `template_law_contracts` | `authored.template_law_contracts` |
+| input | `law_bindings` | `reference.law_bindings` |
+| input | `template_display_indices` | `authored.template_display_indices` |
+| input | `connection_bindings` | `reference.connection_bindings` |
+| input | `template_port_members` | `authored.template_port_members` |
+| input | `template_derivatives` | `authored.template_derivatives` |
+| input | `template_symbol_contracts` | `authored.template_symbol_contracts` |
 | input | `change_sets` | `authored.change_sets` |
 | input | `change_ops` | `authored.change_ops` |
 | input | `package_unit_sets` | `authored.package_unit_sets` |
@@ -264,9 +1550,34 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 | output | `scenarios` | `authored.scenarios` |
 | output | `case_sets` | `authored.case_sets` |
 | output | `case_set_samples` | `authored.case_set_samples` |
+| output | `kernel_specs` | `reference.kernel_specs` |
 | output | `discretization_policies` | `authored.discretization_policies` |
 | output | `solver_profiles` | `authored.solver_profiles` |
 | output | `assertions` | `provenance.assertions` |
+| output | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| output | `quantity_preconditions` | `reference.quantity_preconditions` |
+| output | `template_scopes` | `authored.template_scopes` |
+| output | `template_domain_bindings` | `authored.template_domain_bindings` |
+| output | `math_context` | `reference.math_context` |
+| output | `instance_equations` | `authored.instance_equations` |
+| output | `element_projection_contracts` | `reference.element_projection_contracts` |
+| output | `method_kernel_inputs` | `reference.method_kernel_inputs` |
+| output | `template_material_constraints` | `authored.template_material_constraints` |
+| output | `method_parameter_axes` | `reference.method_parameter_axes` |
+| output | `method_state_parameters` | `reference.method_state_parameters` |
+| output | `method_precedence` | `reference.method_precedence` |
+| output | `method_dependencies` | `reference.method_dependencies` |
+| output | `method_provisions` | `reference.method_provisions` |
+| output | `method_parameters` | `reference.method_parameters` |
+| output | `template_symbol_expressions` | `authored.template_symbol_expressions` |
+| output | `template_contribution_contracts` | `authored.template_contribution_contracts` |
+| output | `template_law_contracts` | `authored.template_law_contracts` |
+| output | `law_bindings` | `reference.law_bindings` |
+| output | `template_display_indices` | `authored.template_display_indices` |
+| output | `connection_bindings` | `reference.connection_bindings` |
+| output | `template_port_members` | `authored.template_port_members` |
+| output | `template_derivatives` | `authored.template_derivatives` |
+| output | `template_symbol_contracts` | `authored.template_symbol_contracts` |
 | output | `change_sets` | `authored.change_sets` |
 | output | `change_ops` | `authored.change_ops` |
 | output | `package_unit_sets` | `authored.package_unit_sets` |
@@ -274,7 +1585,7 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 
 ## P2
 
-Version: `1`. Determinism: `deterministic`. Executes plans: true.
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
 
 | Direction | Port | Relation |
 |---|---|---|
@@ -366,6 +1677,7 @@ Version: `1`. Determinism: `deterministic`. Executes plans: true.
 | input | `rule_plan_nodes` | `reference.rule_plan_nodes` |
 | input | `rule_expr_nodes` | `reference.rule_expr_nodes` |
 | input | `rule_expr_edges` | `reference.rule_expr_edges` |
+| input | `rule_expr_calls` | `reference.rule_expr_calls` |
 | input | `rule_aggregates` | `reference.rule_aggregates` |
 | input | `rule_group_keys` | `reference.rule_group_keys` |
 | input | `rule_unnest` | `reference.rule_unnest` |
@@ -377,6 +1689,30 @@ Version: `1`. Determinism: `deterministic`. Executes plans: true.
 | input | `discretization_policies` | `authored.discretization_policies` |
 | input | `solver_profiles` | `authored.solver_profiles` |
 | input | `assertions` | `provenance.assertions` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `template_scopes` | `authored.template_scopes` |
+| input | `template_domain_bindings` | `authored.template_domain_bindings` |
+| input | `math_context` | `reference.math_context` |
+| input | `instance_equations` | `authored.instance_equations` |
+| input | `element_projection_contracts` | `reference.element_projection_contracts` |
+| input | `method_kernel_inputs` | `reference.method_kernel_inputs` |
+| input | `template_material_constraints` | `authored.template_material_constraints` |
+| input | `method_parameter_axes` | `reference.method_parameter_axes` |
+| input | `method_state_parameters` | `reference.method_state_parameters` |
+| input | `method_precedence` | `reference.method_precedence` |
+| input | `method_dependencies` | `reference.method_dependencies` |
+| input | `method_provisions` | `reference.method_provisions` |
+| input | `method_parameters` | `reference.method_parameters` |
+| input | `template_symbol_expressions` | `authored.template_symbol_expressions` |
+| input | `template_contribution_contracts` | `authored.template_contribution_contracts` |
+| input | `template_law_contracts` | `authored.template_law_contracts` |
+| input | `law_bindings` | `reference.law_bindings` |
+| input | `template_display_indices` | `authored.template_display_indices` |
+| input | `connection_bindings` | `reference.connection_bindings` |
+| input | `template_port_members` | `authored.template_port_members` |
+| input | `template_derivatives` | `authored.template_derivatives` |
+| input | `template_symbol_contracts` | `authored.template_symbol_contracts` |
 | input | `change_sets` | `authored.change_sets` |
 | input | `change_ops` | `authored.change_ops` |
 | input | `package_unit_sets` | `authored.package_unit_sets` |
@@ -386,7 +1722,7 @@ Version: `1`. Determinism: `deterministic`. Executes plans: true.
 
 ## P3
 
-Version: `1`. Determinism: `deterministic`. Executes plans: false.
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
 
 | Direction | Port | Relation |
 |---|---|---|
@@ -476,6 +1812,7 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 | input | `rule_plan_nodes` | `reference.rule_plan_nodes` |
 | input | `rule_expr_nodes` | `reference.rule_expr_nodes` |
 | input | `rule_expr_edges` | `reference.rule_expr_edges` |
+| input | `rule_expr_calls` | `reference.rule_expr_calls` |
 | input | `rule_aggregates` | `reference.rule_aggregates` |
 | input | `rule_group_keys` | `reference.rule_group_keys` |
 | input | `rule_unnest` | `reference.rule_unnest` |
@@ -486,11 +1823,43 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 | input | `numerical_policies` | `reference.numerical_policies` |
 | input | `discretization_policies` | `authored.discretization_policies` |
 | input | `solver_profiles` | `authored.solver_profiles` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `template_scopes` | `authored.template_scopes` |
+| input | `template_domain_bindings` | `authored.template_domain_bindings` |
+| input | `math_context` | `reference.math_context` |
+| input | `instance_equations` | `authored.instance_equations` |
+| input | `element_projection_contracts` | `reference.element_projection_contracts` |
+| input | `method_kernel_inputs` | `reference.method_kernel_inputs` |
+| input | `template_material_constraints` | `authored.template_material_constraints` |
+| input | `method_parameter_axes` | `reference.method_parameter_axes` |
+| input | `method_state_parameters` | `reference.method_state_parameters` |
+| input | `method_precedence` | `reference.method_precedence` |
+| input | `method_dependencies` | `reference.method_dependencies` |
+| input | `method_provisions` | `reference.method_provisions` |
+| input | `method_parameters` | `reference.method_parameters` |
+| input | `template_symbol_expressions` | `authored.template_symbol_expressions` |
+| input | `template_contribution_contracts` | `authored.template_contribution_contracts` |
+| input | `template_law_contracts` | `authored.template_law_contracts` |
+| input | `law_bindings` | `reference.law_bindings` |
+| input | `template_display_indices` | `authored.template_display_indices` |
+| input | `connection_bindings` | `reference.connection_bindings` |
+| input | `template_port_members` | `authored.template_port_members` |
+| input | `template_derivatives` | `authored.template_derivatives` |
+| input | `template_symbol_contracts` | `authored.template_symbol_contracts` |
 | input | `package_unit_sets` | `authored.package_unit_sets` |
 | input | `template_symbol_properties` | `authored.template_symbol_properties` |
 | output | `package_graph` | `normalized.package_graph` |
 | output | `domain_products` | `normalized.domain_products` |
 | output | `property_demand_seeds` | `normalized.property_demand_seeds` |
+| output | `material_domain_members` | `normalized.material_domain_members` |
+| output | `property_path_demands` | `normalized.property_path_demands` |
+| output | `config_values` | `normalized.config_values` |
+| output | `feature_inheritance` | `normalized.feature_inheritance` |
+| output | `instance_bindings` | `normalized.instance_bindings` |
+| output | `expression_paths` | `normalized.expression_paths` |
+| output | `port_binding_lengths` | `normalized.port_binding_lengths` |
+| output | `port_binding_steps` | `normalized.port_binding_steps` |
 | output | `expression_sources` | `normalized.expression_sources` |
 | output | `predicate_nodes` | `normalized.predicate_nodes` |
 | output | `equation_nodes` | `normalized.equation_nodes` |
@@ -541,6 +1910,17 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 | output | `connections` | `normalized.connections` |
 | output | `discretization_policies` | `normalized.discretization_policies` |
 | output | `solver_profiles` | `normalized.solver_profiles` |
+| output | `template_scopes` | `normalized.template_scopes` |
+| output | `template_domain_bindings` | `normalized.template_domain_bindings` |
+| output | `instance_equations` | `normalized.instance_equations` |
+| output | `template_material_constraints` | `normalized.template_material_constraints` |
+| output | `template_symbol_expressions` | `normalized.template_symbol_expressions` |
+| output | `template_contribution_contracts` | `normalized.template_contribution_contracts` |
+| output | `template_law_contracts` | `normalized.template_law_contracts` |
+| output | `template_display_indices` | `normalized.template_display_indices` |
+| output | `template_port_members` | `normalized.template_port_members` |
+| output | `template_derivatives` | `normalized.template_derivatives` |
+| output | `template_symbol_contracts` | `normalized.template_symbol_contracts` |
 | output | `package_unit_sets` | `normalized.package_unit_sets` |
 | output | `template_symbol_properties` | `normalized.template_symbol_properties` |
 | output | `template_expr_nodes` | `normalized.template_expr_nodes` |
@@ -633,3 +2013,1344 @@ Version: `1`. Determinism: `deterministic`. Executes plans: false.
 | output | `guard_expr_implicit_refs` | `normalized.guard_expr_implicit_refs` |
 | output | `guard_expr_unit_converts` | `normalized.guard_expr_unit_converts` |
 | output | `guard_expr_piecewise_linear` | `normalized.guard_expr_piecewise_linear` |
+| output | `instance_binding_products` | `normalized.instance_binding_products` |
+| output | `domain_product_projections` | `normalized.domain_product_projections` |
+| output | `candidate_index_tuples` | `normalized.candidate_index_tuples` |
+| output | `candidate_index_members` | `normalized.candidate_index_members` |
+| output | `domain_product_sources` | `normalized.domain_product_sources` |
+| output | `selector_nodes` | `normalized.selector_nodes` |
+| output | `selector_roots` | `normalized.selector_roots` |
+| output | `selector_children` | `normalized.selector_children` |
+
+## P4
+
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
+
+| Direction | Port | Relation |
+|---|---|---|
+| input | `candidate_index_tuples` | `normalized.candidate_index_tuples` |
+| input | `config_values` | `normalized.config_values` |
+| input | `contribution_expr_affine` | `normalized.contribution_expr_affine` |
+| input | `contribution_expr_args` | `normalized.contribution_expr_args` |
+| input | `contribution_expr_broadcasts` | `normalized.contribution_expr_broadcasts` |
+| input | `contribution_expr_conditionals` | `normalized.contribution_expr_conditionals` |
+| input | `contribution_expr_derivatives` | `normalized.contribution_expr_derivatives` |
+| input | `contribution_expr_float_constants` | `normalized.contribution_expr_float_constants` |
+| input | `contribution_expr_gathers` | `normalized.contribution_expr_gathers` |
+| input | `contribution_expr_implicit_refs` | `normalized.contribution_expr_implicit_refs` |
+| input | `contribution_expr_int_constants` | `normalized.contribution_expr_int_constants` |
+| input | `contribution_expr_integrals` | `normalized.contribution_expr_integrals` |
+| input | `contribution_expr_kernel_calls` | `normalized.contribution_expr_kernel_calls` |
+| input | `contribution_expr_nodes` | `normalized.contribution_expr_nodes` |
+| input | `contribution_expr_piecewise_linear` | `normalized.contribution_expr_piecewise_linear` |
+| input | `contribution_expr_reductions` | `normalized.contribution_expr_reductions` |
+| input | `contribution_expr_smooth_ops` | `normalized.contribution_expr_smooth_ops` |
+| input | `contribution_expr_symbol_refs` | `normalized.contribution_expr_symbol_refs` |
+| input | `contribution_expr_unit_converts` | `normalized.contribution_expr_unit_converts` |
+| input | `contribution_expr_weighted_means` | `normalized.contribution_expr_weighted_means` |
+| input | `display_expr_affine` | `normalized.display_expr_affine` |
+| input | `display_expr_args` | `normalized.display_expr_args` |
+| input | `display_expr_broadcasts` | `normalized.display_expr_broadcasts` |
+| input | `display_expr_conditionals` | `normalized.display_expr_conditionals` |
+| input | `display_expr_derivatives` | `normalized.display_expr_derivatives` |
+| input | `display_expr_float_constants` | `normalized.display_expr_float_constants` |
+| input | `display_expr_gathers` | `normalized.display_expr_gathers` |
+| input | `display_expr_implicit_refs` | `normalized.display_expr_implicit_refs` |
+| input | `display_expr_int_constants` | `normalized.display_expr_int_constants` |
+| input | `display_expr_integrals` | `normalized.display_expr_integrals` |
+| input | `display_expr_kernel_calls` | `normalized.display_expr_kernel_calls` |
+| input | `display_expr_nodes` | `normalized.display_expr_nodes` |
+| input | `display_expr_piecewise_linear` | `normalized.display_expr_piecewise_linear` |
+| input | `display_expr_reductions` | `normalized.display_expr_reductions` |
+| input | `display_expr_smooth_ops` | `normalized.display_expr_smooth_ops` |
+| input | `display_expr_symbol_refs` | `normalized.display_expr_symbol_refs` |
+| input | `display_expr_unit_converts` | `normalized.display_expr_unit_converts` |
+| input | `display_expr_weighted_means` | `normalized.display_expr_weighted_means` |
+| input | `domain_members` | `normalized.domain_members` |
+| input | `domain_products` | `normalized.domain_products` |
+| input | `domains` | `normalized.domains` |
+| input | `expression_index_bindings` | `normalized.expression_index_bindings` |
+| input | `expression_paths` | `normalized.expression_paths` |
+| input | `expression_sources` | `normalized.expression_sources` |
+| input | `feature_inheritance` | `normalized.feature_inheritance` |
+| input | `guard_expr_affine` | `normalized.guard_expr_affine` |
+| input | `guard_expr_args` | `normalized.guard_expr_args` |
+| input | `guard_expr_broadcasts` | `normalized.guard_expr_broadcasts` |
+| input | `guard_expr_conditionals` | `normalized.guard_expr_conditionals` |
+| input | `guard_expr_derivatives` | `normalized.guard_expr_derivatives` |
+| input | `guard_expr_float_constants` | `normalized.guard_expr_float_constants` |
+| input | `guard_expr_gathers` | `normalized.guard_expr_gathers` |
+| input | `guard_expr_implicit_refs` | `normalized.guard_expr_implicit_refs` |
+| input | `guard_expr_int_constants` | `normalized.guard_expr_int_constants` |
+| input | `guard_expr_integrals` | `normalized.guard_expr_integrals` |
+| input | `guard_expr_kernel_calls` | `normalized.guard_expr_kernel_calls` |
+| input | `guard_expr_nodes` | `normalized.guard_expr_nodes` |
+| input | `guard_expr_piecewise_linear` | `normalized.guard_expr_piecewise_linear` |
+| input | `guard_expr_reductions` | `normalized.guard_expr_reductions` |
+| input | `guard_expr_smooth_ops` | `normalized.guard_expr_smooth_ops` |
+| input | `guard_expr_symbol_refs` | `normalized.guard_expr_symbol_refs` |
+| input | `guard_expr_unit_converts` | `normalized.guard_expr_unit_converts` |
+| input | `guard_expr_weighted_means` | `normalized.guard_expr_weighted_means` |
+| input | `henry_declarations` | `normalized.henry_declarations` |
+| input | `instance_bindings` | `normalized.instance_bindings` |
+| input | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| input | `instance_expr_affine` | `normalized.instance_expr_affine` |
+| input | `instance_expr_args` | `normalized.instance_expr_args` |
+| input | `instance_expr_broadcasts` | `normalized.instance_expr_broadcasts` |
+| input | `instance_expr_conditionals` | `normalized.instance_expr_conditionals` |
+| input | `instance_expr_derivatives` | `normalized.instance_expr_derivatives` |
+| input | `instance_expr_float_constants` | `normalized.instance_expr_float_constants` |
+| input | `instance_expr_gathers` | `normalized.instance_expr_gathers` |
+| input | `instance_expr_implicit_refs` | `normalized.instance_expr_implicit_refs` |
+| input | `instance_expr_int_constants` | `normalized.instance_expr_int_constants` |
+| input | `instance_expr_integrals` | `normalized.instance_expr_integrals` |
+| input | `instance_expr_kernel_calls` | `normalized.instance_expr_kernel_calls` |
+| input | `instance_expr_nodes` | `normalized.instance_expr_nodes` |
+| input | `instance_expr_piecewise_linear` | `normalized.instance_expr_piecewise_linear` |
+| input | `instance_expr_reductions` | `normalized.instance_expr_reductions` |
+| input | `instance_expr_smooth_ops` | `normalized.instance_expr_smooth_ops` |
+| input | `instance_expr_symbol_refs` | `normalized.instance_expr_symbol_refs` |
+| input | `instance_expr_unit_converts` | `normalized.instance_expr_unit_converts` |
+| input | `instance_expr_weighted_means` | `normalized.instance_expr_weighted_means` |
+| input | `material_systems` | `normalized.material_systems` |
+| input | `method_selections` | `normalized.method_selections` |
+| input | `phase_species` | `normalized.phase_species` |
+| input | `phases` | `normalized.phases` |
+| input | `predicate_nodes` | `normalized.predicate_nodes` |
+| input | `property_packages` | `normalized.property_packages` |
+| input | `species` | `normalized.species` |
+| input | `template_expr_affine` | `normalized.template_expr_affine` |
+| input | `template_expr_args` | `normalized.template_expr_args` |
+| input | `template_expr_broadcasts` | `normalized.template_expr_broadcasts` |
+| input | `template_expr_conditionals` | `normalized.template_expr_conditionals` |
+| input | `template_expr_derivatives` | `normalized.template_expr_derivatives` |
+| input | `template_expr_float_constants` | `normalized.template_expr_float_constants` |
+| input | `template_expr_gathers` | `normalized.template_expr_gathers` |
+| input | `template_expr_implicit_refs` | `normalized.template_expr_implicit_refs` |
+| input | `template_expr_int_constants` | `normalized.template_expr_int_constants` |
+| input | `template_expr_integrals` | `normalized.template_expr_integrals` |
+| input | `template_expr_kernel_calls` | `normalized.template_expr_kernel_calls` |
+| input | `template_expr_nodes` | `normalized.template_expr_nodes` |
+| input | `template_expr_piecewise_linear` | `normalized.template_expr_piecewise_linear` |
+| input | `template_expr_reductions` | `normalized.template_expr_reductions` |
+| input | `template_expr_smooth_ops` | `normalized.template_expr_smooth_ops` |
+| input | `template_expr_symbol_refs` | `normalized.template_expr_symbol_refs` |
+| input | `template_expr_unit_converts` | `normalized.template_expr_unit_converts` |
+| input | `template_expr_weighted_means` | `normalized.template_expr_weighted_means` |
+| input | `template_feature_rules` | `normalized.template_feature_rules` |
+| input | `template_features` | `normalized.template_features` |
+| input | `template_material_constraints` | `normalized.template_material_constraints` |
+| input | `template_params` | `normalized.template_params` |
+| input | `template_ports` | `normalized.template_ports` |
+| input | `template_submodels` | `normalized.template_submodels` |
+| input | `template_symbols` | `normalized.template_symbols` |
+| input | `normalized_units` | `normalized.units` |
+| input | `bases` | `reference.bases` |
+| input | `conversion_rules` | `reference.conversion_rules` |
+| input | `elements` | `reference.elements` |
+| input | `kernel_specs` | `reference.kernel_specs` |
+| input | `math_context` | `reference.math_context` |
+| input | `method_provisions` | `reference.method_provisions` |
+| input | `method_specs` | `reference.method_specs` |
+| input | `quantity_kinds` | `reference.quantity_kinds` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_operations` | `reference.quantity_operations` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `quantity_types` | `reference.quantity_types` |
+| input | `reference_states` | `reference.reference_states` |
+| input | `unit_sets` | `reference.unit_sets` |
+| input | `units` | `reference.units` |
+| output | `feature_candidates` | `inferred.feature_candidates` |
+| output | `feature_checks` | `inferred.feature_checks` |
+| output | `feature_requirements` | `inferred.feature_requirements` |
+| output | `instance_features` | `inferred.instance_features` |
+| output | `material_member_counts` | `inferred.material_member_counts` |
+| output | `material_template_checks` | `inferred.material_template_checks` |
+| output | `method_compatibility` | `inferred.method_compatibility` |
+| output | `phase_species` | `inferred.phase_species` |
+| output | `predicate_axes` | `inferred.predicate_axes` |
+| output | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| output | `rule_outcomes` | `inferred.rule_outcomes` |
+| output | `feature_candidate_assertions` | `provenance.feature_candidate_assertions` |
+| output | `feature_check_assertions` | `provenance.feature_check_assertions` |
+| output | `feature_requirement_assertions` | `provenance.feature_requirement_assertions` |
+| output | `instance_feature_assertions` | `provenance.instance_feature_assertions` |
+| output | `material_check_assertions` | `provenance.material_check_assertions` |
+| output | `material_count_assertions` | `provenance.material_count_assertions` |
+| output | `method_compatibility_assertions` | `provenance.method_compatibility_assertions` |
+| output | `phase_species_assertions` | `provenance.phase_species_assertions` |
+| output | `rule_support_edges` | `provenance.rule_support_edges` |
+
+## P5
+
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
+
+| Direction | Port | Relation |
+|---|---|---|
+| input | `instance_features` | `inferred.instance_features` |
+| input | `phase_species` | `inferred.phase_species` |
+| input | `predicate_axes` | `inferred.predicate_axes` |
+| input | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| input | `candidate_index_members` | `normalized.candidate_index_members` |
+| input | `candidate_index_tuples` | `normalized.candidate_index_tuples` |
+| input | `config_values` | `normalized.config_values` |
+| input | `connections` | `normalized.connections` |
+| input | `contribution_expr_affine` | `normalized.contribution_expr_affine` |
+| input | `contribution_expr_args` | `normalized.contribution_expr_args` |
+| input | `contribution_expr_broadcasts` | `normalized.contribution_expr_broadcasts` |
+| input | `contribution_expr_conditionals` | `normalized.contribution_expr_conditionals` |
+| input | `contribution_expr_derivatives` | `normalized.contribution_expr_derivatives` |
+| input | `contribution_expr_float_constants` | `normalized.contribution_expr_float_constants` |
+| input | `contribution_expr_gathers` | `normalized.contribution_expr_gathers` |
+| input | `contribution_expr_implicit_refs` | `normalized.contribution_expr_implicit_refs` |
+| input | `contribution_expr_int_constants` | `normalized.contribution_expr_int_constants` |
+| input | `contribution_expr_integrals` | `normalized.contribution_expr_integrals` |
+| input | `contribution_expr_kernel_calls` | `normalized.contribution_expr_kernel_calls` |
+| input | `contribution_expr_nodes` | `normalized.contribution_expr_nodes` |
+| input | `contribution_expr_piecewise_linear` | `normalized.contribution_expr_piecewise_linear` |
+| input | `contribution_expr_reductions` | `normalized.contribution_expr_reductions` |
+| input | `contribution_expr_smooth_ops` | `normalized.contribution_expr_smooth_ops` |
+| input | `contribution_expr_symbol_refs` | `normalized.contribution_expr_symbol_refs` |
+| input | `contribution_expr_unit_converts` | `normalized.contribution_expr_unit_converts` |
+| input | `contribution_expr_weighted_means` | `normalized.contribution_expr_weighted_means` |
+| input | `display_expr_affine` | `normalized.display_expr_affine` |
+| input | `display_expr_args` | `normalized.display_expr_args` |
+| input | `display_expr_broadcasts` | `normalized.display_expr_broadcasts` |
+| input | `display_expr_conditionals` | `normalized.display_expr_conditionals` |
+| input | `display_expr_derivatives` | `normalized.display_expr_derivatives` |
+| input | `display_expr_float_constants` | `normalized.display_expr_float_constants` |
+| input | `display_expr_gathers` | `normalized.display_expr_gathers` |
+| input | `display_expr_implicit_refs` | `normalized.display_expr_implicit_refs` |
+| input | `display_expr_int_constants` | `normalized.display_expr_int_constants` |
+| input | `display_expr_integrals` | `normalized.display_expr_integrals` |
+| input | `display_expr_kernel_calls` | `normalized.display_expr_kernel_calls` |
+| input | `display_expr_nodes` | `normalized.display_expr_nodes` |
+| input | `display_expr_piecewise_linear` | `normalized.display_expr_piecewise_linear` |
+| input | `display_expr_reductions` | `normalized.display_expr_reductions` |
+| input | `display_expr_smooth_ops` | `normalized.display_expr_smooth_ops` |
+| input | `display_expr_symbol_refs` | `normalized.display_expr_symbol_refs` |
+| input | `display_expr_unit_converts` | `normalized.display_expr_unit_converts` |
+| input | `display_expr_weighted_means` | `normalized.display_expr_weighted_means` |
+| input | `domain_members` | `normalized.domain_members` |
+| input | `domain_products` | `normalized.domain_products` |
+| input | `domains` | `normalized.domains` |
+| input | `expression_index_bindings` | `normalized.expression_index_bindings` |
+| input | `expression_paths` | `normalized.expression_paths` |
+| input | `expression_sources` | `normalized.expression_sources` |
+| input | `guard_expr_affine` | `normalized.guard_expr_affine` |
+| input | `guard_expr_args` | `normalized.guard_expr_args` |
+| input | `guard_expr_broadcasts` | `normalized.guard_expr_broadcasts` |
+| input | `guard_expr_conditionals` | `normalized.guard_expr_conditionals` |
+| input | `guard_expr_derivatives` | `normalized.guard_expr_derivatives` |
+| input | `guard_expr_float_constants` | `normalized.guard_expr_float_constants` |
+| input | `guard_expr_gathers` | `normalized.guard_expr_gathers` |
+| input | `guard_expr_implicit_refs` | `normalized.guard_expr_implicit_refs` |
+| input | `guard_expr_int_constants` | `normalized.guard_expr_int_constants` |
+| input | `guard_expr_integrals` | `normalized.guard_expr_integrals` |
+| input | `guard_expr_kernel_calls` | `normalized.guard_expr_kernel_calls` |
+| input | `guard_expr_nodes` | `normalized.guard_expr_nodes` |
+| input | `guard_expr_piecewise_linear` | `normalized.guard_expr_piecewise_linear` |
+| input | `guard_expr_reductions` | `normalized.guard_expr_reductions` |
+| input | `guard_expr_smooth_ops` | `normalized.guard_expr_smooth_ops` |
+| input | `guard_expr_symbol_refs` | `normalized.guard_expr_symbol_refs` |
+| input | `guard_expr_unit_converts` | `normalized.guard_expr_unit_converts` |
+| input | `guard_expr_weighted_means` | `normalized.guard_expr_weighted_means` |
+| input | `instance_binding_products` | `normalized.instance_binding_products` |
+| input | `instance_bindings` | `normalized.instance_bindings` |
+| input | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| input | `instance_expr_affine` | `normalized.instance_expr_affine` |
+| input | `instance_expr_args` | `normalized.instance_expr_args` |
+| input | `instance_expr_broadcasts` | `normalized.instance_expr_broadcasts` |
+| input | `instance_expr_conditionals` | `normalized.instance_expr_conditionals` |
+| input | `instance_expr_derivatives` | `normalized.instance_expr_derivatives` |
+| input | `instance_expr_float_constants` | `normalized.instance_expr_float_constants` |
+| input | `instance_expr_gathers` | `normalized.instance_expr_gathers` |
+| input | `instance_expr_implicit_refs` | `normalized.instance_expr_implicit_refs` |
+| input | `instance_expr_int_constants` | `normalized.instance_expr_int_constants` |
+| input | `instance_expr_integrals` | `normalized.instance_expr_integrals` |
+| input | `instance_expr_kernel_calls` | `normalized.instance_expr_kernel_calls` |
+| input | `instance_expr_nodes` | `normalized.instance_expr_nodes` |
+| input | `instance_expr_piecewise_linear` | `normalized.instance_expr_piecewise_linear` |
+| input | `instance_expr_reductions` | `normalized.instance_expr_reductions` |
+| input | `instance_expr_smooth_ops` | `normalized.instance_expr_smooth_ops` |
+| input | `instance_expr_symbol_refs` | `normalized.instance_expr_symbol_refs` |
+| input | `instance_expr_unit_converts` | `normalized.instance_expr_unit_converts` |
+| input | `instance_expr_weighted_means` | `normalized.instance_expr_weighted_means` |
+| input | `material_domain_members` | `normalized.material_domain_members` |
+| input | `phases` | `normalized.phases` |
+| input | `port_binding_lengths` | `normalized.port_binding_lengths` |
+| input | `port_binding_steps` | `normalized.port_binding_steps` |
+| input | `predicate_nodes` | `normalized.predicate_nodes` |
+| input | `scopes` | `normalized.scopes` |
+| input | `selector_nodes` | `normalized.selector_nodes` |
+| input | `selector_roots` | `normalized.selector_roots` |
+| input | `species_elements` | `normalized.species_elements` |
+| input | `template_expr_affine` | `normalized.template_expr_affine` |
+| input | `template_expr_args` | `normalized.template_expr_args` |
+| input | `template_expr_broadcasts` | `normalized.template_expr_broadcasts` |
+| input | `template_expr_conditionals` | `normalized.template_expr_conditionals` |
+| input | `template_expr_derivatives` | `normalized.template_expr_derivatives` |
+| input | `template_expr_float_constants` | `normalized.template_expr_float_constants` |
+| input | `template_expr_gathers` | `normalized.template_expr_gathers` |
+| input | `template_expr_implicit_refs` | `normalized.template_expr_implicit_refs` |
+| input | `template_expr_int_constants` | `normalized.template_expr_int_constants` |
+| input | `template_expr_integrals` | `normalized.template_expr_integrals` |
+| input | `template_expr_kernel_calls` | `normalized.template_expr_kernel_calls` |
+| input | `template_expr_nodes` | `normalized.template_expr_nodes` |
+| input | `template_expr_piecewise_linear` | `normalized.template_expr_piecewise_linear` |
+| input | `template_expr_reductions` | `normalized.template_expr_reductions` |
+| input | `template_expr_smooth_ops` | `normalized.template_expr_smooth_ops` |
+| input | `template_expr_symbol_refs` | `normalized.template_expr_symbol_refs` |
+| input | `template_expr_unit_converts` | `normalized.template_expr_unit_converts` |
+| input | `template_expr_weighted_means` | `normalized.template_expr_weighted_means` |
+| input | `template_features` | `normalized.template_features` |
+| input | `template_guards` | `normalized.template_guards` |
+| input | `template_params` | `normalized.template_params` |
+| input | `template_port_members` | `normalized.template_port_members` |
+| input | `template_ports` | `normalized.template_ports` |
+| input | `template_scopes` | `normalized.template_scopes` |
+| input | `template_submodels` | `normalized.template_submodels` |
+| input | `template_symbols` | `normalized.template_symbols` |
+| input | `normalized_units` | `normalized.units` |
+| input | `bases` | `reference.bases` |
+| input | `conversion_rules` | `reference.conversion_rules` |
+| input | `elements` | `reference.elements` |
+| input | `kernel_specs` | `reference.kernel_specs` |
+| input | `math_context` | `reference.math_context` |
+| input | `quantity_kinds` | `reference.quantity_kinds` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_operations` | `reference.quantity_operations` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `quantity_types` | `reference.quantity_types` |
+| input | `reference_states` | `reference.reference_states` |
+| input | `schema_logical_types` | `reference.schema_logical_types` |
+| input | `unit_sets` | `reference.unit_sets` |
+| input | `units` | `reference.units` |
+| output | `boundary_crossings` | `inferred.boundary_crossings` |
+| output | `connection_violations` | `inferred.connection_violations` |
+| output | `domain_eligible_members` | `inferred.domain_eligible_members` |
+| output | `instance_guard_violations` | `inferred.instance_guard_violations` |
+| output | `instance_reachability` | `inferred.instance_reachability` |
+| output | `instance_tree` | `inferred.instance_tree` |
+| output | `instances` | `inferred.instances` |
+| output | `invalid_index_tuples` | `inferred.invalid_index_tuples` |
+| output | `path_targets` | `inferred.path_targets` |
+| output | `port_candidates` | `inferred.port_candidates` |
+| output | `port_member_candidates` | `inferred.port_member_candidates` |
+| output | `port_member_domain_candidates` | `inferred.port_member_domain_candidates` |
+| output | `port_member_domains` | `inferred.port_member_domains` |
+| output | `port_members` | `inferred.port_members` |
+| output | `port_state_candidates` | `inferred.port_state_candidates` |
+| output | `port_state_domain_candidates` | `inferred.port_state_domain_candidates` |
+| output | `port_state_domains` | `inferred.port_state_domains` |
+| output | `port_state_targets` | `inferred.port_state_targets` |
+| output | `ports` | `inferred.ports` |
+| output | `resolved_scopes` | `inferred.resolved_scopes` |
+| output | `rule_outcomes` | `inferred.rule_outcomes` |
+| output | `scope_bindings` | `inferred.scope_bindings` |
+| output | `scope_candidates` | `inferred.scope_candidates` |
+| output | `scope_entities` | `inferred.scope_entities` |
+| output | `scope_members` | `inferred.scope_members` |
+| output | `scope_port_decisions` | `inferred.scope_port_decisions` |
+| output | `scope_port_states` | `inferred.scope_port_states` |
+| output | `scope_reachability` | `inferred.scope_reachability` |
+| output | `selector_contexts` | `inferred.selector_contexts` |
+| output | `selector_decisions` | `inferred.selector_decisions` |
+| output | `selector_parameter_targets` | `inferred.selector_parameter_targets` |
+| output | `tear_candidates` | `inferred.tear_candidates` |
+| output | `topology_edges` | `inferred.topology_edges` |
+| output | `unbound_port_targets` | `inferred.unbound_port_targets` |
+| output | `valid_index_tuples` | `inferred.valid_index_tuples` |
+| output | `boundary_crossing_assertions` | `provenance.boundary_crossing_assertions` |
+| output | `connection_violation_assertions` | `provenance.connection_violation_assertions` |
+| output | `domain_member_assertions` | `provenance.domain_member_assertions` |
+| output | `instance_assertions` | `provenance.instance_assertions` |
+| output | `instance_guard_violation_assertions` | `provenance.instance_guard_violation_assertions` |
+| output | `instance_reachability_assertions` | `provenance.instance_reachability_assertions` |
+| output | `instance_tree_assertions` | `provenance.instance_tree_assertions` |
+| output | `invalid_index_assertions` | `provenance.invalid_index_assertions` |
+| output | `port_assertions` | `provenance.port_assertions` |
+| output | `port_member_assertions` | `provenance.port_member_assertions` |
+| output | `port_member_domain_assertions` | `provenance.port_member_domain_assertions` |
+| output | `port_state_assertions` | `provenance.port_state_assertions` |
+| output | `port_state_domain_assertions` | `provenance.port_state_domain_assertions` |
+| output | `rule_support_edges` | `provenance.rule_support_edges` |
+| output | `scope_assertions` | `provenance.scope_assertions` |
+| output | `scope_binding_assertions` | `provenance.scope_binding_assertions` |
+| output | `scope_candidate_assertions` | `provenance.scope_candidate_assertions` |
+| output | `scope_entity_assertions` | `provenance.scope_entity_assertions` |
+| output | `scope_member_assertions` | `provenance.scope_member_assertions` |
+| output | `scope_port_decision_assertions` | `provenance.scope_port_decision_assertions` |
+| output | `scope_port_state_assertions` | `provenance.scope_port_state_assertions` |
+| output | `scope_reachability_assertions` | `provenance.scope_reachability_assertions` |
+| output | `selector_context_assertions` | `provenance.selector_context_assertions` |
+| output | `selector_decision_assertions` | `provenance.selector_decision_assertions` |
+| output | `selector_parameter_target_assertions` | `provenance.selector_parameter_target_assertions` |
+| output | `topology_edge_assertions` | `provenance.topology_edge_assertions` |
+| output | `unbound_port_assertions` | `provenance.unbound_port_assertions` |
+| output | `valid_index_assertions` | `provenance.valid_index_assertions` |
+
+## P6
+
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
+
+| Direction | Port | Relation |
+|---|---|---|
+| input | `domain_eligible_members` | `inferred.domain_eligible_members` |
+| input | `instance_features` | `inferred.instance_features` |
+| input | `instances` | `inferred.instances` |
+| input | `path_targets` | `inferred.path_targets` |
+| input | `predicate_axes` | `inferred.predicate_axes` |
+| input | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| input | `resolved_scopes` | `inferred.resolved_scopes` |
+| input | `scope_bindings` | `inferred.scope_bindings` |
+| input | `scope_members` | `inferred.scope_members` |
+| input | `valid_index_tuples` | `inferred.valid_index_tuples` |
+| input | `config_values` | `normalized.config_values` |
+| input | `contribution_expr_affine` | `normalized.contribution_expr_affine` |
+| input | `contribution_expr_args` | `normalized.contribution_expr_args` |
+| input | `contribution_expr_broadcasts` | `normalized.contribution_expr_broadcasts` |
+| input | `contribution_expr_conditionals` | `normalized.contribution_expr_conditionals` |
+| input | `contribution_expr_derivatives` | `normalized.contribution_expr_derivatives` |
+| input | `contribution_expr_float_constants` | `normalized.contribution_expr_float_constants` |
+| input | `contribution_expr_gathers` | `normalized.contribution_expr_gathers` |
+| input | `contribution_expr_implicit_refs` | `normalized.contribution_expr_implicit_refs` |
+| input | `contribution_expr_int_constants` | `normalized.contribution_expr_int_constants` |
+| input | `contribution_expr_integrals` | `normalized.contribution_expr_integrals` |
+| input | `contribution_expr_kernel_calls` | `normalized.contribution_expr_kernel_calls` |
+| input | `contribution_expr_nodes` | `normalized.contribution_expr_nodes` |
+| input | `contribution_expr_piecewise_linear` | `normalized.contribution_expr_piecewise_linear` |
+| input | `contribution_expr_reductions` | `normalized.contribution_expr_reductions` |
+| input | `contribution_expr_smooth_ops` | `normalized.contribution_expr_smooth_ops` |
+| input | `contribution_expr_symbol_refs` | `normalized.contribution_expr_symbol_refs` |
+| input | `contribution_expr_unit_converts` | `normalized.contribution_expr_unit_converts` |
+| input | `contribution_expr_weighted_means` | `normalized.contribution_expr_weighted_means` |
+| input | `display_expr_affine` | `normalized.display_expr_affine` |
+| input | `display_expr_args` | `normalized.display_expr_args` |
+| input | `display_expr_broadcasts` | `normalized.display_expr_broadcasts` |
+| input | `display_expr_conditionals` | `normalized.display_expr_conditionals` |
+| input | `display_expr_derivatives` | `normalized.display_expr_derivatives` |
+| input | `display_expr_float_constants` | `normalized.display_expr_float_constants` |
+| input | `display_expr_gathers` | `normalized.display_expr_gathers` |
+| input | `display_expr_implicit_refs` | `normalized.display_expr_implicit_refs` |
+| input | `display_expr_int_constants` | `normalized.display_expr_int_constants` |
+| input | `display_expr_integrals` | `normalized.display_expr_integrals` |
+| input | `display_expr_kernel_calls` | `normalized.display_expr_kernel_calls` |
+| input | `display_expr_nodes` | `normalized.display_expr_nodes` |
+| input | `display_expr_piecewise_linear` | `normalized.display_expr_piecewise_linear` |
+| input | `display_expr_reductions` | `normalized.display_expr_reductions` |
+| input | `display_expr_smooth_ops` | `normalized.display_expr_smooth_ops` |
+| input | `display_expr_symbol_refs` | `normalized.display_expr_symbol_refs` |
+| input | `display_expr_unit_converts` | `normalized.display_expr_unit_converts` |
+| input | `display_expr_weighted_means` | `normalized.display_expr_weighted_means` |
+| input | `domain_members` | `normalized.domain_members` |
+| input | `domain_products` | `normalized.domain_products` |
+| input | `domains` | `normalized.domains` |
+| input | `expression_index_bindings` | `normalized.expression_index_bindings` |
+| input | `expression_paths` | `normalized.expression_paths` |
+| input | `expression_sources` | `normalized.expression_sources` |
+| input | `guard_expr_affine` | `normalized.guard_expr_affine` |
+| input | `guard_expr_args` | `normalized.guard_expr_args` |
+| input | `guard_expr_broadcasts` | `normalized.guard_expr_broadcasts` |
+| input | `guard_expr_conditionals` | `normalized.guard_expr_conditionals` |
+| input | `guard_expr_derivatives` | `normalized.guard_expr_derivatives` |
+| input | `guard_expr_float_constants` | `normalized.guard_expr_float_constants` |
+| input | `guard_expr_gathers` | `normalized.guard_expr_gathers` |
+| input | `guard_expr_implicit_refs` | `normalized.guard_expr_implicit_refs` |
+| input | `guard_expr_int_constants` | `normalized.guard_expr_int_constants` |
+| input | `guard_expr_integrals` | `normalized.guard_expr_integrals` |
+| input | `guard_expr_kernel_calls` | `normalized.guard_expr_kernel_calls` |
+| input | `guard_expr_nodes` | `normalized.guard_expr_nodes` |
+| input | `guard_expr_piecewise_linear` | `normalized.guard_expr_piecewise_linear` |
+| input | `guard_expr_reductions` | `normalized.guard_expr_reductions` |
+| input | `guard_expr_smooth_ops` | `normalized.guard_expr_smooth_ops` |
+| input | `guard_expr_symbol_refs` | `normalized.guard_expr_symbol_refs` |
+| input | `guard_expr_unit_converts` | `normalized.guard_expr_unit_converts` |
+| input | `guard_expr_weighted_means` | `normalized.guard_expr_weighted_means` |
+| input | `instance_bindings` | `normalized.instance_bindings` |
+| input | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| input | `instance_equations` | `normalized.instance_equations` |
+| input | `instance_expr_affine` | `normalized.instance_expr_affine` |
+| input | `instance_expr_args` | `normalized.instance_expr_args` |
+| input | `instance_expr_broadcasts` | `normalized.instance_expr_broadcasts` |
+| input | `instance_expr_conditionals` | `normalized.instance_expr_conditionals` |
+| input | `instance_expr_derivatives` | `normalized.instance_expr_derivatives` |
+| input | `instance_expr_float_constants` | `normalized.instance_expr_float_constants` |
+| input | `instance_expr_gathers` | `normalized.instance_expr_gathers` |
+| input | `instance_expr_implicit_refs` | `normalized.instance_expr_implicit_refs` |
+| input | `instance_expr_int_constants` | `normalized.instance_expr_int_constants` |
+| input | `instance_expr_integrals` | `normalized.instance_expr_integrals` |
+| input | `instance_expr_kernel_calls` | `normalized.instance_expr_kernel_calls` |
+| input | `instance_expr_nodes` | `normalized.instance_expr_nodes` |
+| input | `instance_expr_piecewise_linear` | `normalized.instance_expr_piecewise_linear` |
+| input | `instance_expr_reductions` | `normalized.instance_expr_reductions` |
+| input | `instance_expr_smooth_ops` | `normalized.instance_expr_smooth_ops` |
+| input | `instance_expr_symbol_refs` | `normalized.instance_expr_symbol_refs` |
+| input | `instance_expr_unit_converts` | `normalized.instance_expr_unit_converts` |
+| input | `instance_expr_weighted_means` | `normalized.instance_expr_weighted_means` |
+| input | `material_domain_members` | `normalized.material_domain_members` |
+| input | `method_selections` | `normalized.method_selections` |
+| input | `parameter_values` | `normalized.parameter_values` |
+| input | `predicate_nodes` | `normalized.predicate_nodes` |
+| input | `property_demand_seeds` | `normalized.property_demand_seeds` |
+| input | `property_packages` | `normalized.property_packages` |
+| input | `property_path_demands` | `normalized.property_path_demands` |
+| input | `template_contributions` | `normalized.template_contributions` |
+| input | `template_domains` | `normalized.template_domains` |
+| input | `template_equations` | `normalized.template_equations` |
+| input | `template_expr_affine` | `normalized.template_expr_affine` |
+| input | `template_expr_args` | `normalized.template_expr_args` |
+| input | `template_expr_broadcasts` | `normalized.template_expr_broadcasts` |
+| input | `template_expr_conditionals` | `normalized.template_expr_conditionals` |
+| input | `template_expr_derivatives` | `normalized.template_expr_derivatives` |
+| input | `template_expr_float_constants` | `normalized.template_expr_float_constants` |
+| input | `template_expr_gathers` | `normalized.template_expr_gathers` |
+| input | `template_expr_implicit_refs` | `normalized.template_expr_implicit_refs` |
+| input | `template_expr_int_constants` | `normalized.template_expr_int_constants` |
+| input | `template_expr_integrals` | `normalized.template_expr_integrals` |
+| input | `template_expr_kernel_calls` | `normalized.template_expr_kernel_calls` |
+| input | `template_expr_nodes` | `normalized.template_expr_nodes` |
+| input | `template_expr_piecewise_linear` | `normalized.template_expr_piecewise_linear` |
+| input | `template_expr_reductions` | `normalized.template_expr_reductions` |
+| input | `template_expr_smooth_ops` | `normalized.template_expr_smooth_ops` |
+| input | `template_expr_symbol_refs` | `normalized.template_expr_symbol_refs` |
+| input | `template_expr_unit_converts` | `normalized.template_expr_unit_converts` |
+| input | `template_expr_weighted_means` | `normalized.template_expr_weighted_means` |
+| input | `template_guards` | `normalized.template_guards` |
+| input | `template_law_instances` | `normalized.template_law_instances` |
+| input | `template_ports` | `normalized.template_ports` |
+| input | `template_property_requirements` | `normalized.template_property_requirements` |
+| input | `template_submodels` | `normalized.template_submodels` |
+| input | `template_symbol_properties` | `normalized.template_symbol_properties` |
+| input | `template_symbols` | `normalized.template_symbols` |
+| input | `normalized_units` | `normalized.units` |
+| input | `bases` | `reference.bases` |
+| input | `conversion_rules` | `reference.conversion_rules` |
+| input | `elements` | `reference.elements` |
+| input | `kernel_specs` | `reference.kernel_specs` |
+| input | `math_context` | `reference.math_context` |
+| input | `method_dependencies` | `reference.method_dependencies` |
+| input | `method_parameter_axes` | `reference.method_parameter_axes` |
+| input | `method_parameters` | `reference.method_parameters` |
+| input | `method_precedence` | `reference.method_precedence` |
+| input | `method_provisions` | `reference.method_provisions` |
+| input | `method_specs` | `reference.method_specs` |
+| input | `property_kinds` | `reference.property_kinds` |
+| input | `quantity_kinds` | `reference.quantity_kinds` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_operations` | `reference.quantity_operations` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `quantity_types` | `reference.quantity_types` |
+| input | `reference_states` | `reference.reference_states` |
+| input | `unit_sets` | `reference.unit_sets` |
+| input | `units` | `reference.units` |
+| output | `demand_active_reads` | `inferred.demand_active_reads` |
+| output | `demand_index_maps` | `inferred.demand_index_maps` |
+| output | `demand_obligations` | `inferred.demand_obligations` |
+| output | `demand_read_keys` | `inferred.demand_read_keys` |
+| output | `demand_request_keys` | `inferred.demand_request_keys` |
+| output | `demand_scope_requests` | `inferred.demand_scope_requests` |
+| output | `demand_seed_bindings` | `inferred.demand_seed_bindings` |
+| output | `dependency_key_maps` | `inferred.dependency_key_maps` |
+| output | `method_candidates` | `inferred.method_candidates` |
+| output | `method_parameter_keys` | `inferred.method_parameter_keys` |
+| output | `method_resolutions` | `inferred.method_resolutions` |
+| output | `potential_method_candidates` | `inferred.potential_method_candidates` |
+| output | `potential_method_resolutions` | `inferred.potential_method_resolutions` |
+| output | `potential_method_winners` | `inferred.potential_method_winners` |
+| output | `property_requirements` | `inferred.property_requirements` |
+| output | `read_coordinate_failures` | `inferred.read_coordinate_failures` |
+| output | `requirement_key_axes` | `inferred.requirement_key_axes` |
+| output | `requirement_keys` | `inferred.requirement_keys` |
+| output | `requirement_scope_keys` | `inferred.requirement_scope_keys` |
+| output | `requirement_support` | `inferred.requirement_support` |
+| output | `requirement_universe` | `inferred.requirement_universe` |
+| output | `rule_outcomes` | `inferred.rule_outcomes` |
+| output | `selection_inventory` | `inferred.selection_inventory` |
+| output | `state_dependency_keys` | `inferred.state_dependency_keys` |
+| output | `state_method_selection_keys` | `inferred.state_method_selection_keys` |
+| output | `state_scope_keys` | `inferred.state_scope_keys` |
+| output | `state_scopes` | `inferred.state_scopes` |
+| output | `demand_active_read_assertions` | `provenance.demand_active_read_assertions` |
+| output | `demand_obligation_assertions` | `provenance.demand_obligation_assertions` |
+| output | `demand_request_key_assertions` | `provenance.demand_request_key_assertions` |
+| output | `demand_scope_request_assertions` | `provenance.demand_scope_request_assertions` |
+| output | `demand_seed_binding_assertions` | `provenance.demand_seed_binding_assertions` |
+| output | `method_candidate_assertions` | `provenance.method_candidate_assertions` |
+| output | `method_resolution_assertions` | `provenance.method_resolution_assertions` |
+| output | `potential_method_candidate_assertions` | `provenance.potential_method_candidate_assertions` |
+| output | `potential_method_resolution_assertions` | `provenance.potential_method_resolution_assertions` |
+| output | `potential_method_winner_assertions` | `provenance.potential_method_winner_assertions` |
+| output | `property_requirement_assertions` | `provenance.property_requirement_assertions` |
+| output | `requirement_support_assertions` | `provenance.requirement_support_assertions` |
+| output | `requirement_universe_assertions` | `provenance.requirement_universe_assertions` |
+| output | `rule_support_edges` | `provenance.rule_support_edges` |
+| output | `selection_inventory_assertions` | `provenance.selection_inventory_assertions` |
+| output | `state_method_selection_key_assertions` | `provenance.state_method_selection_key_assertions` |
+| output | `state_scope_assertions` | `provenance.state_scope_assertions` |
+| output | `state_scope_key_assertions` | `provenance.state_scope_key_assertions` |
+
+## P7
+
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
+
+| Direction | Port | Relation |
+|---|---|---|
+| input | `instance_features` | `inferred.instance_features` |
+| input | `instances` | `inferred.instances` |
+| input | `method_resolutions` | `inferred.method_resolutions` |
+| input | `path_targets` | `inferred.path_targets` |
+| input | `port_member_domains` | `inferred.port_member_domains` |
+| input | `port_members` | `inferred.port_members` |
+| input | `port_state_domains` | `inferred.port_state_domains` |
+| input | `port_state_targets` | `inferred.port_state_targets` |
+| input | `ports` | `inferred.ports` |
+| input | `predicate_axes` | `inferred.predicate_axes` |
+| input | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| input | `property_requirements` | `inferred.property_requirements` |
+| input | `scope_bindings` | `inferred.scope_bindings` |
+| input | `valid_index_tuples` | `inferred.valid_index_tuples` |
+| input | `config_values` | `normalized.config_values` |
+| input | `connections` | `normalized.connections` |
+| input | `continuous_domains` | `normalized.continuous_domains` |
+| input | `contribution_expr_affine` | `normalized.contribution_expr_affine` |
+| input | `contribution_expr_args` | `normalized.contribution_expr_args` |
+| input | `contribution_expr_broadcasts` | `normalized.contribution_expr_broadcasts` |
+| input | `contribution_expr_conditionals` | `normalized.contribution_expr_conditionals` |
+| input | `contribution_expr_derivatives` | `normalized.contribution_expr_derivatives` |
+| input | `contribution_expr_float_constants` | `normalized.contribution_expr_float_constants` |
+| input | `contribution_expr_gathers` | `normalized.contribution_expr_gathers` |
+| input | `contribution_expr_implicit_refs` | `normalized.contribution_expr_implicit_refs` |
+| input | `contribution_expr_int_constants` | `normalized.contribution_expr_int_constants` |
+| input | `contribution_expr_integrals` | `normalized.contribution_expr_integrals` |
+| input | `contribution_expr_kernel_calls` | `normalized.contribution_expr_kernel_calls` |
+| input | `contribution_expr_nodes` | `normalized.contribution_expr_nodes` |
+| input | `contribution_expr_piecewise_linear` | `normalized.contribution_expr_piecewise_linear` |
+| input | `contribution_expr_reductions` | `normalized.contribution_expr_reductions` |
+| input | `contribution_expr_smooth_ops` | `normalized.contribution_expr_smooth_ops` |
+| input | `contribution_expr_symbol_refs` | `normalized.contribution_expr_symbol_refs` |
+| input | `contribution_expr_unit_converts` | `normalized.contribution_expr_unit_converts` |
+| input | `contribution_expr_weighted_means` | `normalized.contribution_expr_weighted_means` |
+| input | `display_expr_affine` | `normalized.display_expr_affine` |
+| input | `display_expr_args` | `normalized.display_expr_args` |
+| input | `display_expr_broadcasts` | `normalized.display_expr_broadcasts` |
+| input | `display_expr_conditionals` | `normalized.display_expr_conditionals` |
+| input | `display_expr_derivatives` | `normalized.display_expr_derivatives` |
+| input | `display_expr_float_constants` | `normalized.display_expr_float_constants` |
+| input | `display_expr_gathers` | `normalized.display_expr_gathers` |
+| input | `display_expr_implicit_refs` | `normalized.display_expr_implicit_refs` |
+| input | `display_expr_int_constants` | `normalized.display_expr_int_constants` |
+| input | `display_expr_integrals` | `normalized.display_expr_integrals` |
+| input | `display_expr_kernel_calls` | `normalized.display_expr_kernel_calls` |
+| input | `display_expr_nodes` | `normalized.display_expr_nodes` |
+| input | `display_expr_piecewise_linear` | `normalized.display_expr_piecewise_linear` |
+| input | `display_expr_reductions` | `normalized.display_expr_reductions` |
+| input | `display_expr_smooth_ops` | `normalized.display_expr_smooth_ops` |
+| input | `display_expr_symbol_refs` | `normalized.display_expr_symbol_refs` |
+| input | `display_expr_unit_converts` | `normalized.display_expr_unit_converts` |
+| input | `display_expr_weighted_means` | `normalized.display_expr_weighted_means` |
+| input | `domain_members` | `normalized.domain_members` |
+| input | `domain_product_projections` | `normalized.domain_product_projections` |
+| input | `domain_products` | `normalized.domain_products` |
+| input | `domains` | `normalized.domains` |
+| input | `equation_nodes` | `normalized.equation_nodes` |
+| input | `expression_index_bindings` | `normalized.expression_index_bindings` |
+| input | `expression_paths` | `normalized.expression_paths` |
+| input | `expression_sources` | `normalized.expression_sources` |
+| input | `guard_expr_affine` | `normalized.guard_expr_affine` |
+| input | `guard_expr_args` | `normalized.guard_expr_args` |
+| input | `guard_expr_broadcasts` | `normalized.guard_expr_broadcasts` |
+| input | `guard_expr_conditionals` | `normalized.guard_expr_conditionals` |
+| input | `guard_expr_derivatives` | `normalized.guard_expr_derivatives` |
+| input | `guard_expr_float_constants` | `normalized.guard_expr_float_constants` |
+| input | `guard_expr_gathers` | `normalized.guard_expr_gathers` |
+| input | `guard_expr_implicit_refs` | `normalized.guard_expr_implicit_refs` |
+| input | `guard_expr_int_constants` | `normalized.guard_expr_int_constants` |
+| input | `guard_expr_integrals` | `normalized.guard_expr_integrals` |
+| input | `guard_expr_kernel_calls` | `normalized.guard_expr_kernel_calls` |
+| input | `guard_expr_nodes` | `normalized.guard_expr_nodes` |
+| input | `guard_expr_piecewise_linear` | `normalized.guard_expr_piecewise_linear` |
+| input | `guard_expr_reductions` | `normalized.guard_expr_reductions` |
+| input | `guard_expr_smooth_ops` | `normalized.guard_expr_smooth_ops` |
+| input | `guard_expr_symbol_refs` | `normalized.guard_expr_symbol_refs` |
+| input | `guard_expr_unit_converts` | `normalized.guard_expr_unit_converts` |
+| input | `guard_expr_weighted_means` | `normalized.guard_expr_weighted_means` |
+| input | `instance_bindings` | `normalized.instance_bindings` |
+| input | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| input | `instance_equations` | `normalized.instance_equations` |
+| input | `instance_expr_affine` | `normalized.instance_expr_affine` |
+| input | `instance_expr_args` | `normalized.instance_expr_args` |
+| input | `instance_expr_broadcasts` | `normalized.instance_expr_broadcasts` |
+| input | `instance_expr_conditionals` | `normalized.instance_expr_conditionals` |
+| input | `instance_expr_derivatives` | `normalized.instance_expr_derivatives` |
+| input | `instance_expr_float_constants` | `normalized.instance_expr_float_constants` |
+| input | `instance_expr_gathers` | `normalized.instance_expr_gathers` |
+| input | `instance_expr_implicit_refs` | `normalized.instance_expr_implicit_refs` |
+| input | `instance_expr_int_constants` | `normalized.instance_expr_int_constants` |
+| input | `instance_expr_integrals` | `normalized.instance_expr_integrals` |
+| input | `instance_expr_kernel_calls` | `normalized.instance_expr_kernel_calls` |
+| input | `instance_expr_nodes` | `normalized.instance_expr_nodes` |
+| input | `instance_expr_piecewise_linear` | `normalized.instance_expr_piecewise_linear` |
+| input | `instance_expr_reductions` | `normalized.instance_expr_reductions` |
+| input | `instance_expr_smooth_ops` | `normalized.instance_expr_smooth_ops` |
+| input | `instance_expr_symbol_refs` | `normalized.instance_expr_symbol_refs` |
+| input | `instance_expr_unit_converts` | `normalized.instance_expr_unit_converts` |
+| input | `instance_expr_weighted_means` | `normalized.instance_expr_weighted_means` |
+| input | `predicate_nodes` | `normalized.predicate_nodes` |
+| input | `template_contribution_contracts` | `normalized.template_contribution_contracts` |
+| input | `template_contributions` | `normalized.template_contributions` |
+| input | `template_derivatives` | `normalized.template_derivatives` |
+| input | `template_equations` | `normalized.template_equations` |
+| input | `template_expr_affine` | `normalized.template_expr_affine` |
+| input | `template_expr_args` | `normalized.template_expr_args` |
+| input | `template_expr_broadcasts` | `normalized.template_expr_broadcasts` |
+| input | `template_expr_conditionals` | `normalized.template_expr_conditionals` |
+| input | `template_expr_derivatives` | `normalized.template_expr_derivatives` |
+| input | `template_expr_float_constants` | `normalized.template_expr_float_constants` |
+| input | `template_expr_gathers` | `normalized.template_expr_gathers` |
+| input | `template_expr_implicit_refs` | `normalized.template_expr_implicit_refs` |
+| input | `template_expr_int_constants` | `normalized.template_expr_int_constants` |
+| input | `template_expr_integrals` | `normalized.template_expr_integrals` |
+| input | `template_expr_kernel_calls` | `normalized.template_expr_kernel_calls` |
+| input | `template_expr_nodes` | `normalized.template_expr_nodes` |
+| input | `template_expr_piecewise_linear` | `normalized.template_expr_piecewise_linear` |
+| input | `template_expr_reductions` | `normalized.template_expr_reductions` |
+| input | `template_expr_smooth_ops` | `normalized.template_expr_smooth_ops` |
+| input | `template_expr_symbol_refs` | `normalized.template_expr_symbol_refs` |
+| input | `template_expr_unit_converts` | `normalized.template_expr_unit_converts` |
+| input | `template_expr_weighted_means` | `normalized.template_expr_weighted_means` |
+| input | `template_features` | `normalized.template_features` |
+| input | `template_guards` | `normalized.template_guards` |
+| input | `template_params` | `normalized.template_params` |
+| input | `template_ports` | `normalized.template_ports` |
+| input | `template_scopes` | `normalized.template_scopes` |
+| input | `template_submodels` | `normalized.template_submodels` |
+| input | `template_symbol_contracts` | `normalized.template_symbol_contracts` |
+| input | `template_symbol_expressions` | `normalized.template_symbol_expressions` |
+| input | `template_symbols` | `normalized.template_symbols` |
+| input | `templates` | `normalized.templates` |
+| input | `normalized_units` | `normalized.units` |
+| input | `bases` | `reference.bases` |
+| input | `connection_bindings` | `reference.connection_bindings` |
+| input | `conversion_rules` | `reference.conversion_rules` |
+| input | `elements` | `reference.elements` |
+| input | `kernel_specs` | `reference.kernel_specs` |
+| input | `math_context` | `reference.math_context` |
+| input | `quantity_kinds` | `reference.quantity_kinds` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_operations` | `reference.quantity_operations` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `quantity_types` | `reference.quantity_types` |
+| input | `reference_states` | `reference.reference_states` |
+| input | `unit_sets` | `reference.unit_sets` |
+| input | `units` | `reference.units` |
+| output | `contributions` | `compiled.contributions` |
+| output | `equation_branches` | `compiled.equation_branches` |
+| output | `expression_root_indices` | `compiled.expression_root_indices` |
+| output | `expression_roots` | `compiled.expression_roots` |
+| output | `group_collection_members` | `compiled.group_collection_members` |
+| output | `group_collections` | `compiled.group_collections` |
+| output | `group_projections` | `compiled.group_projections` |
+| output | `group_reindexing_members` | `compiled.group_reindexing_members` |
+| output | `group_reindexings` | `compiled.group_reindexings` |
+| output | `predicate_mask_members` | `compiled.predicate_mask_members` |
+| output | `predicate_masks` | `compiled.predicate_masks` |
+| output | `symbol_expressions` | `compiled.symbol_expressions` |
+| output | `symbol_group_members` | `compiled.symbol_group_members` |
+| output | `symbol_groups` | `compiled.symbol_groups` |
+| output | `symbol_references` | `compiled.symbol_references` |
+| output | `symbols` | `compiled.symbols` |
+| output | `kernel_bindings` | `inferred.kernel_bindings` |
+| output | `math_affine` | `inferred.math_affine` |
+| output | `math_broadcasts` | `inferred.math_broadcasts` |
+| output | `math_complementarity` | `inferred.math_complementarity` |
+| output | `math_conditionals` | `inferred.math_conditionals` |
+| output | `math_dae_links` | `inferred.math_dae_links` |
+| output | `math_derivatives` | `inferred.math_derivatives` |
+| output | `math_equations` | `inferred.math_equations` |
+| output | `math_expr_args` | `inferred.math_expr_args` |
+| output | `math_expr_nodes` | `inferred.math_expr_nodes` |
+| output | `math_float_constants` | `inferred.math_float_constants` |
+| output | `math_free_indices` | `inferred.math_free_indices` |
+| output | `math_gathers` | `inferred.math_gathers` |
+| output | `math_implicit_refs` | `inferred.math_implicit_refs` |
+| output | `math_implicit_systems` | `inferred.math_implicit_systems` |
+| output | `math_indexed_equations` | `inferred.math_indexed_equations` |
+| output | `math_int_constants` | `inferred.math_int_constants` |
+| output | `math_integrals` | `inferred.math_integrals` |
+| output | `math_kernel_calls` | `inferred.math_kernel_calls` |
+| output | `math_objectives` | `inferred.math_objectives` |
+| output | `math_piecewise_linear` | `inferred.math_piecewise_linear` |
+| output | `math_quantity_selections` | `inferred.math_quantity_selections` |
+| output | `math_reductions` | `inferred.math_reductions` |
+| output | `math_smooth_ops` | `inferred.math_smooth_ops` |
+| output | `math_symbol_refs` | `inferred.math_symbol_refs` |
+| output | `math_unit_converts` | `inferred.math_unit_converts` |
+| output | `math_weighted_means` | `inferred.math_weighted_means` |
+
+## P8
+
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
+
+| Direction | Port | Relation |
+|---|---|---|
+| input | `contributions` | `compiled.contributions` |
+| input | `equation_branches` | `compiled.equation_branches` |
+| input | `expression_root_indices` | `compiled.expression_root_indices` |
+| input | `expression_roots` | `compiled.expression_roots` |
+| input | `group_collection_members` | `compiled.group_collection_members` |
+| input | `group_collections` | `compiled.group_collections` |
+| input | `group_projections` | `compiled.group_projections` |
+| input | `group_reindexing_members` | `compiled.group_reindexing_members` |
+| input | `group_reindexings` | `compiled.group_reindexings` |
+| input | `predicate_mask_members` | `compiled.predicate_mask_members` |
+| input | `predicate_masks` | `compiled.predicate_masks` |
+| input | `symbol_expressions` | `compiled.symbol_expressions` |
+| input | `symbol_group_members` | `compiled.symbol_group_members` |
+| input | `symbol_groups` | `compiled.symbol_groups` |
+| input | `symbol_references` | `compiled.symbol_references` |
+| input | `symbols` | `compiled.symbols` |
+| input | `boundary_crossings` | `inferred.boundary_crossings` |
+| input | `domain_eligible_members` | `inferred.domain_eligible_members` |
+| input | `instance_features` | `inferred.instance_features` |
+| input | `instances` | `inferred.instances` |
+| input | `kernel_bindings` | `inferred.kernel_bindings` |
+| input | `math_affine` | `inferred.math_affine` |
+| input | `math_broadcasts` | `inferred.math_broadcasts` |
+| input | `math_complementarity` | `inferred.math_complementarity` |
+| input | `math_conditionals` | `inferred.math_conditionals` |
+| input | `math_dae_links` | `inferred.math_dae_links` |
+| input | `math_derivatives` | `inferred.math_derivatives` |
+| input | `math_equations` | `inferred.math_equations` |
+| input | `math_expr_args` | `inferred.math_expr_args` |
+| input | `math_expr_nodes` | `inferred.math_expr_nodes` |
+| input | `math_float_constants` | `inferred.math_float_constants` |
+| input | `math_free_indices` | `inferred.math_free_indices` |
+| input | `math_gathers` | `inferred.math_gathers` |
+| input | `math_implicit_refs` | `inferred.math_implicit_refs` |
+| input | `math_implicit_systems` | `inferred.math_implicit_systems` |
+| input | `math_indexed_equations` | `inferred.math_indexed_equations` |
+| input | `math_int_constants` | `inferred.math_int_constants` |
+| input | `math_integrals` | `inferred.math_integrals` |
+| input | `math_kernel_calls` | `inferred.math_kernel_calls` |
+| input | `math_objectives` | `inferred.math_objectives` |
+| input | `math_piecewise_linear` | `inferred.math_piecewise_linear` |
+| input | `math_quantity_selections` | `inferred.math_quantity_selections` |
+| input | `math_reductions` | `inferred.math_reductions` |
+| input | `math_smooth_ops` | `inferred.math_smooth_ops` |
+| input | `math_symbol_refs` | `inferred.math_symbol_refs` |
+| input | `math_unit_converts` | `inferred.math_unit_converts` |
+| input | `math_weighted_means` | `inferred.math_weighted_means` |
+| input | `method_resolutions` | `inferred.method_resolutions` |
+| input | `port_member_domains` | `inferred.port_member_domains` |
+| input | `port_members` | `inferred.port_members` |
+| input | `port_state_domains` | `inferred.port_state_domains` |
+| input | `port_state_targets` | `inferred.port_state_targets` |
+| input | `ports` | `inferred.ports` |
+| input | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| input | `property_requirements` | `inferred.property_requirements` |
+| input | `scope_bindings` | `inferred.scope_bindings` |
+| input | `scope_members` | `inferred.scope_members` |
+| input | `valid_index_tuples` | `inferred.valid_index_tuples` |
+| input | `connections` | `normalized.connections` |
+| input | `continuous_domains` | `normalized.continuous_domains` |
+| input | `domain_members` | `normalized.domain_members` |
+| input | `domain_products` | `normalized.domain_products` |
+| input | `domains` | `normalized.domains` |
+| input | `expression_index_bindings` | `normalized.expression_index_bindings` |
+| input | `expression_sources` | `normalized.expression_sources` |
+| input | `instance_bindings` | `normalized.instance_bindings` |
+| input | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| input | `material_domain_members` | `normalized.material_domain_members` |
+| input | `property_packages` | `normalized.property_packages` |
+| input | `species` | `normalized.species` |
+| input | `species_elements` | `normalized.species_elements` |
+| input | `template_domains` | `normalized.template_domains` |
+| input | `template_guards` | `normalized.template_guards` |
+| input | `template_law_contracts` | `normalized.template_law_contracts` |
+| input | `template_law_instances` | `normalized.template_law_instances` |
+| input | `template_ports` | `normalized.template_ports` |
+| input | `template_scopes` | `normalized.template_scopes` |
+| input | `template_submodels` | `normalized.template_submodels` |
+| input | `template_symbols` | `normalized.template_symbols` |
+| input | `normalized_units` | `normalized.units` |
+| input | `bases` | `reference.bases` |
+| input | `connection_bindings` | `reference.connection_bindings` |
+| input | `conversion_rules` | `reference.conversion_rules` |
+| input | `element_projection_contracts` | `reference.element_projection_contracts` |
+| input | `elements` | `reference.elements` |
+| input | `kernel_specs` | `reference.kernel_specs` |
+| input | `law_bindings` | `reference.law_bindings` |
+| input | `math_context` | `reference.math_context` |
+| input | `method_specs` | `reference.method_specs` |
+| input | `quantity_kinds` | `reference.quantity_kinds` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_operations` | `reference.quantity_operations` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `quantity_types` | `reference.quantity_types` |
+| input | `reference_states` | `reference.reference_states` |
+| input | `schema_enums` | `reference.schema_enums` |
+| input | `unit_sets` | `reference.unit_sets` |
+| input | `units` | `reference.units` |
+| output | `contributions` | `compiled.contributions` |
+| output | `element_projection_coefficients` | `compiled.element_projection_coefficients` |
+| output | `element_projection_groups` | `compiled.element_projection_groups` |
+| output | `equation_branches` | `compiled.equation_branches` |
+| output | `expression_root_indices` | `compiled.expression_root_indices` |
+| output | `expression_roots` | `compiled.expression_roots` |
+| output | `group_collection_members` | `compiled.group_collection_members` |
+| output | `group_collections` | `compiled.group_collections` |
+| output | `group_projections` | `compiled.group_projections` |
+| output | `group_reindexing_members` | `compiled.group_reindexing_members` |
+| output | `group_reindexings` | `compiled.group_reindexings` |
+| output | `law_applications` | `compiled.law_applications` |
+| output | `law_participation` | `compiled.law_participation` |
+| output | `port_member_groups` | `compiled.port_member_groups` |
+| output | `predicate_mask_members` | `compiled.predicate_mask_members` |
+| output | `predicate_masks` | `compiled.predicate_masks` |
+| output | `symbol_expressions` | `compiled.symbol_expressions` |
+| output | `symbol_group_members` | `compiled.symbol_group_members` |
+| output | `symbol_groups` | `compiled.symbol_groups` |
+| output | `symbol_references` | `compiled.symbol_references` |
+| output | `symbols` | `compiled.symbols` |
+| output | `connection_equations` | `inferred.connection_equations` |
+| output | `kernel_bindings` | `inferred.kernel_bindings` |
+| output | `law_axes` | `inferred.law_axes` |
+| output | `law_candidates` | `inferred.law_candidates` |
+| output | `law_contexts` | `inferred.law_contexts` |
+| output | `law_empty_applications` | `inferred.law_empty_applications` |
+| output | `law_internal_transfers` | `inferred.law_internal_transfers` |
+| output | `law_ordered_terms` | `inferred.law_ordered_terms` |
+| output | `law_participation_decisions` | `inferred.law_participation_decisions` |
+| output | `law_subject_matches` | `inferred.law_subject_matches` |
+| output | `math_affine` | `inferred.math_affine` |
+| output | `math_broadcasts` | `inferred.math_broadcasts` |
+| output | `math_complementarity` | `inferred.math_complementarity` |
+| output | `math_conditionals` | `inferred.math_conditionals` |
+| output | `math_dae_links` | `inferred.math_dae_links` |
+| output | `math_derivatives` | `inferred.math_derivatives` |
+| output | `math_equations` | `inferred.math_equations` |
+| output | `math_expr_args` | `inferred.math_expr_args` |
+| output | `math_expr_nodes` | `inferred.math_expr_nodes` |
+| output | `math_float_constants` | `inferred.math_float_constants` |
+| output | `math_free_indices` | `inferred.math_free_indices` |
+| output | `math_gathers` | `inferred.math_gathers` |
+| output | `math_implicit_refs` | `inferred.math_implicit_refs` |
+| output | `math_implicit_systems` | `inferred.math_implicit_systems` |
+| output | `math_indexed_equations` | `inferred.math_indexed_equations` |
+| output | `math_int_constants` | `inferred.math_int_constants` |
+| output | `math_integrals` | `inferred.math_integrals` |
+| output | `math_kernel_calls` | `inferred.math_kernel_calls` |
+| output | `math_objectives` | `inferred.math_objectives` |
+| output | `math_piecewise_linear` | `inferred.math_piecewise_linear` |
+| output | `math_quantity_selections` | `inferred.math_quantity_selections` |
+| output | `math_reductions` | `inferred.math_reductions` |
+| output | `math_smooth_ops` | `inferred.math_smooth_ops` |
+| output | `math_symbol_refs` | `inferred.math_symbol_refs` |
+| output | `math_unit_converts` | `inferred.math_unit_converts` |
+| output | `math_weighted_means` | `inferred.math_weighted_means` |
+| output | `rule_outcomes` | `inferred.rule_outcomes` |
+| output | `law_application_assertions` | `provenance.law_application_assertions` |
+| output | `law_candidate_assertions` | `provenance.law_candidate_assertions` |
+| output | `law_empty_application_assertions` | `provenance.law_empty_application_assertions` |
+| output | `law_internal_transfer_assertions` | `provenance.law_internal_transfer_assertions` |
+| output | `law_ordered_term_assertions` | `provenance.law_ordered_term_assertions` |
+| output | `law_participation_assertions` | `provenance.law_participation_assertions` |
+| output | `law_subject_match_assertions` | `provenance.law_subject_match_assertions` |
+| output | `rule_support_edges` | `provenance.rule_support_edges` |
+
+## P9
+
+Version: `1`. Determinism: `deterministic`. Native effects: {Read, Write}.
+
+| Direction | Port | Relation |
+|---|---|---|
+| input | `authored_domain_members` | `authored.domain_members` |
+| input | `authored_domains` | `authored.domains` |
+| input | `authored_flowsheets` | `authored.flowsheets` |
+| input | `authored_instance_domain_bindings` | `authored.instance_domain_bindings` |
+| input | `authored_instances` | `authored.instances` |
+| input | `authored_material_systems` | `authored.material_systems` |
+| input | `authored_phases` | `authored.phases` |
+| input | `authored_property_packages` | `authored.property_packages` |
+| input | `authored_reaction_packages` | `authored.reaction_packages` |
+| input | `authored_species` | `authored.species` |
+| input | `authored_species_elements` | `authored.species_elements` |
+| input | `authored_template_domain_bindings` | `authored.template_domain_bindings` |
+| input | `authored_template_domains` | `authored.template_domains` |
+| input | `authored_template_features` | `authored.template_features` |
+| input | `authored_template_guards` | `authored.template_guards` |
+| input | `authored_template_params` | `authored.template_params` |
+| input | `authored_template_submodels` | `authored.template_submodels` |
+| input | `authored_templates` | `authored.templates` |
+| input | `contributions` | `compiled.contributions` |
+| input | `element_projection_coefficients` | `compiled.element_projection_coefficients` |
+| input | `element_projection_groups` | `compiled.element_projection_groups` |
+| input | `equation_branches` | `compiled.equation_branches` |
+| input | `expression_root_indices` | `compiled.expression_root_indices` |
+| input | `expression_roots` | `compiled.expression_roots` |
+| input | `group_collection_members` | `compiled.group_collection_members` |
+| input | `group_collections` | `compiled.group_collections` |
+| input | `group_projections` | `compiled.group_projections` |
+| input | `group_reindexing_members` | `compiled.group_reindexing_members` |
+| input | `group_reindexings` | `compiled.group_reindexings` |
+| input | `law_applications` | `compiled.law_applications` |
+| input | `law_participation` | `compiled.law_participation` |
+| input | `port_member_groups` | `compiled.port_member_groups` |
+| input | `predicate_mask_members` | `compiled.predicate_mask_members` |
+| input | `predicate_masks` | `compiled.predicate_masks` |
+| input | `symbol_expressions` | `compiled.symbol_expressions` |
+| input | `symbol_group_members` | `compiled.symbol_group_members` |
+| input | `symbol_groups` | `compiled.symbol_groups` |
+| input | `symbol_references` | `compiled.symbol_references` |
+| input | `symbols` | `compiled.symbols` |
+| input | `connection_equations` | `inferred.connection_equations` |
+| input | `dependency_key_maps` | `inferred.dependency_key_maps` |
+| input | `instances` | `inferred.instances` |
+| input | `kernel_bindings` | `inferred.kernel_bindings` |
+| input | `math_affine` | `inferred.math_affine` |
+| input | `math_broadcasts` | `inferred.math_broadcasts` |
+| input | `math_complementarity` | `inferred.math_complementarity` |
+| input | `math_conditionals` | `inferred.math_conditionals` |
+| input | `math_dae_links` | `inferred.math_dae_links` |
+| input | `math_derivatives` | `inferred.math_derivatives` |
+| input | `math_equations` | `inferred.math_equations` |
+| input | `math_expr_args` | `inferred.math_expr_args` |
+| input | `math_expr_nodes` | `inferred.math_expr_nodes` |
+| input | `math_float_constants` | `inferred.math_float_constants` |
+| input | `math_free_indices` | `inferred.math_free_indices` |
+| input | `math_gathers` | `inferred.math_gathers` |
+| input | `math_implicit_refs` | `inferred.math_implicit_refs` |
+| input | `math_implicit_systems` | `inferred.math_implicit_systems` |
+| input | `math_indexed_equations` | `inferred.math_indexed_equations` |
+| input | `math_int_constants` | `inferred.math_int_constants` |
+| input | `math_integrals` | `inferred.math_integrals` |
+| input | `math_kernel_calls` | `inferred.math_kernel_calls` |
+| input | `math_objectives` | `inferred.math_objectives` |
+| input | `math_piecewise_linear` | `inferred.math_piecewise_linear` |
+| input | `math_quantity_selections` | `inferred.math_quantity_selections` |
+| input | `math_reductions` | `inferred.math_reductions` |
+| input | `math_smooth_ops` | `inferred.math_smooth_ops` |
+| input | `math_symbol_refs` | `inferred.math_symbol_refs` |
+| input | `math_unit_converts` | `inferred.math_unit_converts` |
+| input | `math_weighted_means` | `inferred.math_weighted_means` |
+| input | `method_resolutions` | `inferred.method_resolutions` |
+| input | `path_targets` | `inferred.path_targets` |
+| input | `predicate_axes` | `inferred.predicate_axes` |
+| input | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| input | `property_requirements` | `inferred.property_requirements` |
+| input | `state_dependency_keys` | `inferred.state_dependency_keys` |
+| input | `state_scopes` | `inferred.state_scopes` |
+| input | `candidate_index_members` | `normalized.candidate_index_members` |
+| input | `candidate_index_tuples` | `normalized.candidate_index_tuples` |
+| input | `config_values` | `normalized.config_values` |
+| input | `connections` | `normalized.connections` |
+| input | `continuous_domains` | `normalized.continuous_domains` |
+| input | `contribution_expr_affine` | `normalized.contribution_expr_affine` |
+| input | `contribution_expr_args` | `normalized.contribution_expr_args` |
+| input | `contribution_expr_broadcasts` | `normalized.contribution_expr_broadcasts` |
+| input | `contribution_expr_conditionals` | `normalized.contribution_expr_conditionals` |
+| input | `contribution_expr_derivatives` | `normalized.contribution_expr_derivatives` |
+| input | `contribution_expr_float_constants` | `normalized.contribution_expr_float_constants` |
+| input | `contribution_expr_gathers` | `normalized.contribution_expr_gathers` |
+| input | `contribution_expr_implicit_refs` | `normalized.contribution_expr_implicit_refs` |
+| input | `contribution_expr_int_constants` | `normalized.contribution_expr_int_constants` |
+| input | `contribution_expr_integrals` | `normalized.contribution_expr_integrals` |
+| input | `contribution_expr_kernel_calls` | `normalized.contribution_expr_kernel_calls` |
+| input | `contribution_expr_nodes` | `normalized.contribution_expr_nodes` |
+| input | `contribution_expr_piecewise_linear` | `normalized.contribution_expr_piecewise_linear` |
+| input | `contribution_expr_reductions` | `normalized.contribution_expr_reductions` |
+| input | `contribution_expr_smooth_ops` | `normalized.contribution_expr_smooth_ops` |
+| input | `contribution_expr_symbol_refs` | `normalized.contribution_expr_symbol_refs` |
+| input | `contribution_expr_unit_converts` | `normalized.contribution_expr_unit_converts` |
+| input | `contribution_expr_weighted_means` | `normalized.contribution_expr_weighted_means` |
+| input | `display_expr_affine` | `normalized.display_expr_affine` |
+| input | `display_expr_args` | `normalized.display_expr_args` |
+| input | `display_expr_broadcasts` | `normalized.display_expr_broadcasts` |
+| input | `display_expr_conditionals` | `normalized.display_expr_conditionals` |
+| input | `display_expr_derivatives` | `normalized.display_expr_derivatives` |
+| input | `display_expr_float_constants` | `normalized.display_expr_float_constants` |
+| input | `display_expr_gathers` | `normalized.display_expr_gathers` |
+| input | `display_expr_implicit_refs` | `normalized.display_expr_implicit_refs` |
+| input | `display_expr_int_constants` | `normalized.display_expr_int_constants` |
+| input | `display_expr_integrals` | `normalized.display_expr_integrals` |
+| input | `display_expr_kernel_calls` | `normalized.display_expr_kernel_calls` |
+| input | `display_expr_nodes` | `normalized.display_expr_nodes` |
+| input | `display_expr_piecewise_linear` | `normalized.display_expr_piecewise_linear` |
+| input | `display_expr_reductions` | `normalized.display_expr_reductions` |
+| input | `display_expr_smooth_ops` | `normalized.display_expr_smooth_ops` |
+| input | `display_expr_symbol_refs` | `normalized.display_expr_symbol_refs` |
+| input | `display_expr_unit_converts` | `normalized.display_expr_unit_converts` |
+| input | `display_expr_weighted_means` | `normalized.display_expr_weighted_means` |
+| input | `domain_members` | `normalized.domain_members` |
+| input | `domain_product_projections` | `normalized.domain_product_projections` |
+| input | `domain_products` | `normalized.domain_products` |
+| input | `domains` | `normalized.domains` |
+| input | `equation_nodes` | `normalized.equation_nodes` |
+| input | `expression_index_bindings` | `normalized.expression_index_bindings` |
+| input | `expression_paths` | `normalized.expression_paths` |
+| input | `expression_sources` | `normalized.expression_sources` |
+| input | `feature_inheritance` | `normalized.feature_inheritance` |
+| input | `guard_expr_affine` | `normalized.guard_expr_affine` |
+| input | `guard_expr_args` | `normalized.guard_expr_args` |
+| input | `guard_expr_broadcasts` | `normalized.guard_expr_broadcasts` |
+| input | `guard_expr_conditionals` | `normalized.guard_expr_conditionals` |
+| input | `guard_expr_derivatives` | `normalized.guard_expr_derivatives` |
+| input | `guard_expr_float_constants` | `normalized.guard_expr_float_constants` |
+| input | `guard_expr_gathers` | `normalized.guard_expr_gathers` |
+| input | `guard_expr_implicit_refs` | `normalized.guard_expr_implicit_refs` |
+| input | `guard_expr_int_constants` | `normalized.guard_expr_int_constants` |
+| input | `guard_expr_integrals` | `normalized.guard_expr_integrals` |
+| input | `guard_expr_kernel_calls` | `normalized.guard_expr_kernel_calls` |
+| input | `guard_expr_nodes` | `normalized.guard_expr_nodes` |
+| input | `guard_expr_piecewise_linear` | `normalized.guard_expr_piecewise_linear` |
+| input | `guard_expr_reductions` | `normalized.guard_expr_reductions` |
+| input | `guard_expr_smooth_ops` | `normalized.guard_expr_smooth_ops` |
+| input | `guard_expr_symbol_refs` | `normalized.guard_expr_symbol_refs` |
+| input | `guard_expr_unit_converts` | `normalized.guard_expr_unit_converts` |
+| input | `guard_expr_weighted_means` | `normalized.guard_expr_weighted_means` |
+| input | `henry_declarations` | `normalized.henry_declarations` |
+| input | `instance_binding_products` | `normalized.instance_binding_products` |
+| input | `instance_bindings` | `normalized.instance_bindings` |
+| input | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| input | `instance_equations` | `normalized.instance_equations` |
+| input | `instance_expr_affine` | `normalized.instance_expr_affine` |
+| input | `instance_expr_args` | `normalized.instance_expr_args` |
+| input | `instance_expr_broadcasts` | `normalized.instance_expr_broadcasts` |
+| input | `instance_expr_conditionals` | `normalized.instance_expr_conditionals` |
+| input | `instance_expr_derivatives` | `normalized.instance_expr_derivatives` |
+| input | `instance_expr_float_constants` | `normalized.instance_expr_float_constants` |
+| input | `instance_expr_gathers` | `normalized.instance_expr_gathers` |
+| input | `instance_expr_implicit_refs` | `normalized.instance_expr_implicit_refs` |
+| input | `instance_expr_int_constants` | `normalized.instance_expr_int_constants` |
+| input | `instance_expr_integrals` | `normalized.instance_expr_integrals` |
+| input | `instance_expr_kernel_calls` | `normalized.instance_expr_kernel_calls` |
+| input | `instance_expr_nodes` | `normalized.instance_expr_nodes` |
+| input | `instance_expr_piecewise_linear` | `normalized.instance_expr_piecewise_linear` |
+| input | `instance_expr_reductions` | `normalized.instance_expr_reductions` |
+| input | `instance_expr_smooth_ops` | `normalized.instance_expr_smooth_ops` |
+| input | `instance_expr_symbol_refs` | `normalized.instance_expr_symbol_refs` |
+| input | `instance_expr_unit_converts` | `normalized.instance_expr_unit_converts` |
+| input | `instance_expr_weighted_means` | `normalized.instance_expr_weighted_means` |
+| input | `material_domain_members` | `normalized.material_domain_members` |
+| input | `material_systems` | `normalized.material_systems` |
+| input | `method_selections` | `normalized.method_selections` |
+| input | `parameter_values` | `normalized.parameter_values` |
+| input | `phase_species` | `normalized.phase_species` |
+| input | `phases` | `normalized.phases` |
+| input | `port_binding_lengths` | `normalized.port_binding_lengths` |
+| input | `port_binding_steps` | `normalized.port_binding_steps` |
+| input | `predicate_nodes` | `normalized.predicate_nodes` |
+| input | `property_packages` | `normalized.property_packages` |
+| input | `scopes` | `normalized.scopes` |
+| input | `selector_nodes` | `normalized.selector_nodes` |
+| input | `selector_roots` | `normalized.selector_roots` |
+| input | `species` | `normalized.species` |
+| input | `species_elements` | `normalized.species_elements` |
+| input | `template_contribution_contracts` | `normalized.template_contribution_contracts` |
+| input | `template_contributions` | `normalized.template_contributions` |
+| input | `template_derivatives` | `normalized.template_derivatives` |
+| input | `template_domain_bindings` | `normalized.template_domain_bindings` |
+| input | `template_equations` | `normalized.template_equations` |
+| input | `template_expr_affine` | `normalized.template_expr_affine` |
+| input | `template_expr_args` | `normalized.template_expr_args` |
+| input | `template_expr_broadcasts` | `normalized.template_expr_broadcasts` |
+| input | `template_expr_conditionals` | `normalized.template_expr_conditionals` |
+| input | `template_expr_derivatives` | `normalized.template_expr_derivatives` |
+| input | `template_expr_float_constants` | `normalized.template_expr_float_constants` |
+| input | `template_expr_gathers` | `normalized.template_expr_gathers` |
+| input | `template_expr_implicit_refs` | `normalized.template_expr_implicit_refs` |
+| input | `template_expr_int_constants` | `normalized.template_expr_int_constants` |
+| input | `template_expr_integrals` | `normalized.template_expr_integrals` |
+| input | `template_expr_kernel_calls` | `normalized.template_expr_kernel_calls` |
+| input | `template_expr_nodes` | `normalized.template_expr_nodes` |
+| input | `template_expr_piecewise_linear` | `normalized.template_expr_piecewise_linear` |
+| input | `template_expr_reductions` | `normalized.template_expr_reductions` |
+| input | `template_expr_smooth_ops` | `normalized.template_expr_smooth_ops` |
+| input | `template_expr_symbol_refs` | `normalized.template_expr_symbol_refs` |
+| input | `template_expr_unit_converts` | `normalized.template_expr_unit_converts` |
+| input | `template_expr_weighted_means` | `normalized.template_expr_weighted_means` |
+| input | `template_feature_rules` | `normalized.template_feature_rules` |
+| input | `template_features` | `normalized.template_features` |
+| input | `template_guards` | `normalized.template_guards` |
+| input | `template_material_constraints` | `normalized.template_material_constraints` |
+| input | `template_params` | `normalized.template_params` |
+| input | `template_port_members` | `normalized.template_port_members` |
+| input | `template_ports` | `normalized.template_ports` |
+| input | `template_scopes` | `normalized.template_scopes` |
+| input | `template_submodels` | `normalized.template_submodels` |
+| input | `template_symbol_contracts` | `normalized.template_symbol_contracts` |
+| input | `template_symbol_expressions` | `normalized.template_symbol_expressions` |
+| input | `template_symbol_properties` | `normalized.template_symbol_properties` |
+| input | `template_symbols` | `normalized.template_symbols` |
+| input | `templates` | `normalized.templates` |
+| input | `normalized_units` | `normalized.units` |
+| input | `bases` | `reference.bases` |
+| input | `connection_bindings` | `reference.connection_bindings` |
+| input | `conversion_rules` | `reference.conversion_rules` |
+| input | `elements` | `reference.elements` |
+| input | `kernel_specs` | `reference.kernel_specs` |
+| input | `math_context` | `reference.math_context` |
+| input | `method_dependencies` | `reference.method_dependencies` |
+| input | `method_kernel_inputs` | `reference.method_kernel_inputs` |
+| input | `method_parameter_axes` | `reference.method_parameter_axes` |
+| input | `method_parameters` | `reference.method_parameters` |
+| input | `method_provisions` | `reference.method_provisions` |
+| input | `method_specs` | `reference.method_specs` |
+| input | `method_state_parameters` | `reference.method_state_parameters` |
+| input | `property_kinds` | `reference.property_kinds` |
+| input | `quantity_kinds` | `reference.quantity_kinds` |
+| input | `quantity_operation_reductions` | `reference.quantity_operation_reductions` |
+| input | `quantity_operations` | `reference.quantity_operations` |
+| input | `quantity_preconditions` | `reference.quantity_preconditions` |
+| input | `quantity_types` | `reference.quantity_types` |
+| input | `reference_states` | `reference.reference_states` |
+| input | `schema_logical_types` | `reference.schema_logical_types` |
+| input | `unit_sets` | `reference.unit_sets` |
+| input | `units` | `reference.units` |
+| output | `contributions` | `compiled.contributions` |
+| output | `element_projection_coefficients` | `compiled.element_projection_coefficients` |
+| output | `element_projection_groups` | `compiled.element_projection_groups` |
+| output | `equation_branches` | `compiled.equation_branches` |
+| output | `expression_root_indices` | `compiled.expression_root_indices` |
+| output | `expression_roots` | `compiled.expression_roots` |
+| output | `group_collection_members` | `compiled.group_collection_members` |
+| output | `group_collections` | `compiled.group_collections` |
+| output | `group_projections` | `compiled.group_projections` |
+| output | `group_reindexing_members` | `compiled.group_reindexing_members` |
+| output | `group_reindexings` | `compiled.group_reindexings` |
+| output | `kernel_output_symbols` | `compiled.kernel_output_symbols` |
+| output | `law_applications` | `compiled.law_applications` |
+| output | `law_participation` | `compiled.law_participation` |
+| output | `method_parameter_bindings` | `compiled.method_parameter_bindings` |
+| output | `method_realizations` | `compiled.method_realizations` |
+| output | `port_member_groups` | `compiled.port_member_groups` |
+| output | `predicate_mask_members` | `compiled.predicate_mask_members` |
+| output | `predicate_masks` | `compiled.predicate_masks` |
+| output | `symbol_expressions` | `compiled.symbol_expressions` |
+| output | `symbol_group_members` | `compiled.symbol_group_members` |
+| output | `symbol_groups` | `compiled.symbol_groups` |
+| output | `symbol_references` | `compiled.symbol_references` |
+| output | `symbols` | `compiled.symbols` |
+| output | `boundary_crossings` | `inferred.boundary_crossings` |
+| output | `connection_equations` | `inferred.connection_equations` |
+| output | `connection_violations` | `inferred.connection_violations` |
+| output | `domain_eligible_members` | `inferred.domain_eligible_members` |
+| output | `feature_candidates` | `inferred.feature_candidates` |
+| output | `feature_checks` | `inferred.feature_checks` |
+| output | `feature_requirements` | `inferred.feature_requirements` |
+| output | `instance_features` | `inferred.instance_features` |
+| output | `instance_guard_violations` | `inferred.instance_guard_violations` |
+| output | `instance_reachability` | `inferred.instance_reachability` |
+| output | `instance_tree` | `inferred.instance_tree` |
+| output | `instances` | `inferred.instances` |
+| output | `invalid_index_tuples` | `inferred.invalid_index_tuples` |
+| output | `kernel_bindings` | `inferred.kernel_bindings` |
+| output | `material_member_counts` | `inferred.material_member_counts` |
+| output | `material_template_checks` | `inferred.material_template_checks` |
+| output | `math_affine` | `inferred.math_affine` |
+| output | `math_broadcasts` | `inferred.math_broadcasts` |
+| output | `math_complementarity` | `inferred.math_complementarity` |
+| output | `math_conditionals` | `inferred.math_conditionals` |
+| output | `math_dae_links` | `inferred.math_dae_links` |
+| output | `math_derivatives` | `inferred.math_derivatives` |
+| output | `math_equations` | `inferred.math_equations` |
+| output | `math_expr_args` | `inferred.math_expr_args` |
+| output | `math_expr_nodes` | `inferred.math_expr_nodes` |
+| output | `math_float_constants` | `inferred.math_float_constants` |
+| output | `math_free_indices` | `inferred.math_free_indices` |
+| output | `math_gathers` | `inferred.math_gathers` |
+| output | `math_implicit_refs` | `inferred.math_implicit_refs` |
+| output | `math_implicit_systems` | `inferred.math_implicit_systems` |
+| output | `math_indexed_equations` | `inferred.math_indexed_equations` |
+| output | `math_int_constants` | `inferred.math_int_constants` |
+| output | `math_integrals` | `inferred.math_integrals` |
+| output | `math_kernel_calls` | `inferred.math_kernel_calls` |
+| output | `math_objectives` | `inferred.math_objectives` |
+| output | `math_piecewise_linear` | `inferred.math_piecewise_linear` |
+| output | `math_quantity_selections` | `inferred.math_quantity_selections` |
+| output | `math_reductions` | `inferred.math_reductions` |
+| output | `math_smooth_ops` | `inferred.math_smooth_ops` |
+| output | `math_symbol_refs` | `inferred.math_symbol_refs` |
+| output | `math_unit_converts` | `inferred.math_unit_converts` |
+| output | `math_weighted_means` | `inferred.math_weighted_means` |
+| output | `method_compatibility` | `inferred.method_compatibility` |
+| output | `path_targets` | `inferred.path_targets` |
+| output | `phase_species` | `inferred.phase_species` |
+| output | `port_candidates` | `inferred.port_candidates` |
+| output | `port_member_candidates` | `inferred.port_member_candidates` |
+| output | `port_member_domain_candidates` | `inferred.port_member_domain_candidates` |
+| output | `port_member_domains` | `inferred.port_member_domains` |
+| output | `port_members` | `inferred.port_members` |
+| output | `port_state_candidates` | `inferred.port_state_candidates` |
+| output | `port_state_domain_candidates` | `inferred.port_state_domain_candidates` |
+| output | `port_state_domains` | `inferred.port_state_domains` |
+| output | `port_state_targets` | `inferred.port_state_targets` |
+| output | `ports` | `inferred.ports` |
+| output | `predicate_axes` | `inferred.predicate_axes` |
+| output | `predicate_outcomes` | `inferred.predicate_outcomes` |
+| output | `resolved_scopes` | `inferred.resolved_scopes` |
+| output | `rule_outcomes` | `inferred.rule_outcomes` |
+| output | `scope_bindings` | `inferred.scope_bindings` |
+| output | `scope_candidates` | `inferred.scope_candidates` |
+| output | `scope_entities` | `inferred.scope_entities` |
+| output | `scope_members` | `inferred.scope_members` |
+| output | `scope_port_decisions` | `inferred.scope_port_decisions` |
+| output | `scope_port_states` | `inferred.scope_port_states` |
+| output | `scope_reachability` | `inferred.scope_reachability` |
+| output | `selector_contexts` | `inferred.selector_contexts` |
+| output | `selector_decisions` | `inferred.selector_decisions` |
+| output | `selector_parameter_targets` | `inferred.selector_parameter_targets` |
+| output | `tear_candidates` | `inferred.tear_candidates` |
+| output | `topology_edges` | `inferred.topology_edges` |
+| output | `unbound_port_targets` | `inferred.unbound_port_targets` |
+| output | `valid_index_tuples` | `inferred.valid_index_tuples` |
+| output | `candidate_index_members` | `normalized.candidate_index_members` |
+| output | `candidate_index_tuples` | `normalized.candidate_index_tuples` |
+| output | `config_values` | `normalized.config_values` |
+| output | `domain_members` | `normalized.domain_members` |
+| output | `domain_product_projections` | `normalized.domain_product_projections` |
+| output | `domain_product_sources` | `normalized.domain_product_sources` |
+| output | `domain_products` | `normalized.domain_products` |
+| output | `domains` | `normalized.domains` |
+| output | `feature_inheritance` | `normalized.feature_inheritance` |
+| output | `instance_binding_products` | `normalized.instance_binding_products` |
+| output | `instance_bindings` | `normalized.instance_bindings` |
+| output | `instance_domain_bindings` | `normalized.instance_domain_bindings` |
+| output | `material_domain_members` | `normalized.material_domain_members` |
+| output | `boundary_crossing_assertions` | `provenance.boundary_crossing_assertions` |
+| output | `connection_violation_assertions` | `provenance.connection_violation_assertions` |
+| output | `domain_member_assertions` | `provenance.domain_member_assertions` |
+| output | `feature_candidate_assertions` | `provenance.feature_candidate_assertions` |
+| output | `feature_check_assertions` | `provenance.feature_check_assertions` |
+| output | `feature_requirement_assertions` | `provenance.feature_requirement_assertions` |
+| output | `instance_assertions` | `provenance.instance_assertions` |
+| output | `instance_feature_assertions` | `provenance.instance_feature_assertions` |
+| output | `instance_guard_violation_assertions` | `provenance.instance_guard_violation_assertions` |
+| output | `instance_reachability_assertions` | `provenance.instance_reachability_assertions` |
+| output | `instance_tree_assertions` | `provenance.instance_tree_assertions` |
+| output | `invalid_index_assertions` | `provenance.invalid_index_assertions` |
+| output | `material_check_assertions` | `provenance.material_check_assertions` |
+| output | `material_count_assertions` | `provenance.material_count_assertions` |
+| output | `method_compatibility_assertions` | `provenance.method_compatibility_assertions` |
+| output | `phase_species_assertions` | `provenance.phase_species_assertions` |
+| output | `port_assertions` | `provenance.port_assertions` |
+| output | `port_member_assertions` | `provenance.port_member_assertions` |
+| output | `port_member_domain_assertions` | `provenance.port_member_domain_assertions` |
+| output | `port_state_assertions` | `provenance.port_state_assertions` |
+| output | `port_state_domain_assertions` | `provenance.port_state_domain_assertions` |
+| output | `rule_support_edges` | `provenance.rule_support_edges` |
+| output | `scope_assertions` | `provenance.scope_assertions` |
+| output | `scope_binding_assertions` | `provenance.scope_binding_assertions` |
+| output | `scope_candidate_assertions` | `provenance.scope_candidate_assertions` |
+| output | `scope_entity_assertions` | `provenance.scope_entity_assertions` |
+| output | `scope_member_assertions` | `provenance.scope_member_assertions` |
+| output | `scope_port_decision_assertions` | `provenance.scope_port_decision_assertions` |
+| output | `scope_port_state_assertions` | `provenance.scope_port_state_assertions` |
+| output | `scope_reachability_assertions` | `provenance.scope_reachability_assertions` |
+| output | `selector_context_assertions` | `provenance.selector_context_assertions` |
+| output | `selector_decision_assertions` | `provenance.selector_decision_assertions` |
+| output | `selector_parameter_target_assertions` | `provenance.selector_parameter_target_assertions` |
+| output | `topology_edge_assertions` | `provenance.topology_edge_assertions` |
+| output | `unbound_port_assertions` | `provenance.unbound_port_assertions` |
+| output | `valid_index_assertions` | `provenance.valid_index_assertions` |

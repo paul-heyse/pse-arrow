@@ -26,6 +26,7 @@ use std::{
 pub(crate) struct Attempt {
     pub(crate) id: SemanticId,
     pass: SemanticId,
+    name: &'static str,
     version: &'static str,
     started: Instant,
 }
@@ -37,6 +38,7 @@ pub(crate) struct Observation<'a> {
     pub(crate) output: Option<SnapshotId>,
     pub(crate) engine: Option<ContentHash>,
     pub(crate) findings: &'a [RecordBatch],
+    pub(crate) derivations: &'a [RecordBatch],
     pub(crate) plans: &'a [PlanObservation],
 }
 impl Observation<'_> {
@@ -47,6 +49,7 @@ impl Observation<'_> {
             output: None,
             engine: None,
             findings: &[],
+            derivations: &[],
             plans: &[],
         }
     }
@@ -56,6 +59,7 @@ impl Attempt {
         Self {
             id: pse_authoring::ids::uuid_v7(),
             pass: pass.id,
+            name: pass.name,
             version: pass.version,
             started: Instant::now(),
         }
@@ -110,6 +114,7 @@ impl Attempt {
         });
         match result {
             Ok(record) => CompilerError::AttemptFailed {
+                pass_name: format!("{}@{}", self.name, self.version),
                 pass_run_id: self.id,
                 record: Box::new(record),
                 source: Box::new(original),
@@ -162,10 +167,36 @@ async fn publish(
             Cell::Enum(status.as_str()),
             Cell::List(findings),
             failure_class.map_or(Cell::Null, Cell::Enum),
+            Cell::List(decode_derivations(
+                catalog.registry(),
+                observation.derivations,
+            )?),
         ]],
         cancel,
     )
     .await
+}
+fn decode_derivations(
+    registry: &pse_schema::Registry,
+    batches: &[RecordBatch],
+) -> Result<Vec<Cell>, CompilerError> {
+    let spec = registry
+        .relation("provenance.derivations")
+        .ok_or_else(|| invalid("derivation evidence contract absent"))?;
+    let mut ids = std::collections::BTreeSet::new();
+    let mut rows = Vec::new();
+    for batch in batches {
+        for row in pse_relations::cells::cells_from_batch(registry, spec, batch)? {
+            let Some(Cell::Id(id)) = row.first() else {
+                return Err(invalid("derivation identity missing"));
+            };
+            if !ids.insert(*id) {
+                return Err(invalid("duplicate terminal derivation identity"));
+            }
+            rows.push(Cell::Struct(row));
+        }
+    }
+    Ok(rows)
 }
 struct FindingReport {
     findings: Vec<Cell>,
@@ -304,7 +335,7 @@ fn extent(
             .ok_or_else(|| invalid("terminal record extent overflow"))?;
         Ok(())
     };
-    for batch in observation.findings {
+    for batch in observation.findings.iter().chain(observation.derivations) {
         add(pse_catalog::store::membership::validation_extent(batch)?)?;
     }
     for plan in observation.plans {

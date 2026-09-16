@@ -30,7 +30,7 @@ pub enum Cell {
     Id(SemanticId),
     /// A `pse.content_hash` column.
     Hash(ContentHash),
-    /// A `pse.enum` column, holding the member name. The dictionary code is presentation
+    /// A `pse.enum` column, holding the member name. The declaration ordinal is presentation
     /// only and never appears here (blueprint §4.5).
     Enum(&'static str),
     /// A `list<T>` or `fixed_list<T,N>` column.

@@ -20,8 +20,9 @@ use crate::{AuthoringError, ParseBudget};
 struct BundleOwner {
     // Field order is deliberate: all trees/strings are destroyed before the lease.
     bundle: DocumentBundle,
-    binding: RegistryBinding,
-    lease: Arc<ReservationLease>,
+    binding: Arc<RegistryBinding>,
+    _parent: Option<OwnedDocumentBundle>,
+    _lease: Arc<ReservationLease>,
 }
 
 /// Immutable validated loader result whose clones share one allocation and lease.
@@ -35,11 +36,11 @@ impl OwnedDocumentBundle {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct SetOwner {
     bundles: Vec<DocumentBundle>,
-    bindings: Vec<RegistryBinding>,
-    _leases: Vec<Arc<ReservationLease>>,
+    parts: Vec<OwnedDocumentBundle>,
+    _lease: Arc<ReservationLease>,
 }
 
 /// A contiguous immutable package inventory retaining every source allocation.
@@ -48,6 +49,16 @@ struct SetOwner {
 pub struct OwnedDocumentSet(Option<Arc<SetOwner>>);
 
 impl OwnedDocumentSet {
+    /// Whether both handles retain the same immutable source inventory allocation.
+    /// Distinct owners require exact source/declaration comparison by the caller.
+    pub fn same_owner(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (Some(left), Some(right)) => Arc::ptr_eq(left, right),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+
     /// Borrow all complete, original loader results in supplied package order.
     pub fn bundles(&self) -> &[DocumentBundle] {
         self.0
@@ -65,8 +76,8 @@ impl OwnedDocumentSet {
         let Some(owner) = &self.0 else {
             return Ok(());
         };
-        for binding in &owner.bindings {
-            binding.validate(registry)?;
+        for part in &owner.parts {
+            part.0.binding.validate(registry)?;
         }
         for bundle in &owner.bundles {
             for document in &bundle.documents {
@@ -81,52 +92,155 @@ impl OwnedDocumentSet {
         Ok(())
     }
 
-    /// Consume unique package owners without copying any source or parsed tree.
+    /// Retain package owners without copying source bytes or parsed trees.
     ///
     /// # Errors
-    /// Refuses shared input owners, cancellation or insufficient shared memory for
-    /// the new contiguous inventory. All consumed reservations release on failure.
+    /// Cancellation or insufficient shared memory for the new inventory.
     pub fn try_from_bundles(
         parts: Vec<OwnedDocumentBundle>,
         reserver: &dyn MemoryReserver,
         cancel: &CancellationToken,
     ) -> Result<Self, AuthoringError> {
         cancel.checkpoint()?;
-        if parts.iter().any(|part| Arc::strong_count(&part.0) != 1) {
-            return Err(contract(
-                None,
-                "assembling a document set requires unique package owners",
-            ));
-        }
         let mut allocation = Allocation::new(reserver, cancel);
         allocation.grow(add(
             size_of::<SetOwner>() + size_of::<ReservationLease>() + 4 * size_of::<usize>(),
-            add(
-                mul(
-                    parts.len(),
-                    size_of::<DocumentBundle>() + size_of::<RegistryBinding>(),
-                )?,
-                mul(add(parts.len(), 1)?, size_of::<Arc<ReservationLease>>())?,
+            mul(
+                parts.len(),
+                size_of::<DocumentBundle>() + size_of::<OwnedDocumentBundle>(),
             )?,
         )?)?;
-        let mut bundles = Vec::with_capacity(parts.len());
-        let mut bindings = Vec::with_capacity(parts.len());
-        let mut leases = Vec::with_capacity(add(parts.len(), 1)?);
-        for part in parts {
-            cancel.checkpoint()?;
-            let owner = Arc::try_unwrap(part.0)
-                .map_err(|_| contract(None, "package ownership became shared"))?;
-            bundles.push(owner.bundle);
-            bindings.push(owner.binding);
-            leases.push(owner.lease);
-        }
-        leases.push(allocation.finish());
+        let bundles = parts.iter().map(|part| part.bundle().clone()).collect();
         Ok(Self(Some(Arc::new(SetOwner {
             bundles,
-            bindings,
-            _leases: leases,
+            parts,
+            _lease: allocation.finish(),
         }))))
     }
+}
+
+impl OwnedDocumentSet {
+    /// Apply exact source edits, parsing only changed documents and reusing all
+    /// unchanged parser owners. Hydration is recomputed against the complete package.
+    /// # Errors
+    /// Stale/duplicate edit, source contract failure, cancellation or reservation refusal.
+    pub fn edit(
+        &self,
+        edits: &[super::DocumentEdit],
+        registry: &Registry,
+        budget: ParseBudget,
+        reserver: &dyn MemoryReserver,
+        cancel: &CancellationToken,
+    ) -> Result<Self, AuthoringError> {
+        self.validate_registry(registry)?;
+        let Some(owner) = &self.0 else {
+            return if edits.is_empty() {
+                Ok(Self::default())
+            } else {
+                Err(contract(None, "source edit has no original document"))
+            };
+        };
+        let mut work = reserver.open("authoring:source-edits");
+        work.try_grow(crate::work::sources(self.bundles())?)?;
+        for edit in edits {
+            work.try_grow(add(edit.before.len(), edit.after.len())?)?;
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for edit in edits {
+            if !seen.insert(edit.document_id)
+                || !owner.bundles.iter().any(|bundle| {
+                    bundle.documents.iter().any(|document| {
+                        document.id == edit.document_id && document.path == edit.path
+                    })
+                })
+            {
+                return Err(contract(
+                    None,
+                    "source edit is duplicate or outside the document inventory",
+                ));
+            }
+        }
+        let mut parts = Vec::with_capacity(owner.parts.len());
+        for part in &owner.parts {
+            cancel.checkpoint()?;
+            let own = edits
+                .iter()
+                .filter(|edit| {
+                    part.bundle()
+                        .documents
+                        .iter()
+                        .any(|document| document.id == edit.document_id)
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            if own.is_empty() {
+                parts.push(part.clone());
+                continue;
+            }
+            let mut allocation = Allocation::new(reserver, cancel);
+            allocation.grow(crate::work::sources(std::slice::from_ref(part.bundle()))?)?;
+            let mut texts = part
+                .bundle()
+                .documents
+                .iter()
+                .map(|document| (document.path.clone(), document.text.clone()))
+                .collect();
+            super::apply_edits(&mut texts, &own)?;
+            let mut bundle = super::load::load_reusing(
+                texts,
+                Some(part.bundle()),
+                registry,
+                budget,
+                Some(&mut allocation),
+            )?;
+            bundle.retain_columns(reserver, cancel)?;
+            let lease = allocation.finish();
+            bundle.attach_lease(Arc::clone(&lease));
+            parts.push(OwnedDocumentBundle(Arc::new(BundleOwner {
+                bundle,
+                binding: Arc::clone(&part.0.binding),
+                _parent: Some(part.clone()),
+                _lease: lease,
+            })));
+        }
+        Self::try_from_bundles(parts, reserver, cancel)
+    }
+}
+
+pub(super) fn retain_bundle(
+    bundle: &DocumentBundle,
+    registry: &Registry,
+    reserver: &dyn MemoryReserver,
+    cancel: &CancellationToken,
+) -> Result<OwnedDocumentBundle, AuthoringError> {
+    let mut allocation = Allocation::new(reserver, cancel);
+    allocation.grow(add(
+        super::allocation::bundle_retained(bundle)?,
+        super::allocation::registry_extent(registry)?,
+    )?)?;
+    for document in &bundle.documents {
+        if super::load::select(registry, &document.path)? != &document.declaration {
+            return Err(contract(
+                None,
+                "parsed source declaration differs from the registry",
+            ));
+        }
+    }
+    // DocumentBundle has a private constructor and immutable shared data. This
+    // retains the actual parsed value, not an arbitrary caller-created DTO.
+    let mut bundle = bundle.clone();
+    bundle.retain_columns(reserver, cancel)?;
+    let lease = allocation.finish();
+    bundle.attach_lease(Arc::clone(&lease));
+    Ok(OwnedDocumentBundle(Arc::new(BundleOwner {
+        bundle,
+        binding: Arc::new(RegistryBinding {
+            relations: registry.relations().to_vec(),
+            enums: registry.enums().to_vec(),
+        }),
+        _parent: None,
+        _lease: lease,
+    })))
 }
 
 /// Parse borrowed UTF-8 source bytes after reserving copies and all expansion phases.
@@ -171,11 +285,12 @@ pub fn load_package_sources_owned<'a>(
         }
     }
     allocation.grow(super::allocation::registry_extent(registry)?)?;
-    let binding = RegistryBinding {
+    let binding = Arc::new(RegistryBinding {
         relations: registry.relations().to_vec(),
         enums: registry.enums().to_vec(),
-    };
-    let bundle = super::load::load_inventory(texts, registry, budget, Some(&mut allocation))?;
+    });
+    let mut bundle = super::load::load_inventory(texts, registry, budget, Some(&mut allocation))?;
+    bundle.retain_columns(reserver, cancel)?;
     cancel.checkpoint()?;
     allocation.retain(
         0,
@@ -187,10 +302,13 @@ pub fn load_package_sources_owned<'a>(
             )?,
         )?,
     )?;
+    let lease = allocation.finish();
+    bundle.attach_lease(Arc::clone(&lease));
     Ok(OwnedDocumentBundle(Arc::new(BundleOwner {
         bundle,
         binding,
-        lease: allocation.finish(),
+        _parent: None,
+        _lease: lease,
     })))
 }
 
@@ -247,9 +365,81 @@ mod tests {
         binding.validate(registry).unwrap();
         let old_id = binding.relations[0].id;
         let old_hash = binding.relations[0].fingerprint;
-        binding.relations[0].columns[0].doc = "different actual declaration";
+        binding.relations[0].columns[0] = binding.relations[0].columns[0]
+            .clone()
+            .with_doc("different actual declaration");
         assert_eq!(binding.relations[0].id, old_id);
         assert_eq!(binding.relations[0].fingerprint, old_hash);
         assert!(binding.validate(registry).is_err());
+    }
+    #[test]
+    fn editing_one_document_reuses_other_parser_and_dsl_owners() -> Result<(), AuthoringError> {
+        let registry = pse_schema::registry().map_err(pse_relations::RelationError::from)?;
+        let budget = pse_ids::FixedBudget::new(512 << 20);
+        let cancel = CancellationToken::new();
+        let texts = BTreeMap::from([
+            ("package.toml".to_owned(), include_str!("../../../../tests/fixtures/packages/minimal_explicit/package.toml").to_owned()),
+            ("materials/species.yaml".to_owned(), include_str!("../../../../tests/fixtures/packages/minimal_explicit/materials/species.yaml").to_owned()),
+            ("templates/model.yaml".to_owned(), "templates:\n  - id: '00000000000000000000000000000031'\n    name: model\n    version: '1.0.0'\n    kind: unit\n    doc: ''\ntemplate_display:\n  - template_id: '00000000000000000000000000000031'\n    kind: expression\n    label: constant\n    expression: '2 + 3'\n".to_owned()),
+        ]);
+        let part = load_package_texts_owned(
+            &texts,
+            registry,
+            ParseBudget::default(),
+            budget.as_ref(),
+            &cancel,
+        )?;
+        let original = OwnedDocumentSet::try_from_bundles(vec![part], budget.as_ref(), &cancel)?;
+        let source = original.bundles()[0]
+            .documents
+            .iter()
+            .find(|document| document.path == "materials/species.yaml")
+            .ok_or_else(|| contract(None, "fixture species source absent"))?;
+        let edited = original.edit(
+            &[super::super::DocumentEdit {
+                document_id: source.id,
+                path: source.path.clone(),
+                before: source.text.clone(),
+                after: source.text.replace("name: water", "name: steam"),
+            }],
+            registry,
+            ParseBudget::default(),
+            budget.as_ref(),
+            &cancel,
+        )?;
+        assert!(!original.same_owner(&edited));
+        assert!(original.same_owner(&original.clone()));
+        for prior in &original.bundles()[0].documents {
+            let next = edited.bundles()[0]
+                .documents
+                .iter()
+                .find(|document| document.id == prior.id)
+                .ok_or_else(|| contract(None, "edited fixture document absent"))?;
+            assert_eq!(
+                Arc::ptr_eq(&prior.syntax, &next.syntax),
+                prior.path != "materials/species.yaml"
+            );
+            if prior.path == "templates/model.yaml" {
+                assert!(Arc::ptr_eq(&prior.expressions, &next.expressions));
+                let relation = registry
+                    .relation("authored.template_display")
+                    .ok_or_else(|| contract(None, "fixture display relation absent"))?;
+                let (text, parsed) = prior
+                    .parsed_expression(relation, 0, "expression")
+                    .ok_or_else(|| contract(None, "fixture cached expression absent"))?;
+                let (_, reused) = next
+                    .parsed_expression(relation, 0, "expression")
+                    .ok_or_else(|| contract(None, "edited fixture cached expression absent"))?;
+                assert_eq!(text, "2 + 3");
+                assert!(std::ptr::eq(parsed, reused));
+                assert!(prior.parsed_expression(relation, 1, "expression").is_none());
+            }
+        }
+        let rows = pse_relations::generated::authored::species::View::from_checked(
+            &edited.bundles()[0].batches[&pse_relations::generated::authored::species::RELATION_ID],
+        )?
+        .rows()?;
+        assert_eq!(rows[0].name, "steam");
+        Ok(())
     }
 }

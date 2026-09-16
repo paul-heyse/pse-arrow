@@ -4,7 +4,7 @@
 //! Registered P2 unnest/anti-join/distinct behavior against an independent set oracle.
 use datafusion::execution::runtime_env::RuntimeEnv;
 use pse_catalog::session::{
-    ExecutionSettings, ThreadBudget, build_candidate_session, phase0_reference_profile,
+    ExecutionSettings, ThreadBudget, build_candidate_session, native_engine_profile,
 };
 use pse_ids::{CancellationToken, FixedBudget, SemanticId};
 use pse_schema::model::Cell;
@@ -90,7 +90,7 @@ async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
                 pool_threads: thread,
                 target_partitions: thread,
             },
-            phase0_reference_profile(),
+            native_engine_profile(),
         )
         .unwrap();
         let ports = pse_rules::plan::PortBinding {

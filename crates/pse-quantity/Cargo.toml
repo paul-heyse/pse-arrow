@@ -23,8 +23,8 @@ thiserror.workspace = true
 miette.workspace = true
 
 [features]
-# The standard units/kinds/operations package used as a test double for the reference
-# YAML package (blueprint §8.2); never a default, never a platform authority.
+# Generated projection of the selected reference YAML packages (blueprint §8.2,
+# ADR-0064); never a default or a second declaration authority.
 fixtures = []
 
 [dev-dependencies]

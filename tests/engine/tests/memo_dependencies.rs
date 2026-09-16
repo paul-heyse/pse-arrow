@@ -6,6 +6,9 @@
     clippy::expect_used,
     reason = "bounded fixtures report exact failure boundaries"
 )]
+#[path = "../../support/session_factory.rs"]
+pub(crate) mod session_factory;
+
 use pse_authoring::{
     ParseBudget,
     document::{DocumentBundle, load_package_texts},
@@ -13,8 +16,7 @@ use pse_authoring::{
 use pse_catalog::{
     Catalog, EncodingPolicy, FixedClock, RelationContract, Snapshot, TrustLevel,
     session::{
-        ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
-        phase0_reference_profile,
+        ExecutionSettings, SessionFactory, SnapshotSession, ThreadBudget, native_engine_profile,
     },
     store::{
         membership::AdmissionContext,
@@ -22,7 +24,7 @@ use pse_catalog::{
     },
 };
 use pse_compiler::{
-    BoundInput, ExternalInputs, InputBundle, PassContext, PolicySet, StageKey,
+    BoundInput, InputBundle, PassContext, PolicySet, StageKey,
     memo::{Dependencies, Memo},
     passes::PolicyBinding,
 };
@@ -31,9 +33,7 @@ use pse_ids::{
 };
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{
-        Authority, Cell, ColumnSpec, EnumDecl, LogicalType, Namespace, RelationDecl, SnapshotClass,
-    },
+    model::{Authority, Cell, EnumDecl, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -44,6 +44,7 @@ use std::{
 struct Fixture {
     registry: Arc<Registry>,
     reserver: Arc<dyn MemoryReserver>,
+    session: SnapshotSession,
 }
 fn fixture() -> Fixture {
     let mut builder = RegistryBuilder::new();
@@ -59,13 +60,39 @@ fn fixture() -> Fixture {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::id(), "key"),
-            ColumnSpec::payload("value", LogicalType::I64, "actual dependency"),
+            FieldContract::key("id", FieldContract::id(), "key"),
+            FieldContract::payload(
+                "value",
+                FieldContract::native(arrow::datatypes::DataType::Int64),
+                "actual dependency",
+            ),
         ]),
     );
     let registry = Arc::new(builder.build().expect("registry"));
     let reserver: Arc<dyn MemoryReserver> = FixedBudget::new(128 << 20);
-    Fixture { registry, reserver }
+    let one = NonZeroUsize::new(1).unwrap();
+    let session = SessionFactory::new(
+        Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
+        Arc::clone(&reserver),
+        ExecutionSettings::default(),
+        ThreadBudget {
+            pool_threads: one,
+            target_partitions: one,
+        },
+        native_engine_profile(),
+    )
+    .unwrap()
+    .candidate(
+        BTreeMap::new(),
+        Arc::clone(&registry),
+        &CancellationToken::new(),
+    )
+    .unwrap();
+    Fixture {
+        registry,
+        reserver,
+        session,
+    }
 }
 
 fn declare_package_document(builder: &mut RegistryBuilder) {
@@ -80,7 +107,11 @@ fn declare_package_document(builder: &mut RegistryBuilder) {
         .iter()
         .map(|section| section.relation)
         .collect::<Vec<_>>();
-    pending.extend(["authored.entities", "authored.documents"]);
+    pending.extend([
+        "authored.entities",
+        "authored.documents",
+        "runtime.diagnostics_findings",
+    ]);
     let mut seen = BTreeSet::new();
     while let Some(name) = pending.pop() {
         if !seen.insert(name) {
@@ -91,7 +122,7 @@ fn declare_package_document(builder: &mut RegistryBuilder) {
             relation
                 .columns
                 .iter()
-                .filter_map(|column| column.fk.map(|fk| fk.relation)),
+                .filter_map(|column| column.fk().map(|fk| fk.relation)),
         );
         builder.declare_relation(RelationDecl {
             key: relation.key,
@@ -154,13 +185,15 @@ async fn snapshot(fixture: &Fixture, value: Option<i64>, timestamp: &str) -> Arc
         })
         .collect();
     let context = AdmissionContext::default();
+    let validator = pse_rules::validator::InvariantValidator::new(Arc::clone(&fixture.registry));
     let catalog = Catalog::open(
         Arc::new(object_store::memory::InMemory::new()),
         Arc::clone(&fixture.registry),
         TrustLevel::Untrusted,
         Arc::new(FixedClock(timestamp.to_owned())),
-        Arc::clone(&fixture.reserver),
-    );
+        session_factory::factory(Arc::clone(&fixture.reserver)),
+    )
+    .with_semantic_validator(Arc::new(validator));
     let manifest = catalog
         .manifest_template(SnapshotKind::Model, &context)
         .expect("manifest");
@@ -206,15 +239,14 @@ fn capture(
     Dependencies::capture(
         inputs,
         &PassContext {
+            physical: None,
             registry: &fixture.registry,
             documents: &documents,
             policies,
-            external: &ExternalInputs::default(),
             cancel: &CancellationToken::default(),
             reserver: fixture.reserver.as_ref(),
-            session,
+            session: session.unwrap_or(&fixture.session),
         },
-        session.is_some(),
     )
     .expect("complete retained inputs")
 }
@@ -225,11 +257,9 @@ fn session(fixture: &Fixture, input: &InputBundle, version: &str) -> SnapshotSes
             .expect("runtime"),
     );
     let one = NonZeroUsize::new(1).expect("one");
-    let mut profile = phase0_reference_profile();
+    let mut profile = native_engine_profile();
     version.clone_into(&mut profile.version);
-    build_candidate_session(
-        input.rows(&fixture.registry).expect("rows"),
-        Arc::clone(&fixture.registry),
+    SessionFactory::new(
         runtime,
         Arc::clone(&fixture.reserver),
         ExecutionSettings::default(),
@@ -240,6 +270,12 @@ fn session(fixture: &Fixture, input: &InputBundle, version: &str) -> SnapshotSes
         profile,
     )
     .expect("sealed engine semantics")
+    .candidate_checked_ports(
+        input.checked_ports(),
+        Arc::clone(&fixture.registry),
+        &CancellationToken::new(),
+    )
+    .expect("actual named inputs")
 }
 #[tokio::test]
 async fn forced_bucket_collision_checks_values_absence_policy_and_exact_lineage() {
@@ -259,9 +295,14 @@ async fn forced_bucket_collision_checks_values_absence_policy_and_exact_lineage(
         Arc::clone(&original),
     );
     assert!(
-        memo.lookup(key, &capture(&fixture, &present, &policies, &[], None))
-            .expect("lookup")
-            .is_some()
+        memo.lookup(
+            key,
+            &capture(&fixture, &present, &policies, &[], None),
+            fixture.reserver.as_ref(),
+            &CancellationToken::new()
+        )
+        .expect("lookup")
+        .is_some()
     );
     for changed in [
         inputs(&fixture, changed),
@@ -271,9 +312,14 @@ async fn forced_bucket_collision_checks_values_absence_policy_and_exact_lineage(
         },
     ] {
         assert!(
-            memo.lookup(key, &capture(&fixture, &changed, &policies, &[], None))
-                .expect("collision")
-                .is_none()
+            memo.lookup(
+                key,
+                &capture(&fixture, &changed, &policies, &[], None),
+                fixture.reserver.as_ref(),
+                &CancellationToken::new()
+            )
+            .expect("collision")
+            .is_none()
         );
     }
     let empty = inputs(
@@ -281,9 +327,14 @@ async fn forced_bucket_collision_checks_values_absence_policy_and_exact_lineage(
         snapshot(&fixture, None, "2026-09-14T00:00:00Z").await,
     );
     assert!(
-        memo.lookup(key, &capture(&fixture, &empty, &policies, &[], None))
-            .expect("empty input")
-            .is_none()
+        memo.lookup(
+            key,
+            &capture(&fixture, &empty, &policies, &[], None),
+            fixture.reserver.as_ref(),
+            &CancellationToken::new()
+        )
+        .expect("empty input")
+        .is_none()
     );
     let policy = PolicySet(BTreeMap::from([(
         "selection".to_owned(),
@@ -293,11 +344,61 @@ async fn forced_bucket_collision_checks_values_absence_policy_and_exact_lineage(
         },
     )]));
     assert!(
-        memo.lookup(key, &capture(&fixture, &present, &policy, &[], None))
-            .expect("policy")
-            .is_none()
+        memo.lookup(
+            key,
+            &capture(&fixture, &present, &policy, &[], None),
+            fixture.reserver.as_ref(),
+            &CancellationToken::new()
+        )
+        .expect("policy")
+        .is_none()
     );
 }
+#[tokio::test]
+async fn dependency_comparison_reserves_before_traversal_and_honors_cancellation() {
+    let fixture = fixture();
+    let snapshot = snapshot(&fixture, Some(7), "2026-09-14T00:00:00Z").await;
+    let original = inputs(&fixture, snapshot.clone());
+    let separate_handle = inputs(&fixture, Arc::new(snapshot.as_ref().clone()));
+    let policies = PolicySet::default();
+    let dependencies = capture(&fixture, &separate_handle, &policies, &[], None);
+    let mut memo = Memo::new(1);
+    let key = StageKey(ContentHash::from_bytes([4; 32]));
+    memo.insert(
+        key,
+        capture(&fixture, &original, &policies, &[], None),
+        snapshot,
+    );
+    let cancel = CancellationToken::new();
+    let refused = FixedBudget::new(0);
+    assert!(
+        memo.lookup(key, &dependencies, refused.as_ref(), &cancel)
+            .is_err()
+    );
+    assert_eq!(refused.reserved(), 0);
+    let budget = FixedBudget::new(64 << 10);
+    assert!(
+        memo.lookup(key, &dependencies, budget.as_ref(), &cancel)
+            .unwrap()
+            .is_some()
+    );
+    assert_eq!(
+        budget.reserved(),
+        0,
+        "comparison work releases after success"
+    );
+    cancel.cancel();
+    assert!(
+        memo.lookup(key, &dependencies, budget.as_ref(), &cancel)
+            .is_err()
+    );
+    assert_eq!(
+        budget.reserved(),
+        0,
+        "cancellation releases comparison work"
+    );
+}
+
 #[tokio::test]
 async fn source_bytes_and_actual_engine_profile_change_even_when_the_lookup_key_is_forced_equal() {
     let fixture = fixture();
@@ -312,13 +413,20 @@ async fn source_bytes_and_actual_engine_profile_change_even_when_the_lookup_key_
         ParseBudget::default(),
     )
     .expect("real source");
-    let mut changed = document.clone();
-    changed.documents[0]
-        .text
+    let mut texts = document
+        .documents
+        .iter()
+        .map(|document| (document.path.clone(), document.text.clone()))
+        .collect::<BTreeMap<_, _>>();
+    texts
+        .get_mut("package.toml")
+        .expect("package")
         .push_str("\n# changed actual source bytes\n");
-    assert_eq!(
-        document.documents[0].content_hash, changed.documents[0].content_hash,
-        "unchanged public hash claim is deliberate"
+    let changed = load_package_texts(texts, &fixture.registry, ParseBudget::default())
+        .expect("changed source");
+    assert_ne!(
+        document.documents[0].content_hash,
+        changed.documents[0].content_hash
     );
     let policies = PolicySet::default();
     let original_engine = session(&fixture, &input, "one");
@@ -345,7 +453,9 @@ async fn source_bytes_and_actual_engine_profile_change_even_when_the_lookup_key_
                 &policies,
                 &[changed],
                 Some(&original_engine)
-            )
+            ),
+            fixture.reserver.as_ref(),
+            &CancellationToken::new()
         )
         .expect("source bytes")
         .is_none()
@@ -359,14 +469,16 @@ async fn source_bytes_and_actual_engine_profile_change_even_when_the_lookup_key_
                 &policies,
                 &[document],
                 Some(&changed_engine)
-            )
+            ),
+            fixture.reserver.as_ref(),
+            &CancellationToken::new()
         )
         .expect("engine semantics")
         .is_none()
     );
 }
 #[test]
-fn production_graph_has_no_synthetic_p10_predecessors() {
+fn production_graph_closes_through_the_declared_native_p10_pipeline() {
     let registry = pse_schema::catalog::assemble().expect("production registry");
     let graph = pse_compiler::passes::dag::StageDag::build(&registry).expect("closed graph");
     assert_eq!(
@@ -378,5 +490,13 @@ fn production_graph_has_no_synthetic_p10_predecessors() {
             .collect::<Vec<_>>(),
         ["P3"]
     );
-    assert!(graph.through("P10").is_err());
+    assert_eq!(
+        graph
+            .through("P10")
+            .expect("native P10")
+            .iter()
+            .map(|spec| spec.name)
+            .collect::<Vec<_>>(),
+        ["P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"]
+    );
 }

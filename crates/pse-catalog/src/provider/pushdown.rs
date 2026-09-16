@@ -35,7 +35,7 @@ fn column(expr: &Expr, contract: &RelationContract) -> bool {
     contract
         .canonical
         .schema
-        .index_of(&column.name)
+        .index_of(column.name())
         .is_ok_and(|index| {
             let field = contract.canonical.schema.field(index);
             let reference = field

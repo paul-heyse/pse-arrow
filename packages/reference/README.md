@@ -1,11 +1,29 @@
+<!-- SPDX-License-Identifier: MIT OR Apache-2.0 -->
+<!-- Copyright (c) 2026 Paul Heyse -->
+
 # Reference packages
 
-The shipped reference packages of blueprint §3.2 and §22.1: units, elements, species,
-property methods and unit templates, authored as YAML/TOML documents under one
-`package.toml` each. Pass P1 parses every document into `authored` relations; nothing here
-is code.
+These versioned YAML/TOML packages are ordinary authored inputs under blueprint
+§22.1 and ADR-0064. Their explicit IDs, complete physical quantities, expressions,
+parameter values and exact package dependencies are the source authority.
 
-Phase 0 ships no package yet. The first ones arrive with slice A (blueprint §25): the
-units and elements packages, the ideal equation of state, the NIST/RPP/Perry's methods,
-`FTPx`/`FcTP` state definitions, the lumped control volume and the heater/feed/product/
-mixer templates.
+| Package | Contents |
+| --- | --- |
+| `elements` | CIAAW element masses in kg/mol |
+| `physical` | Units, complete quantities, conversions and physical operations |
+| `fixture-currency` | Explicitly synthetic currency conversion test data |
+| `methods` | NIST Shomate, RPP4 polynomial, Perry liquid and ideal property expressions |
+| `states` | Single-phase FTPx and FcTP state declarations and port interfaces |
+| `units` | Steady flowsheet, control volume, heater, feed, product, mixer, junction and connection templates |
+| `thermo-examples` | Benzene/toluene and nitrogen species, actual method selections and sourced coefficients |
+
+Each package's `sources.md` records physical references and qualification boundaries.
+The benzene/toluene cubic coefficients are explicitly derived interpolation examples,
+not published RPP4 coefficients. Synthetic currency is not physical reference data.
+
+`fixture-projection.toml` explicitly selects the packages projected into Arrow-free
+Rust fixtures. The generator first loads and admits those actual documents; it does
+not maintain a second table of physical constants. `just codegen-bootstrap` first
+regenerates Rust contracts without generated-DTO consumers, rebuilds the ordinary
+package loader, then emits all requested outputs. `just codegen-check` checks the
+complete generated trees once the source and contracts are consistent.

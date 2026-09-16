@@ -3,9 +3,9 @@
 
 //! §6.4 material.
 
-use super::declarations::{column, relation, structure};
+use super::declarations::{column, relation, relation_version, structure};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.4 material contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -34,9 +34,9 @@ fn declare_reference_elements(builder: &mut RegistryBuilder) {
         &["element_id"],
         vec![
             column("element_id", T::id()),
-            column("symbol", T::Text),
-            column("name", T::Text),
-            column("atomic_mass", T::F64),
+            column("symbol", T::native(arrow_schema::DataType::Utf8)),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("atomic_mass", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.4 material: elements.",
     );
@@ -52,21 +52,21 @@ fn declare_authored_species(builder: &mut RegistryBuilder) {
         vec![
             column("species_id", T::id()),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
-            column("name", T::Text),
-            column("formula", T::Text).optional(),
-            column("mw", T::F64).optional(),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("formula", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("mw", T::native(arrow_schema::DataType::Float64)).optional(),
             column("component_type", T::enumeration("ComponentType")),
-            column("charge", T::I64),
+            column("charge", T::native(arrow_schema::DataType::Int64)),
             column(
                 "dissociation_species",
                 T::list(structure(vec![
                     ("species_id", T::id()),
-                    ("coefficient", T::F64),
+                    ("coefficient", T::native(arrow_schema::DataType::Float64)),
                 ])),
             )
             .optional(),
             column("valid_phase_types", T::list(T::enumeration("PhaseType"))).optional(),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.4 material: species.",
     );
@@ -82,7 +82,7 @@ fn declare_authored_species_elements(builder: &mut RegistryBuilder) {
         vec![
             column("species_id", T::id()).with_fk("authored.species", "species_id"),
             column("element_id", T::id()).with_fk("reference.elements", "element_id"),
-            column("count", T::F64),
+            column("count", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.4 material: species_elements.",
     );
@@ -98,10 +98,13 @@ fn declare_authored_phases(builder: &mut RegistryBuilder) {
         vec![
             column("phase_id", T::id()),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("phase_type", T::enumeration("PhaseType")),
-            column("is_solvent_phase", T::Bool),
-            column("doc", T::Text),
+            column(
+                "is_solvent_phase",
+                T::native(arrow_schema::DataType::Boolean),
+            ),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.4 material: phases.",
     );
@@ -149,28 +152,33 @@ fn declare_authored_material_systems(builder: &mut RegistryBuilder) {
         vec![
             column("material_system_id", T::id()),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("species_ids", T::list(T::id())),
             column("phase_ids", T::list(T::id())),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.4 material: material_systems.",
     );
 }
 
 fn declare_inferred_phase_species(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Inferred,
         "phase_species",
+        2,
         S::Derived,
         &["material_system_id", "phase_id", "species_id"],
         vec![
             column("material_system_id", T::id()),
             column("phase_id", T::id()),
             column("species_id", T::id()),
-            column("henry", T::Bool),
-            column("derivation_id", T::id()),
+            column("henry", T::native(arrow_schema::DataType::Boolean)),
+            crate::model::FieldContract::provenance(
+                "derivation_id",
+                T::id(),
+                "Exact source derivation",
+            ),
         ],
         "blueprint §6.4 material: phase_species.",
     );
@@ -186,12 +194,12 @@ fn declare_authored_reactions(builder: &mut RegistryBuilder) {
         vec![
             column("reaction_id", T::id()),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("kind", T::enumeration("ReactionKind")),
             column("basis", T::enumeration("BasisKind")),
             column("concentration_form", T::enumeration("ConcentrationForm")).optional(),
             column("reaction_phase_id", T::id()).optional(),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.4 material: reactions.",
     );
@@ -208,7 +216,7 @@ fn declare_authored_stoichiometry(builder: &mut RegistryBuilder) {
             column("reaction_id", T::id()).with_fk("authored.reactions", "reaction_id"),
             column("phase_id", T::id()).with_fk("authored.phases", "phase_id"),
             column("species_id", T::id()).with_fk("authored.species", "species_id"),
-            column("coefficient", T::F64),
+            column("coefficient", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.4 material: stoichiometry.",
     );
@@ -234,23 +242,28 @@ fn declare_authored_reaction_methods(builder: &mut RegistryBuilder) {
 }
 
 fn declare_authored_reaction_packages(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Authored,
         "reaction_packages",
+        2,
         S::Model,
         &["reaction_package_id"],
         vec![
             column("reaction_package_id", T::id()),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
             column("property_package_id", T::id()),
             column("reaction_ids", T::list(T::id())),
             column("unit_set_id", T::id()),
             column(
                 "default_arguments",
-                T::list(structure(vec![("key", T::Text), ("value", T::Text)])),
+                T::list(structure(vec![
+                    ("key", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             ),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.4 material: reaction_packages.",
     );
@@ -265,13 +278,13 @@ fn declare_authored_parameter_values(builder: &mut RegistryBuilder) {
         &["owner_entity_id", "parameter_kind", "index"],
         vec![
             column("owner_entity_id", T::id()).with_fk("authored.entities", "entity_id"),
-            column("parameter_kind", T::Text),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)),
-            column("value", T::F64),
+            column("parameter_kind", T::native(arrow_schema::DataType::Utf8)),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)),
+            column("value", T::native(arrow_schema::DataType::Float64)),
             column("unit_id", T::id()),
-            column("source", T::Text).optional(),
-            column("std_dev", T::F64).optional(),
-            column("estimable", T::Bool),
+            column("source", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("std_dev", T::native(arrow_schema::DataType::Float64)).optional(),
+            column("estimable", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §6.4 material: parameter_values.",
     );

@@ -4,11 +4,8 @@
 //! The registry-to-catalog contract projection, including nested enum domains.
 
 use crate::{CatalogError, EncodingPolicy, RelationContract};
-use pse_ids::{CanonicalContract, FieldPath, SchemaVersion};
 use pse_schema::Registry;
-use pse_schema::model::{ExtensionUse, LogicalType, RelationSpec};
-use std::collections::BTreeMap;
-use std::sync::Arc;
+use pse_schema::model::{ExtensionUse, RelationSpec};
 
 impl RelationContract {
     /// Constructs the canonical and catalog projections from one exact registry
@@ -22,45 +19,13 @@ impl RelationContract {
         spec: &RelationSpec,
         encodings: EncodingPolicy,
     ) -> Result<Self, CatalogError> {
-        if reg.relation_by_id(spec.id) != Some(spec) {
-            return Err(admission(
-                &spec.key.to_string(),
-                "descriptor differs from its registry declaration",
-            ));
-        }
-        let schema = pse_schema::arrow::relation_schema(reg, spec)
-            .map_err(|error| admission(&spec.key.to_string(), &error.to_string()))?;
-        pse_relations::validate::validate_schema(reg, spec, &schema).map_err(|errors| {
-            admission(
-                &spec.key.to_string(),
-                &errors
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join("; "),
-            )
-        })?;
-        let mut domains = BTreeMap::new();
-        let mut enums = Vec::new();
-        for (index, column) in spec.columns.iter().enumerate() {
-            domains_for(
-                reg,
-                &column.logical_type,
-                &FieldPath::root().child(index),
-                &mut domains,
-            )?;
-            if matches!(column.logical_type, LogicalType::Ext(ExtensionUse::Enum(_))) {
-                enums.push(column.name);
-            }
-        }
-        let canonical = CanonicalContract::try_new(
-            spec.id,
-            SchemaVersion(spec.key.version),
-            reg.fingerprint(),
-            Arc::new(schema),
-            &spec.primary_key,
-            &domains,
-        )?;
+        let canonical = pse_relations::canonical::contract(reg, spec)?;
+        let enums = spec
+            .columns
+            .iter()
+            .filter(|column| matches!(column.extension(), Some(ExtensionUse::Enum(_))))
+            .map(pse_schema::model::FieldContract::name)
+            .collect::<Vec<_>>();
         Self::try_new(
             canonical,
             spec.key.namespace.as_str(),
@@ -108,40 +73,4 @@ fn admission(path: &str, reason: &str) -> CatalogError {
         path: path.to_owned(),
         reason: reason.to_owned(),
     }
-}
-fn domains_for(
-    reg: &Registry,
-    ty: &LogicalType,
-    path: &FieldPath,
-    out: &mut BTreeMap<FieldPath, Arc<[String]>>,
-) -> Result<(), CatalogError> {
-    match ty {
-        LogicalType::Ext(ExtensionUse::Enum(name)) => {
-            out.insert(path.clone(), enum_members(reg, name)?);
-        }
-        LogicalType::Ext(ExtensionUse::Bound) => {
-            out.insert(path.child(0), enum_members(reg, "BoundKind")?);
-        }
-        LogicalType::List(child) | LogicalType::FixedList(child, _) => {
-            domains_for(reg, child, &path.child(0), out)?;
-        }
-        LogicalType::Struct(children) => {
-            for (index, (_, child, _)) in children.iter().enumerate() {
-                domains_for(reg, child, &path.child(index), out)?;
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-fn enum_members(reg: &Registry, name: &str) -> Result<Arc<[String]>, CatalogError> {
-    let enumeration = reg
-        .enum_spec(name)
-        .ok_or_else(|| admission(name, "enum domain is not declared in the bound registry"))?;
-    Ok(enumeration
-        .members
-        .iter()
-        .map(|member| member.name.to_owned())
-        .collect::<Vec<_>>()
-        .into())
 }

@@ -33,6 +33,14 @@ class ReferenceBasesRow:
 
 
 @attrs.frozen(kw_only=True)
+class ReferenceConnectionBindingsRow:
+    """Declared relation row or nested value."""
+
+    rule_template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    expansion: e.ConnectionExpansion = attrs.field(validator=attrs.validators.instance_of(e.ConnectionExpansion))
+
+
+@attrs.frozen(kw_only=True)
 class ReferenceConstantsRow:
     """Declared relation row or nested value."""
 
@@ -65,6 +73,19 @@ class ReferenceDimensionsRow:
 
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceElementProjectionContractsRow:
+    """Declared relation row or nested value."""
+
+    law_template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    source_basis_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    formula: e.ElementProjectionFormula = attrs.field(validator=attrs.validators.instance_of(e.ElementProjectionFormula))
+    source_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    coefficient_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    coefficient_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    multiplication_operation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
 @attrs.frozen(kw_only=True)
@@ -206,6 +227,106 @@ class ReferenceKernelSpecsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ReferenceLawBindingsRow:
+    """Declared relation row or nested value."""
+
+    law_template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    balance_enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    balance_member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
+    source_family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
+    subject_projection: e.LawSubjectProjection = attrs.field(validator=attrs.validators.instance_of(e.LawSubjectProjection))
+    expansion: e.LawExpansion = attrs.field(validator=attrs.validators.instance_of(e.LawExpansion))
+    subject_kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMathContextRow:
+    """Declared relation row or nested value."""
+
+    package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    neutral_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    boolean_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodDependenciesFieldIndexMapItem:
+    """Declared relation row or nested value."""
+
+    kind: e.IndexMapKind = attrs.field(validator=attrs.validators.instance_of(e.IndexMapKind))
+    source_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    member_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    domain_kind: e.DomainKind = attrs.field(validator=attrs.validators.instance_of(e.DomainKind))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodDependenciesRow:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
+    target_kind: e.MethodDependencyTarget = attrs.field(validator=attrs.validators.instance_of(e.MethodDependencyTarget))
+    target_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scope_map: e.MethodScopeMap = attrs.field(validator=attrs.validators.instance_of(e.MethodScopeMap))
+    index_map: b.tuple[ReferenceMethodDependenciesFieldIndexMapItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceMethodDependenciesFieldIndexMapItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodKernelInputsRow:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    input_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    dependency_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodParameterAxesRow:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+    source_coordinate: e.ParameterSourceCoordinate = attrs.field(validator=attrs.validators.instance_of(e.ParameterSourceCoordinate))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodParametersRow:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    natural_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indexed_by: b.tuple[e.DomainKind, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.DomainKind), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    required: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodPrecedenceRow:
+    """Declared relation row or nested value."""
+
+    is_default: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    property_specific: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    scope_kind: e.ScopeKind = attrs.field(validator=attrs.validators.instance_of(e.ScopeKind))
+    rank: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodProvisionsRow:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    property_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    output_kind: e.MethodOutputKind = attrs.field(validator=attrs.validators.instance_of(e.MethodOutputKind))
+    symbol_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    kernel_output_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    natural_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indexed_by: b.tuple[e.DomainKind, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.DomainKind), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class ReferenceMethodSpecsFieldParameterKindsItem:
     """Declared relation row or nested value."""
 
@@ -240,6 +361,14 @@ class ReferenceMethodSpecsRow:
     kernel_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     validity: b.tuple[ReferenceMethodSpecsFieldValidityItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceMethodSpecsFieldValidityItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceMethodStateParametersRow:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parameter_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -323,7 +452,7 @@ class ReferencePassSpecsRow:
     postconditions: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     determinism: e.Determinism = attrs.field(validator=attrs.validators.instance_of(e.Determinism))
     diagnostics: b.tuple[e.FailureClass, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.FailureClass), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    executes_plans: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    effects: b.tuple[e.OperationEffect, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(e.OperationEffect), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)
@@ -349,6 +478,14 @@ class ReferenceQuantityKindsRow:
     extensive: b.bool = attrs.field(validator=v.exact_type(b.bool))
     addition_kind: e.QuantityAdditionKind = attrs.field(validator=attrs.validators.instance_of(e.QuantityAdditionKind))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceQuantityOperationReductionsRow:
+    """Declared relation row or nested value."""
+
+    operation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    domain_kind: e.DomainKind = attrs.field(validator=attrs.validators.instance_of(e.DomainKind))
 
 
 @attrs.frozen(kw_only=True)
@@ -382,6 +519,18 @@ class ReferenceQuantityOperationsRow:
     result_reference_state_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     input_conversions: b.tuple[ReferenceQuantityOperationsFieldInputConversionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceQuantityOperationsFieldInputConversionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     precondition_invariant_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceQuantityPreconditionsRow:
+    """Declared relation row or nested value."""
+
+    invariant_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: e.QuantityPreconditionKind = attrs.field(validator=attrs.validators.instance_of(e.QuantityPreconditionKind))
+    operand_positions: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 65535), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    required_basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    required_quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    match_shape: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
 
 
 @attrs.frozen(kw_only=True)
@@ -445,6 +594,16 @@ class ReferenceRuleDependenciesRow:
     mode: e.DependencyMode = attrs.field(validator=attrs.validators.instance_of(e.DependencyMode))
     stratum: b.int = attrs.field(validator=v.integer_range(0, 65535))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ReferenceRuleExprCallsRow:
+    """Declared relation row or nested value."""
+
+    expr_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    function_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    result_type: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    result_nullable: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
 
 @attrs.frozen(kw_only=True)
@@ -540,6 +699,7 @@ class ReferenceRuleSpecsRow:
     version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     stratum: b.int = attrs.field(validator=v.integer_range(0, 65535))
     head_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    assertion_relation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     root_node_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     negation: e.NegationPolicy = attrs.field(validator=attrs.validators.instance_of(e.NegationPolicy))
     monotonic: b.bool = attrs.field(validator=v.exact_type(b.bool))
@@ -574,6 +734,7 @@ class ReferenceSchemaColumnsRow:
     fk_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     role: e.ColumnRole = attrs.field(validator=attrs.validators.instance_of(e.ColumnRole))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    native_field: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -598,6 +759,7 @@ class ReferenceSchemaDocumentSectionsRow:
     name_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     naming_scope_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     expression_owner_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    expression_owner_kind: e.ExpressionOwnerKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.ExpressionOwnerKind)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     expression_fields: b.tuple[ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaDocumentSectionsFieldExpressionFieldsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 

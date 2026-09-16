@@ -22,8 +22,7 @@
 use pse_ids::ContentHash;
 use pse_schema::builder::RegistryBuilder;
 use pse_schema::model::{
-    Authority, ColumnSpec, EnumDecl, EnumMember, LogicalType, Namespace, RelationDecl,
-    SnapshotClass,
+    Authority, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl, SnapshotClass,
 };
 use pse_schema::{Registry, catalog, fingerprint, registry};
 
@@ -139,8 +138,12 @@ fn scratch_with_members(members: Vec<EnumMember>) -> Registry {
 
 /// Two relations, one enumeration, and the three knobs the tests above turn.
 fn scratch_registry(nullable: bool, doc: &'static str, members: Vec<EnumMember>) -> Registry {
-    let mut label = ColumnSpec::label("label", LogicalType::Text, doc);
-    label.nullable = nullable;
+    let mut label = FieldContract::label(
+        "label",
+        FieldContract::native(arrow_schema::DataType::Utf8),
+        doc,
+    );
+    label = label.with_nullable(nullable);
 
     let mut builder = RegistryBuilder::new();
     builder
@@ -156,9 +159,13 @@ fn scratch_registry(nullable: bool, doc: &'static str, members: Vec<EnumMember>)
             )
             .pk(&["id"])
             .columns(vec![
-                ColumnSpec::key("id", LogicalType::id(), "the identity"),
+                FieldContract::key("id", FieldContract::id(), "the identity"),
                 label,
-                ColumnSpec::label("kind", LogicalType::enumeration("Scratch"), "a dictionary"),
+                FieldContract::label(
+                    "kind",
+                    FieldContract::enumeration("Scratch"),
+                    "a dictionary",
+                ),
             ]),
         )
         .declare_relation(
@@ -171,9 +178,9 @@ fn scratch_registry(nullable: bool, doc: &'static str, members: Vec<EnumMember>)
                 "a relation the tests do not touch",
             )
             .pk(&["id"])
-            .columns(vec![ColumnSpec::key(
+            .columns(vec![FieldContract::key(
                 "id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "the identity",
             )]),
         );

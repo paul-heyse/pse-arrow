@@ -1,8 +1,11 @@
 # pse-arrow
 
-An Arrow-native process systems engineering core in Rust: typed relations as the
-only model authority, a relational math IR, DataFusion-based inference, native
-NLP solving, and a generated Pyomo backend. It is a clean-room re-implementation
+An Arrow-native process systems engineering core in Rust. Arrow is the default for
+typed data and columnar operations; DataFusion is the default for data transformation,
+planning and execution across the system. Other libraries are acceptable when they
+offer a distinctive advantage ([blueprint D10](authoritative_design/blueprint.md#d10-arrow-and-datafusion-are-the-default-data-and-execution-foundation)).
+Typed relations are the model authority, with a relational math IR, native NLP
+solving and a generated Pyomo backend. It is a clean-room re-implementation
 of core IDAES-PSE capabilities, parity-tested against `idaes-pse 2.12.0`, and it
 is **not affiliated with IDAES** — see
 [Relationship to IDAES](relationship-to-idaes.md).

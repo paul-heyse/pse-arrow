@@ -1,0 +1,2759 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "templates": [
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "NIST.Shomate.cp.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "NIST.Shomate.h.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "NIST.Shomate.s.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "RPP4.cp.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "RPP4.h.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "RPP4.s.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Perry.liquid.cp.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Perry.liquid.h.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Perry.liquid.s.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Perry.liquid.density.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Clean-room algebraic correlation. See sources.md for natural coordinate, integrated datum and validity obligations."
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Ideal.gas.density.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Ideal phase property from the actual state and selected pure-component provisions. No excess/departure model is implied."
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Ideal.gas.enthalpy.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Ideal phase property from the actual state and selected pure-component provisions. No excess/departure model is implied."
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Ideal.liquid.enthalpy.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Ideal phase property from the actual state and selected pure-component provisions. No excess/departure model is implied."
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "package_id": "ce317b088cc74ac89873845b0c086ea8",
+      "name": "Ideal.liquid.density.template",
+      "version": "1.0.0",
+      "kind": "helper",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Ideal phase property from the actual state and selected pure-component provisions. No excess/departure model is implied."
+    }
+  ],
+  "template_params": [
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "name": "state",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    }
+  ],
+  "template_domains": [
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    }
+  ],
+  "template_domain_bindings": [
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    }
+  ],
+  "template_symbols": [
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "symbol_decl_id": "6a2d14ecc0e144c39b86a077324f87cd",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "symbol_decl_id": "c0bc10e55c78487fb108dc213efefce7",
+      "name": "NIST_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "symbol_decl_id": "9bda47a90f704a1d80193b540cbc121b",
+      "name": "NIST_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "symbol_decl_id": "ad45d6388b574e32801983146394834b",
+      "name": "NIST_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "symbol_decl_id": "462460ef0d084dddb72c267c366fb140",
+      "name": "NIST_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "symbol_decl_id": "c78698c0ea804efe86e4408cb767b262",
+      "name": "NIST_E",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "symbol_decl_id": "e356f86754c34e91b1742f43974df1fd",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "0271d4307ef34e44a92a762d8f938bd8",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "1cbead9f2b6c4ce4bfc5aeea26e27aa3",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "c393350c53714c518776c3047319d7b3",
+      "name": "NIST_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "aa3c27bfc60f422b8e44d48137c064f8",
+      "name": "NIST_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "62b15fd952e44fddbc1648b3d98385e7",
+      "name": "NIST_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "22e085a16c5643a1a9f6773850e186d9",
+      "name": "NIST_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "a8d9f44fdba74c5b8decf6ce8542746e",
+      "name": "NIST_E",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "35f065c0f5bb4c7484e1d3b9afadcbc7",
+      "name": "thermo_T_ref",
+      "role": "parameter",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "f05c6bc5ef3f49b18f750a69dfbe0fc4",
+      "name": "gas_h_ref",
+      "role": "parameter",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "symbol_decl_id": "b4d90dee692846eeadd075c338e52514",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "ed62490238db4eeba6cfa54de242348e",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "29c8b629761644fa9160e95cfec2d605",
+      "name": "NIST_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "775fbf7cb4c74cf4a745c97569b9b15c",
+      "name": "NIST_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "43eea14ff73a474591d33ef4572e21ae",
+      "name": "NIST_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "fa6cd2f0067c40f5b088b92133f8a694",
+      "name": "NIST_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "888d3dba6d3e4abaa2906449fe136cf9",
+      "name": "NIST_E",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "051115d3d2ed4ddc802fe0c113d52448",
+      "name": "thermo_T_ref",
+      "role": "parameter",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "55c9fc9d270f4b90ba1a0db9d5e69651",
+      "name": "gas_s_ref",
+      "role": "parameter",
+      "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "symbol_decl_id": "b054d9435ce34f068fb16ec79cfabbf3",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "symbol_decl_id": "07b9e51ee46543d0a6623f006ab87fa2",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "symbol_decl_id": "40105ff249f84ff081992a65ec80645c",
+      "name": "RPP4_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "symbol_decl_id": "63d48a6007544edd887cb47d9f69f033",
+      "name": "RPP4_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "symbol_decl_id": "e5ee221023a64a689e12de1a950e6fb4",
+      "name": "RPP4_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "symbol_decl_id": "d6d1780abc724934b52dd1916d4d5fe0",
+      "name": "RPP4_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "symbol_decl_id": "a1d12bc3a9c748978f4fd41c75002453",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "0271d4307ef34e44a92a762d8f938bd8",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "9a8c2b56d27f4669af48fdd0d64b4362",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "3acdb3ca39f34363832b887e623d7354",
+      "name": "RPP4_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "224a3b33136a4a67bc0cf430a26cb38a",
+      "name": "RPP4_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "1f73b78065194f2ca6df66fe135f7799",
+      "name": "RPP4_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "d795fa027582425fbf837a264a8af867",
+      "name": "RPP4_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "966ace3f3e2840efac8cc4b271d02e37",
+      "name": "thermo_T_ref",
+      "role": "parameter",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "52005c06704a4f6193aa6ba122ac92f8",
+      "name": "gas_h_ref",
+      "role": "parameter",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "symbol_decl_id": "24bf4e6a40754e0b8a6de014086f57db",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "5ba98d7561e34795a1f77ba1f1f3eec1",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "538df444171d4164941097d8d0f92ec5",
+      "name": "RPP4_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "e6856e4341904715adbc4a8e82a75713",
+      "name": "RPP4_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "b925609c3bee4e4aa87d52af980741a6",
+      "name": "RPP4_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "38da1ca5a2e94a7b8c1d803e7ff05b98",
+      "name": "RPP4_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "80f904e0b9144567b7d21360b2037a46",
+      "name": "thermo_T_ref",
+      "role": "parameter",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "ea9452182c4540e2a10610aca8255265",
+      "name": "gas_s_ref",
+      "role": "parameter",
+      "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "symbol_decl_id": "01f77f23795d4ab69b0e2c3bb976e385",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "symbol_decl_id": "ece2bdccd75a45d7a0d02235439b55f5",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "symbol_decl_id": "396afd5f58f94254ba889f725d0a73f6",
+      "name": "PerryCp_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "symbol_decl_id": "9031fe22b70146ab912f33c05779fbc1",
+      "name": "PerryCp_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "symbol_decl_id": "c579bcef184d4d9495ef2514a08e909b",
+      "name": "PerryCp_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "symbol_decl_id": "d7209ad1bd1f442ba2e4f3dde21d0a25",
+      "name": "PerryCp_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "symbol_decl_id": "ea1e964a01d04b9298e84af2128959c1",
+      "name": "PerryCp_E",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "symbol_decl_id": "c352e06cbc624ac7879ae0daf5e7a3b3",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "0271d4307ef34e44a92a762d8f938bd8",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "bd3b131b66a449e0804a144082fb9ca7",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "bebabacf427e4f87bb415a57ac1bd6d9",
+      "name": "PerryCp_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "96b2af24df994fc6a961da87099dea7f",
+      "name": "PerryCp_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "60dba0acca6046a7913daa3cd5361579",
+      "name": "PerryCp_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "329a7ac24f434286a3e12d7be2f3104e",
+      "name": "PerryCp_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "5ed0f5ba85224aaa9db05dbec82f7674",
+      "name": "PerryCp_E",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "01394a08050f4ebbbcc5fc035ae69ef8",
+      "name": "thermo_T_ref",
+      "role": "parameter",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "5c1f88d74b624bf79ec15d839319633f",
+      "name": "liquid_h_ref",
+      "role": "parameter",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "symbol_decl_id": "b615957a17d74e0d8b904ab091873db1",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "4d067c0355dd4d69a3c6f0452aead291",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "1f7344d5f1e34cf7840d77bb24cc2a89",
+      "name": "PerryCp_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "ab48eb6156fe4498896e9aab78177455",
+      "name": "PerryCp_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "e4ff2a05f53641bca05c482f85d30e16",
+      "name": "PerryCp_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "fb3da1de4c98412b8c477785cf34fc6d",
+      "name": "PerryCp_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "f421bf718ec740e79eb824017159daf4",
+      "name": "PerryCp_E",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "60e98c5f48ad45c989c9c1cc8618e8c3",
+      "name": "thermo_T_ref",
+      "role": "parameter",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "306b033487b44bb3ac6ed0ebc9bd5816",
+      "name": "liquid_s_ref",
+      "role": "parameter",
+      "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "symbol_decl_id": "cba5f5655bb642f2956b22dd69fa77f9",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "symbol_decl_id": "f52637664dea4402884925eecadfc73c",
+      "name": "T",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "symbol_decl_id": "adf10fb73b89414eace99df78148a1fc",
+      "name": "PerryRho_A",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "symbol_decl_id": "5cadb99c30a64ce7a6827b4555c88e8b",
+      "name": "PerryRho_B",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "symbol_decl_id": "fe69c94a3f8b41878c2676ee6cee748d",
+      "name": "PerryRho_C",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "symbol_decl_id": "97cf1b33c44c4b60a5ba7fe09bab9f2d",
+      "name": "PerryRho_D",
+      "role": "parameter",
+      "quantity_type_id": "337a63ec1ca84490814887d26ebac56f",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "symbol_decl_id": "5008583b83c74f12addae31fb98f2073",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "5995d83221a94c80b64ac9d388934200",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "symbol_decl_id": "2b1adc5a90bf481fafec550450463e6f",
+      "name": "temperature",
+      "role": "reference",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.temperature",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "symbol_decl_id": "e4b96e4efe054e40ac445bdca52a0e8a",
+      "name": "pressure",
+      "role": "reference",
+      "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.pressure",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "symbol_decl_id": "7637612a9bee439289b76c784a3895c9",
+      "name": "gas_constant",
+      "role": "parameter",
+      "quantity_type_id": "e61574b6363397441bcbe123a28a1351",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "symbol_decl_id": "78f779bbe9fc4e79b072acf1148b6bc0",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "c9d0a6d8ebf347588aad0247316c64a5",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "symbol_decl_id": "3a3c0f5468184d0081de4563c6b6fe73",
+      "name": "x",
+      "role": "reference",
+      "quantity_type_id": "097b706eec444374a1c44d67c8f93243",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.mole_frac_comp[j]",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "symbol_decl_id": "55fb33d4ba5247fab089ac0031d9c3e2",
+      "name": "h",
+      "role": "variable",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "symbol_decl_id": "0340ccfe05624add98367e6cfa23f689",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "symbol_decl_id": "d5febaf5dec64306aff025bae73598da",
+      "name": "x",
+      "role": "reference",
+      "quantity_type_id": "097b706eec444374a1c44d67c8f93243",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.mole_frac_comp[j]",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "symbol_decl_id": "aed47e6f1aa6457d85061f1c4a884508",
+      "name": "h",
+      "role": "variable",
+      "quantity_type_id": "a0798ef25fe64555929b22773e852673",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "symbol_decl_id": "bf1f7b2884114d5c9f4fb12d27690da6",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "symbol_decl_id": "d9ac0b5855114f5daf278421e5d301ec",
+      "name": "x",
+      "role": "reference",
+      "quantity_type_id": "097b706eec444374a1c44d67c8f93243",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "state.mole_frac_comp[j]",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "symbol_decl_id": "b4620386ff924b71994864d6b22fe278",
+      "name": "rho",
+      "role": "variable",
+      "quantity_type_id": "5995d83221a94c80b64ac9d388934200",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "symbol_decl_id": "ecb58c826ae44c40a908c24837c79d3c",
+      "name": "value",
+      "role": "expression",
+      "quantity_type_id": "c9d0a6d8ebf347588aad0247316c64a5",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    }
+  ],
+  "template_symbol_contracts": [
+    {
+      "symbol_decl_id": "6a2d14ecc0e144c39b86a077324f87cd",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "c0bc10e55c78487fb108dc213efefce7",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "9bda47a90f704a1d80193b540cbc121b",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "ad45d6388b574e32801983146394834b",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "462460ef0d084dddb72c267c366fb140",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "c78698c0ea804efe86e4408cb767b262",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e356f86754c34e91b1742f43974df1fd",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "1cbead9f2b6c4ce4bfc5aeea26e27aa3",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "c393350c53714c518776c3047319d7b3",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "aa3c27bfc60f422b8e44d48137c064f8",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "62b15fd952e44fddbc1648b3d98385e7",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "22e085a16c5643a1a9f6773850e186d9",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "a8d9f44fdba74c5b8decf6ce8542746e",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "35f065c0f5bb4c7484e1d3b9afadcbc7",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "f05c6bc5ef3f49b18f750a69dfbe0fc4",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "b4d90dee692846eeadd075c338e52514",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "ed62490238db4eeba6cfa54de242348e",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "29c8b629761644fa9160e95cfec2d605",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "775fbf7cb4c74cf4a745c97569b9b15c",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "43eea14ff73a474591d33ef4572e21ae",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "fa6cd2f0067c40f5b088b92133f8a694",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "888d3dba6d3e4abaa2906449fe136cf9",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "051115d3d2ed4ddc802fe0c113d52448",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "55c9fc9d270f4b90ba1a0db9d5e69651",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "b054d9435ce34f068fb16ec79cfabbf3",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "07b9e51ee46543d0a6623f006ab87fa2",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "40105ff249f84ff081992a65ec80645c",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "63d48a6007544edd887cb47d9f69f033",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e5ee221023a64a689e12de1a950e6fb4",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "d6d1780abc724934b52dd1916d4d5fe0",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "a1d12bc3a9c748978f4fd41c75002453",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "9a8c2b56d27f4669af48fdd0d64b4362",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "3acdb3ca39f34363832b887e623d7354",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "224a3b33136a4a67bc0cf430a26cb38a",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "1f73b78065194f2ca6df66fe135f7799",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "d795fa027582425fbf837a264a8af867",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "966ace3f3e2840efac8cc4b271d02e37",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "52005c06704a4f6193aa6ba122ac92f8",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "24bf4e6a40754e0b8a6de014086f57db",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "5ba98d7561e34795a1f77ba1f1f3eec1",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "538df444171d4164941097d8d0f92ec5",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e6856e4341904715adbc4a8e82a75713",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "b925609c3bee4e4aa87d52af980741a6",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "38da1ca5a2e94a7b8c1d803e7ff05b98",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "80f904e0b9144567b7d21360b2037a46",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "ea9452182c4540e2a10610aca8255265",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "01f77f23795d4ab69b0e2c3bb976e385",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "ece2bdccd75a45d7a0d02235439b55f5",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "396afd5f58f94254ba889f725d0a73f6",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "9031fe22b70146ab912f33c05779fbc1",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "c579bcef184d4d9495ef2514a08e909b",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "d7209ad1bd1f442ba2e4f3dde21d0a25",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "ea1e964a01d04b9298e84af2128959c1",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "c352e06cbc624ac7879ae0daf5e7a3b3",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "bd3b131b66a449e0804a144082fb9ca7",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "bebabacf427e4f87bb415a57ac1bd6d9",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "96b2af24df994fc6a961da87099dea7f",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "60dba0acca6046a7913daa3cd5361579",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "329a7ac24f434286a3e12d7be2f3104e",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "5ed0f5ba85224aaa9db05dbec82f7674",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "01394a08050f4ebbbcc5fc035ae69ef8",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "5c1f88d74b624bf79ec15d839319633f",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "b615957a17d74e0d8b904ab091873db1",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "4d067c0355dd4d69a3c6f0452aead291",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "1f7344d5f1e34cf7840d77bb24cc2a89",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "ab48eb6156fe4498896e9aab78177455",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e4ff2a05f53641bca05c482f85d30e16",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "fb3da1de4c98412b8c477785cf34fc6d",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "f421bf718ec740e79eb824017159daf4",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "60e98c5f48ad45c989c9c1cc8618e8c3",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "306b033487b44bb3ac6ed0ebc9bd5816",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "cba5f5655bb642f2956b22dd69fa77f9",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "f52637664dea4402884925eecadfc73c",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "adf10fb73b89414eace99df78148a1fc",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "5cadb99c30a64ce7a6827b4555c88e8b",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "fe69c94a3f8b41878c2676ee6cee748d",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "97cf1b33c44c4b60a5ba7fe09bab9f2d",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "5008583b83c74f12addae31fb98f2073",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "2b1adc5a90bf481fafec550450463e6f",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e4b96e4efe054e40ac445bdca52a0e8a",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "7637612a9bee439289b76c784a3895c9",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "78f779bbe9fc4e79b072acf1148b6bc0",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "3a3c0f5468184d0081de4563c6b6fe73",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "55fb33d4ba5247fab089ac0031d9c3e2",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "0340ccfe05624add98367e6cfa23f689",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "d5febaf5dec64306aff025bae73598da",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "aed47e6f1aa6457d85061f1c4a884508",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "bf1f7b2884114d5c9f4fb12d27690da6",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "d9ac0b5855114f5daf278421e5d301ec",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "b4620386ff924b71994864d6b22fe278",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "ecb58c826ae44c40a908c24837c79d3c",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    }
+  ],
+  "template_symbol_expressions": [
+    {
+      "symbol_decl_id": "e356f86754c34e91b1742f43974df1fd",
+      "template_id": "2577134c3e12496992b50cc82ca48e67",
+      "expression": "(NIST_A[j] + NIST_B[j]*t + NIST_C[j]*t^2 + NIST_D[j]*t^3 + NIST_E[j]/t^2) * 1{J/(mol*K)} where t = T/1000{K}"
+    },
+    {
+      "symbol_decl_id": "b4d90dee692846eeadd075c338e52514",
+      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
+      "expression": "gas_h_ref[j] + (NIST_A[j]*(t-tr) + NIST_B[j]*(t^2-tr^2)/2 + NIST_C[j]*(t^3-tr^3)/3 + NIST_D[j]*(t^4-tr^4)/4 - NIST_E[j]*(1/t-1/tr)) * 1{kJ/mol} where t = T/1000{K}, tr = thermo_T_ref/1000{K}"
+    },
+    {
+      "symbol_decl_id": "b054d9435ce34f068fb16ec79cfabbf3",
+      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
+      "expression": "gas_s_ref[j] + (NIST_A[j]*log(t/tr) + NIST_B[j]*(t-tr) + NIST_C[j]*(t^2-tr^2)/2 + NIST_D[j]*(t^3-tr^3)/3 - NIST_E[j]*(1/t^2-1/tr^2)/2) * 1{J/(mol*K)} where t = T/1000{K}, tr = thermo_T_ref/1000{K}"
+    },
+    {
+      "symbol_decl_id": "a1d12bc3a9c748978f4fd41c75002453",
+      "template_id": "832aae444b324a1a9b32718e2a866f62",
+      "expression": "(RPP4_A[j] + RPP4_B[j]*t + RPP4_C[j]*t^2 + RPP4_D[j]*t^3) * 1{J/(mol*K)} where t = T/1{K}"
+    },
+    {
+      "symbol_decl_id": "24bf4e6a40754e0b8a6de014086f57db",
+      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
+      "expression": "gas_h_ref[j] + (RPP4_A[j]*(t-tr) + RPP4_B[j]*(t^2-tr^2)/2 + RPP4_C[j]*(t^3-tr^3)/3 + RPP4_D[j]*(t^4-tr^4)/4) * 1{J/mol} where t = T/1{K}, tr = thermo_T_ref/1{K}"
+    },
+    {
+      "symbol_decl_id": "01f77f23795d4ab69b0e2c3bb976e385",
+      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
+      "expression": "gas_s_ref[j] + (RPP4_A[j]*log(t/tr) + RPP4_B[j]*(t-tr) + RPP4_C[j]*(t^2-tr^2)/2 + RPP4_D[j]*(t^3-tr^3)/3) * 1{J/(mol*K)} where t = T/1{K}, tr = thermo_T_ref/1{K}"
+    },
+    {
+      "symbol_decl_id": "c352e06cbc624ac7879ae0daf5e7a3b3",
+      "template_id": "13c8184cff2045859c00b728fdd76cfc",
+      "expression": "(PerryCp_A[j] + PerryCp_B[j]*t + PerryCp_C[j]*t^2 + PerryCp_D[j]*t^3 + PerryCp_E[j]*t^4) * 1{J/(kmol*K)} where t = T/1{K}"
+    },
+    {
+      "symbol_decl_id": "b615957a17d74e0d8b904ab091873db1",
+      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
+      "expression": "liquid_h_ref[j] + (PerryCp_A[j]*(t-tr) + PerryCp_B[j]*(t^2-tr^2)/2 + PerryCp_C[j]*(t^3-tr^3)/3 + PerryCp_D[j]*(t^4-tr^4)/4 + PerryCp_E[j]*(t^5-tr^5)/5) * 1{J/kmol} where t = T/1{K}, tr = thermo_T_ref/1{K}"
+    },
+    {
+      "symbol_decl_id": "cba5f5655bb642f2956b22dd69fa77f9",
+      "template_id": "d298696baa814349be87d8fb90b6dd5e",
+      "expression": "liquid_s_ref[j] + (PerryCp_A[j]*log(t/tr) + PerryCp_B[j]*(t-tr) + PerryCp_C[j]*(t^2-tr^2)/2 + PerryCp_D[j]*(t^3-tr^3)/3 + PerryCp_E[j]*(t^4-tr^4)/4) * 1{J/(kmol*K)} where t = T/1{K}, tr = thermo_T_ref/1{K}"
+    },
+    {
+      "symbol_decl_id": "5008583b83c74f12addae31fb98f2073",
+      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
+      "expression": "PerryRho_A[j] / exp((1 + exp(PerryRho_D[j]*log(1-t/PerryRho_C[j])))*log(PerryRho_B[j])) * 1{kmol/m3} where t = T/1{K}"
+    },
+    {
+      "symbol_decl_id": "78f779bbe9fc4e79b072acf1148b6bc0",
+      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
+      "expression": "broadcast(pressure/(gas_constant*temperature), p)"
+    },
+    {
+      "symbol_decl_id": "0340ccfe05624add98367e6cfa23f689",
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "expression": "broadcast(0{J/mol} + sum(k in j | x[k]*(h[k]-broadcast(0{J/mol}, k)))/sum(k in j | x[k]), p)"
+    },
+    {
+      "symbol_decl_id": "bf1f7b2884114d5c9f4fb12d27690da6",
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "expression": "broadcast(0{J/mol} + sum(k in j | x[k]*(h[k]-broadcast(0{J/mol}, k)))/sum(k in j | x[k]), p)"
+    },
+    {
+      "symbol_decl_id": "ecb58c826ae44c40a908c24837c79d3c",
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "expression": "broadcast(sum(k in j | x[k])/sum(k in j | x[k]/rho[k]), p)"
+    }
+  ],
+  "template_scopes": [
+    {
+      "template_id": "7847e98d76134bdc945a238495d0554d",
+      "name": "state",
+      "scope_id": "623cf9145879450ca74639495c09b75f"
+    },
+    {
+      "template_id": "de055848e5fd48d0823a3210495db961",
+      "name": "state",
+      "scope_id": "acd327d17f354cc0b32a5e2e191ec286"
+    },
+    {
+      "template_id": "f73f81599948430599c4bf9a615366d1",
+      "name": "state",
+      "scope_id": "2876e2c2a4a94ff5ac3c8c1a21994e11"
+    }
+  ],
+  "template_symbol_properties": [
+    {
+      "symbol_decl_id": "55fb33d4ba5247fab089ac0031d9c3e2",
+      "property_kind_id": "ccfd921292e74b07bab8db8f46794571",
+      "scope_selector_id": "623cf9145879450ca74639495c09b75f"
+    },
+    {
+      "symbol_decl_id": "aed47e6f1aa6457d85061f1c4a884508",
+      "property_kind_id": "817dbf0c81414b89a5e8c0b573524115",
+      "scope_selector_id": "acd327d17f354cc0b32a5e2e191ec286"
+    },
+    {
+      "symbol_decl_id": "b4620386ff924b71994864d6b22fe278",
+      "property_kind_id": "1f1985c3fb7f4dd7908b2554f099b7ad",
+      "scope_selector_id": "2876e2c2a4a94ff5ac3c8c1a21994e11"
+    }
+  ]
+}

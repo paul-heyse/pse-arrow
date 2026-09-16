@@ -16,6 +16,22 @@ use pse_schema::SchemaError;
 /// A pipeline that will not run, or a stage that failed.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum CompilerError {
+    /// Exact material composition or element declaration failure.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Material(#[from] pse_material::MaterialError),
+    /// A selected kernel method lacks its actual executable or parameter binding.
+    #[error("selected method {method_id} has an unbound kernel {kernel}: {detail}",
+        kernel = kernel_id.map_or_else(|| "undeclared".to_owned(), |id| id.to_string()))]
+    #[diagnostic(code(kernel::unbound_parameter))]
+    KernelUnbound {
+        /// Exact selected method declaration.
+        method_id: pse_ids::SemanticId,
+        /// Actual kernel declaration, if the method supplied one.
+        kernel_id: Option<pse_ids::SemanticId>,
+        /// Missing or incompatible actual contract.
+        detail: String,
+    },
     /// Cancellation retained every finding the pass had already produced.
     #[error("pass cancelled")]
     #[diagnostic(code(runtime::cancelled))]
@@ -34,9 +50,11 @@ pub enum CompilerError {
         findings: Vec<pse_relations::RecordBatch>,
     },
     /// The attempt failed and its complete terminal record was durably admitted.
-    #[error("pass attempt {pass_run_id} failed: {source}")]
+    #[error("pass {pass_name} attempt {pass_run_id} failed: {source}")]
     #[diagnostic(forward(source))]
     AttemptFailed {
+        /// Registered pass name and version for this exact attempt.
+        pass_name: String,
         /// Identity assigned before execution.
         pass_run_id: pse_ids::SemanticId,
         /// Actual admitted failure sidecar, available for complete typed inspection.
@@ -164,6 +182,11 @@ pub enum CompilerError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Rule(#[from] RuleError),
+
+    /// A declaration cannot be instantiated under its actual bindings.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Template(#[from] pse_templates::TemplateError),
 
     /// A catalog admission or publication failure, retaining its own code.
     #[error(transparent)]

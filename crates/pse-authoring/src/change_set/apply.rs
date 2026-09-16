@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Atomic in-memory application compares exact preimages before candidate construction.
+//! Ordered current-format application through native joins and anti joins.
 
-use super::{AuthoredReader, CandidateSnapshot, ChangeSet, contract};
+use super::{AuthoredReader, CandidateSnapshot, ChangeSet, contract, plans};
 use crate::AuthoringError;
-use pse_ids::SemanticId;
-use pse_relations::generated::{
-    authored,
-    enums::{ChangeOpKind, IdPolicy},
+use datafusion::logical_expr::{JoinType, LogicalPlan, LogicalPlanBuilder};
+use pse_catalog::session::SnapshotSession;
+use pse_ids::{CancellationToken, SemanticId};
+use pse_relations::{
+    columnar::FieldCheckedBatch,
+    generated::{authored, enums::ChangeOpKind},
 };
 use pse_schema::{
     Registry,
@@ -16,243 +18,218 @@ use pse_schema::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Validate the entire envelope and apply ordered operations to an unpublished copy.
-///
+/// Apply an external envelope in exact ordinal order. Each before-image reads the
+/// result of prior operations, so repeated keys cannot collapse to last-write-wins.
 /// # Errors
-/// Rejects stale bases, unknown/derived writes, malformed staging, absent/duplicate keys,
-/// unequal actual preimages, key-changing updates, and rename without a complete inventory.
-pub fn apply(
+/// Invalid envelope, missing/colliding key, stale before-image, undeclared rename,
+/// source/candidate disagreement, cancellation or native execution failure.
+pub async fn apply_owned(
     base: &dyn AuthoredReader,
     changes: &ChangeSet,
-    registry: &Registry,
-) -> Result<CandidateSnapshot, AuthoringError> {
-    if base.revision_id() != changes.header.base_revision_id {
-        return Err(contract(
-            "change-set base differs from exact reader revision",
-        ));
-    }
-    validate_envelope(changes, registry)?;
-    let verified_rename = super::proof::verify(changes, base, registry)?;
-    let batches = base.relations()?;
-    let mut rows = BTreeMap::new();
-    for (id, batch) in &batches {
-        let spec = relation(registry, *id)?;
-        rows.insert(
-            *id,
-            pse_relations::cells::cells_from_batch(registry, spec, batch)
-                .map_err(|error| contract(&error.to_string()))?,
-        );
-    }
-    for operation in &changes.ops {
-        let spec = relation(registry, operation.relation_id)?;
-        let before = staged(
-            changes,
-            registry,
-            spec,
-            &operation.row_key.staged_port,
-            operation.row_key.staged_ordinal,
-        )?;
-        let after = operation
-            .row
-            .as_ref()
-            .map(|row| {
-                staged(
-                    changes,
-                    registry,
-                    spec,
-                    &row.staged_port,
-                    row.staged_ordinal,
-                )
-            })
-            .transpose()?;
-        if operation.op == ChangeOpKind::Rename && !verified_rename {
-            return rename_refusal(&rows, &before);
-        }
-        apply_row(
-            rows.entry(spec.id).or_default(),
-            spec,
-            operation.op,
-            &before,
-            after.as_deref(),
-        )?;
-    }
-    let relations = rows
-        .into_iter()
-        .map(|(id, rows)| {
-            let batch =
-                pse_relations::cells::batch_from_cells(registry, relation(registry, id)?, &rows)
-                    .map_err(|error| contract(&error.to_string()))?;
-            Ok((id, batch))
-        })
-        .collect::<Result<_, AuthoringError>>()?;
-    Ok(CandidateSnapshot {
-        relations,
-        base_revision_id: base.revision_id(),
-        changes: changes.clone(),
-    })
-}
-
-/// Apply exact operations while sharing unchanged admitted buffers and owning new ones.
-/// # Errors
-/// The same preimage/proof failures as `apply`, cancellation or shared reservation refusal.
-pub fn apply_owned(
-    base: &dyn AuthoredReader,
-    changes: &ChangeSet,
-    registry: &Registry,
-    reserver: &dyn pse_ids::MemoryReserver,
-    cancel: &pse_ids::CancellationToken,
+    session: &SnapshotSession,
+    cancel: &CancellationToken,
 ) -> Result<super::OwnedCandidateSnapshot, AuthoringError> {
-    cancel.checkpoint()?;
     if base.revision_id() != changes.header.base_revision_id {
-        return Err(contract(
-            "change-set base differs from exact reader revision",
-        ));
+        return Err(contract("change-set base differs from reader revision"));
     }
-    let mut work = reserver.open("authoring:apply");
-    work.try_grow(8192)?;
-    for staged in changes.staged.values() {
-        work.try_grow(pse_ids::validation_extent(&staged.batch)?)?;
-    }
-    work.try_grow(crate::work::mul(changes.ops.len(), 8192)?)?;
-    work.try_grow(crate::work::mul(registry.relations().len(), 2048)?)?;
-    // Header/operation DTO clones, Cells and validation builders coexist. Their
-    // variable-size strings are additional to the fixed per-operation slots.
-    work.try_grow(crate::work::mul(super::allocation::envelope(changes)?, 8)?)?;
-    cancel.checkpoint()?;
+    let registry = session.registry();
+    let mut work = session.reserver().open("authoring:change-application");
+    work.try_grow(crate::work::mul(super::allocation::envelope(changes)?, 4)?)?;
     validate_envelope(changes, registry)?;
-    let verified_rename = verify_owned(changes, base, registry, reserver, cancel)?;
-    let mut relations = base.relations()?;
-    let mut rows = BTreeMap::new();
+    let execution = plans::session(session)?;
+    let mut relations = super::base::checked(base, session)?.into_owned();
+    let mut completed = Vec::new();
     for operation in &changes.ops {
-        cancel.checkpoint()?;
-        let spec = relation(registry, operation.relation_id)?;
-        if let std::collections::btree_map::Entry::Vacant(entry) = rows.entry(spec.id) {
-            let decoded = if let Some(batch) = relations.get(&spec.id) {
-                work.try_grow(pse_ids::validation_extent(batch)?)?;
-                pse_relations::cells::cells_from_batch(registry, spec, batch)
-                    .map_err(|error| contract(&error.to_string()))?
-            } else {
-                Vec::new()
-            };
-            entry.insert(decoded);
-        }
-        let before = staged(
+        apply_operation(
+            operation,
             changes,
-            registry,
-            spec,
-            &operation.row_key.staged_port,
-            operation.row_key.staged_ordinal,
-        )?;
-        let after = operation
-            .row
-            .as_ref()
-            .map(|row| {
-                staged(
-                    changes,
-                    registry,
-                    spec,
-                    &row.staged_port,
-                    row.staged_ordinal,
-                )
-            })
-            .transpose()?;
-        if operation.op == ChangeOpKind::Rename && !verified_rename {
-            return rename_refusal(&rows, &before);
-        }
-        apply_row(
-            rows.entry(spec.id).or_default(),
-            spec,
-            operation.op,
-            &before,
-            after.as_deref(),
-        )?;
-    }
-    for (id, values) in rows {
-        cancel.checkpoint()?;
-        let batch = pse_relations::cells::batch_from_cells_owned(
-            registry,
-            relation(registry, id)?,
-            &values,
-            reserver,
+            &mut relations,
+            &execution,
             cancel,
+            &mut completed,
         )
-        .map_err(|error| contract(&error.to_string()))?;
-        relations.insert(id, batch);
+        .await?;
     }
-    retain_candidate(relations, base.revision_id(), changes, work, cancel)
-}
-
-fn retain_candidate(
-    relations: BTreeMap<SemanticId, arrow_array::RecordBatch>,
-    base_revision_id: SemanticId,
-    changes: &ChangeSet,
-    mut work: Box<dyn pse_ids::Reservation>,
-    cancel: &pse_ids::CancellationToken,
-) -> Result<super::OwnedCandidateSnapshot, AuthoringError> {
-    // All decoded operation/base rows have been consumed and dropped. New Arrow
-    // arrays retain their own construction leases; unchanged arrays retain their
-    // original owners. Only metadata and the complete proof clone remain here.
-    let retained = super::allocation::candidate(&relations, changes)?;
-    if retained > work.size() {
-        work.try_grow(retained - work.size())?;
+    if let Some(source) = changes.source() {
+        // This is external envelope admission, not replay of a local constructor.
+        // Establish actual supplied before-images against the retained parsed output.
+        for (id, expected) in &source.candidate {
+            let spec = relation(registry, *id)?;
+            let actual = match relations.entry(*id) {
+                std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+                std::collections::btree_map::Entry::Vacant(entry) => {
+                    // An absent reader member denotes the declared empty relation.
+                    entry.insert(FieldCheckedBatch::concat(registry, spec, &[])?)
+                }
+            };
+            let bound = plans::roles(&execution, actual.clone(), expected.clone(), cancel)?;
+            if row_count(
+                &bound,
+                plans::difference(&bound, spec)?,
+                cancel,
+                &mut completed,
+            )
+            .await?
+                != 0
+            {
+                return Err(contract(
+                    "applied operations differ from retained parsed source output",
+                ));
+            }
+        }
     }
-    cancel.checkpoint()?;
-    let candidate = CandidateSnapshot {
+    let raw = crate::p1::raw_batches(&relations);
+    work.try_grow(super::allocation::candidate(&raw, changes)?)?;
+    let mut retained = changes.clone();
+    let prior = changes.completed.iter().cloned().collect::<Vec<_>>();
+    retained.retain_completions(prior.into_iter().chain(completed).collect());
+    Ok(super::OwnedCandidateSnapshot::new(
+        CandidateSnapshot {
+            relations: raw,
+            base_revision_id: base.revision_id(),
+            changes: retained,
+        },
         relations,
-        base_revision_id,
-        changes: changes.clone(),
-    };
-    work.shrink(work.size() - retained);
-    cancel.checkpoint()?;
-    Ok(super::OwnedCandidateSnapshot::new(candidate, work))
+        work,
+    ))
 }
 
-fn verify_owned(
+async fn apply_operation(
+    operation: &super::ChangeOp,
     changes: &ChangeSet,
-    base: &dyn AuthoredReader,
-    registry: &Registry,
-    reserver: &dyn pse_ids::MemoryReserver,
-    cancel: &pse_ids::CancellationToken,
-) -> Result<bool, AuthoringError> {
-    let mut proof = reserver.open("authoring:apply-proof");
-    proof.try_grow(super::proof::extent(changes, base, registry)?)?;
+    relations: &mut crate::document::Batches,
+    execution: &SnapshotSession,
+    cancel: &CancellationToken,
+    completed: &mut plans::Completions,
+) -> Result<(), AuthoringError> {
+    let registry = execution.registry();
     cancel.checkpoint()?;
-    // Verification allocates decoded copies solely for actual-value comparison.
-    // Its reservation ends with those copies, before any retained candidate clone.
-    let verified = super::proof::verify(changes, base, registry)?;
-    cancel.checkpoint()?;
-    Ok(verified)
+    let spec = relation(registry, operation.relation_id)?;
+    if operation.op == ChangeOpKind::Rename && changes.source().is_none() {
+        return Err(contract(
+            "rename requires the retained identity-bound source constructor",
+        ));
+    }
+    let current = relations
+        .get(&spec.id)
+        .cloned()
+        .map_or_else(|| FieldCheckedBatch::concat(registry, spec, &[]), Ok)?;
+    let before = staged(
+        changes,
+        registry,
+        spec,
+        &operation.row_key.staged_port,
+        operation.row_key.staged_ordinal,
+    )?;
+    let bound = plans::roles(execution, current, before.clone(), cancel)?;
+    let left = bound.scan_role("change_before")?;
+    let right = bound.scan_role("change_after")?;
+    let matches = plans::join(left.clone(), right.clone(), spec, JoinType::Inner)?
+        .project(plans::project(spec, "before"))
+        .and_then(LogicalPlanBuilder::build)
+        .map_err(plans::engine)?;
+    let count = row_count(&bound, matches, cancel, completed).await?;
+    if operation.op == ChangeOpKind::Insert {
+        if count != 0 {
+            return Err(contract("insert primary key already exists"));
+        }
+    } else {
+        if count != 1 {
+            return Err(AuthoringError::UnknownRowKey {
+                relation: spec.key.qualified_name(),
+                row_key: format!(
+                    "{}:{}",
+                    operation.row_key.staged_port, operation.row_key.staged_ordinal
+                ),
+            });
+        }
+        let exact = plans::join(left.clone(), right.clone(), spec, JoinType::Inner)?
+            .filter(plans::row_equal(spec))
+            .and_then(|plan| plan.project(plans::project(spec, "before")))
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(plans::engine)?;
+        if row_count(&bound, exact, cancel, completed).await? != 1 {
+            return Err(contract(
+                "actual row differs from the complete staged before-image",
+            ));
+        }
+    }
+    let retained = if operation.op == ChangeOpKind::Insert {
+        left
+    } else {
+        plans::join(left, right, spec, JoinType::LeftAnti)?
+            .project(plans::project(spec, "before"))
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(plans::engine)?
+    };
+    let output = if let Some(after) = &operation.row {
+        let replacement = staged(
+            changes,
+            registry,
+            spec,
+            &after.staged_port,
+            after.staged_ordinal,
+        )?;
+        let keys = plans::roles(execution, before, replacement.clone(), cancel)?;
+        let matching = plans::join(
+            keys.scan_role("change_before")?,
+            keys.scan_role("change_after")?,
+            spec,
+            JoinType::Inner,
+        )?
+        .project(plans::project(spec, "before"))
+        .and_then(LogicalPlanBuilder::build)
+        .map_err(plans::engine)?;
+        if row_count(&keys, matching, cancel, completed).await? != 1 {
+            return Err(contract("replacement changes the declared primary key"));
+        }
+        let fork = bound.with_checked_role_inputs(
+            BTreeMap::from([("replacement".to_owned(), replacement)]),
+            cancel,
+        )?;
+        let plan = LogicalPlanBuilder::from(retained)
+            .union(fork.scan_role("replacement")?)
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(plans::engine)?;
+        plans::relation(&fork, plan, spec, cancel, completed).await?
+    } else {
+        plans::relation(&bound, retained, spec, cancel, completed).await?
+    };
+    relations.insert(spec.id, output);
+    Ok(())
 }
 
-fn validate_envelope(changes: &ChangeSet, registry: &Registry) -> Result<(), AuthoringError> {
-    for (name, rows) in [
-        (
-            "authored.change_sets",
-            vec![changes.header.clone().into_cells()],
-        ),
-        (
-            "authored.change_ops",
-            changes
-                .ops
-                .iter()
-                .cloned()
-                .map(authored::change_ops::Row::into_cells)
-                .collect(),
-        ),
-    ] {
-        let spec = registry
-            .relation(name)
-            .ok_or_else(|| contract("missing change-set schema"))?;
-        pse_relations::cells::batch_from_cells(registry, spec, &rows)
-            .map_err(|error| contract(&error.to_string()))?;
-    }
-    let mut expected = BTreeSet::new();
+async fn row_count(
+    session: &SnapshotSession,
+    plan: LogicalPlan,
+    cancel: &CancellationToken,
+    completed: &mut plans::Completions,
+) -> Result<usize, AuthoringError> {
+    plans::execute_recorded(session, plan, cancel, completed)
+        .await?
+        .iter()
+        .try_fold(0_usize, |count, batch| {
+            count
+                .checked_add(batch.num_rows())
+                .ok_or_else(|| contract("native result row count overflow"))
+        })
+}
+
+pub(super) fn validate_envelope(
+    changes: &ChangeSet,
+    registry: &Registry,
+) -> Result<(), AuthoringError> {
+    let mut header = authored::change_sets::Builder::with_registry(registry, 1)?;
+    header.push(changes.header.clone())?;
+    header.finish()?;
+    let mut operations = authored::change_ops::Builder::with_registry(registry, changes.ops.len())?;
+    let mut referenced = BTreeMap::<&str, BTreeSet<u64>>::new();
     for (ordinal, operation) in changes.ops.iter().enumerate() {
         if usize::try_from(operation.ordinal).ok() != Some(ordinal)
             || operation.change_set_id != changes.header.change_set_id
         {
             return Err(contract(
-                "operation identity or ordinal differs from its envelope",
+                "operation identity/ordinal differs from its envelope",
             ));
         }
         let spec = relation(registry, operation.relation_id)?;
@@ -263,131 +240,82 @@ fn validate_envelope(changes: &ChangeSet, registry: &Registry) -> Result<(), Aut
         }
         if operation.precondition.is_some() {
             return Err(contract(
-                "text preconditions are unsupported; the complete staged preimage is required",
+                "before-images, not text preconditions, define current-format changes",
             ));
         }
-        let key = format!("operation/{ordinal}/key");
-        if operation.row_key.staged_port != key || operation.row_key.staged_ordinal != 0 {
-            return Err(contract("invalid operation key port"));
-        }
-        expected.insert(key.clone());
+        operations.push(operation.clone())?;
+        referenced
+            .entry(&operation.row_key.staged_port)
+            .or_default()
+            .insert(operation.row_key.staged_ordinal);
+        staged(
+            changes,
+            registry,
+            spec,
+            &operation.row_key.staged_port,
+            operation.row_key.staged_ordinal,
+        )?;
         match (operation.op, &operation.row) {
             (ChangeOpKind::Delete, None) => {}
             (ChangeOpKind::Delete, Some(_)) | (_, None) => {
-                return Err(contract(
-                    "delete has no replacement; every other operation requires one",
-                ));
+                return Err(contract("delete alone has no replacement"));
             }
-            (_, Some(row)) => {
-                let port = if operation.op == ChangeOpKind::Insert {
-                    key
-                } else {
-                    format!("operation/{ordinal}/row")
-                };
-                if row.staged_port != port || row.staged_ordinal != 0 {
-                    return Err(contract("invalid operation replacement port"));
-                }
-                expected.insert(port);
+            (_, Some(after)) => {
+                referenced
+                    .entry(&after.staged_port)
+                    .or_default()
+                    .insert(after.staged_ordinal);
+                staged(
+                    changes,
+                    registry,
+                    spec,
+                    &after.staged_port,
+                    after.staged_ordinal,
+                )?;
             }
         }
     }
-    if expected != changes.staged.keys().cloned().collect() {
-        return Err(contract(
-            "staging inventory differs from the complete expected operation ports",
-        ));
+    operations.finish()?;
+    if referenced.len() != changes.staged.len() {
+        return Err(contract("unreferenced staged port"));
+    }
+    for (port, member) in &changes.staged {
+        let indices = referenced
+            .get(port.as_str())
+            .ok_or_else(|| contract("staged port absent"))?;
+        if indices.len() != member.batch.num_rows() {
+            return Err(contract("staged batch contains unreferenced rows"));
+        }
     }
     Ok(())
 }
-
 fn staged(
     changes: &ChangeSet,
     registry: &Registry,
     spec: &RelationSpec,
     port: &str,
     ordinal: u64,
-) -> Result<Vec<Cell>, AuthoringError> {
+) -> Result<FieldCheckedBatch, AuthoringError> {
     let member = changes
         .staged
         .get(port)
-        .ok_or_else(|| contract("missing staged operation member"))?;
-    if member.relation_id != spec.id || ordinal != 0 || member.batch.num_rows() != 1 {
+        .ok_or_else(|| contract("staged member absent"))?;
+    let index = usize::try_from(ordinal).map_err(|_| contract("staged ordinal overflow"))?;
+    if member.relation_id != spec.id || index >= member.batch.num_rows() {
         return Err(contract(
-            "staged reference must name one row of the operation's exact relation",
+            "staged reference is outside its declared relation",
         ));
     }
-    pse_relations::cells::cells_from_batch(registry, spec, &member.batch)
-        .map_err(|error| contract(&error.to_string()))?
-        .pop()
-        .ok_or_else(|| contract("empty staged member"))
+    Ok(FieldCheckedBatch::admit(
+        registry,
+        spec,
+        member.batch.slice(index, 1),
+    )?)
 }
-
-fn apply_row(
-    rows: &mut Vec<Vec<Cell>>,
-    spec: &RelationSpec,
-    op: ChangeOpKind,
-    before: &[Cell],
-    after: Option<&[Cell]>,
-) -> Result<(), AuthoringError> {
-    let target = key(spec, before)?;
-    let positions = rows
-        .iter()
-        .enumerate()
-        .filter_map(|(index, row)| match key(spec, row) {
-            Ok(key) if key == target => Some(Ok(index)),
-            Ok(_) => None,
-            Err(error) => Some(Err(error)),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    if op == ChangeOpKind::Insert {
-        if !positions.is_empty() {
-            return Err(contract("insert primary key already exists"));
-        }
-        rows.push(
-            after
-                .ok_or_else(|| contract("insert replacement absent"))?
-                .to_vec(),
-        );
-        return Ok(());
-    }
-    let [position] = positions.as_slice() else {
-        return Err(AuthoringError::UnknownRowKey {
-            relation: spec.key.qualified_name(),
-            row_key: target.join(","),
-        });
-    };
-    if !equal(&rows[*position], before) {
-        return Err(contract(
-            "actual base row differs from the complete staged preimage",
-        ));
-    }
-    if op == ChangeOpKind::Delete {
-        rows.remove(*position);
-    } else {
-        let after = after.ok_or_else(|| contract("update replacement absent"))?;
-        if key(spec, after)? != target {
-            return Err(contract(
-                "update changes primary key; use delete plus insert",
-            ));
-        }
-        rows[*position] = after.to_vec();
-    }
-    Ok(())
-}
-
 fn relation(registry: &Registry, id: SemanticId) -> Result<&RelationSpec, AuthoringError> {
     registry
-        .relations()
-        .iter()
-        .find(|relation| relation.id == id)
-        .ok_or_else(|| contract("operation references an unknown relation"))
-}
-/// Lossless value comparison includes signed zero and every nested field.
-pub(super) fn equal(first: &[Cell], second: &[Cell]) -> bool {
-    first.len() == second.len()
-        && first
-            .iter()
-            .zip(second)
-            .all(|(first, second)| first.literal_spec() == second.literal_spec())
+        .relation_by_id(id)
+        .ok_or_else(|| contract("operation relation absent"))
 }
 pub(super) fn key(spec: &RelationSpec, row: &[Cell]) -> Result<Vec<String>, AuthoringError> {
     if row.len() != spec.columns.len() {
@@ -398,33 +326,9 @@ pub(super) fn key(spec: &RelationSpec, row: &[Cell]) -> Result<Vec<String>, Auth
         .map(|name| {
             spec.columns
                 .iter()
-                .position(|column| column.name == *name)
+                .position(|column| column.name() == *name)
                 .map(|index| row[index].literal_spec())
                 .ok_or_else(|| contract("unregistered primary key"))
         })
         .collect()
-}
-
-fn rename_refusal<T>(
-    rows: &BTreeMap<SemanticId, Vec<Vec<Cell>>>,
-    before: &[Cell],
-) -> Result<T, AuthoringError> {
-    let entity = authored::entities::Row::from_cells(before.to_vec())
-        .map_err(|error| contract(&error.to_string()))?;
-    let packages = rows
-        .get(&authored::packages::RELATION_ID)
-        .ok_or_else(|| contract("rename requires package policy"))?;
-    for row in packages {
-        let package = authored::packages::Row::from_cells(row.clone())
-            .map_err(|error| contract(&error.to_string()))?;
-        if package.package_id == entity.package_id && package.id_policy == IdPolicy::Named {
-            return Err(AuthoringError::RenameNamed {
-                entity_id: entity.entity_id,
-                qualified_name: entity.qualified_name,
-            });
-        }
-    }
-    Err(contract(
-        "rename requires complete identity-bound document and expression inventory",
-    ))
 }

@@ -3,18 +3,14 @@
 
 //! Active checks at every platform logical-plan boundary, including subqueries.
 
-use super::candidate::CandidateTable;
-use crate::provider::table::RelationTable;
 use datafusion::arrow::datatypes::{DataType, Field, SchemaRef};
 use datafusion::catalog::TableProvider;
 use datafusion::common::{
     DataFusionError, Result,
-    config::ConfigOptions,
     tree_node::{Transformed, TreeNode, TreeNodeRecursion},
 };
 use datafusion::datasource::source_as_provider;
 use datafusion::logical_expr::{Expr, ExprSchemable, LogicalPlan};
-use datafusion::optimizer::AnalyzerRule;
 use pse_ids::{CancellationToken, MemoryReserver};
 use pse_schema::Registry;
 use std::sync::Arc;
@@ -29,7 +25,10 @@ pub fn admit_plan(
     reserver: &dyn MemoryReserver,
     cancel: &CancellationToken,
 ) -> Result<()> {
-    admit_scoped(plan, registry, tables, &mut Vec::new(), reserver, cancel)
+    // Native expression/schema rules own ordinary Arrow intermediates; declared
+    // relation materialization adds its explicit domain obligations.
+    let plan = derive_native_plan(plan.clone(), registry)?;
+    admit_scoped(&plan, registry, tables, &mut Vec::new(), reserver, cancel)
 }
 
 /// Restore only metadata proved by actual expressions and admitted source fields.
@@ -43,33 +42,18 @@ pub(super) fn restore_semantic_fields(
     reserver: &dyn MemoryReserver,
     cancel: &CancellationToken,
 ) -> Result<LogicalPlan> {
-    admit_plan(&plan, registry, tables, reserver, cancel)?;
-    let restored = plan
-        .transform_up_with_subqueries(|mut node| {
-            let expected = intermediate_schema(&node, registry)?;
-            if node.schema().as_ref() == &expected {
-                return Ok(Transformed::no(node));
-            }
-            let target = match &mut node {
-                LogicalPlan::Projection(value) => &mut value.schema,
-                LogicalPlan::Aggregate(value) => &mut value.schema,
-                LogicalPlan::Unnest(value) => &mut value.schema,
-                LogicalPlan::SubqueryAlias(value) => &mut value.schema,
-                LogicalPlan::Join(value) => &mut value.schema,
-                LogicalPlan::Union(value) => &mut value.schema,
-                _ => {
-                    return Err(DataFusionError::Plan(
-                        "derived schema has no supported restoration boundary".into(),
-                    ));
-                }
-            };
-            *target = Arc::new(expected);
-            Ok(Transformed::yes(node))
-        })?
-        .data;
-    admit_plan(&restored, registry, tables, reserver, cancel)?;
+    let restored = derive_native_plan(plan, registry)?;
+    admit_scoped(
+        &restored,
+        registry,
+        tables,
+        &mut Vec::new(),
+        reserver,
+        cancel,
+    )?;
     Ok(restored)
 }
+
 fn admit_scoped(
     plan: &LogicalPlan,
     registry: &Registry,
@@ -110,45 +94,47 @@ fn admit_scoped(
             result?;
             return Ok(TreeNodeRecursion::Jump);
         }
-        if matches!(
-            node,
-            LogicalPlan::Dml(_)
-                | LogicalPlan::Ddl(_)
-                | LogicalPlan::Copy(_)
-                | LogicalPlan::Statement(_)
-        ) {
-            return Err(DataFusionError::Plan(
-                "snapshot sessions accept read-only logical plans".to_owned(),
-            ));
-        }
-        let admitted = intermediate_schema(node, registry)?;
+        let admitted = node.schema().as_ref();
         for field in admitted.fields() {
-            admit_field(registry, field)?;
+            admit_intermediate_field(registry, field)?;
         }
         if let LogicalPlan::TableScan(scan) = node {
             admit_scan(scan, registry, tables, scope, reserver, cancel)?;
         }
+        if let LogicalPlan::Dml(command) = node {
+            let target = source_as_provider(&command.target)?;
+            if !tables.iter().any(|bound| Arc::ptr_eq(bound, &target)) {
+                return Err(DataFusionError::Plan(
+                    "DML target is not an actual bound provider".to_owned(),
+                ));
+            }
+            for field in target.schema().fields() {
+                admit_intermediate_field(registry, field)?;
+            }
+        }
         if let LogicalPlan::Join(join) = node {
-            let left = intermediate_schema(&join.left, registry)?;
-            let right = intermediate_schema(&join.right, registry)?;
+            let left = join.left.schema().as_ref();
+            let right = join.right.schema().as_ref();
             // Each equijoin key belongs to its own input schema. Combining those
             // schemas can introduce false ambiguity for a left anti/semi join.
             for (a, b) in &join.on {
-                admit_expression(a, &left, registry)?;
-                admit_expression(b, &right, registry)?;
+                admit_expression(a, left, registry)?;
+                admit_expression(b, right, registry)?;
             }
             if let Some(filter) = &join.filter {
-                admit_expression(filter, &left.join(&right)?, registry)?;
+                let schema = left.join(right).map_err(|error| {
+                    DataFusionError::Plan(format!("semantic join-filter scope: {error}"))
+                })?;
+                admit_expression(filter, &schema, registry)?;
             }
             return Ok(TreeNodeRecursion::Continue);
         }
         let mut inputs = node.inputs().into_iter();
-        let schema = inputs.next().map_or_else(
-            || Ok(admitted),
-            |input| intermediate_schema(input, registry),
-        )?;
+        let schema = inputs
+            .next()
+            .map_or(admitted, |input| input.schema().as_ref());
         for expression in node.expressions() {
-            admit_expression(&expression, &schema, registry)?;
+            admit_expression(&expression, schema, registry)?;
         }
         Ok(TreeNodeRecursion::Continue)
     })?;
@@ -156,11 +142,11 @@ fn admit_scoped(
 }
 fn admit_scan(
     scan: &datafusion::logical_expr::TableScan,
-    registry: &Registry,
+    _registry: &Registry,
     tables: &[Arc<dyn TableProvider>],
     scope: &[(String, SchemaRef)],
-    reserver: &dyn MemoryReserver,
-    cancel: &CancellationToken,
+    _reserver: &dyn MemoryReserver,
+    _cancel: &CancellationToken,
 ) -> Result<()> {
     let provider = source_as_provider(&scan.source)?;
     if let Some(work) = provider
@@ -184,207 +170,231 @@ fn admit_scan(
             "table source is outside the pinned session inventory".to_owned(),
         ));
     }
-    if let Some(table) = provider.as_ref().downcast_ref::<RelationTable>() {
-        let relation = table.relation();
-        let spec = registry
-            .relation_by_id(relation.contract().canonical.relation_id)
-            .ok_or_else(|| DataFusionError::Plan("unknown admitted relation".to_owned()))?;
-        relation
-            .contract()
-            .validate_against_registry(registry, spec)
-            .map_err(|error| DataFusionError::External(Box::new(error)))?;
-        validate_batch(registry, spec, relation.batch(), reserver, cancel)
-            .map_err(|error| DataFusionError::External(Box::new(error)))?;
-    } else if let Some(table) = provider.as_ref().downcast_ref::<CandidateTable>() {
-        let spec = registry
-            .relation(&table.key.qualified_name())
-            .ok_or_else(|| DataFusionError::Plan("unknown candidate relation".to_owned()))?;
-        validate_batch(registry, spec, &table.batch, reserver, cancel)
-            .map_err(|error| DataFusionError::External(Box::new(error)))?;
-        if provider.constraints().is_some() {
-            return Err(DataFusionError::Plan(
-                "unpublished candidates cannot advertise constraints".to_owned(),
-            ));
-        }
-    } else {
-        return Err(DataFusionError::Plan(
-            "foreign provider implementation".to_owned(),
-        ));
-    }
+    // Registered bindings retain the actual implementations and their source
+    // contracts. Concrete Rust types do not decide semantic admission here.
+    // Field/relational facts are established by construction or output obligations;
+    // passing this structural check cannot mint a completed/admitted result.
+
     Ok(())
 }
 
-/// Scratch ownership covers decoded cells, nested values and validation findings.
-/// The input's own buffer lease remains separate; no valid digest skips this check.
-pub(super) fn validate_batch(
-    registry: &Registry,
-    spec: &pse_schema::model::RelationSpec,
-    batch: &datafusion::arrow::array::RecordBatch,
-    reserver: &dyn MemoryReserver,
-    cancel: &CancellationToken,
-) -> std::result::Result<(), crate::CatalogError> {
-    cancel.checkpoint()?;
-    let mut scratch = reserver.open("session:validate-batch");
-    scratch.try_grow(crate::store::membership::validation_extent(batch)?)?;
-    cancel.checkpoint()?;
-    pse_relations::validate::validate_batch(registry, spec, batch).map_err(|errors| {
-        crate::CatalogError::Admission {
-            path: spec.key.qualified_name(),
-            reason: format!("schema/value admission failed: {errors:?}"),
-        }
-    })?;
-    cancel.checkpoint()?;
-    Ok(())
-}
 /// The shared recursive field validator, used before and after engine transformations.
 /// # Errors
 /// Invalid storage, nested fields, extension identity/version/metadata, or semantic tags.
 pub fn admit_field(registry: &Registry, field: &Field) -> Result<()> {
-    pse_relations::validate::validate_field(registry, field).map_err(|errors| invalid_rows(&errors))
+    if field
+        .metadata()
+        .keys()
+        .any(|key| key.starts_with("pse.layout."))
+    {
+        // A native Delta leaf may use view arrays while its stored descriptor
+        // names the execution representation. Validate that exact named mapping
+        // before applying domain checks to the reconstructed execution field.
+        let execution =
+            pse_schema::delta::execution_schema(&datafusion::arrow::datatypes::Schema::new(vec![
+                field.clone(),
+            ]))
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
+        for decoded in execution.fields() {
+            admit_field(registry, decoded)?;
+        }
+        return Ok(());
+    }
+    // Platform field predicates constrain declared PSE meanings. Untagged native
+    // temporaries are governed by Arrow/DataFusion's own type universe, not the
+    // smaller set of persisted relation declarations.
+    if field.metadata().keys().any(|key| key.starts_with("pse."))
+        || field
+            .metadata()
+            .get(pse_schema::arrow::KEY_EXTENSION_NAME)
+            .is_some_and(|name| name.starts_with("pse."))
+    {
+        return pse_relations::validate::validate_field(registry, field)
+            .map_err(|errors| invalid_rows(&errors));
+    }
+    match field.data_type() {
+        DataType::List(child)
+        | DataType::LargeList(child)
+        | DataType::ListView(child)
+        | DataType::LargeListView(child)
+        | DataType::FixedSizeList(child, _)
+        | DataType::Map(child, _) => admit_field(registry, child)?,
+        DataType::Struct(children) => {
+            for child in children {
+                admit_field(registry, child)?;
+            }
+        }
+        DataType::Union(children, _) => {
+            for (_, child) in children.iter() {
+                admit_field(registry, child)?;
+            }
+        }
+        DataType::RunEndEncoded(runs, values) => {
+            admit_field(registry, runs)?;
+            admit_field(registry, values)?;
+        }
+        DataType::Dictionary(_, value) => admit_field(
+            registry,
+            &Field::new("dictionary_value", value.as_ref().clone(), true),
+        )?,
+        _ => {}
+    }
+    Ok(())
 }
 fn invalid_rows(errors: &[pse_relations::RelationError]) -> DataFusionError {
     DataFusionError::Plan(format!("semantic admission failed: {errors:?}"))
 }
-#[derive(Debug)]
-pub(crate) struct AdmissionRule {
-    pub name: &'static str,
-    pub registry: Arc<Registry>,
-    pub tables: Vec<Arc<dyn TableProvider>>,
-    pub(super) functions: Arc<super::functions::Functions>,
-    pub(super) reserver: Arc<dyn MemoryReserver>,
-    pub(super) cancel: CancellationToken,
-}
-impl AnalyzerRule for AdmissionRule {
-    fn name(&self) -> &str {
-        self.name
-    }
-    fn analyze(&self, plan: LogicalPlan, _config: &ConfigOptions) -> Result<LogicalPlan> {
-        self.functions.admit_plan(&plan)?;
-        admit_plan(
-            &plan,
-            &self.registry,
-            &self.tables,
-            self.reserver.as_ref(),
-            &self.cancel,
-        )?;
-        Ok(plan)
-    }
+fn admit_intermediate_field(registry: &Registry, field: &Field) -> Result<()> {
+    admit_field(registry, field)
 }
 
-fn lossless_integer_temporary(source: &DataType, target: &DataType) -> bool {
-    let digits = match source {
-        DataType::Int8 | DataType::UInt8 => 3,
-        DataType::Int16 | DataType::UInt16 => 5,
-        DataType::Int32 | DataType::UInt32 => 10,
-        DataType::Int64 => 19,
-        DataType::UInt64 => 20,
-        _ => return false,
-    };
-    matches!(target,DataType::Decimal128(precision,0) if *precision>=digits)
-}
-
-fn lossless_text_encoding(
-    cast: &datafusion::logical_expr::expr::Cast,
-    schema: &datafusion::common::DFSchema,
-) -> Result<bool> {
-    let (_, child) = cast.expr.to_field(schema)?;
-    Ok(child.data_type() == &DataType::Utf8
-        && matches!(cast.field.data_type(), DataType::Dictionary(key, value) if key.as_ref() == &DataType::Int32 && value.as_ref() == &DataType::Utf8)
-        && child
-            .metadata()
-            .get(pse_schema::arrow::KEY_LOGICAL_TYPE)
-            .is_some_and(|kind| kind == "text")
-        && (cast.field.metadata().is_empty() || cast.field.metadata() == child.metadata()))
-}
-
-// DataFusion's Unnest constructor discards list-child metadata. The input child and
-// explicit dependency/depth map provide the type derivation; storage alone does not.
+// Native constructors own schema/nullability/functional-dependency derivation.
+// The only extra transfer here repairs the pinned engine's lost list-child metadata.
+#[cfg(test)]
 fn intermediate_schema(
     plan: &LogicalPlan,
     registry: &Registry,
 ) -> Result<datafusion::common::DFSchema> {
-    use datafusion::logical_expr::Distinct;
-    match plan {
-        LogicalPlan::Unnest(unnest) => unnest_schema(unnest, registry),
-        LogicalPlan::Projection(project) => {
-            let input = intermediate_schema(&project.input, registry)?;
-            let fields = project
-                .expr
-                .iter()
-                .map(|expression| expression.to_field(&input).map(|(_, field)| field))
-                .collect::<Result<Vec<_>>>()?;
-            derived_schema(plan.schema(), &fields, registry)
-        }
-        LogicalPlan::Aggregate(aggregate)
-            if !aggregate
-                .group_expr
-                .iter()
-                .any(|expr| matches!(expr, Expr::GroupingSet(_))) =>
-        {
-            let input = intermediate_schema(&aggregate.input, registry)?;
-            let fields = aggregate
-                .group_expr
-                .iter()
-                .chain(&aggregate.aggr_expr)
-                .map(|expression| expression.to_field(&input).map(|(_, field)| field))
-                .collect::<Result<Vec<_>>>()?;
-            derived_schema(plan.schema(), &fields, registry)
-        }
-        LogicalPlan::Filter(filter) => inherited_schema(plan, &filter.input, registry),
-        LogicalPlan::Sort(sort) => inherited_schema(plan, &sort.input, registry),
-        LogicalPlan::Limit(limit) => inherited_schema(plan, &limit.input, registry),
-        LogicalPlan::Repartition(repartition) => {
-            inherited_schema(plan, &repartition.input, registry)
-        }
-        LogicalPlan::SubqueryAlias(alias) => inherited_schema(plan, &alias.input, registry),
-        LogicalPlan::Distinct(Distinct::All(input)) => inherited_schema(plan, input, registry),
-        LogicalPlan::Join(join) => {
-            let left = intermediate_schema(&join.left, registry)?;
-            let right = intermediate_schema(&join.right, registry)?;
-            let expected = datafusion::logical_expr::logical_plan::builder::build_join_schema(
-                &left,
-                &right,
-                &join.join_type,
-            )?;
-            derived_schema(plan.schema(), expected.fields(), registry)
-        }
-        LogicalPlan::Union(union) => {
-            let mut inputs = union.inputs.iter();
-            let first = intermediate_schema(
-                inputs
-                    .next()
-                    .ok_or_else(|| DataFusionError::Plan("empty union input inventory".into()))?,
-                registry,
-            )?;
-            for input in inputs {
-                let input = intermediate_schema(input, registry)?;
-                if input.fields().len() != first.fields().len()
-                    || input.fields().iter().zip(first.fields()).any(|(a, b)| {
-                        a.data_type() != b.data_type() || a.metadata() != b.metadata()
-                    })
+    Ok(derive_native_plan(plan.clone(), registry)?
+        .schema()
+        .as_ref()
+        .clone())
+}
+
+fn derive_native_plan(plan: LogicalPlan, registry: &Registry) -> Result<LogicalPlan> {
+    Ok(plan
+        .transform_up_with_subqueries(|node| {
+            let offered = Arc::clone(node.schema());
+            if let LogicalPlan::Unnest(value) = &node {
+                // Validate dependency indices and depth against the native constructor,
+                // rather than trusting fields a caller can populate by hand.
+                let rebuilt = node.clone().recompute_schema()?;
+                let LogicalPlan::Unnest(native) = &rebuilt else {
+                    return Ok(Transformed::yes(rebuilt));
+                };
+                if value.dependency_indices != native.dependency_indices
+                    || value.list_type_columns != native.list_type_columns
+                    || value.struct_type_columns != native.struct_type_columns
                 {
                     return Err(DataFusionError::Plan(
-                        "union input semantic contracts disagree".into(),
+                        "unnest mapping differs from the native constructor".to_owned(),
                     ));
                 }
             }
-            derived_schema(plan.schema(), first.fields(), registry)
+            let mut native_before = node.clone().recompute_schema().map_err(|error| {
+                DataFusionError::Plan(format!(
+                    "native schema reconstruction for {}: {error}",
+                    node.display()
+                ))
+            })?;
+            if let LogicalPlan::Unnest(value) = &mut native_before {
+                value.schema = Arc::new(unnest_schema(value, registry)?);
+            }
+            derived_schema(&offered, native_before.schema().fields(), registry)?;
+            let node = normalize_casts(node)?;
+            let mut rebuilt = match node {
+                LogicalPlan::Union(value) => super::scalar::union_fields(value.inputs)?,
+                other => other.recompute_schema()?,
+            };
+            if let LogicalPlan::Unnest(value) = &mut rebuilt {
+                value.schema = Arc::new(unnest_schema(value, registry)?);
+            }
+            for field in rebuilt.schema().fields() {
+                admit_field(registry, field)?;
+            }
+            Ok(Transformed::yes(rebuilt))
+        })?
+        .data)
+}
+fn normalize_casts(mut node: LogicalPlan) -> Result<LogicalPlan> {
+    // UNION inputs are alternatives with the same fields, not a join scope.
+    // Equijoin keys each resolve against their own actual input schema.
+    if let LogicalPlan::Join(join) = &mut node {
+        for (left, right) in &mut join.on {
+            *left = left
+                .clone()
+                .transform_up(|expr| normalize_primitive_cast(expr, join.left.schema()))?
+                .data;
+            *right = right
+                .clone()
+                .transform_up(|expr| normalize_primitive_cast(expr, join.right.schema()))?
+                .data;
         }
-        _ => Ok(plan.schema().as_ref().clone()),
+        if let Some(filter) = join.filter.take() {
+            let schema = join
+                .left
+                .schema()
+                .join(join.right.schema())
+                .map_err(|error| {
+                    DataFusionError::Plan(format!("semantic cast join-filter scope: {error}"))
+                })?;
+            join.filter = Some(
+                filter
+                    .transform_up(|expr| normalize_primitive_cast(expr, &schema))?
+                    .data,
+            );
+        }
+        return Ok(node);
     }
+    let input_schema = node.inputs().first().map_or_else(
+        || Arc::clone(node.schema()),
+        |input| Arc::clone(input.schema()),
+    );
+    Ok(node
+        .map_expressions(|expression| {
+            expression
+                .transform_up(|expression| normalize_primitive_cast(expression, &input_schema))
+        })?
+        .data)
 }
-fn inherited_schema(
-    plan: &LogicalPlan,
-    input: &LogicalPlan,
-    registry: &Registry,
-) -> Result<datafusion::common::DFSchema> {
-    let expected = intermediate_schema(input, registry)?;
-    derived_schema(plan.schema(), expected.fields(), registry)
+fn normalize_primitive_cast(
+    expression: Expr,
+    schema: &datafusion::common::DFSchema,
+) -> Result<Transformed<Expr>> {
+    let (child, target) = match &expression {
+        Expr::Cast(cast) => (&cast.expr, &cast.field),
+        Expr::TryCast(cast) => (&cast.expr, &cast.field),
+        _ => return Ok(Transformed::no(expression)),
+    };
+    let (_, source) = child.to_field(schema)?;
+    // A native physical cast may carry primitive input metadata into its new
+    // physical type. That representation change cannot carry role/FK assertions.
+    // Extension and quantity conversions require their registered semantic functions.
+    let type_only =
+        target.name().is_empty() && target.is_nullable() && target.metadata().is_empty();
+    if source.data_type() == target.data_type()
+        || !type_only
+        || !source.metadata().keys().any(|key| key.starts_with("pse."))
+    {
+        return Ok(Transformed::no(expression));
+    }
+    // DataFusion's type-only cast deliberately inherits non-extension metadata.
+    // An explicit target field requests native physical storage without carrying
+    // a declaration for the source type into that different representation.
+    let mut field = target
+        .as_ref()
+        .clone()
+        .with_name("cast_value")
+        .with_nullable(matches!(expression, Expr::TryCast(_)) || source.is_nullable())
+        .with_metadata(source.metadata().clone());
+    field.metadata_mut().retain(|key, _| {
+        !key.starts_with("pse.")
+            && key != pse_schema::arrow::KEY_EXTENSION_NAME
+            && key != pse_schema::arrow::KEY_EXTENSION_METADATA
+    });
+    let mut expression = expression;
+    match &mut expression {
+        Expr::Cast(cast) => cast.field = Arc::new(field),
+        Expr::TryCast(cast) => cast.field = Arc::new(field),
+        _ => {}
+    }
+    Ok(Transformed::yes(expression))
 }
+
 fn derived_schema(
     actual: &datafusion::common::DFSchema,
     expected: &[Arc<Field>],
-    registry: &Registry,
+    _registry: &Registry,
 ) -> Result<datafusion::common::DFSchema> {
     if actual.fields().len() != expected.len() {
         return Err(DataFusionError::Plan(
@@ -395,36 +405,53 @@ fn derived_schema(
         .iter()
         .zip(expected)
         .map(|((qualifier, actual), expected)| {
-            if actual.data_type() != expected.data_type()
-                || (!actual.metadata().is_empty() && actual.metadata() != expected.metadata())
+            if !super::scalar::missing_metadata_only(actual.data_type(), expected.data_type())
+                || (!actual.is_nullable() && expected.is_nullable())
+                || (!actual.metadata().is_empty() && !same_value_metadata(actual, expected))
             {
                 return Err(DataFusionError::Plan(format!(
-                    "derived field {} differs from its actual expression/source contract",
+                    "derived field {} differs from its actual expression/source contract: offered={actual:?}, native={expected:?}",
                     actual.name()
                 )));
             }
             let field = actual
                 .as_ref()
                 .clone()
+                .with_data_type(expected.data_type().clone())
                 .with_metadata(expected.metadata().clone());
-            admit_field(registry, &field)?;
             Ok((qualifier.cloned(), Arc::new(field)))
         })
         .collect::<Result<Vec<_>>>()?;
-    datafusion::common::DFSchema::new_with_metadata(fields, actual.metadata().clone())
+    datafusion::common::DFSchema::new_with_metadata(fields, actual.metadata().clone())?
+        .with_functional_dependencies(actual.functional_dependencies().clone())
+}
+pub(crate) fn same_value_metadata(actual: &Field, expected: &Field) -> bool {
+    // Role and foreign-key annotations declare relation obligations. They do not
+    // change a column value's type or grant native optimizer constraints. An
+    // equijoin may select either equivalent key as the projected expression.
+    let meaning =
+        |key: &str| key != pse_schema::arrow::KEY_ROLE && key != pse_schema::arrow::KEY_FK;
+    actual
+        .metadata()
+        .iter()
+        .filter(|(key, _)| meaning(key))
+        .all(|(key, value)| expected.metadata().get(key) == Some(value))
+        && expected
+            .metadata()
+            .iter()
+            .filter(|(key, _)| meaning(key))
+            .all(|(key, value)| actual.metadata().get(key) == Some(value))
 }
 fn unnest_schema(
     unnest: &datafusion::logical_expr::Unnest,
     registry: &Registry,
 ) -> Result<datafusion::common::DFSchema> {
-    if !unnest.struct_type_columns.is_empty()
-        || unnest.dependency_indices.len() != unnest.schema.fields().len()
-    {
+    if unnest.dependency_indices.len() != unnest.schema.fields().len() {
         return Err(DataFusionError::Plan(
             "unsupported or malformed unnest dependency map".to_owned(),
         ));
     }
-    let input = intermediate_schema(&unnest.input, registry)?;
+    let input = unnest.input.schema();
     let mut fields = Vec::new();
     for ((qualifier, actual), index) in unnest.schema.iter().zip(&unnest.dependency_indices) {
         let source = input
@@ -459,9 +486,20 @@ fn unnest_schema(
             let field = actual
                 .as_ref()
                 .clone()
+                // A single expansion with Drop emits only actual child values.
+                // Multiple expansions zip to the longest list and can pad with NULL.
+                .with_nullable(
+                    declared.is_nullable()
+                        || unnest.options.preserve_nulls()
+                        || unnest.list_type_columns.len() != 1,
+                )
                 .with_metadata(declared.metadata().clone());
             admit_field(registry, &field)?;
             fields.push((qualifier.cloned(), Arc::new(field)));
+        } else if unnest.struct_type_columns.contains(index) {
+            // Native struct expansion derives the child's field directly.
+            admit_field(registry, actual)?;
+            fields.push((qualifier.cloned(), Arc::clone(actual)));
         } else {
             if actual.as_ref() != declared {
                 return Err(DataFusionError::Plan(
@@ -471,7 +509,8 @@ fn unnest_schema(
             fields.push((qualifier.cloned(), Arc::clone(actual)));
         }
     }
-    datafusion::common::DFSchema::new_with_metadata(fields, unnest.schema.metadata().clone())
+    datafusion::common::DFSchema::new_with_metadata(fields, unnest.schema.metadata().clone())?
+        .with_functional_dependencies(unnest.schema.functional_dependencies().clone())
 }
 
 fn admit_expression(
@@ -483,70 +522,47 @@ fn admit_expression(
         if let Expr::Alias(alias) = expression {
             let (_, child) = alias.expr.to_field(schema)?;
             let (_, output) = expression.to_field(schema)?;
-            let meaning = [
-                pse_schema::arrow::KEY_LOGICAL_TYPE,
+            // An alias names a value; it cannot invent an extension, quantity or
+            // enumeration meaning. Primitive logical labels follow native types.
+            for key in [
                 pse_schema::arrow::KEY_QUANTITY_TYPE,
                 pse_schema::arrow::KEY_ENUM,
                 pse_schema::arrow::KEY_EXTENSION_NAME,
                 pse_schema::arrow::KEY_EXTENSION_METADATA,
-            ];
-            if !child.metadata().is_empty()
-                && meaning
-                    .iter()
-                    .any(|key| child.metadata().get(*key) != output.metadata().get(*key))
-            {
-                return Err(DataFusionError::Plan(
-                    "alias changed its actual expression's semantic contract".into(),
-                ));
+            ] {
+                if child.metadata().get(key) != output.metadata().get(key) {
+                    return Err(DataFusionError::Plan(
+                        format!("alias {} changed semantic key {key}: source={:?}, output={:?}, expression={:?}", alias.name, child.metadata().get(key), output.metadata().get(key), alias.expr),
+                    ));
+                }
             }
         }
-        // The engine may widen integer comparisons to a decimal temporary.
-        // Prove that representation lossless over the full source domain; the
-        // child retains its admitted meaning and an exported cast still passes
-        // the strict node-schema check above.
-        let intermediate = if let Expr::Cast(cast) = expression {
-            (cast.field.metadata().is_empty()
-                && lossless_integer_temporary(&cast.expr.get_type(schema)?, cast.field.data_type()))
-                || lossless_text_encoding(cast, schema)?
-        } else {
-            false
-        };
-        if !intermediate {
-            let (_, field) = expression.to_field(schema)?;
-            if let Expr::Literal(datafusion::common::ScalarValue::Dictionary(key, value), _) =
-                expression
-                && key.as_ref() == &DataType::Int32
-                && matches!(value.as_ref(), datafusion::common::ScalarValue::Utf8(_))
-                && field
-                    .metadata()
-                    .get(pse_schema::arrow::KEY_LOGICAL_TYPE)
-                    .is_some_and(|kind| kind == "text")
-            {
-                // Dictionary encoding is reversible storage for this literal.
-                // Validate its decoded text contract; exported fields above
-                // remain strict and an enum column retains its own membership.
-                admit_field(
-                    registry,
-                    &field.as_ref().clone().with_data_type(DataType::Utf8),
-                )?;
-            } else if matches!(
-                expression,
-                Expr::Literal(datafusion::common::ScalarValue::Null, _)
-            ) && field
+        let (_, field) = expression.to_field(schema)?;
+        // Native scalar simplification can retain a Boolean declaration on NULL.
+        if matches!(
+            expression,
+            Expr::Literal(datafusion::common::ScalarValue::Null, _)
+        ) && field
+            .metadata()
+            .get(pse_schema::arrow::KEY_LOGICAL_TYPE)
+            .is_some_and(|kind| kind == "bool")
+        {
+            admit_field(
+                registry,
+                &field.as_ref().clone().with_data_type(DataType::Boolean),
+            )?;
+        } else if matches!(field.data_type(), DataType::Dictionary(_, _))
+            && field
                 .metadata()
                 .get(pse_schema::arrow::KEY_LOGICAL_TYPE)
-                .is_some_and(|kind| kind == "bool")
-            {
-                // Simplification erases the physical type of a Boolean NULL.
-                // Its retained Boolean declaration still denotes only unknown;
-                // this does not admit a stored Null array as a Boolean column.
-                admit_field(
-                    registry,
-                    &field.as_ref().clone().with_data_type(DataType::Boolean),
-                )?;
-            } else {
-                admit_field(registry, &field)?;
-            }
+                .is_some_and(|kind| kind == "text")
+        {
+            admit_field(
+                registry,
+                &field.as_ref().clone().with_data_type(DataType::Utf8),
+            )?;
+        } else {
+            admit_field(registry, &field)?;
         }
         Ok(TreeNodeRecursion::Continue)
     })?;

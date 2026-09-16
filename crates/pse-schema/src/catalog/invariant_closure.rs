@@ -29,8 +29,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
 fn unnest(input: RulePlan, column: &'static str, value_name: &'static str) -> RulePlan {
     RulePlan::Unnest {
         input: Box::new(input),
-        column,
-        value_name,
+        column: (column).into(),
+        value_name: (value_name).into(),
         null_list: NullListPolicy::NoMembers,
         empty_list: EmptyListPolicy::NoMembers,
     }
@@ -39,7 +39,10 @@ fn join(left: RulePlan, right: RulePlan, keys: Vec<(&'static str, &'static str)>
     RulePlan::EquiJoin {
         left: Box::new(left),
         right: Box::new(right),
-        keys,
+        keys: (keys)
+            .into_iter()
+            .map(|(left, right)| (left.into(), right.into()))
+            .collect(),
         null_equality: NullEquality::NullEqualsNothing,
     }
 }
@@ -47,16 +50,22 @@ fn anti(left: RulePlan, right: RulePlan, keys: Vec<(&'static str, &'static str)>
     RulePlan::AntiJoin {
         left: Box::new(left),
         right: Box::new(right),
-        keys,
+        keys: (keys)
+            .into_iter()
+            .map(|(left, right)| (left.into(), right.into()))
+            .collect(),
     }
 }
 fn renamed(input: RulePlan, columns: &[(&'static str, &'static str)]) -> RulePlan {
     RulePlan::Project {
         input: Box::new(input),
-        columns: columns
+        columns: (columns
             .iter()
-            .map(|(to, from)| (*to, RuleExpr::Col(from)))
-            .collect(),
+            .map(|(to, from)| (*to, RuleExpr::col(*from)))
+            .collect::<Vec<_>>())
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     }
 }
 fn material_members(builder: &mut RegistryBuilder) {
@@ -101,23 +110,35 @@ fn package_dependencies(builder: &mut RegistryBuilder) {
             "dependencies",
             "__dependency",
         )),
-        columns: vec![
-            ("package_id", RuleExpr::Col("package_id")),
+        columns: (vec![
+            ("package_id", RuleExpr::col("package_id")),
             (
                 "__package",
                 RuleExpr::Field {
-                    expr: Box::new(RuleExpr::Col("__dependency")),
-                    name: "package_id",
+                    expr: Box::new(RuleExpr::col("__dependency")),
+                    name: "package_id".into(),
                 },
             ),
             (
                 "__version",
-                RuleExpr::Field {
-                    expr: Box::new(RuleExpr::Col("__dependency")),
-                    name: "version_req",
-                },
+                RuleExpr::call(
+                    "regexp_replace",
+                    vec![
+                        RuleExpr::Field {
+                            expr: Box::new(RuleExpr::col("__dependency")),
+                            name: "version_req".into(),
+                        },
+                        RuleExpr::Lit(Cell::text("^=")),
+                        RuleExpr::Lit(Cell::text("")),
+                    ],
+                    crate::model::FieldContract::native(arrow_schema::DataType::Utf8),
+                    true,
+                ),
             ),
-        ],
+        ])
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     };
     let target = renamed(
         scan("authored.packages", "packages"),
@@ -152,15 +173,15 @@ fn acyclic(
 ) {
     let edges = filter(
         scan(relation, "subject"),
-        RuleExpr::IsNotNull(Box::new(RuleExpr::Col(parent))),
+        RuleExpr::IsNotNull(Box::new(RuleExpr::col(parent))),
     );
     let seed = renamed(edges.clone(), &[("__origin", identity), ("__next", parent)]);
     let continuing = filter(
         RulePlan::RecursiveRef { name: "ancestors" },
         RuleExpr::cmp(
             CmpOp::NotEq,
-            RuleExpr::Col("__origin"),
-            RuleExpr::Col("__next"),
+            RuleExpr::col("__origin"),
+            RuleExpr::col("__next"),
         ),
     );
     let step_edges = renamed(edges, &[("__edge", identity), ("__parent", parent)]);
@@ -179,8 +200,8 @@ fn acyclic(
         closure,
         RuleExpr::cmp(
             CmpOp::Eq,
-            RuleExpr::Col("__origin"),
-            RuleExpr::Col("__next"),
+            RuleExpr::col("__origin"),
+            RuleExpr::col("__next"),
         ),
     );
     let head = RulePlan::Distinct(Box::new(renamed(cycles, &[(identity, "__origin")])));
@@ -219,10 +240,10 @@ fn stoichiometry(builder: &mut RegistryBuilder) {
     let defaults = filter(
         joined.clone(),
         RuleExpr::And(vec![
-            RuleExpr::IsNull(Box::new(RuleExpr::Col("valid_phase_types"))),
+            RuleExpr::IsNull(Box::new(RuleExpr::col("valid_phase_types"))),
             RuleExpr::cmp(
                 CmpOp::NotEq,
-                RuleExpr::Col("phase_type"),
+                RuleExpr::col("phase_type"),
                 RuleExpr::Lit(Cell::Enum(pse_material::PhaseType::Aqueous.as_str())),
             ),
         ]),
@@ -231,8 +252,8 @@ fn stoichiometry(builder: &mut RegistryBuilder) {
         unnest(joined, "valid_phase_types", "__valid_phase"),
         RuleExpr::cmp(
             CmpOp::Eq,
-            RuleExpr::Col("phase_type"),
-            RuleExpr::Col("__valid_phase"),
+            RuleExpr::col("phase_type"),
+            RuleExpr::col("__valid_phase"),
         ),
     );
     let compatible = RulePlan::Distinct(Box::new(RulePlan::Union(vec![

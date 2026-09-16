@@ -3,9 +3,8 @@
 
 //! The `pse.manifest.v2` envelope, declared (blueprint §20.2).
 //!
-//! This declaration is the authority for the generated Python `msgspec` `Manifest` and for
-//! `docs/generated/`; the hand-written Rust `Manifest` in `pse-catalog` is checked against
-//! it by a parity test (ADR-0051, register row R-27). The manifest's own checksum is held
+//! This declaration controls the generated Rust/Python `Manifest` types and reference
+//! documentation (ADR-0051, ADR-0060). The manifest's own checksum is held
 //! by the ref, so there is no field for it here: a document cannot contain its own digest.
 //!
 //! Evidence, timestamps and alternative encodings are in the envelope but out of logical
@@ -13,7 +12,7 @@
 //! decides which dependencies are required.
 
 use crate::builder::RegistryBuilder;
-use crate::model::{ManifestField, ManifestSpec, ManifestType};
+use crate::model::{ManifestField, ManifestRustBinding, ManifestSpec, ManifestType};
 
 /// Declares the manifest envelope.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -45,12 +44,14 @@ fn identity_fields() -> Vec<ManifestField> {
             ManifestType::Text,
             "`model`, `case`, `stage` or `run`. The kind's profile decides which dependencies are \
              required.",
-        ),
+        )
+        .with_rust(ManifestRustBinding::SnapshotKind),
         ManifestField::new(
             "snapshot_id",
             ManifestType::Hash,
             "The `pse.snapshot.v2` frame digest of the membership below (blueprint §5.3 step 7).",
-        ),
+        )
+        .with_rust(ManifestRustBinding::SnapshotId),
         ManifestField::new(
             "membership_profile",
             ManifestType::Text,
@@ -82,7 +83,8 @@ fn membership_fields() -> Vec<ManifestField> {
             ManifestType::list(ManifestType::Struct(vec![
                 ManifestField::new("package_id", ManifestType::Id, "The package."),
                 ManifestField::new("version", ManifestType::Text, "Its resolved version."),
-                ManifestField::new("logical_hash", ManifestType::Hash, "Its logical digest."),
+                ManifestField::new("logical_hash", ManifestType::Hash, "Its logical digest.")
+                    .with_rust(ManifestRustBinding::LogicalHash),
             ])),
             "Every package whose content this snapshot depends on.",
         ),
@@ -92,6 +94,7 @@ fn membership_fields() -> Vec<ManifestField> {
 /// Everything the result's meaning depends on besides its own rows.
 fn dependency_fields() -> Vec<ManifestField> {
     vec![
+        admission_binding(),
         ManifestField::new(
             "compiler",
             ManifestType::Struct(vec![
@@ -157,10 +160,12 @@ fn dependency_fields() -> Vec<ManifestField> {
                     ManifestType::Text,
                     "The input binding this parent supplied, for example `input.typed_math`.",
                 ),
-                ManifestField::new("snapshot_id", ManifestType::Hash, "The parent snapshot."),
+                ManifestField::new("snapshot_id", ManifestType::Hash, "The parent snapshot.")
+                    .with_rust(ManifestRustBinding::SnapshotId),
             ])),
             "The snapshots this one derives from. A duplicate role is an error.",
-        ),
+        )
+        .with_rust(ManifestRustBinding::SnapshotParents),
         ManifestField::new(
             "evidence",
             ManifestType::list(ManifestType::Struct(vec![
@@ -178,7 +183,8 @@ fn dependency_fields() -> Vec<ManifestField> {
                     "encoding_checksum",
                     ManifestType::Hash,
                     "The digest of the stored bytes.",
-                ),
+                )
+                .with_rust(ManifestRustBinding::EncodingChecksum),
                 ManifestField::new("codec_version", ManifestType::Text, "The platform codec."),
                 ManifestField::new("path", ManifestType::Text, "Where it is stored."),
             ])),
@@ -198,12 +204,14 @@ fn relation_member() -> ManifestType {
         ManifestField::new("namespace", ManifestType::Text, "The relation's namespace."),
         ManifestField::new("relation_id", ManifestType::Id, "The relation."),
         ManifestField::new("name", ManifestType::Text, "The relation name."),
-        ManifestField::new("version", ManifestType::U32, "The schema version."),
+        ManifestField::new("version", ManifestType::U32, "The schema version.")
+            .with_rust(ManifestRustBinding::SchemaVersion),
         ManifestField::new(
             "logical_hash",
             ManifestType::Hash,
             "The `pse.canon.v2` logical digest: what the relation means.",
-        ),
+        )
+        .with_rust(ManifestRustBinding::LogicalHash),
         ManifestField::new("rows", ManifestType::U64, "The row count."),
         ManifestField::new(
             "encodings",
@@ -212,18 +220,36 @@ fn relation_member() -> ManifestType {
                     "format",
                     ManifestType::Text,
                     "`arrow_ipc_file` or `parquet`.",
-                ),
+                )
+                .with_rust(ManifestRustBinding::EncodingFormat),
                 ManifestField::new("writer_version", ManifestType::Text, "What wrote it."),
                 ManifestField::new(
                     "encoding_checksum",
                     ManifestType::Hash,
                     "The digest of the stored bytes: whether this object is intact. Never \
                      substituted for the logical hash (ADR-0045).",
-                ),
+                )
+                .with_rust(ManifestRustBinding::EncodingChecksum),
                 ManifestField::new("bytes", ManifestType::U64, "The stored size."),
                 ManifestField::new("path", ManifestType::Text, "Where it is stored."),
             ])),
             "One entry per stored encoding of the same logical relation.",
         ),
     ])
+}
+
+fn admission_binding() -> ManifestField {
+    ManifestField::new(
+        "admission_binding",
+        ManifestType::optional(ManifestType::Struct(vec![
+            ManifestField::new(
+                "encoding_checksum",
+                ManifestType::Hash,
+                "Checksum of the complete immutable admission-binding artifact.",
+            )
+            .with_rust(ManifestRustBinding::EncodingChecksum),
+        ])),
+        "Checksum of the immutable exact parent and invocation bindings. Required for \
+         context-dependent artifacts; excluded from logical membership (ADR-0067).",
+    )
 }

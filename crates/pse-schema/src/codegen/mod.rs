@@ -14,7 +14,7 @@
 //! `HashMap` reaching output would make `codegen --check` fail intermittently, which reads
 //! as a flaky test rather than as the nondeterminism it is (ADR-0051).
 //!
-//! Rust rows and authoring decoders, Python contracts, Markdown reference pages and
+//! Rust rows, manifest envelopes and authoring decoders, Python contracts, Markdown reference pages and
 //! authoring JSON Schema are generated from the same admitted registry.
 
 pub mod jsonschema;
@@ -31,7 +31,7 @@ use crate::error::SchemaError;
 /// A generation target (ADR-0051).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Language {
-    /// `crates/pse-relations/src/generated/` and `crates/pse-authoring/src/generated/`.
+    /// Generated contracts and explicitly selected physical package fixtures.
     Rust,
     /// `python/pse/contracts/`, including its `GENERATED.sha256`.
     Python,
@@ -61,6 +61,10 @@ impl Language {
             Self::Rust => vec![
                 PathBuf::from("crates/pse-relations/src/generated"),
                 PathBuf::from("crates/pse-authoring/src/generated"),
+                PathBuf::from("crates/pse-catalog/src/generated"),
+                PathBuf::from("crates/pse-compiler/src/generated"),
+                PathBuf::from("crates/pse-quantity/src/generated"),
+                PathBuf::from("crates/pse-material/src/generated"),
             ],
             Self::Python => vec![PathBuf::from("python/pse/contracts")],
             Self::Markdown => vec![PathBuf::from("docs/generated")],
@@ -100,6 +104,12 @@ pub fn generate(reg: &Registry, language: Language) -> Result<GeneratedTree, Sch
     }
 }
 
+/// Resolve a declared enum child in either an unbound field or composite extension
+/// storage. Physical string/dictionary shapes alone do not imply enum meaning.
+fn enum_name(field: &arrow_schema::Field) -> Option<&str> {
+    crate::model::FieldContract::enum_name_of(field)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -121,6 +131,10 @@ mod tests {
             vec![
                 PathBuf::from("crates/pse-relations/src/generated"),
                 PathBuf::from("crates/pse-authoring/src/generated"),
+                PathBuf::from("crates/pse-catalog/src/generated"),
+                PathBuf::from("crates/pse-compiler/src/generated"),
+                PathBuf::from("crates/pse-quantity/src/generated"),
+                PathBuf::from("crates/pse-material/src/generated"),
             ]
         );
         assert_eq!(

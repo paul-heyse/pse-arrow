@@ -8,7 +8,7 @@
 use crate::{ExprGraph, MathIrError, Node, NodeId, Opcode, Payload};
 use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{IndexSet, QuantityTypeId, registry::QuantityRegistry};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 /// An immutable numbered node with admitted type and index metadata.
@@ -38,6 +38,7 @@ pub struct CanonicalGraph {
     pub(crate) selections: Vec<crate::relations::vec_sink::QuantitySelection>,
     pub(crate) kernel_bindings: BTreeMap<SemanticId, crate::relations::vec_sink::KernelBinding>,
     pub(crate) node_mapping: BTreeMap<NodeId, NodeId>,
+    pub(crate) source_nodes: BTreeMap<NodeId, BTreeSet<NodeId>>,
 }
 impl CanonicalGraph {
     /// A numbered node.
@@ -78,6 +79,12 @@ impl CanonicalGraph {
     /// The complete previous-ordinal to canonical-ordinal map for retained nodes.
     pub fn node_mapping(&self) -> &BTreeMap<NodeId, NodeId> {
         &self.node_mapping
+    }
+    /// Actual source occurrences contributing to each retained canonical node.
+    /// This includes source operations folded to literals and contextual conversions.
+    /// It records inference correspondence; physical admission remains mandatory.
+    pub fn source_nodes(&self) -> &BTreeMap<NodeId, BTreeSet<NodeId>> {
+        &self.source_nodes
     }
     /// The number of stored nodes.
     pub fn len(&self) -> usize {
@@ -235,6 +242,7 @@ fn require_compiled_payload(node: NodeId, payload: &Payload) -> Result<(), MathI
         payload,
         Payload::PendingUnitConvert { .. }
             | Payload::PendingGather { .. }
+            | Payload::PendingPath { .. }
             | Payload::PendingSmoothOp { .. }
     ) {
         return Err(MathIrError::malformed_at(
@@ -283,7 +291,7 @@ fn remap_bindings(
     remap: &BTreeMap<NodeId, NodeId>,
 ) -> Result<BTreeMap<SemanticId, crate::relations::vec_sink::KernelBinding>, MathIrError> {
     let mut output = BTreeMap::new();
-    let used: std::collections::BTreeSet<_> = result
+    let used: BTreeSet<_> = result
         .nodes
         .iter()
         .filter_map(|node| {

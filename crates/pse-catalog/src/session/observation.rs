@@ -7,25 +7,66 @@ use datafusion::logical_expr::LogicalPlan;
 use pse_ids::{MemoryReserver, Reservation, ReservationLease};
 use std::{fmt::Write, sync::Arc};
 
-const MAX_EXPLAIN_BYTES: usize = 16 * 1024 * 1024;
 const MAX_RULES: usize = u16::MAX as usize;
 /// Retained diagnostic evidence; never a semantic validation or reuse certificate.
 #[derive(Clone, Debug)]
-pub struct PlanObservation(Arc<ObservedPlan>);
+pub struct PlanObservation {
+    logical: Arc<ObservedPlan>,
+    physical: Option<Arc<ObservedPhysical>>,
+}
 #[derive(Debug)]
 struct ObservedPlan {
     explain: String,
     rules: Vec<String>,
     _lease: Arc<ReservationLease>,
 }
+#[derive(Debug)]
+struct ObservedPhysical {
+    explain: String,
+    _lease: Arc<ReservationLease>,
+}
 impl PlanObservation {
     /// PostgreSQL JSON rendering of the actual optimized plan sent to physical planning.
     pub fn explain_pgjson(&self) -> &str {
-        &self.0.explain
+        &self.logical.explain
     }
     /// Analyzer and logical optimizer callbacks in their actual execution order.
     pub fn rules_fired(&self) -> &[String] {
-        &self.0.rules
+        &self.logical.rules
+    }
+    /// The actual native physical tree after its optimizer pipeline, when executed.
+    /// A preparation alone has no physical observation and executes no data operators.
+    pub fn physical_plan(&self) -> Option<&str> {
+        self.physical.as_ref().map(|value| value.explain.as_str())
+    }
+    pub(super) fn with_physical(
+        &self,
+        plan: &dyn datafusion::physical_plan::ExecutionPlan,
+        reserver: &dyn MemoryReserver,
+    ) -> Result<Self, CatalogError> {
+        let mut reservation = reserver.open("session:physical-plan-observation");
+        let mut writer = BoundedText {
+            value: String::new(),
+            reservation: &mut reservation,
+            error: None,
+        };
+        let rendered = write!(
+            &mut writer,
+            "{}",
+            datafusion::physical_plan::displayable(plan).indent(true)
+        );
+        if let Some(error) = writer.error {
+            return Err(error);
+        }
+        rendered.map_err(|_| invalid("physical plan rendering failed"))?;
+        let explain = writer.value;
+        Ok(Self {
+            logical: Arc::clone(&self.logical),
+            physical: Some(Arc::new(ObservedPhysical {
+                explain,
+                _lease: ReservationLease::new(reservation),
+            })),
+        })
     }
 }
 pub(super) struct Recorder {
@@ -72,11 +113,14 @@ impl Recorder {
         }
         rendered.map_err(|_| invalid("plan rendering failed"))?;
         let explain = writer.value;
-        Ok(PlanObservation(Arc::new(ObservedPlan {
-            explain,
-            rules: self.rules,
-            _lease: ReservationLease::new(self.reservation),
-        })))
+        Ok(PlanObservation {
+            logical: Arc::new(ObservedPlan {
+                explain,
+                rules: self.rules,
+                _lease: ReservationLease::new(self.reservation),
+            }),
+            physical: None,
+        })
     }
 }
 struct BoundedText<'a> {
@@ -86,10 +130,6 @@ struct BoundedText<'a> {
 }
 impl Write for BoundedText<'_> {
     fn write_str(&mut self, text: &str) -> std::fmt::Result {
-        if self.value.len().saturating_add(text.len()) > MAX_EXPLAIN_BYTES {
-            self.error = Some(invalid("plan rendering exceeds 16 MiB diagnostic bound"));
-            return Err(std::fmt::Error);
-        }
         if let Err(error) = self.reservation.try_grow(text.len()) {
             self.error = Some(error.into());
             return Err(std::fmt::Error);

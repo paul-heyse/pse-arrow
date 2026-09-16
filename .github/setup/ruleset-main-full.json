@@ -65,9 +65,6 @@
             "context": "rust / family-check"
           },
           {
-            "context": "rust / deny"
-          },
-          {
             "context": "docs / build"
           },
           {

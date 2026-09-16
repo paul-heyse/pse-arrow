@@ -64,6 +64,33 @@ impl DslSyntax {
     }
 }
 
+/// Semantic owner of a source expression; its resolved template is a binding context.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ExpressionOwnerKind {
+    /// A reusable template declaration.
+    Template,
+    /// An authored instance, bound through its declared template.
+    Instance,
+}
+impl ExpressionOwnerKind {
+    /// Complete admitted ownership alternatives.
+    pub const ALL: [Self; 2] = [Self::Template, Self::Instance];
+    /// Stable spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Template => "template",
+            Self::Instance => "instance",
+        }
+    }
+    /// Exact foreign-key target required by the declaration.
+    pub const fn target(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Template => ("authored.templates", "template_id"),
+            Self::Instance => ("authored.instances", "instance_id"),
+        }
+    }
+}
+
 /// One top-level key of a document, and the relation its rows land in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DocumentSection {
@@ -81,8 +108,10 @@ pub struct DocumentSection {
     pub name_column: Option<&'static str>,
     /// Explicit owning entity foreign key; absent means package scope.
     pub naming_scope_column: Option<&'static str>,
-    /// Owning template foreign key used by the shared source expression binder.
+    /// Exact owner foreign key used by the shared source expression binder.
     pub expression_owner_column: Option<&'static str>,
+    /// Meaning of the declared owner; present exactly when the owner column is present.
+    pub expression_owner_kind: Option<ExpressionOwnerKind>,
     /// Exact DSL leaf paths (`column[].field`) and their grammar, in declaration order.
     pub expression_fields: &'static [(&'static str, DslSyntax)],
     /// What the section declares.
@@ -103,13 +132,13 @@ pub enum SourceColumn {
 }
 impl DocumentSection {
     /// One shared projection used by source editors and loader hydration.
-    pub fn source_column(&self, column: &super::ColumnSpec) -> SourceColumn {
-        if column.logical_type == super::LogicalType::Ext(super::ExtensionUse::SourceSpan) {
+    pub fn source_column(&self, column: &super::FieldContract) -> SourceColumn {
+        if column.value_type() == super::FieldContract::extended(super::ExtensionUse::SourceSpan) {
             SourceColumn::ParserSpan
-        } else if self.relation == "authored.packages" && column.name == "content_hash" {
+        } else if self.relation == "authored.packages" && column.name() == "content_hash" {
             SourceColumn::PackageIntegrity
         } else if column
-            .fk
+            .fk()
             .is_some_and(|fk| fk.relation == "authored.packages" && fk.column == "package_id")
         {
             SourceColumn::PackageContext

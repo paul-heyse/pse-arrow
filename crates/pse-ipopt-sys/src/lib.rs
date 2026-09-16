@@ -18,8 +18,10 @@
 //! Raw FFI bindings to the Ipopt C API (blueprint §3.1, §18.3).
 //!
 //! Nothing here is written by hand. `src/bindings.rs` is produced by
-//! `cargo xtask codegen --only bindgen` from `$IPOPT_DIR/include/coin-or/`IpStdCInterface`.h`
-//! inside the solver container, with an allowlist of the §18.3 functions, and committed.
+//! `just codegen --only bindgen` from the actual `IpStdCInterface.h` headers.
+//! `IPOPT_DIR` selects an installed prefix; otherwise the generator extracts headers
+//! from the digest-pinned solver image. The C interface and dependent types are
+//! generated and committed, and `just codegen-check` compares real regeneration.
 //! The safe driver — `index_style = 0`, one `catch_unwind` per callback — is
 //! `pse-backend-native`.
 

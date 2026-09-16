@@ -5,7 +5,9 @@
 
 use std::sync::Arc;
 
+use super::operation::{PreparedStoreOperation, StoreCommand};
 use pse_ids::{CancellationToken, CanonicalizeOptions, SemanticId, SnapshotKind};
+use pse_schema::model::provider::{OperationPurpose, ProviderScope};
 use pse_schema::model::{Authority, Cell, RelationSpec, SnapshotClass};
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +40,7 @@ impl SidecarRef {
 pub struct SidecarArtifact {
     reference: SidecarRef,
     relation: Arc<LoadedRelation>,
-    pub(super) admission: Arc<()>,
+    pub(super) admission: Arc<crate::store::open::CatalogContext>,
 }
 impl SidecarArtifact {
     /// The immutable serializable reference; it must be admitted again when restored.
@@ -51,11 +53,11 @@ impl SidecarArtifact {
     }
 }
 
-/// Exact reference to one schema/value/key-admitted staged row, not snapshot membership.
+/// Exact reference to a schema/value/key-admitted staged batch, not snapshot membership.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct StagedRef(pub(super) SidecarRef);
-/// One typed operation-role row whose reservation and original artifact remain owned.
+/// A typed operation batch whose order, reservation and original artifact remain owned.
 #[derive(Clone, Debug)]
 pub struct StagedArtifact {
     reference: StagedRef,
@@ -66,7 +68,7 @@ impl StagedArtifact {
     pub fn reference(&self) -> &StagedRef {
         &self.reference
     }
-    /// The schema/value/key-admitted row.
+    /// The schema/value/key-admitted batch in its original operation-ordinal order.
     pub fn relation(&self) -> &Arc<LoadedRelation> {
         self.inner.relation()
     }
@@ -77,7 +79,7 @@ impl StagedArtifact {
 #[derive(Clone, Copy)]
 enum ArtifactKind {
     Sidecar,
-    StagedRow,
+    StagedBatch,
 }
 
 /// Exact revision-row witness retained in a mutable ref's single atomic value.
@@ -118,26 +120,97 @@ impl Catalog {
         draft: RelationDraft,
         cancel: &CancellationToken,
     ) -> Result<SidecarArtifact, CatalogError> {
-        self.publish_artifact(draft, ArtifactKind::Sidecar, cancel)
-            .await
+        Ok(self
+            .prepare_sidecar_publication(draft, cancel)?
+            .execute(cancel)
+            .await?
+            .into_value())
     }
 
-    /// Store one authored/reference preimage or replacement row under its exact declared
-    /// schema. This admits representation/values/key only, never a complete snapshot.
+    /// Store an authored/reference preimage or replacement batch with stable row
+    /// ordinals. This admits representation/values/key only, never a complete snapshot.
     /// # Errors
     /// Invalid class, row count, schema, values, resource or storage failures.
-    pub async fn publish_staged_row(
+    pub async fn publish_staged_batch(
         &self,
         draft: RelationDraft,
         cancel: &CancellationToken,
     ) -> Result<StagedArtifact, CatalogError> {
-        let inner = self
-            .publish_artifact(draft, ArtifactKind::StagedRow, cancel)
-            .await?;
-        Ok(StagedArtifact {
-            reference: StagedRef(inner.reference.clone()),
-            inner,
-        })
+        Ok(self
+            .prepare_staged_publication(draft, cancel)?
+            .execute(cancel)
+            .await?
+            .into_value())
+    }
+
+    /// Prepare immutable sidecar validation and publication without executing rows or I/O.
+    /// # Errors
+    /// Declaration, binding, policy or resource failure.
+    pub fn prepare_sidecar_publication(
+        &self,
+        draft: RelationDraft,
+        cancel: &CancellationToken,
+    ) -> Result<PreparedStoreOperation<SidecarArtifact>, CatalogError> {
+        self.prepare_artifact_publication(
+            draft,
+            ArtifactKind::Sidecar,
+            std::convert::identity,
+            cancel,
+        )
+    }
+
+    /// Prepare an ordered operation batch in the same native publication lifecycle.
+    /// # Errors
+    /// Declaration, binding, policy or resource failure.
+    pub fn prepare_staged_publication(
+        &self,
+        draft: RelationDraft,
+        cancel: &CancellationToken,
+    ) -> Result<PreparedStoreOperation<StagedArtifact>, CatalogError> {
+        self.prepare_artifact_publication(draft, ArtifactKind::StagedBatch, staged, cancel)
+    }
+
+    fn prepare_artifact_publication<T: Send + 'static>(
+        &self,
+        draft: RelationDraft,
+        kind: ArtifactKind,
+        finish: fn(SidecarArtifact) -> T,
+        cancel: &CancellationToken,
+    ) -> Result<PreparedStoreOperation<T>, CatalogError> {
+        let mut session = self.validation_session(cancel)?;
+        let reference = datafusion::common::TableReference::full(
+            "publication",
+            "artifacts",
+            draft.contract.canonical.relation_id.to_string(),
+        );
+        self.bind_draft(&mut session, reference.clone(), &draft)?;
+        self.prepare_store_operation_in(
+            &session,
+            StoreCommand {
+                name: match kind {
+                    ArtifactKind::Sidecar => "store.publish_sidecar",
+                    ArtifactKind::StagedBatch => "store.publish_staged_batch",
+                },
+                scope: ProviderScope::Table(
+                    "publication".into(),
+                    "artifacts".into(),
+                    reference.table().into(),
+                ),
+                purpose: OperationPurpose::Publish,
+                arguments: vec![datafusion::logical_expr::lit(
+                    draft.contract.canonical.relation_id.to_string(),
+                )],
+            },
+            Box::new(move |catalog, _session, cancel| {
+                Box::pin(async move {
+                    let artifact = catalog.publish_artifact(draft, kind, &cancel).await?;
+                    let rows = u64::try_from(artifact.relation.rows())
+                        .map_err(|_| super::encode::overflow())?;
+                    Ok((finish(artifact), rows))
+                })
+            }),
+            cancel,
+        )
     }
 
     async fn publish_artifact(
@@ -157,18 +230,16 @@ impl Catalog {
             ));
         }
         let candidate = super::publish::combine(self, &draft, spec, cancel)?;
-        if matches!(kind, ArtifactKind::StagedRow) && candidate.num_rows() != 1 {
-            return Err(admission(
-                "staged row",
-                "an operation-role artifact must contain exactly one row",
-            ));
-        }
         if matches!(kind, ArtifactKind::Sidecar) {
-            self.admit_sidecar_semantics(spec, &candidate, cancel)
+            self.admit_sidecar_semantics(spec, candidate.batch(), cancel)
                 .await?;
         }
         let port = pse_ids::model_port_name(spec.key.namespace.as_str(), spec.id);
-        let prepared = self.prepare_relation(port, draft, spec, &candidate, cancel)?;
+        let order = match kind {
+            ArtifactKind::Sidecar => super::publish::RowOrder::CanonicalKeys,
+            ArtifactKind::StagedBatch => super::publish::RowOrder::OperationOrdinals,
+        };
+        let prepared = self.prepare_relation(port, draft, spec, &candidate, order, cancel)?;
         for (path, bytes) in prepared.objects {
             self.ensure_create(&path, bytes, cancel).await?;
         }
@@ -191,25 +262,87 @@ impl Catalog {
         reference: &SidecarRef,
         cancel: &CancellationToken,
     ) -> Result<SidecarArtifact, CatalogError> {
-        self.read_artifact(reference, ArtifactKind::Sidecar, cancel)
-            .await
+        Ok(self
+            .prepare_sidecar_read(reference, cancel)?
+            .execute(cancel)
+            .await?
+            .into_value())
     }
 
-    /// Reopen and directly admit one exact staged row. No snapshot is manufactured.
+    /// Reopen a staged batch, retaining the encoded operation ordinals.
     /// # Errors
     /// Invalid artifact identity, actual row count/schema/values or storage failures.
-    pub async fn read_staged_row(
+    pub async fn read_staged_batch(
         &self,
         reference: &StagedRef,
         cancel: &CancellationToken,
     ) -> Result<StagedArtifact, CatalogError> {
-        let inner = self
-            .read_artifact(&reference.0, ArtifactKind::StagedRow, cancel)
-            .await?;
-        Ok(StagedArtifact {
-            reference: reference.clone(),
-            inner,
-        })
+        Ok(self
+            .prepare_staged_read(reference, cancel)?
+            .execute(cancel)
+            .await?
+            .into_value())
+    }
+
+    /// Prepare actual sidecar resolution and admission under the operation policy.
+    /// # Errors
+    /// Invalid native preparation or policy/resource failure.
+    pub fn prepare_sidecar_read(
+        &self,
+        reference: &SidecarRef,
+        cancel: &CancellationToken,
+    ) -> Result<PreparedStoreOperation<SidecarArtifact>, CatalogError> {
+        self.prepare_artifact_read(
+            reference,
+            ArtifactKind::Sidecar,
+            std::convert::identity,
+            cancel,
+        )
+    }
+
+    /// Prepare actual ordered operation-batch resolution and admission.
+    /// # Errors
+    /// Invalid native preparation or policy/resource failure.
+    pub fn prepare_staged_read(
+        &self,
+        reference: &StagedRef,
+        cancel: &CancellationToken,
+    ) -> Result<PreparedStoreOperation<StagedArtifact>, CatalogError> {
+        self.prepare_artifact_read(&reference.0, ArtifactKind::StagedBatch, staged, cancel)
+    }
+
+    fn prepare_artifact_read<T: Send + 'static>(
+        &self,
+        reference: &SidecarRef,
+        kind: ArtifactKind,
+        finish: fn(SidecarArtifact) -> T,
+        cancel: &CancellationToken,
+    ) -> Result<PreparedStoreOperation<T>, CatalogError> {
+        let reference = reference.clone();
+        self.prepare_store_operation(
+            match kind {
+                ArtifactKind::Sidecar => "store.read_sidecar",
+                ArtifactKind::StagedBatch => "store.read_staged_batch",
+            },
+            ProviderScope::Table(
+                "publication".into(),
+                "artifacts".into(),
+                reference.member.relation_id.to_string(),
+            ),
+            OperationPurpose::Resolve,
+            vec![datafusion::logical_expr::lit(
+                reference.member.relation_id.to_string(),
+            )],
+            Box::new(move |catalog, _session, cancel| {
+                Box::pin(async move {
+                    let artifact = catalog.read_artifact(&reference, kind, &cancel).await?;
+                    let rows = u64::try_from(artifact.relation.rows())
+                        .map_err(|_| super::encode::overflow())?;
+                    Ok((finish(artifact), rows))
+                })
+            }),
+            cancel,
+        )
     }
 
     async fn read_artifact(
@@ -260,7 +393,7 @@ impl Catalog {
             .read_bytes(&path, self.limits.max_object_bytes, cancel)
             .await?;
         super::verify::encoding(&bytes, encoding)?;
-        let batch = super::verify::ipc_file(
+        let batch = super::verify::ipc_file_checked(
             &bytes,
             &self.registry,
             spec,
@@ -268,18 +401,13 @@ impl Catalog {
             cancel,
             self.limits.envelope,
         )?;
-        if matches!(kind, ArtifactKind::StagedRow) && batch.num_rows() != 1 {
-            return Err(admission(
-                "staged row",
-                "an operation-role artifact must contain exactly one row",
-            ));
-        }
         if matches!(kind, ArtifactKind::Sidecar) {
-            self.admit_sidecar_semantics(spec, &batch, cancel).await?;
+            self.admit_sidecar_semantics(spec, batch.batch(), cancel)
+                .await?;
         }
-        let output = pse_ids::canonicalize(
-            &contract.canonical,
-            &[batch],
+        let (sorted, output) = batch.canonicalize(
+            &self.registry,
+            spec,
             self.reserver.as_ref(),
             CanonicalizeOptions {
                 keep_sorted: true,
@@ -294,9 +422,10 @@ impl Catalog {
                 "actual admitted content differs from logical identity or row count claim",
             ));
         }
-        let batch = output
-            .sorted
-            .ok_or_else(|| admission("sidecar", "canonical sorted output missing"))?;
+        let batch = match kind {
+            ArtifactKind::Sidecar => sorted,
+            ArtifactKind::StagedBatch => batch,
+        };
         Ok(SidecarArtifact {
             reference: reference.clone(),
             relation: Arc::new(LoadedRelation {
@@ -332,8 +461,9 @@ impl Catalog {
         let mut reservation = self.reserver.open("store:sidecar-semantic-admission");
         reservation.try_grow(super::membership::validation_extent(batch)?)?;
         let rows = std::collections::BTreeMap::from([(spec.key, batch.clone())]);
+        let session = self.validation_session(cancel)?;
         validator
-            .validate_sidecar(&self.registry, &rows, cancel)
+            .validate_sidecar(&self.registry, &rows, &session, cancel)
             .await?;
         cancel.checkpoint()?;
         Ok(())
@@ -350,7 +480,7 @@ impl Catalog {
                 self.registry.relation(&spec.key.qualified_name()) == Some(*spec)
                     && match kind {
                         ArtifactKind::Sidecar => spec.snapshot_class == SnapshotClass::Sidecar,
-                        ArtifactKind::StagedRow => {
+                        ArtifactKind::StagedBatch => {
                             matches!(spec.authority, Authority::Authored | Authority::Reference)
                         }
                     }
@@ -447,5 +577,12 @@ impl Catalog {
             ));
         }
         Ok(())
+    }
+}
+
+fn staged(inner: SidecarArtifact) -> StagedArtifact {
+    StagedArtifact {
+        reference: StagedRef(inner.reference.clone()),
+        inner,
     }
 }

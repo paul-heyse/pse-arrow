@@ -331,10 +331,10 @@ pub struct RuleAggregate {
     /// The input expression. `None` for [`RuleAggregateFn::Count`] over rows.
     pub input: Option<RuleExpr>,
     /// The output column name.
-    pub output_name: &'static str,
+    pub output_name: std::borrow::Cow<'static, str>,
     /// The order the aggregate consumes its input in, as `(column, ascending)`. Required
     /// for [`RuleAggregateFn::CollectOrdered`]: physical arrival order is not an order.
-    pub order_by: Vec<(&'static str, bool)>,
+    pub order_by: Vec<(std::borrow::Cow<'static, str>, bool)>,
     /// What to do with a null input.
     pub null_policy: AggregateNullPolicy,
     /// What to produce for an empty group.
@@ -365,12 +365,20 @@ pub enum RulePlan {
         /// The Kleene predicate.
         predicate: RuleExpr,
     },
+    /// Classify each input row as a true, false or unknown assertion. Only output
+    /// projections may enclose this node; ordinary filters only select rows.
+    Assert {
+        /// The candidate universe, including rows whose predicate is false or null.
+        input: Box<RulePlan>,
+        /// The explicit Kleene truth predicate for each candidate payload.
+        predicate: RuleExpr,
+    },
     /// Compute named output columns.
     Project {
         /// The input plan.
         input: Box<RulePlan>,
         /// The output columns, as `(name, expression)`.
-        columns: Vec<(&'static str, RuleExpr)>,
+        columns: Vec<(std::borrow::Cow<'static, str>, RuleExpr)>,
     },
     /// An inner join on equal keys.
     EquiJoin {
@@ -379,7 +387,10 @@ pub enum RulePlan {
         /// The right input.
         right: Box<RulePlan>,
         /// The key pairs, as `(left column, right column)`.
-        keys: Vec<(&'static str, &'static str)>,
+        keys: Vec<(
+            std::borrow::Cow<'static, str>,
+            std::borrow::Cow<'static, str>,
+        )>,
         /// Whether two nulls match.
         null_equality: NullEquality,
     },
@@ -390,7 +401,10 @@ pub enum RulePlan {
         /// The negated input.
         right: Box<RulePlan>,
         /// The key pairs, as `(left column, right column)`.
-        keys: Vec<(&'static str, &'static str)>,
+        keys: Vec<(
+            std::borrow::Cow<'static, str>,
+            std::borrow::Cow<'static, str>,
+        )>,
     },
     /// The union of several inputs, without deduplication.
     Union(Vec<RulePlan>),
@@ -401,7 +415,7 @@ pub enum RulePlan {
         /// The input plan.
         input: Box<RulePlan>,
         /// The group columns.
-        group: Vec<&'static str>,
+        group: Vec<std::borrow::Cow<'static, str>>,
         /// The aggregates.
         aggregates: Vec<RuleAggregate>,
     },
@@ -410,9 +424,9 @@ pub enum RulePlan {
         /// The input plan.
         input: Box<RulePlan>,
         /// The list column to expand.
-        column: &'static str,
+        column: std::borrow::Cow<'static, str>,
         /// The name the element takes.
-        value_name: &'static str,
+        value_name: std::borrow::Cow<'static, str>,
         /// What to do with a null list.
         null_list: NullListPolicy,
         /// What to do with an empty list.
@@ -440,6 +454,7 @@ impl RulePlan {
             Self::RecursiveRef { .. } => RulePlanOp::RecursiveRef.as_str(),
             Self::Scan { .. } => RulePlanOp::Scan.as_str(),
             Self::Filter { .. } => RulePlanOp::Filter.as_str(),
+            Self::Assert { .. } => RulePlanOp::Assert.as_str(),
             Self::Project { .. } => RulePlanOp::Project.as_str(),
             Self::EquiJoin { .. } => RulePlanOp::EquiJoin.as_str(),
             Self::AntiJoin { .. } => RulePlanOp::AntiJoin.as_str(),
@@ -456,6 +471,7 @@ impl RulePlan {
         match self {
             Self::Scan { .. } | Self::RecursiveRef { .. } => Vec::new(),
             Self::Filter { input, .. }
+            | Self::Assert { input, .. }
             | Self::Project { input, .. }
             | Self::Aggregate { input, .. }
             | Self::Unnest { input, .. }
@@ -544,6 +560,8 @@ pub struct RuleSpec {
     pub stratum: u16,
     /// What the rule writes.
     pub head: RuleHead,
+    /// Declared typed assertion relation for finite inference; invariant rules have none.
+    pub assertion_relation: Option<String>,
     /// The body.
     pub plan: RulePlan,
     /// How the rule may negate.
@@ -572,6 +590,8 @@ pub struct RuleDecl {
     pub stratum: u16,
     /// See [`RuleSpec::head`].
     pub head: RuleHead,
+    /// See [`RuleSpec::assertion_relation`].
+    pub assertion_relation: Option<String>,
     /// See [`RuleSpec::plan`].
     pub plan: RulePlan,
     /// See [`RuleSpec::negation`].
@@ -596,11 +616,19 @@ impl RuleDecl {
             version,
             stratum,
             head,
+            assertion_relation: None,
             plan,
             negation: NegationPolicy::None,
             monotonic: true,
             conflict_policy: ConflictPolicy::Reject,
         }
+    }
+
+    /// Bind the explicitly declared projection that retains competing typed payloads.
+    #[must_use]
+    pub fn assertions(mut self, relation: impl Into<String>) -> Self {
+        self.assertion_relation = Some(relation.into());
+        self
     }
 
     /// The same rule, declared to use stratified negation.
@@ -649,6 +677,8 @@ pub enum RulePlanOp {
     Scan,
     /// `filter`.
     Filter,
+    /// `assert`.
+    Assert,
     /// `project`.
     Project,
     /// `equi_join`.
@@ -670,9 +700,10 @@ pub enum RulePlanOp {
 }
 impl RulePlanOp {
     /// Every admitted spelling, in declaration order.
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Scan,
         Self::Filter,
+        Self::Assert,
         Self::Project,
         Self::EquiJoin,
         Self::AntiJoin,
@@ -688,6 +719,7 @@ impl RulePlanOp {
         match self {
             Self::Scan => "scan",
             Self::Filter => "filter",
+            Self::Assert => "assert",
             Self::Project => "project",
             Self::EquiJoin => "equi_join",
             Self::AntiJoin => "anti_join",
@@ -719,4 +751,35 @@ impl RuleHeadKind {
             Self::Violations => "violations",
         }
     }
+}
+
+/// Mechanically project the typed assertion columns from an actual head declaration.
+/// Original key columns become payload; their complete types and physical contracts stay.
+pub fn assertion_columns(head: &[crate::model::FieldContract]) -> Vec<crate::model::FieldContract> {
+    use crate::model::{ColumnRole, FieldContract};
+    let mut columns = vec![
+        FieldContract::key(
+            "assertion_id",
+            FieldContract::id(),
+            "Finite assertion identity",
+        ),
+        FieldContract::reference("rule_id", FieldContract::id(), "Versioned producer rule"),
+        FieldContract::payload(
+            "truth",
+            FieldContract::enumeration("TruthValue"),
+            "Candidate truth",
+        ),
+    ];
+    columns.extend(
+        head.iter()
+            .filter(|column| column.role() != ColumnRole::Provenance)
+            .cloned()
+            .map(|mut column| {
+                if column.role() == ColumnRole::Key {
+                    column = column.with_role(ColumnRole::Payload);
+                }
+                column
+            }),
+    );
+    columns
 }

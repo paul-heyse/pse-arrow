@@ -130,12 +130,12 @@ pub enum RelationError {
         actual: String,
     },
 
-    /// A dictionary value is not a member of the declared enumeration.
+    /// A string value is not a member of the declared enumeration.
     #[error("field `{field}` holds `{value}`, which is not a member of `{enumeration}`")]
     #[diagnostic(
         code(schema::enum_member),
         help(
-            "an enumeration is a closed dictionary; add the member to the registry or correct the value"
+            "an enumeration has a declared member domain; add the member to the registry or correct the value"
         )
     )]
     EnumMember {
@@ -159,11 +159,11 @@ pub enum RelationError {
         /// The field path.
         field: String,
         /// The ordinal found.
-        ordinal: u64,
+        ordinal: i64,
         /// The target relation.
         target: String,
         /// How many rows the target has.
-        rows: u64,
+        rows: i64,
     },
 
     /// A declared relation contract or metadata value does not match the offered data.

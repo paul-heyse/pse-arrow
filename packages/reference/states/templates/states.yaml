@@ -1,0 +1,1484 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "templates": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "package_id": "f72889ca948f4c01bf5334a8ab18ea94",
+      "name": "FTPx.template",
+      "version": "1.0.0",
+      "kind": "state_block",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase molar state. Four interface expressions retain actual units, basis, reference and ordered species/phase domains."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "package_id": "f72889ca948f4c01bf5334a8ab18ea94",
+      "name": "FcTP.template",
+      "version": "1.0.0",
+      "kind": "state_block",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase molar state. Four interface expressions retain actual units, basis, reference and ordered species/phase domains."
+    }
+  ],
+  "template_scopes": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "self",
+      "scope_id": "9900b2442a7e4a3b84ab73c37611c397"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "self",
+      "scope_id": "8e2e26ce4d9b485ca59fe2c7744c5b0a"
+    }
+  ],
+  "template_params": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    }
+  ],
+  "template_domains": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    }
+  ],
+  "template_domain_bindings": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    }
+  ],
+  "template_features": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "defined_state",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "always_flash",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "true",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "has_holdup",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "material_flow_basis",
+      "kind": "enum",
+      "enum_id": "3a6605069c8b6a477c15c252e9cfe46c",
+      "default": "molar",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "default_material_balance_type",
+      "kind": "enum",
+      "enum_id": "ec25568117107d9c0445af04f18376bf",
+      "default": "componentTotal",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "name": "default_energy_balance_type",
+      "kind": "enum",
+      "enum_id": "290c5aece709971026ad20276f691ae0",
+      "default": "enthalpyTotal",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "defined_state",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "always_flash",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "true",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "has_holdup",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "material_flow_basis",
+      "kind": "enum",
+      "enum_id": "3a6605069c8b6a477c15c252e9cfe46c",
+      "default": "molar",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "default_material_balance_type",
+      "kind": "enum",
+      "enum_id": "ec25568117107d9c0445af04f18376bf",
+      "default": "componentTotal",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "name": "default_energy_balance_type",
+      "kind": "enum",
+      "enum_id": "290c5aece709971026ad20276f691ae0",
+      "default": "enthalpyTotal",
+      "inherit_from": null,
+      "doc": "Explicit stock state behavior; no inferred default from a template name."
+    }
+  ],
+  "template_guards": [
+    {
+      "guard_id": "8daa4c575a51465b8b1faa00a972207d",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "predicate": "not defined_state",
+      "doc": "Composition closure is imposed for an undefined outlet state, not for a fixed defined inlet."
+    },
+    {
+      "guard_id": "9174abf263d64ea6b4978775d5baa3ce",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "predicate": "not defined_state",
+      "doc": "Composition closure is imposed for an undefined outlet state, not for a fixed defined inlet."
+    }
+  ],
+  "template_symbols": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "75d55d1c66da4e97bd17de4480d959d5",
+      "name": "temperature",
+      "role": "variable",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": {
+        "kind": "finite",
+        "value": 1.0
+      },
+      "default_upper": null,
+      "default_initial": 298.15,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "989f9115f04f4d8d8c30f2cd464df2c7",
+      "name": "pressure",
+      "role": "variable",
+      "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+      "indexed_by": [],
+      "default_lower": {
+        "kind": "finite",
+        "value": 1.0
+      },
+      "default_upper": null,
+      "default_initial": 100000.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "6405ce47ec2a4cbd8cbe1fe5da6eb3ee",
+      "name": "flow_mol",
+      "role": "variable",
+      "quantity_type_id": "6df479e3be3bda77c5938727311f1063",
+      "indexed_by": [],
+      "default_lower": {
+        "kind": "finite",
+        "value": 0.0
+      },
+      "default_upper": null,
+      "default_initial": 1.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "197c95242fc44d9382babf49170dbe7e",
+      "name": "flow_mol_comp",
+      "role": "expression",
+      "quantity_type_id": "08f85f7bd5164fc79f815eaf7e78e748",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "880b6665f43942838f072a71a5aa4103",
+      "name": "mole_frac_comp",
+      "role": "variable",
+      "quantity_type_id": "097b706eec444374a1c44d67c8f93243",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": {
+        "kind": "finite",
+        "value": 1e-20
+      },
+      "default_upper": {
+        "kind": "finite",
+        "value": 1.001
+      },
+      "default_initial": 0.5,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "d9b18a77f7f24eaebc7bd0fd93ffbddd",
+      "name": "flow_mol_phase",
+      "role": "expression",
+      "quantity_type_id": "b11e1b58010443c099a7afc37c8aeaf6",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "828d7ece21064cc9a5e0ed74de560db6",
+      "name": "mole_frac_phase_comp",
+      "role": "expression",
+      "quantity_type_id": "29ea970b7df94c7e8ba425186051027c",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "50ccf49f30b644da8ab91a7cc6c32806",
+      "name": "flow_mol_phase_comp",
+      "role": "expression",
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "6dc42b67b0604409af6ae5c0003b7b45",
+      "name": "enth_mol_phase",
+      "role": "variable",
+      "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": 0.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "1880a6b51c314cd3b5510c254f255956",
+      "name": "dens_mol_phase",
+      "role": "variable",
+      "quantity_type_id": "c9d0a6d8ebf347588aad0247316c64a5",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": {
+        "kind": "finite",
+        "value": 0.0
+      },
+      "default_upper": null,
+      "default_initial": 1.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "072049c086a644c4956bd67db80d9691",
+      "name": "energy_internal_mol_phase",
+      "role": "expression",
+      "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "e276e55b57424870bb1d75a14bdf7732",
+      "name": "material_flow_terms",
+      "role": "expression",
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "b4c8758f5c254cf3a8994e8344ececd1",
+      "name": "enthalpy_flow_terms",
+      "role": "expression",
+      "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "d5e553a6bce245abbc7938bfa276b94a",
+      "name": "material_density_terms",
+      "role": "expression",
+      "quantity_type_id": "b26a38c3b42d436f968ea917f0f7aa5c",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "symbol_decl_id": "a1fb2934723f4f2b8f16e1a56835f44a",
+      "name": "energy_density_terms",
+      "role": "expression",
+      "quantity_type_id": "d3adb51a039f458d81ec17192afe8596",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "eb889bdb424c416d9e889da639a36879",
+      "name": "temperature",
+      "role": "variable",
+      "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+      "indexed_by": [],
+      "default_lower": {
+        "kind": "finite",
+        "value": 1.0
+      },
+      "default_upper": null,
+      "default_initial": 298.15,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "81ad47e3c3fd46ed89459602827b74a7",
+      "name": "pressure",
+      "role": "variable",
+      "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
+      "indexed_by": [],
+      "default_lower": {
+        "kind": "finite",
+        "value": 1.0
+      },
+      "default_upper": null,
+      "default_initial": 100000.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "49011f4388df42cea7dfb55b4abe1db9",
+      "name": "flow_mol_comp",
+      "role": "variable",
+      "quantity_type_id": "08f85f7bd5164fc79f815eaf7e78e748",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": {
+        "kind": "finite",
+        "value": 0.0
+      },
+      "default_upper": null,
+      "default_initial": 1.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "dd186e057b1541bb9a61423ae239c006",
+      "name": "flow_mol",
+      "role": "expression",
+      "quantity_type_id": "6df479e3be3bda77c5938727311f1063",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "e8b35f7c942e48cf831a79397a75d352",
+      "name": "mole_frac_comp",
+      "role": "variable",
+      "quantity_type_id": "097b706eec444374a1c44d67c8f93243",
+      "indexed_by": [
+        "j"
+      ],
+      "default_lower": {
+        "kind": "finite",
+        "value": 1e-20
+      },
+      "default_upper": {
+        "kind": "finite",
+        "value": 1.001
+      },
+      "default_initial": 0.5,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "f297ed3c3af042c59909b9bbc4975d11",
+      "name": "flow_mol_phase",
+      "role": "expression",
+      "quantity_type_id": "b11e1b58010443c099a7afc37c8aeaf6",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "e600f521ddfe410895cb6a146af4b5f2",
+      "name": "mole_frac_phase_comp",
+      "role": "expression",
+      "quantity_type_id": "29ea970b7df94c7e8ba425186051027c",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "e7799d4907694aa1a84d4e26b18dfa46",
+      "name": "flow_mol_phase_comp",
+      "role": "expression",
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "56e0b755818e40bd92a15ab2ce65815e",
+      "name": "enth_mol_phase",
+      "role": "variable",
+      "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": 0.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "9d3a9bfee011448c825702757d03195d",
+      "name": "dens_mol_phase",
+      "role": "variable",
+      "quantity_type_id": "c9d0a6d8ebf347588aad0247316c64a5",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": {
+        "kind": "finite",
+        "value": 0.0
+      },
+      "default_upper": null,
+      "default_initial": 1.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "b8bfbbba4509479c8a6418768cc1a53c",
+      "name": "energy_internal_mol_phase",
+      "role": "expression",
+      "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "6ddfb8d6c7884dfc95de73174324d84b",
+      "name": "material_flow_terms",
+      "role": "expression",
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "306e5b5ed4554bbcaad57c1b779530b6",
+      "name": "enthalpy_flow_terms",
+      "role": "expression",
+      "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "067d0ea622b04629a735bacafc5f62ec",
+      "name": "material_density_terms",
+      "role": "expression",
+      "quantity_type_id": "b26a38c3b42d436f968ea917f0f7aa5c",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "symbol_decl_id": "c4bdc566063c46d59d55c516821f6791",
+      "name": "energy_density_terms",
+      "role": "expression",
+      "quantity_type_id": "d3adb51a039f458d81ec17192afe8596",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    }
+  ],
+  "template_symbol_contracts": [
+    {
+      "symbol_decl_id": "75d55d1c66da4e97bd17de4480d959d5",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "989f9115f04f4d8d8c30f2cd464df2c7",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "6405ce47ec2a4cbd8cbe1fe5da6eb3ee",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "197c95242fc44d9382babf49170dbe7e",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "880b6665f43942838f072a71a5aa4103",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "d9b18a77f7f24eaebc7bd0fd93ffbddd",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "828d7ece21064cc9a5e0ed74de560db6",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "50ccf49f30b644da8ab91a7cc6c32806",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "6dc42b67b0604409af6ae5c0003b7b45",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "1880a6b51c314cd3b5510c254f255956",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "072049c086a644c4956bd67db80d9691",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e276e55b57424870bb1d75a14bdf7732",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "b4c8758f5c254cf3a8994e8344ececd1",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "d5e553a6bce245abbc7938bfa276b94a",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "a1fb2934723f4f2b8f16e1a56835f44a",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "eb889bdb424c416d9e889da639a36879",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "81ad47e3c3fd46ed89459602827b74a7",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "49011f4388df42cea7dfb55b4abe1db9",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "dd186e057b1541bb9a61423ae239c006",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e8b35f7c942e48cf831a79397a75d352",
+      "solver_type": "continuous",
+      "semantic_role": "state"
+    },
+    {
+      "symbol_decl_id": "f297ed3c3af042c59909b9bbc4975d11",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e600f521ddfe410895cb6a146af4b5f2",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "e7799d4907694aa1a84d4e26b18dfa46",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "56e0b755818e40bd92a15ab2ce65815e",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "9d3a9bfee011448c825702757d03195d",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "b8bfbbba4509479c8a6418768cc1a53c",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "6ddfb8d6c7884dfc95de73174324d84b",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "306e5b5ed4554bbcaad57c1b779530b6",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "067d0ea622b04629a735bacafc5f62ec",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "c4bdc566063c46d59d55c516821f6791",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    }
+  ],
+  "template_symbol_expressions": [
+    {
+      "symbol_decl_id": "197c95242fc44d9382babf49170dbe7e",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "broadcast(flow_mol, j)*mole_frac_comp[j]"
+    },
+    {
+      "symbol_decl_id": "d9b18a77f7f24eaebc7bd0fd93ffbddd",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "broadcast(flow_mol, p)"
+    },
+    {
+      "symbol_decl_id": "828d7ece21064cc9a5e0ed74de560db6",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "broadcast(mole_frac_comp[j], p)"
+    },
+    {
+      "symbol_decl_id": "50ccf49f30b644da8ab91a7cc6c32806",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "broadcast(broadcast(flow_mol, j)*mole_frac_comp[j], p)"
+    },
+    {
+      "symbol_decl_id": "072049c086a644c4956bd67db80d9691",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "enth_mol_phase[p] - broadcast(pressure, p)/dens_mol_phase[p]"
+    },
+    {
+      "symbol_decl_id": "e276e55b57424870bb1d75a14bdf7732",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "flow_mol_phase_comp[p,j]"
+    },
+    {
+      "symbol_decl_id": "b4c8758f5c254cf3a8994e8344ececd1",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "flow_mol_phase[p]*enth_mol_phase[p]"
+    },
+    {
+      "symbol_decl_id": "d5e553a6bce245abbc7938bfa276b94a",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "broadcast(dens_mol_phase[p], j)*mole_frac_phase_comp[p,j]"
+    },
+    {
+      "symbol_decl_id": "a1fb2934723f4f2b8f16e1a56835f44a",
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "expression": "dens_mol_phase[p]*energy_internal_mol_phase[p]"
+    },
+    {
+      "symbol_decl_id": "dd186e057b1541bb9a61423ae239c006",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "sum(k in j | flow_mol_comp[k])"
+    },
+    {
+      "symbol_decl_id": "f297ed3c3af042c59909b9bbc4975d11",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "broadcast(flow_mol, p)"
+    },
+    {
+      "symbol_decl_id": "e600f521ddfe410895cb6a146af4b5f2",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "broadcast(mole_frac_comp[j], p)"
+    },
+    {
+      "symbol_decl_id": "e7799d4907694aa1a84d4e26b18dfa46",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "broadcast(broadcast(flow_mol, j)*mole_frac_comp[j], p)"
+    },
+    {
+      "symbol_decl_id": "b8bfbbba4509479c8a6418768cc1a53c",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "enth_mol_phase[p] - broadcast(pressure, p)/dens_mol_phase[p]"
+    },
+    {
+      "symbol_decl_id": "6ddfb8d6c7884dfc95de73174324d84b",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "flow_mol_phase_comp[p,j]"
+    },
+    {
+      "symbol_decl_id": "306e5b5ed4554bbcaad57c1b779530b6",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "flow_mol_phase[p]*enth_mol_phase[p]"
+    },
+    {
+      "symbol_decl_id": "067d0ea622b04629a735bacafc5f62ec",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "broadcast(dens_mol_phase[p], j)*mole_frac_phase_comp[p,j]"
+    },
+    {
+      "symbol_decl_id": "c4bdc566063c46d59d55c516821f6791",
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "expression": "dens_mol_phase[p]*energy_internal_mol_phase[p]"
+    }
+  ],
+  "template_equations": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "equation_decl_id": "809bcfe6144e4283a80b4affe686fa10",
+      "name": "composition_closure",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "sum(k in j | mole_frac_comp[k]) == 1",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": "8daa4c575a51465b8b1faa00a972207d",
+      "idaes_name": null,
+      "doc": "First-principles state definition or exact algebraic identity."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "equation_decl_id": "f6479c28e09e4ec1bc5d83f2d9e6a38e",
+      "name": "component_flow_definition",
+      "indexed_by": [
+        "j"
+      ],
+      "filter": null,
+      "expression": "flow_mol_comp[j] == mole_frac_comp[j]*broadcast(flow_mol, j)",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "First-principles state definition or exact algebraic identity."
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "equation_decl_id": "c2c19be5d5204d80ab99802de54fa4cc",
+      "name": "composition_closure",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "sum(k in j | mole_frac_comp[k]) == 1",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": "9174abf263d64ea6b4978775d5baa3ce",
+      "idaes_name": null,
+      "doc": "First-principles state definition or exact algebraic identity."
+    }
+  ],
+  "template_symbol_properties": [
+    {
+      "symbol_decl_id": "6dc42b67b0604409af6ae5c0003b7b45",
+      "property_kind_id": "9aae781b9b3f43a5b9de80470929e4b8",
+      "scope_selector_id": "9900b2442a7e4a3b84ab73c37611c397"
+    },
+    {
+      "symbol_decl_id": "1880a6b51c314cd3b5510c254f255956",
+      "property_kind_id": "3ec5adcc2eee4b7083dc362aceed8ad4",
+      "scope_selector_id": "9900b2442a7e4a3b84ab73c37611c397"
+    },
+    {
+      "symbol_decl_id": "56e0b755818e40bd92a15ab2ce65815e",
+      "property_kind_id": "9aae781b9b3f43a5b9de80470929e4b8",
+      "scope_selector_id": "8e2e26ce4d9b485ca59fe2c7744c5b0a"
+    },
+    {
+      "symbol_decl_id": "9d3a9bfee011448c825702757d03195d",
+      "property_kind_id": "3ec5adcc2eee4b7083dc362aceed8ad4",
+      "scope_selector_id": "8e2e26ce4d9b485ca59fe2c7744c5b0a"
+    }
+  ],
+  "template_requirements": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "requirement": "material_flow_terms",
+      "detail": "material_flow_terms"
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "requirement": "enthalpy_flow_terms",
+      "detail": "enthalpy_flow_terms"
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "requirement": "material_density_terms",
+      "detail": "material_density_terms"
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "requirement": "energy_density_terms",
+      "detail": "energy_density_terms"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "requirement": "material_flow_terms",
+      "detail": "material_flow_terms"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "requirement": "enthalpy_flow_terms",
+      "detail": "enthalpy_flow_terms"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "requirement": "material_density_terms",
+      "detail": "material_density_terms"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "requirement": "energy_density_terms",
+      "detail": "energy_density_terms"
+    }
+  ],
+  "template_display": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "material_flow_terms",
+      "expression": "material_flow_terms[p,j]",
+      "display_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "format": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "enthalpy_flow_terms",
+      "expression": "enthalpy_flow_terms[p]",
+      "display_unit_id": "34207cdbb6fab2ee10002e057595c758",
+      "format": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "material_density_terms",
+      "expression": "material_density_terms[p,j]",
+      "display_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
+      "format": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "energy_density_terms",
+      "expression": "energy_density_terms[p]",
+      "display_unit_id": "2c780c134b34424c8d9767669932f479",
+      "format": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "variable",
+      "label": "temperature",
+      "expression": "temperature",
+      "display_unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+      "format": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "variable",
+      "label": "pressure",
+      "expression": "pressure",
+      "display_unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b",
+      "format": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "variable",
+      "label": "flow_mol",
+      "expression": "flow_mol",
+      "display_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "format": null
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "variable",
+      "label": "mole_frac_comp[j]",
+      "expression": "mole_frac_comp[j]",
+      "display_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "material_flow_terms",
+      "expression": "material_flow_terms[p,j]",
+      "display_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "enthalpy_flow_terms",
+      "expression": "enthalpy_flow_terms[p]",
+      "display_unit_id": "34207cdbb6fab2ee10002e057595c758",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "material_density_terms",
+      "expression": "material_density_terms[p,j]",
+      "display_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "energy_density_terms",
+      "expression": "energy_density_terms[p]",
+      "display_unit_id": "2c780c134b34424c8d9767669932f479",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "variable",
+      "label": "temperature",
+      "expression": "temperature",
+      "display_unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "variable",
+      "label": "pressure",
+      "expression": "pressure",
+      "display_unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "variable",
+      "label": "flow_mol_comp[j]",
+      "expression": "flow_mol_comp[j]",
+      "display_unit_id": "462e80f8128a7586583e9470658e1e0e",
+      "format": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "variable",
+      "label": "mole_frac_comp[j]",
+      "expression": "mole_frac_comp[j]",
+      "display_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "format": null
+    }
+  ],
+  "template_material_constraints": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    }
+  ],
+  "template_display_indices": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "material_flow_terms",
+      "indexed_by": [
+        "p",
+        "j"
+      ]
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "enthalpy_flow_terms",
+      "indexed_by": [
+        "p"
+      ]
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "material_density_terms",
+      "indexed_by": [
+        "p",
+        "j"
+      ]
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "expression",
+      "label": "energy_density_terms",
+      "indexed_by": [
+        "p"
+      ]
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "kind": "variable",
+      "label": "mole_frac_comp[j]",
+      "indexed_by": [
+        "j"
+      ]
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "material_flow_terms",
+      "indexed_by": [
+        "p",
+        "j"
+      ]
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "enthalpy_flow_terms",
+      "indexed_by": [
+        "p"
+      ]
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "material_density_terms",
+      "indexed_by": [
+        "p",
+        "j"
+      ]
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "expression",
+      "label": "energy_density_terms",
+      "indexed_by": [
+        "p"
+      ]
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "variable",
+      "label": "flow_mol_comp[j]",
+      "indexed_by": [
+        "j"
+      ]
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "kind": "variable",
+      "label": "mole_frac_comp[j]",
+      "indexed_by": [
+        "j"
+      ]
+    }
+  ],
+  "template_port_members": [
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "ordinal": 0,
+      "symbol_decl_id": "6405ce47ec2a4cbd8cbe1fe5da6eb3ee",
+      "symbol_group": "flow_mol"
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "ordinal": 1,
+      "symbol_decl_id": "75d55d1c66da4e97bd17de4480d959d5",
+      "symbol_group": "temperature"
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "ordinal": 2,
+      "symbol_decl_id": "989f9115f04f4d8d8c30f2cd464df2c7",
+      "symbol_group": "pressure"
+    },
+    {
+      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
+      "ordinal": 3,
+      "symbol_decl_id": "880b6665f43942838f072a71a5aa4103",
+      "symbol_group": "mole_frac_comp"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "ordinal": 0,
+      "symbol_decl_id": "49011f4388df42cea7dfb55b4abe1db9",
+      "symbol_group": "flow_mol_comp"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "ordinal": 1,
+      "symbol_decl_id": "eb889bdb424c416d9e889da639a36879",
+      "symbol_group": "temperature"
+    },
+    {
+      "template_id": "88ad610582c04b999ec786ac9f3aebba",
+      "ordinal": 2,
+      "symbol_decl_id": "81ad47e3c3fd46ed89459602827b74a7",
+      "symbol_group": "pressure"
+    }
+  ]
+}

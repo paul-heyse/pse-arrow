@@ -35,6 +35,7 @@ exactly what the generator emits.
 A `PreToolUse` hook blocks writes here. There is no environment escape for it: unlike the
 blueprint, there is no legitimate reason to hand-edit output.
 
-The optional Ipopt bindgen arm remains deferred: its check is `git diff HEAD` plus
-untracked-file rejection, and proves hygiene only. Explicit bindgen generation exits
-with status 2 until the solver-container generator is implemented.
+The Ipopt bindgen arm regenerates from `IPOPT_DIR/include/coin-or` when selected,
+or extracts the C headers from the digest-pinned solver image. Both normal regeneration
+and `just codegen-check` use the real generator; a placeholder or stale header receipt
+cannot pass. The pinned bindgen/prettyplease formatter owns the output.

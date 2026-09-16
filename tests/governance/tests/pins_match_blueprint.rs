@@ -8,12 +8,17 @@
     reason = "a governance test reports by panicking with the offending path; the workspace panic policy governs library code"
 )]
 
-//! Every `[workspace.dependencies]` entry is a version blueprint §3.1 declares, or is
-//! exempted by name in `tooling_deps.toml` with a reason.
+//! Every `[workspace.dependencies]` entry that blueprint §3.1 declares a version for
+//! declares that same version.
 //!
-//! §3.1's tables are the pin authority; the manifest is its mechanical form. Without this
-//! test the two drift, and the blueprint quietly stops describing what gets built
-//! (blueprint §24.1 "every crate in `Cargo.toml` ... appears in §3.1's tables").
+//! §3.1's tables are the PIN authority; the manifest is its mechanical form. Without this
+//! test the two drift, and the blueprint quietly stops describing what gets built.
+//!
+//! §3.1 is **not** an admission list. A dependency the blueprint does not mention is
+//! reported and allowed: during phases 0-1 nothing about which library you use blocks a
+//! merge (ADR-0066, blueprint §3.3.2, `docs/dev/dependency-policy.md`). The drift arm
+//! below is what still fails, because a pin that disagrees with §3.1 makes the blueprint
+//! false about the one type universe.
 //!
 //! Family subcrates inherit their family's row: §3.1 writes `arrow`, `arrow-*`, `parquet`
 //! on one line and `datafusion` and every `datafusion-*` subcrate on another, because a
@@ -163,7 +168,7 @@ fn satisfies(declared: &str, blueprint: &str) -> bool {
 }
 
 #[test]
-fn every_workspace_dependency_matches_blueprint_or_is_exempt() {
+fn declared_pins_do_not_drift_from_blueprint() {
     let pins = blueprint_pins();
     let exempt = tooling_exemptions();
     let manifest = common::root_manifest();
@@ -172,6 +177,7 @@ fn every_workspace_dependency_matches_blueprint_or_is_exempt() {
         .expect("[workspace.dependencies]");
 
     let mut problems: Vec<String> = Vec::new();
+    let mut undescribed: Vec<String> = Vec::new();
     for (name, value) in deps {
         let Some(declared) = declared_version(value) else {
             continue; // path dependency: an internal crate, versioned by the workspace
@@ -180,16 +186,28 @@ fn every_workspace_dependency_matches_blueprint_or_is_exempt() {
             continue;
         }
         match blueprint_version(name, &pins) {
-            None => problems.push(format!(
-                "`{name} = {declared}` is in [workspace.dependencies] but not in blueprint \
-                 §3.1's tables. Add the row (a dependency family is an ADR) or, if it is \
-                 dev/tooling only, list it in tests/governance/tooling_deps.toml with a reason."
-            )),
+            // Not a failure. §3.1 pins what the platform is built around; it does not
+            // enumerate what the platform may use (ADR-0066).
+            None => undescribed.push(format!("{name} = {declared}")),
             Some(expected) if !satisfies(&declared, &expected) => problems.push(format!(
                 "`{name}`: manifest declares {declared}, blueprint §3.1 says {expected}"
             )),
             Some(_) => {}
         }
+    }
+
+    if !undescribed.is_empty() {
+        eprintln!(
+            "note: {} [workspace.dependencies] entr{} not described in blueprint §3.1, which \
+             is expected while dependency admission is advisory (ADR-0066):\n  {}",
+            undescribed.len(),
+            if undescribed.len() == 1 {
+                "y is"
+            } else {
+                "ies are"
+            },
+            undescribed.join("\n  ")
+        );
     }
 
     assert!(
@@ -200,7 +218,7 @@ fn every_workspace_dependency_matches_blueprint_or_is_exempt() {
 }
 
 #[test]
-fn tooling_exemptions_are_all_used() {
+fn tooling_exemptions_are_well_formed() {
     let manifest = common::root_manifest();
     let deps = common::dig(&manifest, &["workspace", "dependencies"])
         .and_then(Value::as_table)
@@ -209,9 +227,13 @@ fn tooling_exemptions_are_all_used() {
         .into_iter()
         .filter(|name| !deps.contains_key(name))
         .collect();
-    assert!(
-        stale.is_empty(),
-        "tooling_deps.toml exempts dependencies that are no longer declared: {stale:?}. \
-         A stale exemption is a hole waiting for a name collision."
-    );
+    // Not a failure: an exemption only ever suppressed the "not in §3.1" report, which no
+    // longer fails either. The list stays because its reasons explain why these are not
+    // platform commitments.
+    if !stale.is_empty() {
+        eprintln!(
+            "note: tooling_deps.toml lists dependencies that are no longer declared: \
+             {stale:?}. Prune them when convenient."
+        );
+    }
 }

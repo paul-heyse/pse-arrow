@@ -5,8 +5,8 @@
 
 use crate::builder::RegistryBuilder;
 use crate::model::{
-    Authority, ColumnRole, ColumnSpec, DerivationGranularity, EnumDecl, EnumMember, LogicalType,
-    Namespace, RelationDecl, SnapshotClass,
+    Authority, ColumnRole, DerivationGranularity, EnumDecl, EnumMember, FieldContract, Namespace,
+    RelationDecl, SnapshotClass,
 };
 
 pub(super) fn relation(
@@ -15,7 +15,25 @@ pub(super) fn relation(
     name: &'static str,
     class: SnapshotClass,
     keys: &[&'static str],
-    mut columns: Vec<ColumnSpec>,
+    columns: Vec<FieldContract>,
+    doc: &'static str,
+) {
+    relation_version(builder, namespace, name, 1, class, keys, columns, doc);
+}
+
+/// A meaning-changing schema revision is explicit at its authoritative declaration.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the explicit declaration includes its schema version"
+)]
+pub(super) fn relation_version(
+    builder: &mut RegistryBuilder,
+    namespace: Namespace,
+    name: &'static str,
+    version: u32,
+    class: SnapshotClass,
+    keys: &[&'static str],
+    mut columns: Vec<FieldContract>,
     doc: &'static str,
 ) {
     let authority = match namespace {
@@ -24,11 +42,11 @@ pub(super) fn relation(
         _ => Authority::Derived,
     };
     for column in &mut columns {
-        if keys.contains(&column.name) {
-            column.role = ColumnRole::Key;
+        if keys.contains(&column.name()) {
+            *column = column.clone().with_role(ColumnRole::Key);
         }
     }
-    let mut declaration = RelationDecl::new(namespace, name, 1, authority, class, doc)
+    let mut declaration = RelationDecl::new(namespace, name, version, authority, class, doc)
         .pk(keys)
         .columns(columns);
     if authority == Authority::Derived {
@@ -37,8 +55,8 @@ pub(super) fn relation(
     builder.declare_relation(declaration);
 }
 
-pub(super) fn column(name: &'static str, logical_type: LogicalType) -> ColumnSpec {
-    ColumnSpec::payload(name, logical_type, name)
+pub(super) fn column(name: &'static str, logical_type: FieldContract) -> FieldContract {
+    FieldContract::payload(name, logical_type, name)
 }
 
 pub(super) fn enumeration(
@@ -55,11 +73,11 @@ pub(super) fn enumeration(
     ));
 }
 
-pub(super) fn structure(fields: Vec<(&'static str, LogicalType)>) -> LogicalType {
-    LogicalType::Struct(
+pub(super) fn structure(fields: Vec<(&'static str, FieldContract)>) -> FieldContract {
+    FieldContract::structure(
         fields
             .into_iter()
-            .map(|(name, kind)| (name, kind, false))
+            .map(|(name, kind)| kind.with_name(name))
             .collect(),
     )
 }

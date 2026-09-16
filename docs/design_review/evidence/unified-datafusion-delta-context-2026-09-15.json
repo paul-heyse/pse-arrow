@@ -1,0 +1,611 @@
+{
+  "review_date": "2026-09-15",
+  "evidence_label": "Interface-checked",
+  "scope": "Read-only design research; source and metadata inspection, no combined Delta/PSE build or behavior probe",
+  "repository_head": "eebc82e9f2298e4a53e08818cfd2a1dfb6fc310b",
+  "working_tree": "Extensively dirty; file hashes identify inspected state, HEAD is not source authority",
+  "toolchain": "1.98.1",
+  "delta_commit": "58f07cd62bfbce3649a7e1c87c696288068ae184",
+  "delta_commit_time": "2026-09-15T18:28:16+02:00",
+  "kernel_commit": "8ba063f8f84fec222000f66d40d70911d7c79675",
+  "commands": [
+    {
+      "command": "just doctor",
+      "result": "1 environment freshness failure; no environment mutation for review"
+    },
+    {
+      "command": "just metadata",
+      "result": "exit 0; workspace declarations only"
+    },
+    {
+      "command": "rustup run 1.98.1 cargo metadata --locked --offline --format-version 1",
+      "result": "exit 0; existing PSE resolved graph; no combined Delta graph"
+    },
+    {
+      "command": "just docs",
+      "result": "exit 0; zero build failures, one large-search-index warning (baseline 0); includes this review; not a runtime test"
+    },
+    {
+      "command": ".venv/bin/typos docs/design_review/reviews/design_review_unified-datafusion-delta_2026-09-15.md docs/design_review/evidence/unified-datafusion-delta-context-2026-09-15.json",
+      "result": "exit 0; zero spelling findings; baseline 0"
+    }
+  ],
+  "resolved_pse_packages": [
+    {
+      "name": "arrow",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "arrow-csv",
+        "arrow-ipc",
+        "arrow-json",
+        "canonical_extension_types",
+        "chrono-tz",
+        "csv",
+        "default",
+        "ffi",
+        "ipc",
+        "json",
+        "prettyprint"
+      ]
+    },
+    {
+      "name": "arrow-array",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "chrono-tz",
+        "ffi"
+      ]
+    },
+    {
+      "name": "arrow-schema",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "bitflags",
+        "canonical_extension_types",
+        "ffi"
+      ]
+    },
+    {
+      "name": "datafusion",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "bzip2",
+        "compression",
+        "crypto_expressions",
+        "datafusion-datasource-parquet",
+        "datafusion-functions-nested",
+        "datafusion-sql",
+        "datetime_expressions",
+        "default",
+        "encoding_expressions",
+        "flate2",
+        "liblzma",
+        "nested_expressions",
+        "parquet",
+        "recursive_protection",
+        "regex_expressions",
+        "sql",
+        "sqlparser",
+        "string_expressions",
+        "unicode_expressions",
+        "zstd"
+      ]
+    },
+    {
+      "name": "datafusion-expr",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "default",
+        "proto",
+        "recursive_protection",
+        "sql",
+        "sqlparser"
+      ]
+    },
+    {
+      "name": "datafusion-functions-nested",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "sql"
+      ]
+    },
+    {
+      "name": "datafusion-session",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": []
+    },
+    {
+      "name": "object_store",
+      "version": "0.13.2",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "default",
+        "fs",
+        "tokio",
+        "walkdir"
+      ]
+    },
+    {
+      "name": "parquet",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "features": [
+        "arrow",
+        "arrow-array",
+        "arrow-buffer",
+        "arrow-data",
+        "arrow-ipc",
+        "arrow-schema",
+        "arrow-select",
+        "async",
+        "base64",
+        "brotli",
+        "default",
+        "flate2",
+        "flate2-zlib-rs",
+        "futures",
+        "lz4",
+        "lz4_flex",
+        "object_store",
+        "simdutf8",
+        "snap",
+        "tokio",
+        "zstd"
+      ]
+    }
+  ],
+  "delta_acquisition_lock_packages": [
+    {
+      "name": "arrow",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "arrow-array",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "arrow-schema",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "buoyant_kernel",
+      "version": "0.25.1",
+      "source": "git+https://github.com/buoyant-data/delta-kernel-rs?branch=buoyant%2Fmain#8ba063f8f84fec222000f66d40d70911d7c79675"
+    },
+    {
+      "name": "buoyant_kernel_engine",
+      "version": "0.25.1",
+      "source": "git+https://github.com/buoyant-data/delta-kernel-rs?branch=buoyant%2Fmain#8ba063f8f84fec222000f66d40d70911d7c79675"
+    },
+    {
+      "name": "datafusion",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "datafusion-expr",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "datafusion-functions-nested",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "datafusion-session",
+      "version": "55.1.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "deltalake-core",
+      "version": "1.0.0"
+    },
+    {
+      "name": "object_store",
+      "version": "0.13.2",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    },
+    {
+      "name": "parquet",
+      "version": "59.3.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index"
+    }
+  ],
+  "delta_acquisition_lock_note": "Skill acquisition lock, not an upstream committed lock and not PSE integration proof",
+  "source_sha256": {
+    "pse": {
+      "Cargo.toml": "ce5a932b117fa01eda7bd8dd9ffb83f7ee5abbc398f90519addbec68f8a42768",
+      "Cargo.lock": "bbabbaf37637e67157bb43633c25391d5ebb1bf4cf50a345adcb523e67dfb8c6",
+      "docs/capability-maps/datafusion_provider_contracts.md": "7c1bff4cc7b2b1f16dfa04ecaedea5de120a61e4c0e5cf5b2a5456d6cea10550",
+      "docs/plans/06-provider-contracts-hard-pivot.md": "cb936a8242adf4df8cbcf3047f474b13173990cba8dc392ed97f1b3bb8af5703",
+      "docs/adr/0067-native-logical-plan-hard-pivot.md": "5f00138721879a6a8743696504993b5062c926d5cbaa7abee7c31f990db3189d",
+      "crates/pse-catalog/src/session/operation.rs": "4df2d4375eb13f368cfd80654392990084c2942b4c03bc17095442625675d5da",
+      "crates/pse-catalog/src/session/preparation.rs": "c5e5ff138b5a95433fc247db97f1d6d8e413a3e59f92db7ea9c2c314fb0d3593",
+      "crates/pse-catalog/src/session/factory.rs": "edc0ba58b034eb971d75cfa6eac389e0f43790436dc66faf1cbbc36c9f8bcd75",
+      "crates/pse-catalog/src/session/native.rs": "c3351e1a2542dfeaf26bbd4bfd4ca0baf299f7702e17bf983f7d26d04034022d",
+      "crates/pse-catalog/src/session/policy.rs": "8ff4075a7bafb74dce9512971326afc0cd51aeba7d1715705bfb6f47f1c9ca80",
+      "crates/pse-catalog/src/session/plan_codec.rs": "b726f3a28a7a0353128905db85a0809ffcc34accbbb7b4034a98f1f31a292e68",
+      "crates/pse-catalog/src/store/layout.rs": "a6f2363d660fd2a078cb4dad8901e7fe7a7ab4b8fb7bdff7073eac0da4233af4",
+      "crates/pse-catalog/src/store/open.rs": "b687e3ad30d8b278c782cf81c54a6d89ff3e6553fcd84f4540a481c38ba0d155",
+      "crates/pse-catalog/src/store/publication.rs": "8dc14b027bd6c1bcf1a31e26e5447767ab386627ca9231cacea6c38fa951bd47",
+      "crates/pse-compiler/src/driver/commit.rs": "8ab90a297d9e897fd5d54e84913be4be173f45a0c14c894a3bda63ed4754ebc7",
+      "crates/pse-compiler/src/passes/p3.rs": "9e34108deeb49d46f3667d40b25d2506cb0e4c1dd84aec8b7c7704c9306d0036",
+      "crates/pse-compiler/src/passes/p7.rs": "3af592ea7fc729a3d6d2c798283881a4ec03e313259bfdafa2e7c8529c6bc8ba",
+      "crates/pse-rules/src/exec/mod.rs": "904bacb3d30d9148ec5fee790fa7e3b7649c2fedee972d9597a1b53d67ceab73",
+      "crates/pse-rules/src/strata/native_input/provenance.rs": "15971bd39f4c2c72e31c20243f6863fa238bab2f44dacf05d204410c10e8eb18",
+      "crates/pse-mathir/src/lib.rs": "519e88e75bf58114342ea2dcb06768c923d9ff77c025f036c7087465615a2020",
+      "crates/pse-backend-native/src/lib.rs": "6fba33e54f4fc200fa53d7ecf5515d1efaec3407d9b8cba71335bbfe1e3cc1ed",
+      "crates/pse-py/src/inspection/stream.rs": "b179a8dd36a2e04a7da4535d088dc05c785fe80dbcf0e6d9cd627615ddbdf392"
+    },
+    "delta_rs": {
+      "Cargo.toml": "7d38806a50ea15ad41d6a43f04e5cc953159743dbf4aee610ebed9fbcacc56a3",
+      "Cargo.lock": "374fe281aa9204f9cbf9fdfdb06749c008eb0ae32906d68f40f1b6837ad0e402",
+      "crates/core/src/delta_datafusion/mod.rs": "355232479f07349e900dc9ce9b26c843956cb76328d8656a73483fe9260eaa2c",
+      "crates/core/src/delta_datafusion/planner.rs": "4da68d1bbd931c7d70f3536e47ef4a2d9cdd6cd6b40f666aed8808611264d2a6",
+      "crates/core/src/delta_datafusion/session.rs": "3821eaf54bae4f1df119ad04aea4bbcd2a157171d7a0337550a31c9a7134c2e8",
+      "crates/core/src/delta_datafusion/table_provider/next/mod.rs": "4ba62c73ec0c1f3aefe7c90ba6552b077406df148e7a0cef94f58e80467d84ce",
+      "crates/core/src/delta_datafusion/table_provider/data_sink.rs": "f238bdfaf222a7fe0d5e299dc5842216258977d0e1b0ab3b36debe27e58009c0",
+      "crates/core/src/operations/write/mod.rs": "e41584541b0fefd417bc66fa9249f777232e37018f954a25fca8faa2bc6f3288",
+      "crates/core/src/operations/write/execution.rs": "61ab2508b6e182de45942674d2f156b84888daa44f1c7c87b438bc50361ebe6e",
+      "crates/core/src/operations/constraints.rs": "b1a54f56ac0a0cbc01eaef1a2cd35c8253ed4eba5db2a0d25a6c0abe09e1af5c",
+      "crates/core/src/operations/vacuum.rs": "f004fa58798d26f01876494695eabd0684efd4e93371eeb5daa525fbc33858d0",
+      "crates/core/src/operations/load_cdf.rs": "4fde45edf55e4abd9847176c80a8a8c7017dd7afe6a06fa776863bb512d97359",
+      "crates/core/src/kernel/transaction/mod.rs": "6448c8b791c79f0c6ff9659ebc0eeb840499f9f8532979629b5d78bbd8190675",
+      "crates/core/src/kernel/transaction/conflict_checker.rs": "76100c5a107f23e3651fe04b56cd06fd7fac11daa12a88dc0757164e5b94ddbe",
+      "crates/core/src/datafile/writer.rs": "8ce08f63da37ff7eb83b59ec30bca2b4d6485e279af6752874044ed702edb572",
+      "crates/core/src/operations/write/plan.rs": "469eb46fa6b03a03917b8dfaeffca2820b690ef46cc1be0d97bf4ff545dff99d"
+    },
+    "kernel": {
+      "kernel/src/engine/arrow_conversion/mod.rs": "492465c7772e505b5ff833033d1997237602b8572c28450b867b16c1765626fd"
+    }
+  },
+  "delta_datafusion_foreign_implementors_from_skill": [
+    {
+      "trait": "datafusion_common::pruning::PruningStatistics",
+      "implementor": "deltalake_core::kernel::snapshot::EagerSnapshot",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_common::pruning::PruningStatistics",
+      "implementor": "deltalake_core::kernel::snapshot::log_data::LogDataHandler",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_common::pruning::PruningStatistics",
+      "implementor": "deltalake_core::kernel::transaction::state::AddContainer",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_common::tree_node::TreeNodeVisitor",
+      "implementor": "deltalake_core::delta_datafusion::data_validation::NotNullExtractor",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_common::tree_node::TreeNodeVisitor",
+      "implementor": "deltalake_core::delta_datafusion::find_files::FindFilesExprProperties",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_datasource::sink::DataSink",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::data_sink::DeltaDataSink",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_execution::stream::RecordBatchStream",
+      "implementor": "deltalake_core::delta_datafusion::column_mapping::ColumnMappingStream",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_execution::stream::RecordBatchStream",
+      "implementor": "deltalake_core::delta_datafusion::data_validation::DataValidationStream",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_execution::stream::RecordBatchStream",
+      "implementor": "deltalake_core::delta_datafusion::physical::MetricObserverStream",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_execution::stream::RecordBatchStream",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::scan::exec::DeltaScanStream",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_execution::stream::RecordBatchStream",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::scan::exec_meta::DeltaScanMetaStream",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_execution::stream::RecordBatchStream",
+      "implementor": "deltalake_core::operations::merge::barrier::MergeBarrierStream",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_execution::stream::RecordBatchStream",
+      "implementor": "deltalake_core::operations::merge::validation::MergeValidationStream",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::logical_plan::extension::UserDefinedLogicalNodeCore",
+      "implementor": "deltalake_core::delta_datafusion::data_validation::DataValidation",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::logical_plan::extension::UserDefinedLogicalNodeCore",
+      "implementor": "deltalake_core::delta_datafusion::logical::MetricObserver",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::logical_plan::extension::UserDefinedLogicalNodeCore",
+      "implementor": "deltalake_core::operations::merge::barrier::MergeBarrier",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::logical_plan::extension::UserDefinedLogicalNodeCore",
+      "implementor": "deltalake_core::operations::merge::validation::MergeValidation",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::planner::ContextProvider",
+      "implementor": "deltalake_core::delta_datafusion::expr::DeltaContextProvider",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::planner::ExprPlanner",
+      "implementor": "deltalake_core::delta_datafusion::expr::CustomNestedFunctionPlanner",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::udf::ScalarUDFImpl",
+      "implementor": "deltalake_core::delta_datafusion::engine::expressions::to_json::ToJson",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::udf::ScalarUDFImpl",
+      "implementor": "deltalake_core::delta_datafusion::expr::MakeParquetArray",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_expr::udf::ScalarUDFImpl",
+      "implementor": "deltalake_core::operations::optimize::zorder::datafusion::ZOrderUDF",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_expr_adapter::schema_rewriter::PhysicalExprAdapterFactory",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::scan::expr_adapter::DeltaPhysicalExprAdapterFactory",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::delta_datafusion::column_mapping::ColumnMappingExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::delta_datafusion::data_validation::DataValidationExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::delta_datafusion::physical::MetricObserverExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::DeltaScan",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::data_sink::DeltaDataSink",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::scan::exec::DeltaScanExec",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::scan::exec_meta::DeltaScanMetaExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::operations::merge::barrier::MergeBarrierExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::display::DisplayAs",
+      "implementor": "deltalake_core::operations::merge::validation::MergeValidationExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::delta_datafusion::column_mapping::ColumnMappingExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::delta_datafusion::data_validation::DataValidationExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::delta_datafusion::physical::MetricObserverExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::DeltaScan",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::scan::exec::DeltaScanExec",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::scan::exec_meta::DeltaScanMetaExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::operations::merge::barrier::MergeBarrierExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_physical_plan::execution_plan::ExecutionPlan",
+      "implementor": "deltalake_core::operations::merge::validation::MergeValidationExec",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_proto::logical_plan::LogicalExtensionCodec",
+      "implementor": "deltalake_core::delta_datafusion::DeltaLogicalCodec",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_proto::physical_plan::PhysicalExtensionCodec",
+      "implementor": "deltalake_core::delta_datafusion::DeltaPhysicalCodec",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::catalog::CatalogProvider",
+      "implementor": "deltalake_catalog_unity::datafusion::UnityCatalogProvider",
+      "nameable": "yes",
+      "crate": "deltalake-catalog-unity"
+    },
+    {
+      "trait": "datafusion_session::catalog::CatalogProviderList",
+      "implementor": "deltalake_catalog_unity::datafusion::UnityCatalogList",
+      "nameable": "yes",
+      "crate": "deltalake-catalog-unity"
+    },
+    {
+      "trait": "datafusion_session::planner::ExtensionPlanner",
+      "implementor": "deltalake_core::delta_datafusion::data_validation::DataValidationExtensionPlanner",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::planner::ExtensionPlanner",
+      "implementor": "deltalake_core::delta_datafusion::planner::DeltaExtensionPlanner",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::planner::ExtensionPlanner",
+      "implementor": "deltalake_core::operations::delete::DeleteMetricExtensionPlanner",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::planner::ExtensionPlanner",
+      "implementor": "deltalake_core::operations::merge::MergeMetricExtensionPlanner",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::planner::ExtensionPlanner",
+      "implementor": "deltalake_core::operations::update::UpdateMetricExtensionPlanner",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::planner::ExtensionPlanner",
+      "implementor": "deltalake_core::operations::write::metrics::WriteMetricExtensionPlanner",
+      "nameable": "no",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::planner::QueryPlanner",
+      "implementor": "deltalake_core::delta_datafusion::planner::DeltaPlanner",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::schema::SchemaProvider",
+      "implementor": "deltalake_catalog_unity::datafusion::UnitySchemaProvider",
+      "nameable": "yes",
+      "crate": "deltalake-catalog-unity"
+    },
+    {
+      "trait": "datafusion_session::schema::SchemaProvider",
+      "implementor": "deltalake_core::data_catalog::storage::ListingSchemaProvider",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::table::TableProvider",
+      "implementor": "deltalake_core::delta_datafusion::cdf::scan::DeltaCdfTableProvider",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::table::TableProvider",
+      "implementor": "deltalake_core::delta_datafusion::table_provider::next::DeltaScan",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    },
+    {
+      "trait": "datafusion_session::table::TableProviderFactory",
+      "implementor": "deltalake_core::delta_datafusion::DeltaTableFactory",
+      "nameable": "yes",
+      "crate": "deltalake-core"
+    }
+  ]
+}

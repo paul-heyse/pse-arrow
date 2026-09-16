@@ -7,13 +7,16 @@
 //! current semantic admission, including source bytes and immutable parent bindings.
 //! Fine-grained memoization with `salsa` is deferred under register row R-13.
 //!
-pub(crate) mod context;
+
+pub(crate) mod snapshots;
+use snapshots::same_snapshot;
 
 use crate::{
     CompilerError,
     passes::{InputBundle, PassContext, PolicySet, StageKey},
 };
-use pse_catalog::{Snapshot, session::SessionSemantics};
+use pse_catalog::{Snapshot, session::SnapshotSession};
+use pse_ids::{CancellationToken, MemoryReserver};
 use pse_schema::Registry;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -25,69 +28,42 @@ pub struct Dependencies {
     policies: PolicySet,
     sources: Arc<SourceInputs>,
 }
-#[derive(Debug)]
 struct SourceInputs {
-    entries: BTreeMap<(pse_ids::SemanticId, pse_ids::SemanticId, String), String>,
-    engine: Option<SessionSemantics>,
+    documents: pse_authoring::document::OwnedDocumentSet,
+    engine: SnapshotSession,
     _lease: Arc<pse_ids::ReservationLease>,
 }
+impl std::fmt::Debug for SourceInputs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SourceInputs")
+            .field("documents", &self.documents)
+            .field("engine_profile", &self.engine.profile_hash())
+            .finish_non_exhaustive()
+    }
+}
 impl Dependencies {
+    /// Actual execution effects can refuse reuse even when all retained inputs agree.
+    /// # Errors
+    /// The attempt observation collector is unavailable.
+    pub fn reusable(&self) -> Result<bool, CompilerError> {
+        Ok(!self.sources.engine.requires_fresh_execution()?)
+    }
     /// Capture the complete declared input inventory and actual engine semantics.
     /// # Errors
     /// Retaining the complete source byte inventory exceeds the shared budget.
-    pub fn capture(
-        inputs: &InputBundle,
-        ctx: &PassContext<'_>,
-        executes_plans: bool,
-    ) -> Result<Self, CompilerError> {
+    pub fn capture(inputs: &InputBundle, ctx: &PassContext<'_>) -> Result<Self, CompilerError> {
         let mut reservation = ctx.reserver.open("compiler:memo-source-inputs");
-        let mut entries = BTreeMap::new();
-        for bundle in ctx.documents.bundles() {
-            for document in &bundle.documents {
-                ctx.cancel.checkpoint()?;
-                reservation
-                    .try_grow(
-                        document
-                            .text
-                            .len()
-                            .saturating_add(document.path.len())
-                            .saturating_add(256),
-                    )
-                    .map_err(|error| CompilerError::Catalog(error.into()))?;
-                if entries
-                    .insert(
-                        (
-                            bundle.package.package_id,
-                            document.id,
-                            document.path.clone(),
-                        ),
-                        document.text.clone(),
-                    )
-                    .is_some()
-                {
-                    return Err(crate::passes::dag::invalid("duplicate memo source input"));
-                }
-            }
-        }
-        let engine = if executes_plans {
-            let session = ctx.session.ok_or_else(|| {
-                crate::passes::dag::invalid(
-                    "engine-dependent memo capture lacks actual sealed semantics",
-                )
-            })?;
-            reservation
-                .try_grow(session.semantic_inputs_extent()?)
-                .map_err(|error| CompilerError::Catalog(error.into()))?;
-            Some(session.semantic_inputs())
-        } else {
-            None
-        };
+        ctx.cancel.checkpoint()?;
+        reservation
+            .try_grow(4096 + inputs.ports.len() * 256 + ctx.policies.0.len() * 512)
+            .map_err(|error| CompilerError::Catalog(error.into()))?;
+        let engine = ctx.session.clone();
         Ok(Self {
             registry: Arc::clone(ctx.registry),
             inputs: inputs.clone(),
             policies: ctx.policies.clone(),
             sources: Arc::new(SourceInputs {
-                entries,
+                documents: ctx.documents.clone(),
                 engine,
                 _lease: pse_ids::ReservationLease::new(reservation),
             }),
@@ -95,13 +71,27 @@ impl Dependencies {
     }
     /// Compare declarations, complete actual rows, parent context, policies and engine inputs.
     /// # Errors
-    /// A retained actual relation no longer conforms to its declaration.
-    pub fn equivalent(&self, other: &Self) -> Result<bool, CompilerError> {
+    /// A retained relation no longer conforms, comparison exceeds its reservation,
+    /// or the request is cancelled.
+    pub fn equivalent(
+        &self,
+        other: &Self,
+        reserver: &dyn MemoryReserver,
+        cancel: &CancellationToken,
+    ) -> Result<bool, CompilerError> {
+        cancel.checkpoint()?;
+        if !self.reusable()? || !other.reusable()? {
+            return Ok(false);
+        }
         // Identical immutable declaration objects are direct authority. A different
         // registry object conservatively misses, even if its fingerprint collides.
         if !Arc::ptr_eq(&self.registry, &other.registry)
-            || self.sources.entries != other.sources.entries
-            || self.sources.engine != other.sources.engine
+            || !same_documents(&self.sources.documents, &other.sources.documents)
+            || self
+                .sources
+                .engine
+                .validate_execution_environment(&other.sources.engine)
+                .is_err()
             || self.inputs.ports.keys().ne(other.inputs.ports.keys())
             || self.policies.0.keys().ne(other.policies.0.keys())
         {
@@ -113,7 +103,13 @@ impl Dependencies {
                 (Some(left), Some(right)) => {
                     if left.relation_id() != right.relation_id()
                         || left.relation().member().port != right.relation().member().port
-                        || !same_snapshot(left.snapshot(), right.snapshot(), &self.registry)?
+                        || !same_snapshot(
+                            left.snapshot(),
+                            right.snapshot(),
+                            &self.registry,
+                            reserver,
+                            cancel,
+                        )?
                     {
                         return Ok(false);
                     }
@@ -130,6 +126,8 @@ impl Dependencies {
                     left.input.snapshot(),
                     right.input.snapshot(),
                     &self.registry,
+                    reserver,
+                    cancel,
                 )?
             {
                 return Ok(false);
@@ -138,58 +136,29 @@ impl Dependencies {
         Ok(true)
     }
 }
-fn same_snapshot(
-    left: &Arc<Snapshot>,
-    right: &Arc<Snapshot>,
-    registry: &Registry,
-) -> Result<bool, CompilerError> {
-    if Arc::ptr_eq(left, right) {
-        return Ok(true);
+fn same_documents(
+    left: &pse_authoring::document::OwnedDocumentSet,
+    right: &pse_authoring::document::OwnedDocumentSet,
+) -> bool {
+    if left.same_owner(right) {
+        return true;
     }
-    let mut stack = vec![(Arc::clone(left), Arc::clone(right))];
-    let mut visited = std::collections::BTreeSet::new();
-    while let Some((left, right)) = stack.pop() {
-        if Arc::ptr_eq(&left, &right) {
-            continue;
-        }
-        if !visited.insert((Arc::as_ptr(&left), Arc::as_ptr(&right))) {
-            continue;
-        }
-        if left.manifest_ref() != right.manifest_ref()
-            || left.stage_pass() != right.stage_pass()
-            || left.manifest().snapshot_kind != right.manifest().snapshot_kind
-            || left.relations().keys().ne(right.relations().keys())
-            || left.parents().keys().ne(right.parents().keys())
-        {
-            return Ok(false);
-        }
-        for (key, left) in left.relations() {
-            let right = &right.relations()[key];
-            if left.contract().canonical.schema != right.contract().canonical.schema
-                || left.contract().canonical.relation_id != right.contract().canonical.relation_id
-                || left.member().port != right.member().port
-            {
-                return Ok(false);
-            }
-            let spec = registry
-                .relation_by_id(left.contract().canonical.relation_id)
-                .ok_or_else(|| {
-                    crate::passes::dag::invalid("memo dependency declaration missing")
-                })?;
-            left.contract().validate_against_registry(registry, spec)?;
-            right.contract().validate_against_registry(registry, spec)?;
-            // Arrow compares actual schema metadata and visible value buffers,
-            // including signed-zero/NaN bits and recursive null masking.
-            if left.batch() != right.batch() {
-                return Ok(false);
-            }
-        }
-        for (role, parent) in left.parents() {
-            stack.push((Arc::clone(parent), Arc::clone(&right.parents()[role])));
-        }
-    }
-    Ok(true)
+    let left = left.bundles();
+    let right = right.bundles();
+    left.len() == right.len()
+        && left.iter().zip(right).all(|(left, right)| {
+            left.package.package_id == right.package.package_id
+                && left.documents.len() == right.documents.len()
+                && left
+                    .documents
+                    .iter()
+                    .zip(&right.documents)
+                    .all(|(left, right)| {
+                        left.id == right.id && left.path == right.path && left.text == right.text
+                    })
+        })
 }
+
 #[derive(Debug)]
 struct Entry {
     dependencies: Dependencies,
@@ -211,14 +180,20 @@ impl Memo {
     }
     /// Resolve a bucket and compare complete actual dependencies before returning a result.
     /// # Errors
-    /// Retained dependency admission failed.
+    /// Retained dependency admission, resource reservation or cancellation failed.
     pub fn lookup(
         &self,
         key: StageKey,
         dependencies: &Dependencies,
+        reserver: &dyn MemoryReserver,
+        cancel: &CancellationToken,
     ) -> Result<Option<Arc<Snapshot>>, CompilerError> {
+        cancel.checkpoint()?;
         for entry in self.entries.get(&key).into_iter().flatten() {
-            if entry.dependencies.equivalent(dependencies)? {
+            if entry
+                .dependencies
+                .equivalent(dependencies, reserver, cancel)?
+            {
                 return Ok(Some(Arc::clone(&entry.output)));
             }
         }

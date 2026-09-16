@@ -29,9 +29,6 @@ defaults:
   run:
     shell: bash
 
-env:
-  MDBOOK_VERSION: 0.5.4
-
 jobs:
   build:
     name: docs / build
@@ -47,7 +44,7 @@ jobs:
       - name: install mdBook
         uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
-          tool: mdbook@${{ env.MDBOOK_VERSION }}
+          tool: mdbook
       - name: ADR index is current
         # `adr.py index` regenerates docs/adr/README.md and the decisions block in
         # docs/SUMMARY.md; --check fails instead of writing. Run `just adr-index`.

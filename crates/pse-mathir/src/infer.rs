@@ -16,7 +16,7 @@ pub struct GroupFacts {
     pub quantity_type: QuantityTypeId,
     /// Ordered product factor domains.
     pub domains: Vec<DomainId>,
-    /// The complete valid tuple set declared by the predecessor pass.
+    /// The complete valid tuple set supplied by the actual input producer.
     pub valid_tuples: Vec<Vec<SemanticId>>,
     /// Actual member tuple to scalar symbol rows; validated against `valid_tuples`.
     pub members: BTreeMap<Vec<SemanticId>, SemanticId>,
@@ -43,7 +43,7 @@ pub struct KernelContract {
     /// Required parameter names with complete quantity and representation-unit contracts.
     pub parameters: Vec<KernelPort>,
 }
-/// Read-only actual predecessor facts. Missing facts remain errors; no default success,
+/// Read-only actual input facts. Missing facts remain errors; no default success,
 /// hash comparison or membership in an invariant-ID set supplies semantic evidence.
 pub trait SymbolTypeSource {
     /// Complete type declared for a scalar symbol.

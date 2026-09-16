@@ -6,64 +6,64 @@
 
 128-bit semantic identity (blueprint §5.1).
 
-Storage: `FixedSizeBinary(16)`. Metadata version: 1.
+Storage: `{"FixedSizeBinary":16}`. Metadata version: 1.
 
 ## `pse.content_hash`
 
 A BLAKE3 digest identifying an immutable version (blueprint §5.3).
 
-Storage: `FixedSizeBinary(32)`. Metadata version: 1.
+Storage: `{"FixedSizeBinary":32}`. Metadata version: 1.
 
 ## `pse.dimension_vector`
 
 Rational exponents over the eight base dimensions (blueprint §8.1).
 
-Storage: `FixedSizeList<item: Struct<num: Int16, den: Int16>, 8>`. Metadata version: 1.
+Storage: `{"FixedSizeList":[{"data_type":{"Struct":[{"data_type":"Int16","dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"num","nullable":false},{"data_type":"Int16","dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"den","nullable":false}]},"dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"item","nullable":false},8]}`. Metadata version: 1.
 
 ## `pse.quantity_value`
 
 A value in a heterogeneous column with an explicit quantity contract.
 
-Storage: `Struct<value: Float64, quantity_type_id: FixedSizeBinary(16), unit_id: FixedSizeBinary(16)>`. Metadata version: 1.
+Storage: `{"Struct":[{"data_type":"Float64","dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"value","nullable":false},{"data_type":{"FixedSizeBinary":16},"dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"quantity_type_id","nullable":false},{"data_type":{"FixedSizeBinary":16},"dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"unit_id","nullable":false}]}`. Metadata version: 1.
 
 ## `pse.bound`
 
 An explicit bound, `finite` or `unbounded`; never an infinity or a null sentinel.
 
-Storage: `Struct<kind: Dictionary(Int8, Utf8), value: Float64?>`. Metadata version: 1.
+Storage: `{"Struct":[{"data_type":"Utf8","dict_id":0,"dict_is_ordered":false,"metadata":{"ARROW:extension:metadata":"{\"v\":1,\"enum_id\":\"2a210de257dce67bfcca3df1197a5db6\"}","ARROW:extension:name":"pse.enum","pse.semantic.enum":"2a210de257dce67bfcca3df1197a5db6","pse.semantic.logical_type":"enum:BoundKind"},"name":"kind","nullable":false},{"data_type":"Float64","dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"value","nullable":true}]}`. Metadata version: 1.
 
 ## `pse.index_tuple`
 
 Ordered domain member identities (blueprint §5.1).
 
-Storage: `List<item: FixedSizeBinary(16)>`. Metadata version: 1.
+Storage: `{"List":{"data_type":{"FixedSizeBinary":16},"dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"item","nullable":false}}`. Metadata version: 1.
 
 ## `pse.ordinal_ref`
 
 An artifact-local reference; the metadata names the target relation.
 
-Storage: `UInt64`. Metadata version: 1.
+Storage: `"Int64"`. Metadata version: 1.
 
 ## `pse.source_span`
 
 Authoring provenance: a document and a byte range (blueprint §11).
 
-Storage: `Struct<document_id: FixedSizeBinary(16), start: UInt32, end: UInt32>`. Metadata version: 1.
+Storage: `{"Struct":[{"data_type":{"FixedSizeBinary":16},"dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"document_id","nullable":false},{"data_type":"Int64","dict_id":0,"dict_is_ordered":false,"metadata":{"pse.semantic.integer_range":"[0,4294967295]"},"name":"start","nullable":false},{"data_type":"Int64","dict_id":0,"dict_is_ordered":false,"metadata":{"pse.semantic.integer_range":"[0,4294967295]"},"name":"end","nullable":false}]}`. Metadata version: 1.
 
 ## `pse.enum`
 
 A closed enumeration; the metadata carries the `enum_id`.
 
-Storage: `Dictionary(Int32, Utf8)`. Metadata version: 1.
+Storage: `"Utf8"`. Metadata version: 1.
 
 ## `pse.expr_dsl`
 
 Authored expression text: the only authored form of an expression (§7.7).
 
-Storage: `Utf8`. Metadata version: 1.
+Storage: `"Utf8"`. Metadata version: 1.
 
 ## `pse.target_path`
 
 An authored selector path; P1 resolves it to identities at commit (§6.10).
 
-Storage: `Utf8`. Metadata version: 1.
+Storage: `"Utf8"`. Metadata version: 1.

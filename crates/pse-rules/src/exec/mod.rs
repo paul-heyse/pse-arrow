@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Execute optimized relational plans and admit actual values against their derivation.
+//! Execute prepared native rule plans whose output contracts were established at construction.
 use crate::errmap::internal;
 use crate::{RuleError, plan::CompiledRule};
 use datafusion::arrow::array::RecordBatch;
-use datafusion::arrow::datatypes::Schema;
 use pse_catalog::session::{PlanObservation, SnapshotSession};
 use pse_ids::{CancellationToken, SemanticId};
 use pse_schema::Registry;
-use std::sync::Arc;
 
 /// Observed rule execution, outside semantic memo identity.
 #[derive(Clone, Debug)]
@@ -60,26 +58,37 @@ pub async fn execute(
             return Err(internal(reason.clone()));
         }
     }
-    let (raw, observed) = session
-        .execute_rule_observed(rule.plan.clone(), cancel)
+    let completed = session
+        .prepare_rule_plan(rule.plan.clone(), cancel)
+        .map_err(|error| context(rule, "head preparation", error))?
+        .execute(cancel)
         .await
         .map_err(|error| context(rule, "decided head", error))?;
+    let observed = completed.observation().clone();
     let explain_pgjson = observed.explain_pgjson().to_owned();
     plans.push(observed);
-    let mut head = Vec::with_capacity(raw.len());
-    for batch in raw {
-        head.push(admit(rule, registry, &batch, false)?);
-    }
+    let head = if let pse_schema::model::RuleHead::Relation(name) = &rule.head {
+        let target = registry
+            .relation(name)
+            .ok_or_else(|| internal("head declaration absent"))?;
+        vec![
+            completed
+                .into_checked_relation(registry, target, cancel)?
+                .into_batch(),
+        ]
+    } else {
+        completed.into_batches()
+    };
     let mut undecided = vec![];
     if let Some(plan) = &rule.undecided {
-        let (rows, observed) = session
-            .execute_rule_observed(plan.clone(), cancel)
+        let completed = session
+            .prepare_rule_plan(plan.clone(), cancel)
+            .map_err(|error| context(rule, "unknown preparation", error))?
+            .execute(cancel)
             .await
             .map_err(|error| context(rule, "unknown candidates", error))?;
-        plans.push(observed);
-        for batch in rows {
-            undecided.push(admit(rule, registry, &batch, true)?);
-        }
+        plans.push(completed.observation().clone());
+        undecided.extend(completed.into_batches());
     }
     let fired = RuleFired {
         rule_id: rule.rule_id,
@@ -105,63 +114,4 @@ fn context(
         phase,
         source: Box::new(RuleError::Catalog(source)),
     }
-}
-
-fn admit(
-    rule: &CompiledRule,
-    registry: &Registry,
-    batch: &RecordBatch,
-    unknown: bool,
-) -> Result<RecordBatch, RuleError> {
-    let schema = if unknown {
-        Arc::new(Schema::new(
-            rule.key_columns
-                .iter()
-                .map(|name| {
-                    rule.head_schema
-                        .field_with_name(name)
-                        .cloned()
-                        .map_err(|error| internal(error.to_string()))
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-        ))
-    } else {
-        Arc::clone(&rule.head_schema)
-    };
-    if batch.num_columns() != schema.fields().len() {
-        return Err(internal("engine head width differs from compiled contract"));
-    }
-    for (field, array) in schema.fields().iter().zip(batch.columns()) {
-        let retained = rule
-            .contracts
-            .iter()
-            .find(|column| column.spec.name == field.name())
-            .ok_or_else(|| internal("head field has no retained typing derivation"))?;
-        let expected = pse_schema::arrow::field_for(registry, &retained.spec)
-            .map_err(|error| internal(error.to_string()))?;
-        if &expected != field.as_ref() {
-            return Err(internal(
-                "head metadata differs from its retained typing derivation",
-            ));
-        }
-        pse_relations::validate::validate_column(registry, field, array.as_ref()).map_err(
-            |errors| RuleError::HeadSchemaMismatch {
-                rule: rule.name.clone(),
-                column: field.name().clone(),
-                expected: format!("{:?}", field.data_type()),
-                found: errors
-                    .iter()
-                    .map(ToString::to_string)
-                    .collect::<Vec<_>>()
-                    .join("; "),
-            },
-        )?;
-    }
-    // This shares the already reserved immutable arrays; no buffer allocation is hidden.
-    RecordBatch::try_new_with_options(
-        schema,
-        batch.columns().to_vec(),
-        &datafusion::arrow::array::RecordBatchOptions::new().with_row_count(Some(batch.num_rows())),
-    )
-    .map_err(|error| internal(error.to_string()))
 }

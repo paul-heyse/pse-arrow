@@ -32,7 +32,6 @@ env:
   RUST_BACKTRACE: "1"
   # Immutable solver pin; synchronized by scripts/solver-images.py.
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
-  UV_VERSION: 0.12.13
   # Never resolve or write the lockfile in CI. Every uv command here is `--locked`; this
   # makes an accidental omission fail instead of silently re-resolving.
   UV_FROZEN: "1"
@@ -48,7 +47,6 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: ${{ env.UV_VERSION }}
           enable-cache: true
       - name: sync the quality group
         # `--no-install-project` keeps this job free of the Rust extension: linting must
@@ -104,7 +102,6 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
-          version: ${{ env.UV_VERSION }}
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - name: sync the project and the test group
@@ -120,7 +117,7 @@ jobs:
         # Parity items are deselected without --parity; performance items need
         # --performance. This job runs the always-on tiers only.
         run: |
-          uv run --no-sync pytest -m "unit or component" -n auto \
+          just py-test \
             --cov --cov-report=xml --cov-report=term-missing
       - name: upload to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0

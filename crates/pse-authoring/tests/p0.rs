@@ -8,7 +8,8 @@
     reason = "fixture assertions"
 )]
 
-use pse_ids::{ContentHash, SemanticId};
+use pse_ids::{CancellationToken, ContentHash, FixedBudget, SemanticId};
+mod support;
 use pse_relations::generated::{
     authored,
     enums::{IdPolicy, PackageKind},
@@ -36,23 +37,70 @@ fn depends(package: &mut authored::packages::Row, target: u8, version: &str) {
             version_req: version.to_owned(),
         });
 }
-#[test]
-fn identical_hashes_do_not_hide_changed_versions_missing_packages_or_cycles() {
-    let registry = pse_schema::registry().unwrap();
+#[tokio::test]
+async fn identical_hashes_do_not_hide_changed_versions_missing_packages_or_cycles() {
+    let registry_owner = support::registry();
+    let session = support::session(
+        std::sync::Arc::clone(&registry_owner),
+        FixedBudget::new(512 << 20),
+    );
     let mut first = package(1);
     let second = package(2);
     depends(&mut first, 2, "=1.0.0");
-    let graph =
-        pse_authoring::p0::resolve_headers(&[first.clone(), second.clone()], registry).unwrap();
-    assert_eq!(graph.rows[0].depth, 1);
-    assert_eq!(graph.rows[0].dependency_package_ids, vec![id(2)]);
+    let graph = resolve(&[first.clone(), second.clone()], &session)
+        .await
+        .unwrap();
+    assert_eq!(graph[0].depth, 1);
+    assert_eq!(graph[0].dependency_package_ids, vec![id(2)]);
     let mut changed = second.clone();
     changed.version = "2.0.0".to_owned();
-    assert!(pse_authoring::p0::resolve_headers(&[first.clone(), changed], registry).is_err());
-    assert!(pse_authoring::p0::resolve_headers(&[first.clone()], registry).is_err());
+    assert!(resolve(&[first.clone(), changed], &session).await.is_err());
+    assert!(resolve(&[first.clone()], &session).await.is_err());
     let mut cyclic = second.clone();
     depends(&mut cyclic, 1, "1.0.0");
-    assert!(pse_authoring::p0::resolve_headers(&[first.clone(), cyclic], registry).is_err());
+    assert!(resolve(&[first.clone(), cyclic], &session).await.is_err());
     first.dependencies[0].version_req = "^1.0.0".to_owned();
-    assert!(pse_authoring::p0::resolve_headers(&[first, second], registry).is_err());
+    assert!(resolve(&[first, second], &session).await.is_err());
+}
+
+#[tokio::test]
+async fn package_dependency_resolution_keeps_the_callers_input_role_distinct() {
+    let session = support::session(support::registry(), FixedBudget::new(512 << 20));
+    let mut existing = authored::packages::Builder::with_registry(session.registry(), 1).unwrap();
+    existing.push(package(99)).unwrap();
+    let session = session
+        .with_checked_role_inputs(
+            std::collections::BTreeMap::from([("packages".to_owned(), existing.finish().unwrap())]),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+    let mut first = package(1);
+    depends(&mut first, 2, "=1.0.0");
+    let graph = resolve(&[first, package(2)], &session).await.unwrap();
+    assert_eq!(graph.len(), 2);
+    assert_eq!(graph[0].package_id, id(1));
+    assert_eq!(graph[0].dependency_package_ids, vec![id(2)]);
+    assert_eq!(
+        session
+            .input_roles()
+            .map(|(role, _)| role)
+            .collect::<Vec<_>>(),
+        ["packages"]
+    );
+}
+
+async fn resolve(
+    rows: &[authored::packages::Row],
+    session: &pse_catalog::session::SnapshotSession,
+) -> Result<
+    Vec<pse_relations::generated::normalized::package_graph::Row>,
+    pse_authoring::AuthoringError,
+> {
+    let mut builder = authored::packages::Builder::with_registry(session.registry(), rows.len())?;
+    for row in rows {
+        builder.push(row.clone())?;
+    }
+    let graph =
+        pse_authoring::p0::resolve(&builder.finish()?, session, &CancellationToken::new()).await?;
+    Ok(pse_relations::generated::normalized::package_graph::View::from_checked(&graph)?.rows()?)
 }

@@ -13,10 +13,8 @@ use core::fmt;
 
 use pse_ids::{ContentHash, SemanticId};
 
-use crate::model::enums::{
-    Authority, ColumnRole, DerivationGranularity, Namespace, SnapshotClass, Stability,
-};
-use crate::model::logical_type::LogicalType;
+use crate::model::enums::{Authority, DerivationGranularity, Namespace, SnapshotClass, Stability};
+use crate::model::field::FieldContract;
 
 /// A relation's name, in the one form that is stable across renames of anything else.
 ///
@@ -84,12 +82,12 @@ impl PartialOrd for RelationKey {
 
 /// The quantity contract a column carries (blueprint §4.1, §8.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum QuantityContract {
+pub enum QuantityContract<'a> {
     /// The column carries no physical quantity.
     None,
     /// One quantity type for the whole column, named by its qualified name, for example
     /// `pse.quantity.temperature`.
-    Column(&'static str),
+    Column(&'a str),
     /// The quantity type varies per row. A sibling column named
     /// `<name>_quantity_type_id` declares it, and assembly rejects the declaration if that
     /// sibling is missing — a per-row contract with nowhere to put the contract is a
@@ -99,122 +97,24 @@ pub enum QuantityContract {
 
 /// A reference from one relation's column to another's (blueprint §4.1).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ForeignKey {
+pub struct ForeignKey<'a> {
     /// The qualified target relation, for example `authored.species`.
-    pub relation: &'static str,
+    pub relation: &'a str,
     /// The target column.
-    pub column: &'static str,
+    pub column: &'a str,
 }
 
-impl ForeignKey {
+impl<'a> ForeignKey<'a> {
     /// A foreign key into `relation.column`.
-    pub const fn new(relation: &'static str, column: &'static str) -> Self {
+    pub const fn new(relation: &'a str, column: &'a str) -> Self {
         Self { relation, column }
     }
 }
 
-impl fmt::Display for ForeignKey {
+impl fmt::Display for ForeignKey<'_> {
     /// `authored.species.species_id`, which is also the `pse.semantic.fk` metadata value.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}.{}", self.relation, self.column)
-    }
-}
-
-/// One column of a relation (blueprint §4.1 `reference.schema_columns`).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ColumnSpec {
-    /// The column name.
-    pub name: &'static str,
-    /// The declared type (blueprint §4.4, §4.5).
-    pub logical_type: LogicalType,
-    /// Whether the column admits nulls.
-    pub nullable: bool,
-    /// The physical quantity contract.
-    pub quantity: QuantityContract,
-    /// The referenced relation and column, when this column is a reference.
-    pub fk: Option<ForeignKey>,
-    /// What the column is for.
-    pub role: ColumnRole,
-    /// What the column means.
-    pub doc: &'static str,
-}
-
-impl ColumnSpec {
-    /// A column with no quantity contract and no foreign key.
-    pub fn new(
-        name: &'static str,
-        logical_type: LogicalType,
-        nullable: bool,
-        role: ColumnRole,
-        doc: &'static str,
-    ) -> Self {
-        Self {
-            name,
-            logical_type,
-            nullable,
-            quantity: QuantityContract::None,
-            fk: None,
-            role,
-            doc,
-        }
-    }
-
-    /// A non-null key column.
-    pub fn key(name: &'static str, logical_type: LogicalType, doc: &'static str) -> Self {
-        Self::new(name, logical_type, false, ColumnRole::Key, doc)
-    }
-
-    /// A non-null reference column.
-    pub fn reference(name: &'static str, logical_type: LogicalType, doc: &'static str) -> Self {
-        Self::new(name, logical_type, false, ColumnRole::Reference, doc)
-    }
-
-    /// A non-null label column.
-    pub fn label(name: &'static str, logical_type: LogicalType, doc: &'static str) -> Self {
-        Self::new(name, logical_type, false, ColumnRole::Label, doc)
-    }
-
-    /// A non-null payload column.
-    pub fn payload(name: &'static str, logical_type: LogicalType, doc: &'static str) -> Self {
-        Self::new(name, logical_type, false, ColumnRole::Payload, doc)
-    }
-
-    /// A non-null provenance column.
-    pub fn provenance(name: &'static str, logical_type: LogicalType, doc: &'static str) -> Self {
-        Self::new(name, logical_type, false, ColumnRole::Provenance, doc)
-    }
-
-    /// The same column, nullable.
-    #[must_use]
-    pub fn optional(mut self) -> Self {
-        self.nullable = true;
-        self
-    }
-
-    /// The same column, with a foreign key into `relation.column`.
-    #[must_use]
-    pub fn with_fk(mut self, relation: &'static str, column: &'static str) -> Self {
-        self.fk = Some(ForeignKey::new(relation, column));
-        self
-    }
-
-    /// The same column, under one quantity contract for the whole column.
-    #[must_use]
-    pub fn with_quantity(mut self, quantity_type: &'static str) -> Self {
-        self.quantity = QuantityContract::Column(quantity_type);
-        self
-    }
-
-    /// The same column, with a per-row quantity contract in a sibling column.
-    #[must_use]
-    pub fn with_per_row_quantity(mut self) -> Self {
-        self.quantity = QuantityContract::PerRow;
-        self
-    }
-
-    /// The name of the sibling column a [`QuantityContract::PerRow`] column requires.
-    pub fn per_row_quantity_sibling(&self) -> String {
-        format!("{}_quantity_type_id", self.name)
     }
 }
 
@@ -237,7 +137,7 @@ pub struct RelationSpec {
     /// The primary key column names, in key order.
     pub primary_key: Vec<&'static str>,
     /// The columns, in declaration order. The ordinal is the position.
-    pub columns: Vec<ColumnSpec>,
+    pub columns: Vec<FieldContract>,
     /// What the relation means.
     pub doc: &'static str,
     /// The BLAKE3 digest of this relation's registry rows, filled at assembly.
@@ -255,8 +155,8 @@ impl RelationSpec {
     }
 
     /// The column of that name, if the relation has one.
-    pub fn column(&self, name: &str) -> Option<&ColumnSpec> {
-        self.columns.iter().find(|column| column.name == name)
+    pub fn column(&self, name: &str) -> Option<&FieldContract> {
+        self.columns.iter().find(|column| column.name() == name)
     }
 }
 
@@ -276,7 +176,7 @@ pub struct RelationDecl {
     /// See [`RelationSpec::primary_key`].
     pub primary_key: Vec<&'static str>,
     /// See [`RelationSpec::columns`].
-    pub columns: Vec<ColumnSpec>,
+    pub columns: Vec<FieldContract>,
     /// See [`RelationSpec::doc`].
     pub doc: &'static str,
 }
@@ -313,7 +213,7 @@ impl RelationDecl {
 
     /// The same declaration with `columns` set.
     #[must_use]
-    pub fn columns(mut self, columns: Vec<ColumnSpec>) -> Self {
+    pub fn columns(mut self, columns: Vec<FieldContract>) -> Self {
         self.columns = columns;
         self
     }

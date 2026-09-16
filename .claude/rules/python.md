@@ -37,8 +37,10 @@ copy carries a `copy_reason`. `idaes`, `pandas`, `pydantic`, `sympy`, `networkx`
 only in `python/pse/adapters/pyomo/`, the parity harness and tests.
 
 Never `import pse._native` outside the package's own boundary modules — the extension is
-reached through the typed surface, and `python/pse/_native.pyi` is hand-written and
-diffed against `dir(_native)` by a test.
+reached through the typed surface, and `python/pse/_native.pyi` is
+generated from the actual compiled PyO3 metadata by `just python-stubs`. Run
+`just py-sync` after native API changes; fix the native declaration or generator
+instead of editing the stub. The API surface is checked against the loaded extension.
 
 ## Parity fails, it never skips
 
@@ -53,6 +55,7 @@ Exactly one of `unit`/`component`/`integration`/`performance` per test; `conftes
 raises a `UsageError` at collection listing every offender. `just py-test` runs the
 `unit or component` set.
 
-Tools come from `.venv/bin` with versions pinned in `pyproject.toml`
-`[dependency-groups]`, never from `$PATH` and never via `pip install`. `just quality`
+Tools come from `.venv/bin`, declared with floors in `pyproject.toml`
+`[dependency-groups]` and resolved by `uv.lock`, never from `$PATH` and never via
+`pip install`. `just quality`
 runs ruff, pyrefly, import-linter and the repository linters together.

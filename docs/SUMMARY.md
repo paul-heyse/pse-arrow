@@ -74,6 +74,16 @@
   - [ADR-0057: Make equation classification and role contracts self-contained](adr/0057-equation-classification-contract.md)
   - [ADR-0058: Separate unit coordinates from physical reference conversions](adr/0058-unit-coordinate-and-quantity-reference.md)
   - [ADR-0059: Declare authoring identity and naming projections explicitly](adr/0059-authoring-identity-projection.md)
+  - [ADR-0060: Generate Rust manifest wire types from ManifestSpec](adr/0060-generated-rust-manifest-wire.md)
+  - [ADR-0061: Expose admitted immutable Python snapshot streams under one resource budget](adr/0061-immutable-python-snapshot-inspection.md)
+  - [ADR-0062: Define finite semantic inference and exact support contracts](adr/0062-finite-semantic-inference.md)
+  - [ADR-0063: Declare indexed template and conservation realization contracts](adr/0063-indexed-template-realization.md)
+  - [ADR-0064: Generate physical fixtures from shipped reference package declarations](adr/0064-reference-package-authority.md)
+  - [ADR-0065: Make Arrow and DataFusion the default data and execution foundation](adr/0065-full-arrow-datafusion-capability-access.md)
+  - [ADR-0066: Make dependency admission and licence policy advisory during phases 0-1](adr/0066-dependency-admission-and-licence-policy-are-advisory.md)
+  - [ADR-0067: Construct semantic execution through native logical plans](adr/0067-native-logical-plan-hard-pivot.md)
+  - [ADR-0068: Unify simulator data and execution through DataFusion and Delta Lake](adr/0068-unified-datafusion-delta.md)
+  - [ADR-0069: Make recursive native contracts authoritative for existing data operations](adr/0069-schema-first-native-contracts.md)
 <!-- adr:end -->
 
 # Plans
@@ -83,6 +93,10 @@
   - [02 — Blueprint revision 5 contracts](plans/02-blueprint-revision-5-contracts.md)
   - [03 — Wave 1 foundations](plans/03-wave-1-foundations.md)
   - [04 — Wave 2 semantic compilation](plans/04-wave-2-semantic-compilation.md)
+  - [05 — Native logical-plan hard pivot](plans/05-native-logical-plan-hard-pivot.md)
+    - [Restart checkpoint](plans/05-native-logical-plan-hard-pivot-restart.md)
+  - [06 — Provider-contract hard pivot](plans/06-provider-contracts-hard-pivot.md)
+  - [07 — Unified DataFusion and Delta Lake hard pivot](plans/07-unified-datafusion-delta-hard-pivot.md)
 
 # Design reviews
 
@@ -94,6 +108,14 @@
 - [Review: blueprint revision 4 and library contracts](design_review/reviews/design_review_blueprint-rev4-library-contracts_2026-09-13.md)
   - [Revision-4 library evidence: probe receipts](design_review/evidence/blueprint-rev4-2026-09-13/README.md)
 - [Review: blueprint revision 5 contracts](design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md)
+
+- [Review: full Arrow and DataFusion capabilities](design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
+  - [Capability deployment matrix](design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
+  - [Pinned capability characterization](design_review/evidence/full-arrow-datafusion-2026-09-14/README.md)
+- [Review: Wave 1 logical-plan foundations](design_review/reviews/design_review_wave1-logical-plan-foundations_2026-09-14.md)
+  - [Pinned construction characterization](design_review/evidence/wave1-logical-plans-2026-09-14/README.md)
+- [Review: DataFusion-integral semantics versus scripted checks](design_review/reviews/design_review_datafusion-integral-semantics_2026-09-14.md)
+- [Review: unified DataFusion and Delta Lake](design_review/reviews/design_review_unified-datafusion-delta_2026-09-15.md)
 
 # Capability maps
 
@@ -108,3 +130,4 @@
 # Development
 
 - [CI job graph](dev/ci.md)
+- [Dependency and licence policy](dev/dependency-policy.md)

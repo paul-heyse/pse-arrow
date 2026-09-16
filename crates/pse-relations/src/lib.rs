@@ -15,16 +15,16 @@
 //! - [`validate`] — the recursive field, schema and batch validators.
 //! - [`cells`] — `Cell` rows to and from `RecordBatch`es.
 //! - [`registry_relations`] — the registry materialized as batches.
-//! - [`migrate`] — reading an artifact written under an earlier version.
 //!
 //! `generated` is added by packet A-6 together with the first generated tree; it is
 //! deliberately absent until then, because a module declaring an empty generated
 //! directory would make `codegen --check` pass over nothing.
 
+pub mod canonical;
 pub mod cells;
+pub mod columnar;
 pub mod error;
 pub mod ext;
-pub mod migrate;
 pub mod registry_relations;
 pub mod typed;
 pub mod validate;

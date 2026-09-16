@@ -103,7 +103,7 @@ def test_parameterized_metadata_preserves_actual_binding() -> None:
     )
     assert (
         PseEnum.__arrow_ext_deserialize__(
-            pa.dictionary(pa.int32(), pa.utf8()),
+            pa.utf8(),
             enum.__arrow_ext_serialize__(),
         ).binding_id
         == binding
@@ -111,18 +111,18 @@ def test_parameterized_metadata_preserves_actual_binding() -> None:
     ordinal = PseOrdinalRef(binding)
     assert (
         PseOrdinalRef.__arrow_ext_deserialize__(
-            pa.uint64(),
+            pa.int64(),
             ordinal.__arrow_ext_serialize__(),
         ).binding_id
         == binding
     )
     with pytest.raises(ValueError):
         PseEnum.__arrow_ext_deserialize__(
-            pa.dictionary(pa.int32(), pa.utf8()),
+            pa.utf8(),
             (f'{{"v":1,"enum_id":"{binding}","enum_id":"{binding}"}}').encode(),
         )
     with pytest.raises(ValueError):
-        PseOrdinalRef.__arrow_ext_deserialize__(pa.uint64(), b'{"v":1}')
+        PseOrdinalRef.__arrow_ext_deserialize__(pa.int64(), b'{"v":1}')
 
 
 @pytest.mark.unit

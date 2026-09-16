@@ -46,9 +46,9 @@ only if it also carries `needs-review`.
 
 | Change | Needs |
 |---|---|
-| Alters D1–D14; adds or removes a crate; adds, drops or majors a dependency family; changes the hashing contract, the Python boundary contract, metadata conventions or the commit contract; any SHOULD deviation; governance changes | ADR **and** design review (`needs-review`; Accept or Accept-scoped before `accepted`) |
+| Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions or the commit contract; any SHOULD deviation; governance changes | ADR **and** design review (`needs-review`; Accept or Accept-scoped before `accepted`) |
 | New relation family, pass, kernel contract or backend binding within an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | ADR (short); review at maintainer discretion |
-| Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, tooling | Neither; an ordinary PR with the evidence field filled |
+| Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, adding, removing or upgrading a third-party dependency, tooling | Neither; an ordinary PR with the evidence field filled |
 
 ## Plans and the register
 

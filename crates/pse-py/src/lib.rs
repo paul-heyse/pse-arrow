@@ -12,12 +12,14 @@
 //! The module is imported as `pse._native`; nothing else in the Python package is
 //! allowed to import it directly (ast-grep rule `no-direct-native-import`).
 //!
-//! Phase 0 exposes only the build-provenance surface: `__version__` and `build_info()`,
-//! which `pse._build.BuildInfo` structures and `build_info_matches_checkout` asserts
-//! against the checkout's lockfiles (plan §5).
+//! Exposes build provenance and read-only admitted snapshot inspection. Named table
+//! streams preserve the catalog's final-buffer reservations through Arrow C Stream
+//! consumers; opening replays semantic admission under one explicit process budget.
 
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
+
+mod inspection;
 
 /// Build provenance of the compiled extension.
 ///
@@ -27,6 +29,7 @@ use pyo3::types::{PyBytes, PyDict};
 /// no second hasher exists in Rust — `pse-ids` is the sole hasher (blueprint §5.1) and the
 /// blake3 `lockfile_hash` is wired through `pse-catalog`'s manifest in phase 1.
 #[pyfunction]
+#[pyo3(signature = () -> "dict[str, str | bytes]")]
 fn build_info(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     let dict = PyDict::new(py);
     dict.set_item("version", pse_buildinfo::VERSION)?;
@@ -42,10 +45,16 @@ fn build_info(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
     Ok(dict)
 }
 
-/// The `pse._native` module.
+/// Immutable admitted data inspection and build provenance.
 #[pymodule]
-fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add("__version__", pse_buildinfo::VERSION)?;
-    m.add_function(wrap_pyfunction!(build_info, m)?)?;
-    Ok(())
+mod _native {
+    #[pymodule_export]
+    use super::{
+        build_info,
+        inspection::{EngineSettings, InspectionError, Snapshot, Store, TableStream, open_store},
+    };
+
+    #[pymodule_export]
+    #[expect(non_upper_case_globals, reason = "Python module version convention")]
+    const __version__: &str = pse_buildinfo::VERSION;
 }

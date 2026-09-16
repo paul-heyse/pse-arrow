@@ -7,8 +7,8 @@
 #
 # Stages are separable because some are slow or network-bound:
 #   --venv-only      interpreter + Python dependencies + the editable extension (uv sync)
-#   --quality-only   the pinned quality tools from [dependency-groups].quality
-#   --rust-only      pinned cargo development tools (cargo-binstall)
+#   --quality-only   the quality tools from [dependency-groups].quality (as uv.lock resolved them)
+#   --rust-only      cargo development tools (cargo-binstall, current releases)
 #   --linters-only   repository linters that are plain binaries (actionlint, ast-grep, ...)
 set -euo pipefail
 
@@ -23,14 +23,15 @@ PY="${VENV}/bin/python"  # used by doctor below on Windows
 [[ "${OS:-}" == Windows_NT ]] && PY="${VENV}/Scripts/python.exe"
 export PY
 
-# Versions pinned here, not on the machine. CI installs the same set (see
-# .github/actions/setup-rust); `just doctor` reports what is missing.
+# The tool set, not its versions: cargo-binstall fetches the current release of each,
+# CI installs the same names through .github/actions/setup-rust, and `just doctor`
+# reports which are missing. No release is asserted anywhere.
 CARGO_TOOLS=(
-  "cargo-nextest@0.9.143" "cargo-deny@0.20.2"   "cargo-audit@0.22.2"
-  "cargo-shear@1.13.4"    "cargo-machete@0.9.2" "cargo-llvm-cov@0.9.0"
-  "cargo-insta@1.48.0"    "cargo-hack@0.6.45"   "cargo-msrv@0.19.3"
-  "cargo-mutants@27.1.0"  "cargo-geiger@0.13.0" "cargo-udeps@0.1.61"
-  "cargo-semver-checks@0.50.0" "mdbook@0.5.4"   "git-cliff@2.14.1"
+  "cargo-nextest" "cargo-deny"   "cargo-audit"
+  "cargo-shear"   "cargo-machete" "cargo-llvm-cov"
+  "cargo-insta"   "cargo-hack"   "cargo-msrv"
+  "cargo-mutants" "cargo-geiger" "cargo-udeps"
+  "cargo-semver-checks" "mdbook" "git-cliff"
 )
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
@@ -52,7 +53,7 @@ stage_venv() {
 
 stage_quality() {
   need uv "https://docs.astral.sh/uv/"
-  say "Installing pinned quality tools from [dependency-groups].quality"
+  say "Installing quality tools from [dependency-groups].quality"
   uv sync --locked --extra pyomo --group quality
 }
 
@@ -62,7 +63,7 @@ stage_rust() {
     say "Installing cargo-binstall (prebuilt binaries beat compiling 15 tools)"
     cargo install cargo-binstall --locked
   fi
-  say "Installing pinned cargo development tools"
+  say "Installing cargo development tools"
   cargo binstall --no-confirm "${CARGO_TOOLS[@]}"
 }
 

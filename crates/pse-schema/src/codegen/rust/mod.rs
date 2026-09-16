@@ -3,7 +3,12 @@
 
 //! Readable Rust source generated through syn, quote and prettyplease (ADR-0031).
 
+mod columnar;
 mod enums;
+mod manifest;
+mod mathir;
+mod mathir_sink;
+pub mod physical;
 mod relation;
 pub(crate) mod types;
 
@@ -77,12 +82,10 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             #![allow(clippy::doc_markdown, reason = "registry documentation is projected verbatim across Rust, Python and JSON contracts")]
             #![allow(clippy::too_many_lines, reason = "complete flat relation row codecs follow declared column inventory")]
             #(#modules)*
-            /// Closed dictionary types.
+            /// Declared string enumerations.
             pub mod enums;
             /// Composite extension storage values.
             pub mod extension_values;
-            /// Registered migration lookup.
-            pub mod migrations;
             /// Registry identity; validity is established by admission.
             pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([#(#bytes),*]);
             /// Resolves an exact declaration from the current registry.
@@ -101,19 +104,6 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     )?;
     emit(
         &mut tree,
-        format!("{ROOT}/migrations.rs"),
-        quote! {
-            //! Migrations remain declarations interpreted by the checked migration engine.
-            /// Returns registered migrations from the authoritative registry.
-            /// # Errors
-            /// The registry could not assemble.
-            pub fn declarations() -> Result<&'static [pse_schema::model::MigrationSpec], crate::RelationError> {
-                Ok(pse_schema::registry()?.migrations())
-            }
-        },
-    )?;
-    emit(
-        &mut tree,
         "crates/pse-authoring/src/generated/documents.rs",
         documents(reg)?,
     )?;
@@ -128,7 +118,59 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub mod documents;
         },
     )?;
+    manifest_files(&mut tree, reg)?;
+    mathir_files(&mut tree, reg)?;
     Ok(tree)
+}
+
+fn mathir_files(tree: &mut GeneratedTree, reg: &Registry) -> Result<(), SchemaError> {
+    // The graph bridge is a consumer of the declared graph family. Standalone
+    // manifest/document registries do not request or acquire that consumer.
+    if reg.relation("compiled.math_expr_nodes").is_none() {
+        return Ok(());
+    }
+    emit(
+        tree,
+        "crates/pse-compiler/src/generated/mathir_source.rs",
+        mathir::source(reg)?,
+    )?;
+    emit(
+        tree,
+        "crates/pse-compiler/src/generated/mathir_sink.rs",
+        mathir_sink::render(reg)?,
+    )?;
+    emit(
+        tree,
+        "crates/pse-compiler/src/generated/mod.rs",
+        quote! {
+            //! Mechanical declared relation bridges into the existing domain algorithms.
+            #![allow(clippy::too_many_lines, reason = "generated callback inventory follows the complete mathematical relation families")]
+            pub(crate) mod mathir_source;
+            pub(crate) mod mathir_sink;
+        },
+    )?;
+    Ok(())
+}
+
+fn manifest_files(tree: &mut GeneratedTree, reg: &Registry) -> Result<(), SchemaError> {
+    if let Some(spec) = reg.manifest() {
+        emit(
+            tree,
+            "crates/pse-catalog/src/generated/manifest.rs",
+            manifest::render(spec)?,
+        )?;
+        emit(
+            tree,
+            "crates/pse-catalog/src/generated/mod.rs",
+            quote! {
+                //! Physical envelope types projected from the manifest declaration.
+                #![allow(clippy::doc_markdown, reason = "registry documentation is projected verbatim")]
+                /// Strict manifest wire types; admission remains in the catalog.
+                pub mod manifest;
+            },
+        )?;
+    }
+    Ok(())
 }
 
 fn extension_values() -> Result<TokenStream, SchemaError> {
@@ -158,7 +200,7 @@ fn documents(reg: &Registry) -> Result<TokenStream, SchemaError> {
     for spec in reg.documents() {
         let name = format_ident!("{}Document", types::pascal(spec.name));
         let mut fields = Vec::new();
-        let mut rows = Vec::new();
+        let mut batches = Vec::new();
         for section in &spec.sections {
             let relation = reg
                 .relation(section.relation)
@@ -167,24 +209,26 @@ fn documents(reg: &Registry) -> Result<TokenStream, SchemaError> {
             let namespace = types::ident(relation.key.namespace.as_str());
             let relation = types::ident(relation.key.name);
             let row = quote!(pse_relations::generated::#namespace::#relation::Row);
-            let ty = if section.repeated {
-                quote!(Vec<#row>)
+            let (ty, default, values, capacity) = if section.repeated {
+                (
+                    quote!(Vec<#row>),
+                    quote!(#[serde(default)]),
+                    quote!(self.#key),
+                    quote!(self.#key.len()),
+                )
             } else {
-                row
-            };
-            let default = if section.repeated {
-                quote!(#[serde(default)])
-            } else {
-                quote!()
+                (row, quote!(), quote!(std::iter::once(self.#key)), quote!(1))
             };
             let doc = section.doc;
             fields.push(quote!(#[doc = #doc] #default pub #key: #ty,));
-            let values = if section.repeated {
-                quote!(self.#key.into_iter().map(pse_relations::generated::#namespace::#relation::Row::into_cells))
-            } else {
-                quote!(std::iter::once(self.#key.into_cells()))
-            };
-            rows.push(quote!(rows.entry(pse_relations::generated::#namespace::#relation::RELATION_ID).or_default().extend(#values);));
+            batches.push(quote! {
+                let mut builder = pse_relations::generated::#namespace::#relation::Builder::with_registry(registry, #capacity)?;
+                for row in #values {
+                    builder.push(row)?;
+                }
+                batches.entry(pse_relations::generated::#namespace::#relation::RELATION_ID)
+                    .or_default().push(builder.finish()?);
+            });
         }
         let doc = spec.doc;
         declarations.push(quote! {
@@ -193,26 +237,41 @@ fn documents(reg: &Registry) -> Result<TokenStream, SchemaError> {
             #[serde(deny_unknown_fields)]
             pub struct #name { #(#fields)* }
             impl #name {
-                /// Converts admitted document fields into the exact declared relation rows.
-                pub fn into_rows(self) -> std::collections::BTreeMap<pse_ids::SemanticId, Vec<Vec<pse_schema::model::Cell>>> {
-                    let mut rows: std::collections::BTreeMap<pse_ids::SemanticId, Vec<Vec<pse_schema::model::Cell>>> = std::collections::BTreeMap::new();
-                    #(#rows)*
-                    rows
+                /// Projects strict document fields directly into generated Arrow columns.
+                /// This establishes local field construction, not keys or foreign keys.
+                /// # Errors
+                /// An incompatible declaration or invalid scalar/nested field value.
+                pub fn into_batches(self, registry: &pse_schema::Registry) -> Result<
+                    std::collections::BTreeMap<pse_ids::SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>,
+                    pse_relations::RelationError,
+                > {
+                    let mut batches: std::collections::BTreeMap<pse_ids::SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>> = std::collections::BTreeMap::new();
+                    #(#batches)*
+                    Ok(batches)
                 }
             }
         });
         let document_name = spec.name;
-        dispatch.push(quote!(#document_name => <#name as serde::Deserialize>::deserialize(deserializer).map(#name::into_rows),));
+        dispatch.push(quote! {
+            #document_name => {
+                let document = <#name as serde::Deserialize>::deserialize(deserializer)
+                    .map_err(|error| crate::AuthoringError::Contract { at: None, reason: error.to_string() })?;
+                Ok(document.into_batches(registry)?)
+            }
+        });
     }
     Ok(quote! {
         #(#declarations)*
-        /// Deserializes one declared document shape without a second dispatch inventory.
+        /// Deserializes one declared document directly into generated column builders.
         /// # Errors
-        /// Unknown document names and all strict serde shape/type violations.
-        pub fn rows_from_document<'de, D: serde::Deserializer<'de>>(
-            name: &str, deserializer: D,
-        ) -> Result<std::collections::BTreeMap<pse_ids::SemanticId, Vec<Vec<pse_schema::model::Cell>>>, D::Error> {
-            match name { #(#dispatch)* _ => Err(serde::de::Error::custom(format!("unknown document kind {name}"))) }
+        /// Unknown document kinds, strict serde shape errors and invalid field values.
+        pub fn batches_from_document<'de, D: serde::Deserializer<'de>>(
+            name: &str, deserializer: D, registry: &pse_schema::Registry,
+        ) -> Result<std::collections::BTreeMap<pse_ids::SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>, crate::AuthoringError> {
+            match name {
+                #(#dispatch)*
+                _ => Err(crate::AuthoringError::Contract { at: None, reason: format!("unknown document kind {name}") }),
+            }
         }
     })
 }

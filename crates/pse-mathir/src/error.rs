@@ -27,6 +27,10 @@ use crate::node::NodeId;
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[non_exhaustive]
 pub enum MathIrError {
+    /// Shared resource/cancellation failure at the typed algorithm boundary.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Canon(#[from] pse_ids::CanonError),
     /// The expression graph contains a cycle.
     ///
     /// Unreachable through [`ExprGraph::insert`], which only accepts children that already

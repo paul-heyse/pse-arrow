@@ -29,7 +29,7 @@ fn finished_ipc_and_parquet_have_distinct_transport_bytes_and_equal_canonical_co
         spec,
         budget.as_ref(),
         &cancel,
-        Envelope::PHASE1,
+        Envelope::DEFAULT,
     )
     .expect("admitted IPC");
     let parquet_rows = verify::parquet_file(
@@ -38,7 +38,7 @@ fn finished_ipc_and_parquet_have_distinct_transport_bytes_and_equal_canonical_co
         spec,
         budget.as_ref(),
         &cancel,
-        Envelope::PHASE1,
+        Envelope::DEFAULT,
     )
     .expect("admitted Parquet");
     for actual in [ipc_rows, parquet_rows] {

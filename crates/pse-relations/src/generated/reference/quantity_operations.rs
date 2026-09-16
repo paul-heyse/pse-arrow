@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    21u8, 246u8, 240u8, 27u8, 65u8, 22u8, 61u8, 169u8, 93u8, 168u8, 209u8, 67u8, 133u8,
-    155u8, 21u8, 102u8, 190u8, 215u8, 96u8, 208u8, 253u8, 103u8, 90u8, 151u8, 135u8,
-    177u8, 155u8, 174u8, 193u8, 69u8, 165u8, 241u8,
+    31u8, 80u8, 199u8, 35u8, 87u8, 123u8, 236u8, 31u8, 117u8, 21u8, 115u8, 85u8, 121u8,
+    129u8, 211u8, 28u8, 237u8, 152u8, 16u8, 166u8, 46u8, 237u8, 160u8, 177u8, 147u8,
+    113u8, 100u8, 10u8, 18u8, 247u8, 40u8, 43u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -36,8 +36,8 @@ impl crate::typed::CellCodec for ReferenceQuantityOperationsFieldInputConversion
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#operand), crate
-                ::typed::CellCodec::into_cell(self.r#conversion_id)
+                crate::typed::CellCodec::into_cell(self.r#operand),
+                crate::typed::CellCodec::into_cell(self.r#conversion_id),
             ],
         )
     }
@@ -71,6 +71,56 @@ impl crate::typed::CellCodec for ReferenceQuantityOperationsFieldInputConversion
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(ReferenceQuantityOperationsFieldInputConversionsItem),
                     ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for ReferenceQuantityOperationsFieldInputConversionsItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#operand, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#conversion_id,
+            children[1usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <u16 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#operand: <u16 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#conversion_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
             )?,
         })
     }
@@ -126,25 +176,25 @@ impl crate::typed::CellCodec for ReferenceQuantityOperationsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#operation_id), crate
-                ::typed::CellCodec::into_cell(self.r#opcode), crate
-                ::typed::CellCodec::into_cell(self.r#input_kind_ids), crate
-                ::typed::CellCodec::into_cell(self.r#result_kind_id), crate
-                ::typed::CellCodec::into_cell(self.r#basis_rule), crate
-                ::typed::CellCodec::into_cell(self.r#reference_rule), crate
-                ::typed::CellCodec::into_cell(self.r#scale_rule), crate
-                ::typed::CellCodec::into_cell(self.r#shape_rule), crate
-                ::typed::CellCodec::into_cell(self.r#basis_source), crate
-                ::typed::CellCodec::into_cell(self.r#reference_source), crate
-                ::typed::CellCodec::into_cell(self.r#scale_source), crate
-                ::typed::CellCodec::into_cell(self.r#shape_source), crate
-                ::typed::CellCodec::into_cell(self.r#subject_rule), crate
-                ::typed::CellCodec::into_cell(self.r#subject_source), crate
-                ::typed::CellCodec::into_cell(self.r#result_subject_kind), crate
-                ::typed::CellCodec::into_cell(self.r#result_basis_id), crate
-                ::typed::CellCodec::into_cell(self.r#result_reference_state_id), crate
-                ::typed::CellCodec::into_cell(self.r#input_conversions), crate
-                ::typed::CellCodec::into_cell(self.r#precondition_invariant_ids)
+                crate::typed::CellCodec::into_cell(self.r#operation_id),
+                crate::typed::CellCodec::into_cell(self.r#opcode),
+                crate::typed::CellCodec::into_cell(self.r#input_kind_ids),
+                crate::typed::CellCodec::into_cell(self.r#result_kind_id),
+                crate::typed::CellCodec::into_cell(self.r#basis_rule),
+                crate::typed::CellCodec::into_cell(self.r#reference_rule),
+                crate::typed::CellCodec::into_cell(self.r#scale_rule),
+                crate::typed::CellCodec::into_cell(self.r#shape_rule),
+                crate::typed::CellCodec::into_cell(self.r#basis_source),
+                crate::typed::CellCodec::into_cell(self.r#reference_source),
+                crate::typed::CellCodec::into_cell(self.r#scale_source),
+                crate::typed::CellCodec::into_cell(self.r#shape_source),
+                crate::typed::CellCodec::into_cell(self.r#subject_rule),
+                crate::typed::CellCodec::into_cell(self.r#subject_source),
+                crate::typed::CellCodec::into_cell(self.r#result_subject_kind),
+                crate::typed::CellCodec::into_cell(self.r#result_basis_id),
+                crate::typed::CellCodec::into_cell(self.r#result_reference_state_id),
+                crate::typed::CellCodec::into_cell(self.r#input_conversions),
+                crate::typed::CellCodec::into_cell(self.r#precondition_invariant_ids),
             ],
         )
     }
@@ -319,6 +369,266 @@ impl crate::typed::CellCodec for ReferenceQuantityOperationsRow {
         })
     }
 }
+impl crate::columnar::ArrowValue for ReferenceQuantityOperationsRow {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#operation_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#opcode, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#input_kind_ids,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#result_kind_id,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#basis_rule,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#reference_rule,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#scale_rule,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#shape_rule,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#basis_source,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#reference_source,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#scale_source,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#shape_source,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#subject_rule,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#subject_source,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#result_subject_kind,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#result_basis_id,
+            children[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#result_reference_state_id,
+            children[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#input_conversions,
+            children[17usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#precondition_invariant_ids,
+            children[18usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <crate::generated::enums::Opcode as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
+        <crate::generated::enums::BasisRule as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <crate::generated::enums::ReferenceRule as crate::columnar::ArrowValue>::append_null(
+            children[5usize].as_mut(),
+        )?;
+        <crate::generated::enums::QuantityScaleRule as crate::columnar::ArrowValue>::append_null(
+            children[6usize].as_mut(),
+        )?;
+        <crate::generated::enums::QuantityShapeRule as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
+        <Option<
+            u16,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            u16,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            u16,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            u16,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <crate::generated::enums::SubjectRule as crate::columnar::ArrowValue>::append_null(
+            children[12usize].as_mut(),
+        )?;
+        <Option<
+            u16,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Option<
+            crate::generated::enums::SubjectKind,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <Vec<
+            ReferenceQuantityOperationsFieldInputConversionsItem,
+        > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
+        <Vec<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#operation_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#opcode: <crate::generated::enums::Opcode as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#input_kind_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#result_kind_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#basis_rule: <crate::generated::enums::BasisRule as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#reference_rule: <crate::generated::enums::ReferenceRule as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#scale_rule: <crate::generated::enums::QuantityScaleRule as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#shape_rule: <crate::generated::enums::QuantityShapeRule as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#basis_source: <Option<
+                u16,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#reference_source: <Option<
+                u16,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#scale_source: <Option<
+                u16,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#shape_source: <Option<
+                u16,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#subject_rule: <crate::generated::enums::SubjectRule as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#subject_source: <Option<
+                u16,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#result_subject_kind: <Option<
+                crate::generated::enums::SubjectKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#result_basis_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#result_reference_state_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
+                index,
+            )?,
+            r#input_conversions: <Vec<
+                ReferenceQuantityOperationsFieldInputConversionsItem,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(17usize).as_ref(),
+                index,
+            )?,
+            r#precondition_invariant_ids: <Vec<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(18usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 /// The concrete generated relation row.
 pub type Row = ReferenceQuantityOperationsRow;
 /// The concrete generated relation view.
@@ -329,25 +639,25 @@ impl ReferenceQuantityOperationsRow {
     /// Values in exact declared column order.
     pub fn into_cells(self) -> Vec<pse_schema::model::Cell> {
         vec![
-            crate ::typed::CellCodec::into_cell(self.r#operation_id), crate
-            ::typed::CellCodec::into_cell(self.r#opcode), crate
-            ::typed::CellCodec::into_cell(self.r#input_kind_ids), crate
-            ::typed::CellCodec::into_cell(self.r#result_kind_id), crate
-            ::typed::CellCodec::into_cell(self.r#basis_rule), crate
-            ::typed::CellCodec::into_cell(self.r#reference_rule), crate
-            ::typed::CellCodec::into_cell(self.r#scale_rule), crate
-            ::typed::CellCodec::into_cell(self.r#shape_rule), crate
-            ::typed::CellCodec::into_cell(self.r#basis_source), crate
-            ::typed::CellCodec::into_cell(self.r#reference_source), crate
-            ::typed::CellCodec::into_cell(self.r#scale_source), crate
-            ::typed::CellCodec::into_cell(self.r#shape_source), crate
-            ::typed::CellCodec::into_cell(self.r#subject_rule), crate
-            ::typed::CellCodec::into_cell(self.r#subject_source), crate
-            ::typed::CellCodec::into_cell(self.r#result_subject_kind), crate
-            ::typed::CellCodec::into_cell(self.r#result_basis_id), crate
-            ::typed::CellCodec::into_cell(self.r#result_reference_state_id), crate
-            ::typed::CellCodec::into_cell(self.r#input_conversions), crate
-            ::typed::CellCodec::into_cell(self.r#precondition_invariant_ids)
+            crate::typed::CellCodec::into_cell(self.r#operation_id),
+            crate::typed::CellCodec::into_cell(self.r#opcode),
+            crate::typed::CellCodec::into_cell(self.r#input_kind_ids),
+            crate::typed::CellCodec::into_cell(self.r#result_kind_id),
+            crate::typed::CellCodec::into_cell(self.r#basis_rule),
+            crate::typed::CellCodec::into_cell(self.r#reference_rule),
+            crate::typed::CellCodec::into_cell(self.r#scale_rule),
+            crate::typed::CellCodec::into_cell(self.r#shape_rule),
+            crate::typed::CellCodec::into_cell(self.r#basis_source),
+            crate::typed::CellCodec::into_cell(self.r#reference_source),
+            crate::typed::CellCodec::into_cell(self.r#scale_source),
+            crate::typed::CellCodec::into_cell(self.r#shape_source),
+            crate::typed::CellCodec::into_cell(self.r#subject_rule),
+            crate::typed::CellCodec::into_cell(self.r#subject_source),
+            crate::typed::CellCodec::into_cell(self.r#result_subject_kind),
+            crate::typed::CellCodec::into_cell(self.r#result_basis_id),
+            crate::typed::CellCodec::into_cell(self.r#result_reference_state_id),
+            crate::typed::CellCodec::into_cell(self.r#input_conversions),
+            crate::typed::CellCodec::into_cell(self.r#precondition_invariant_ids),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -361,7 +671,7 @@ impl ReferenceQuantityOperationsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"bb28867fc5077fffff30d19b0a31ed11\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"quantity_operations\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"operation_id\"]]],[\"list\",[[\"struct\",[[\"text\",\"operation_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"key\"],[\"text\",\"operation_id\"],[\"struct\",[[\"text\",\"operation_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]]]],[\"struct\",[[\"text\",\"opcode\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Opcode\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"97b6e904664ffff8ceb55427a9d5fff9\\\"}\"],[\"struct\",[[\"id\",\"97b6e904664ffff8ceb55427a9d5fff9\"],[\"text\",\"Opcode\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"Const\"],[\"null\",null],[\"bool\",false],[\"text\",\"Const\"]]],[\"struct\",[[\"text\",\"SymbolRef\"],[\"null\",null],[\"bool\",false],[\"text\",\"SymbolRef\"]]],[\"struct\",[[\"text\",\"Add\"],[\"null\",null],[\"bool\",false],[\"text\",\"Add\"]]],[\"struct\",[[\"text\",\"Sub\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sub\"]]],[\"struct\",[[\"text\",\"Affine\"],[\"null\",null],[\"bool\",false],[\"text\",\"Affine\"]]],[\"struct\",[[\"text\",\"WeightedMean\"],[\"null\",null],[\"bool\",false],[\"text\",\"WeightedMean\"]]],[\"struct\",[[\"text\",\"Mul\"],[\"null\",null],[\"bool\",false],[\"text\",\"Mul\"]]],[\"struct\",[[\"text\",\"Div\"],[\"null\",null],[\"bool\",false],[\"text\",\"Div\"]]],[\"struct\",[[\"text\",\"Pow\"],[\"null\",null],[\"bool\",false],[\"text\",\"Pow\"]]],[\"struct\",[[\"text\",\"Neg\"],[\"null\",null],[\"bool\",false],[\"text\",\"Neg\"]]],[\"struct\",[[\"text\",\"Abs\"],[\"null\",null],[\"bool\",false],[\"text\",\"Abs\"]]],[\"struct\",[[\"text\",\"Exp\"],[\"null\",null],[\"bool\",false],[\"text\",\"Exp\"]]],[\"struct\",[[\"text\",\"Log\"],[\"null\",null],[\"bool\",false],[\"text\",\"Log\"]]],[\"struct\",[[\"text\",\"Log10\"],[\"null\",null],[\"bool\",false],[\"text\",\"Log10\"]]],[\"struct\",[[\"text\",\"Sqrt\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sqrt\"]]],[\"struct\",[[\"text\",\"Sin\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sin\"]]],[\"struct\",[[\"text\",\"Cos\"],[\"null\",null],[\"bool\",false],[\"text\",\"Cos\"]]],[\"struct\",[[\"text\",\"Tan\"],[\"null\",null],[\"bool\",false],[\"text\",\"Tan\"]]],[\"struct\",[[\"text\",\"Asin\"],[\"null\",null],[\"bool\",false],[\"text\",\"Asin\"]]],[\"struct\",[[\"text\",\"Acos\"],[\"null\",null],[\"bool\",false],[\"text\",\"Acos\"]]],[\"struct\",[[\"text\",\"Atan\"],[\"null\",null],[\"bool\",false],[\"text\",\"Atan\"]]],[\"struct\",[[\"text\",\"Sinh\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sinh\"]]],[\"struct\",[[\"text\",\"Cosh\"],[\"null\",null],[\"bool\",false],[\"text\",\"Cosh\"]]],[\"struct\",[[\"text\",\"Tanh\"],[\"null\",null],[\"bool\",false],[\"text\",\"Tanh\"]]],[\"struct\",[[\"text\",\"Erf\"],[\"null\",null],[\"bool\",false],[\"text\",\"Erf\"]]],[\"struct\",[[\"text\",\"SmoothMax\"],[\"null\",null],[\"bool\",false],[\"text\",\"SmoothMax\"]]],[\"struct\",[[\"text\",\"SmoothMin\"],[\"null\",null],[\"bool\",false],[\"text\",\"SmoothMin\"]]],[\"struct\",[[\"text\",\"SmoothAbs\"],[\"null\",null],[\"bool\",false],[\"text\",\"SmoothAbs\"]]],[\"struct\",[[\"text\",\"SafeSqrt\"],[\"null\",null],[\"bool\",false],[\"text\",\"SafeSqrt\"]]],[\"struct\",[[\"text\",\"SafeLog\"],[\"null\",null],[\"bool\",false],[\"text\",\"SafeLog\"]]],[\"struct\",[[\"text\",\"Conditional\"],[\"null\",null],[\"bool\",false],[\"text\",\"Conditional\"]]],[\"struct\",[[\"text\",\"SumOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"SumOver\"]]],[\"struct\",[[\"text\",\"ProdOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"ProdOver\"]]],[\"struct\",[[\"text\",\"MinOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"MinOver\"]]],[\"struct\",[[\"text\",\"MaxOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"MaxOver\"]]],[\"struct\",[[\"text\",\"Gather\"],[\"null\",null],[\"bool\",false],[\"text\",\"Gather\"]]],[\"struct\",[[\"text\",\"Broadcast\"],[\"null\",null],[\"bool\",false],[\"text\",\"Broadcast\"]]],[\"struct\",[[\"text\",\"Derivative\"],[\"null\",null],[\"bool\",false],[\"text\",\"Derivative\"]]],[\"struct\",[[\"text\",\"Integral\"],[\"null\",null],[\"bool\",false],[\"text\",\"Integral\"]]],[\"struct\",[[\"text\",\"KernelCall\"],[\"null\",null],[\"bool\",false],[\"text\",\"KernelCall\"]]],[\"struct\",[[\"text\",\"ImplicitRef\"],[\"null\",null],[\"bool\",false],[\"text\",\"ImplicitRef\"]]],[\"struct\",[[\"text\",\"UnitConvert\"],[\"null\",null],[\"bool\",false],[\"text\",\"UnitConvert\"]]],[\"struct\",[[\"text\",\"PiecewiseLinear\"],[\"null\",null],[\"bool\",false],[\"text\",\"PiecewiseLinear\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"opcode\"],[\"struct\",[[\"text\",\"opcode\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"97b6e904664ffff8ceb55427a9d5fff9\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"97b6e904664ffff8ceb55427a9d5fff9\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Opcode\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"input_kind_ids\"],[\"struct\",[[\"text\",\"list\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"input_kind_ids\"],[\"struct\",[[\"text\",\"input_kind_ids\"],[\"struct\",[[\"text\",\"List\"],[\"struct\",[[\"text\",\"item\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]]]]]]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"list<semantic_id>\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"result_kind_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"struct\",[[\"text\",\"reference.quantity_kinds\"],[\"text\",\"quantity_kind_id\"],[\"struct\",[[\"id\",\"e25de1e7c546367238318a2203da4d9e\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"quantity_kinds\"],[\"u64\",1]]]]]]],[\"text\",\"payload\"],[\"text\",\"result_kind_id\"],[\"struct\",[[\"text\",\"result_kind_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.quantity_kinds.quantity_kind_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"basis_rule\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:BasisRule\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"982b193bf700f56d016d9ea2e87f0c12\\\"}\"],[\"struct\",[[\"id\",\"982b193bf700f56d016d9ea2e87f0c12\"],[\"text\",\"BasisRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"require_equal\"],[\"null\",null],[\"bool\",false],[\"text\",\"require_equal\"]]],[\"struct\",[[\"text\",\"registered_conversion\"],[\"null\",null],[\"bool\",false],[\"text\",\"registered_conversion\"]]],[\"struct\",[[\"text\",\"cancel\"],[\"null\",null],[\"bool\",false],[\"text\",\"cancel\"]]],[\"struct\",[[\"text\",\"declared_result\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared_result\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"basis_rule\"],[\"struct\",[[\"text\",\"basis_rule\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"982b193bf700f56d016d9ea2e87f0c12\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"982b193bf700f56d016d9ea2e87f0c12\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:BasisRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"reference_rule\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ReferenceRule\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"3f538c98f7426259b915c9c0b149caa7\\\"}\"],[\"struct\",[[\"id\",\"3f538c98f7426259b915c9c0b149caa7\"],[\"text\",\"ReferenceRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"require_equal\"],[\"null\",null],[\"bool\",false],[\"text\",\"require_equal\"]]],[\"struct\",[[\"text\",\"registered_conversion\"],[\"null\",null],[\"bool\",false],[\"text\",\"registered_conversion\"]]],[\"struct\",[[\"text\",\"cancel\"],[\"null\",null],[\"bool\",false],[\"text\",\"cancel\"]]],[\"struct\",[[\"text\",\"declared_result\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared_result\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"reference_rule\"],[\"struct\",[[\"text\",\"reference_rule\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"3f538c98f7426259b915c9c0b149caa7\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"3f538c98f7426259b915c9c0b149caa7\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ReferenceRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"scale_rule\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:QuantityScaleRule\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a3a6539f4a0ec1ca91d2168082d72008\\\"}\"],[\"struct\",[[\"id\",\"a3a6539f4a0ec1ca91d2168082d72008\"],[\"text\",\"QuantityScaleRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"point\"],[\"null\",null],[\"bool\",false],[\"text\",\"point\"]]],[\"struct\",[[\"text\",\"difference\"],[\"null\",null],[\"bool\",false],[\"text\",\"difference\"]]],[\"struct\",[[\"text\",\"addition\"],[\"null\",null],[\"bool\",false],[\"text\",\"addition\"]]],[\"struct\",[[\"text\",\"weighted_mean\"],[\"null\",null],[\"bool\",false],[\"text\",\"weighted_mean\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"scale_rule\"],[\"struct\",[[\"text\",\"scale_rule\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a3a6539f4a0ec1ca91d2168082d72008\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"a3a6539f4a0ec1ca91d2168082d72008\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:QuantityScaleRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"shape_rule\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:QuantityShapeRule\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"05522a149b3d0a48520768b8bbba3069\\\"}\"],[\"struct\",[[\"id\",\"05522a149b3d0a48520768b8bbba3069\"],[\"text\",\"QuantityShapeRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"scalar\"],[\"null\",null],[\"bool\",false],[\"text\",\"scalar\"]]],[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"same_indices\"],[\"null\",null],[\"bool\",false],[\"text\",\"same_indices\"]]],[\"struct\",[[\"text\",\"explicit_broadcast\"],[\"null\",null],[\"bool\",false],[\"text\",\"explicit_broadcast\"]]],[\"struct\",[[\"text\",\"reduce_bound_index\"],[\"null\",null],[\"bool\",false],[\"text\",\"reduce_bound_index\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"shape_rule\"],[\"struct\",[[\"text\",\"shape_rule\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"05522a149b3d0a48520768b8bbba3069\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"05522a149b3d0a48520768b8bbba3069\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:QuantityShapeRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"basis_source\"],[\"struct\",[[\"text\",\"u16\"],[\"text\",\"UInt16\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"basis_source\"],[\"struct\",[[\"text\",\"basis_source\"],[\"text\",\"UInt16\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"reference_source\"],[\"struct\",[[\"text\",\"u16\"],[\"text\",\"UInt16\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"reference_source\"],[\"struct\",[[\"text\",\"reference_source\"],[\"text\",\"UInt16\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"scale_source\"],[\"struct\",[[\"text\",\"u16\"],[\"text\",\"UInt16\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"scale_source\"],[\"struct\",[[\"text\",\"scale_source\"],[\"text\",\"UInt16\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"shape_source\"],[\"struct\",[[\"text\",\"u16\"],[\"text\",\"UInt16\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"shape_source\"],[\"struct\",[[\"text\",\"shape_source\"],[\"text\",\"UInt16\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"subject_rule\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:SubjectRule\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"75ce32994b57e21bb88d45fc0d9a663f\\\"}\"],[\"struct\",[[\"id\",\"75ce32994b57e21bb88d45fc0d9a663f\"],[\"text\",\"SubjectRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"require_equal\"],[\"null\",null],[\"bool\",false],[\"text\",\"require_equal\"]]],[\"struct\",[[\"text\",\"declared_result\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared_result\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"subject_rule\"],[\"struct\",[[\"text\",\"subject_rule\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"75ce32994b57e21bb88d45fc0d9a663f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"75ce32994b57e21bb88d45fc0d9a663f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:SubjectRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"subject_source\"],[\"struct\",[[\"text\",\"u16\"],[\"text\",\"UInt16\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"subject_source\"],[\"struct\",[[\"text\",\"subject_source\"],[\"text\",\"UInt16\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"result_subject_kind\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:SubjectKind\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e087687b8350ec110ff31bd1276c033f\\\"}\"],[\"struct\",[[\"id\",\"e087687b8350ec110ff31bd1276c033f\"],[\"text\",\"SubjectKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"element\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"reaction\"]]],[\"struct\",[[\"text\",\"none\"],[\"null\",null],[\"bool\",false],[\"text\",\"none\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"result_subject_kind\"],[\"struct\",[[\"text\",\"result_subject_kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e087687b8350ec110ff31bd1276c033f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"e087687b8350ec110ff31bd1276c033f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:SubjectKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"result_basis_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"result_basis_id\"],[\"struct\",[[\"text\",\"result_basis_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"result_reference_state_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"result_reference_state_id\"],[\"struct\",[[\"text\",\"result_reference_state_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"input_conversions\"],[\"struct\",[[\"text\",\"list\"],[\"struct\",[[\"text\",\"struct\"],[\"list\",[[\"struct\",[[\"text\",\"operand\"],[\"struct\",[[\"text\",\"u16\"],[\"text\",\"UInt16\"]]],[\"bool\",false]]],[\"struct\",[[\"text\",\"conversion_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false]]]]]]]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"input_conversions\"],[\"struct\",[[\"text\",\"input_conversions\"],[\"struct\",[[\"text\",\"List\"],[\"struct\",[[\"text\",\"item\"],[\"struct\",[[\"text\",\"Struct\"],[\"list\",[[\"struct\",[[\"text\",\"operand\"],[\"text\",\"UInt16\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]]]]]],[\"struct\",[[\"text\",\"conversion_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]]]]]]]]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"struct{operand:u16,conversion_id:semantic_id}\"]]]]]]]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"list<struct{operand:u16,conversion_id:semantic_id}>\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"precondition_invariant_ids\"],[\"struct\",[[\"text\",\"list\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"precondition_invariant_ids\"],[\"struct\",[[\"text\",\"precondition_invariant_ids\"],[\"struct\",[[\"text\",\"List\"],[\"struct\",[[\"text\",\"item\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]]]]]]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"list<semantic_id>\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]]]],[\"text\",\"blueprint §6.2 physical type: quantity_operations.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"bb28867fc5077fffff30d19b0a31ed11\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"bb28867fc5077fffff30d19b0a31ed11\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"quantity_operations\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"operation_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"operation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"operation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"operation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"opcode\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"opcode\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Opcode\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"opcode\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"97b6e904664ffff8ceb55427a9d5fff9\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"97b6e904664ffff8ceb55427a9d5fff9\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Opcode\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Opcode\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"97b6e904664ffff8ceb55427a9d5fff9\\\"}\"],[\"struct\",[[\"id\",\"97b6e904664ffff8ceb55427a9d5fff9\"],[\"text\",\"Opcode\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"Const\"],[\"null\",null],[\"bool\",false],[\"text\",\"Const\"]]],[\"struct\",[[\"text\",\"SymbolRef\"],[\"null\",null],[\"bool\",false],[\"text\",\"SymbolRef\"]]],[\"struct\",[[\"text\",\"Add\"],[\"null\",null],[\"bool\",false],[\"text\",\"Add\"]]],[\"struct\",[[\"text\",\"Sub\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sub\"]]],[\"struct\",[[\"text\",\"Affine\"],[\"null\",null],[\"bool\",false],[\"text\",\"Affine\"]]],[\"struct\",[[\"text\",\"WeightedMean\"],[\"null\",null],[\"bool\",false],[\"text\",\"WeightedMean\"]]],[\"struct\",[[\"text\",\"Mul\"],[\"null\",null],[\"bool\",false],[\"text\",\"Mul\"]]],[\"struct\",[[\"text\",\"Div\"],[\"null\",null],[\"bool\",false],[\"text\",\"Div\"]]],[\"struct\",[[\"text\",\"Pow\"],[\"null\",null],[\"bool\",false],[\"text\",\"Pow\"]]],[\"struct\",[[\"text\",\"Neg\"],[\"null\",null],[\"bool\",false],[\"text\",\"Neg\"]]],[\"struct\",[[\"text\",\"Abs\"],[\"null\",null],[\"bool\",false],[\"text\",\"Abs\"]]],[\"struct\",[[\"text\",\"Exp\"],[\"null\",null],[\"bool\",false],[\"text\",\"Exp\"]]],[\"struct\",[[\"text\",\"Log\"],[\"null\",null],[\"bool\",false],[\"text\",\"Log\"]]],[\"struct\",[[\"text\",\"Log10\"],[\"null\",null],[\"bool\",false],[\"text\",\"Log10\"]]],[\"struct\",[[\"text\",\"Sqrt\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sqrt\"]]],[\"struct\",[[\"text\",\"Sin\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sin\"]]],[\"struct\",[[\"text\",\"Cos\"],[\"null\",null],[\"bool\",false],[\"text\",\"Cos\"]]],[\"struct\",[[\"text\",\"Tan\"],[\"null\",null],[\"bool\",false],[\"text\",\"Tan\"]]],[\"struct\",[[\"text\",\"Asin\"],[\"null\",null],[\"bool\",false],[\"text\",\"Asin\"]]],[\"struct\",[[\"text\",\"Acos\"],[\"null\",null],[\"bool\",false],[\"text\",\"Acos\"]]],[\"struct\",[[\"text\",\"Atan\"],[\"null\",null],[\"bool\",false],[\"text\",\"Atan\"]]],[\"struct\",[[\"text\",\"Sinh\"],[\"null\",null],[\"bool\",false],[\"text\",\"Sinh\"]]],[\"struct\",[[\"text\",\"Cosh\"],[\"null\",null],[\"bool\",false],[\"text\",\"Cosh\"]]],[\"struct\",[[\"text\",\"Tanh\"],[\"null\",null],[\"bool\",false],[\"text\",\"Tanh\"]]],[\"struct\",[[\"text\",\"Erf\"],[\"null\",null],[\"bool\",false],[\"text\",\"Erf\"]]],[\"struct\",[[\"text\",\"SmoothMax\"],[\"null\",null],[\"bool\",false],[\"text\",\"SmoothMax\"]]],[\"struct\",[[\"text\",\"SmoothMin\"],[\"null\",null],[\"bool\",false],[\"text\",\"SmoothMin\"]]],[\"struct\",[[\"text\",\"SmoothAbs\"],[\"null\",null],[\"bool\",false],[\"text\",\"SmoothAbs\"]]],[\"struct\",[[\"text\",\"SafeSqrt\"],[\"null\",null],[\"bool\",false],[\"text\",\"SafeSqrt\"]]],[\"struct\",[[\"text\",\"SafeLog\"],[\"null\",null],[\"bool\",false],[\"text\",\"SafeLog\"]]],[\"struct\",[[\"text\",\"Conditional\"],[\"null\",null],[\"bool\",false],[\"text\",\"Conditional\"]]],[\"struct\",[[\"text\",\"SumOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"SumOver\"]]],[\"struct\",[[\"text\",\"ProdOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"ProdOver\"]]],[\"struct\",[[\"text\",\"MinOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"MinOver\"]]],[\"struct\",[[\"text\",\"MaxOver\"],[\"null\",null],[\"bool\",false],[\"text\",\"MaxOver\"]]],[\"struct\",[[\"text\",\"Gather\"],[\"null\",null],[\"bool\",false],[\"text\",\"Gather\"]]],[\"struct\",[[\"text\",\"Broadcast\"],[\"null\",null],[\"bool\",false],[\"text\",\"Broadcast\"]]],[\"struct\",[[\"text\",\"Derivative\"],[\"null\",null],[\"bool\",false],[\"text\",\"Derivative\"]]],[\"struct\",[[\"text\",\"Integral\"],[\"null\",null],[\"bool\",false],[\"text\",\"Integral\"]]],[\"struct\",[[\"text\",\"KernelCall\"],[\"null\",null],[\"bool\",false],[\"text\",\"KernelCall\"]]],[\"struct\",[[\"text\",\"ImplicitRef\"],[\"null\",null],[\"bool\",false],[\"text\",\"ImplicitRef\"]]],[\"struct\",[[\"text\",\"UnitConvert\"],[\"null\",null],[\"bool\",false],[\"text\",\"UnitConvert\"]]],[\"struct\",[[\"text\",\"PiecewiseLinear\"],[\"null\",null],[\"bool\",false],[\"text\",\"PiecewiseLinear\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"input_kind_ids\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_kind_ids\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"input_kind_ids\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]]]]]],[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"result_kind_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"result_kind_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"quantity_kind_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.quantity_kinds\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"result_kind_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.quantity_kinds.quantity_kind_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"e25de1e7c546367238318a2203da4d9e\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"quantity_kinds\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"basis_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"basis_rule\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"BasisRule\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"basis_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"982b193bf700f56d016d9ea2e87f0c12\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"982b193bf700f56d016d9ea2e87f0c12\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:BasisRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:BasisRule\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"982b193bf700f56d016d9ea2e87f0c12\\\"}\"],[\"struct\",[[\"id\",\"982b193bf700f56d016d9ea2e87f0c12\"],[\"text\",\"BasisRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"require_equal\"],[\"null\",null],[\"bool\",false],[\"text\",\"require_equal\"]]],[\"struct\",[[\"text\",\"registered_conversion\"],[\"null\",null],[\"bool\",false],[\"text\",\"registered_conversion\"]]],[\"struct\",[[\"text\",\"cancel\"],[\"null\",null],[\"bool\",false],[\"text\",\"cancel\"]]],[\"struct\",[[\"text\",\"declared_result\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared_result\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"reference_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"reference_rule\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ReferenceRule\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"reference_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"3f538c98f7426259b915c9c0b149caa7\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"3f538c98f7426259b915c9c0b149caa7\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ReferenceRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ReferenceRule\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"3f538c98f7426259b915c9c0b149caa7\\\"}\"],[\"struct\",[[\"id\",\"3f538c98f7426259b915c9c0b149caa7\"],[\"text\",\"ReferenceRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"require_equal\"],[\"null\",null],[\"bool\",false],[\"text\",\"require_equal\"]]],[\"struct\",[[\"text\",\"registered_conversion\"],[\"null\",null],[\"bool\",false],[\"text\",\"registered_conversion\"]]],[\"struct\",[[\"text\",\"cancel\"],[\"null\",null],[\"bool\",false],[\"text\",\"cancel\"]]],[\"struct\",[[\"text\",\"declared_result\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared_result\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"scale_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"scale_rule\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"QuantityScaleRule\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"scale_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a3a6539f4a0ec1ca91d2168082d72008\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"a3a6539f4a0ec1ca91d2168082d72008\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:QuantityScaleRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:QuantityScaleRule\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a3a6539f4a0ec1ca91d2168082d72008\\\"}\"],[\"struct\",[[\"id\",\"a3a6539f4a0ec1ca91d2168082d72008\"],[\"text\",\"QuantityScaleRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"point\"],[\"null\",null],[\"bool\",false],[\"text\",\"point\"]]],[\"struct\",[[\"text\",\"difference\"],[\"null\",null],[\"bool\",false],[\"text\",\"difference\"]]],[\"struct\",[[\"text\",\"addition\"],[\"null\",null],[\"bool\",false],[\"text\",\"addition\"]]],[\"struct\",[[\"text\",\"weighted_mean\"],[\"null\",null],[\"bool\",false],[\"text\",\"weighted_mean\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"shape_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"shape_rule\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"QuantityShapeRule\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"shape_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"05522a149b3d0a48520768b8bbba3069\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"05522a149b3d0a48520768b8bbba3069\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:QuantityShapeRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:QuantityShapeRule\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"05522a149b3d0a48520768b8bbba3069\\\"}\"],[\"struct\",[[\"id\",\"05522a149b3d0a48520768b8bbba3069\"],[\"text\",\"QuantityShapeRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"scalar\"],[\"null\",null],[\"bool\",false],[\"text\",\"scalar\"]]],[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"same_indices\"],[\"null\",null],[\"bool\",false],[\"text\",\"same_indices\"]]],[\"struct\",[[\"text\",\"explicit_broadcast\"],[\"null\",null],[\"bool\",false],[\"text\",\"explicit_broadcast\"]]],[\"struct\",[[\"text\",\"reduce_bound_index\"],[\"null\",null],[\"bool\",false],[\"text\",\"reduce_bound_index\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"basis_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"basis_source\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"basis_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"reference_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"reference_source\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"reference_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"scale_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"scale_source\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"scale_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"shape_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"shape_source\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"shape_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"subject_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"subject_rule\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"SubjectRule\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"subject_rule\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"75ce32994b57e21bb88d45fc0d9a663f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"75ce32994b57e21bb88d45fc0d9a663f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:SubjectRule\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:SubjectRule\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"75ce32994b57e21bb88d45fc0d9a663f\\\"}\"],[\"struct\",[[\"id\",\"75ce32994b57e21bb88d45fc0d9a663f\"],[\"text\",\"SubjectRule\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"preserve\"],[\"null\",null],[\"bool\",false],[\"text\",\"preserve\"]]],[\"struct\",[[\"text\",\"require_equal\"],[\"null\",null],[\"bool\",false],[\"text\",\"require_equal\"]]],[\"struct\",[[\"text\",\"declared_result\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared_result\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"subject_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"subject_source\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"subject_source\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"result_subject_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"result_subject_kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"SubjectKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"result_subject_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e087687b8350ec110ff31bd1276c033f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"e087687b8350ec110ff31bd1276c033f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:SubjectKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:SubjectKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e087687b8350ec110ff31bd1276c033f\\\"}\"],[\"struct\",[[\"id\",\"e087687b8350ec110ff31bd1276c033f\"],[\"text\",\"SubjectKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"element\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"reaction\"]]],[\"struct\",[[\"text\",\"none\"],[\"null\",null],[\"bool\",false],[\"text\",\"none\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"result_basis_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"result_basis_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"result_basis_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"result_reference_state_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"result_reference_state_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"result_reference_state_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"input_conversions\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"UInt16\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"operand\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"conversion_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_conversions\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"input_conversions\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"UInt16\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"u16\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"operand\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"conversion_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":\\\\\\\"UInt16\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{},\\\\\\\"name\\\\\\\":\\\\\\\"operand\\\\\\\",\\\\\\\"nullable\\\\\\\":false},{\\\\\\\"data_type\\\\\\\":{\\\\\\\"FixedSizeBinary\\\\\\\":16},\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.extension\\\\\\\":\\\\\\\"pse.semantic_id\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"conversion_id\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"UInt16\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"operand\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"conversion_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"UInt16\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"operand\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"conversion_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"UInt16\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"u16\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"operand\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"conversion_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"UInt16\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"operand\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"conversion_id\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"operand\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"operand\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"conversion_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]]]]]],[\"struct\",[[\"text\",\"conversion_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"precondition_invariant_ids\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"precondition_invariant_ids\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"precondition_invariant_ids\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]]]]]],[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.2 physical type: quantity_operations.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"bb28867fc5077fffff30d19b0a31ed11\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -387,9 +697,7 @@ fn check_declaration(
             actual: spec.fingerprint,
         });
     }
-    if pse_schema::compiled_contract::relation(reg, spec)?.literal_spec()
-        != COMPILED_DECLARATION
-    {
+    if reg.compiled_declaration(spec)? != COMPILED_DECLARATION {
         return Err(crate::RelationError::Contract {
             relation: "reference.quantity_operations".to_owned(),
             reason: "runtime declaration differs from the complete generated contract"
@@ -412,96 +720,936 @@ pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationErr
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
     crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
 }
-/// A borrowed batch admitted against the complete generated contract.
+impl crate::columnar::RelationRow for ReferenceQuantityOperationsRow {
+    type Builder = ReferenceQuantityOperationsBuilder;
+    fn relation(
+        registry: &pse_schema::Registry,
+    ) -> Result<&pse_schema::model::RelationSpec, crate::RelationError> {
+        spec(registry)
+    }
+    fn builder(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self::Builder, crate::RelationError> {
+        ReferenceQuantityOperationsBuilder::with_registry(registry, capacity)
+    }
+    fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
+        builder.push(row)
+    }
+    fn finish(
+        builder: Self::Builder,
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        builder.finish()
+    }
+    fn rows(
+        batch: &crate::columnar::FieldCheckedBatch,
+    ) -> Result<Vec<Self>, crate::RelationError> {
+        ReferenceQuantityOperationsView::from_checked(batch)?.rows()
+    }
+    fn builder_allocation_size() -> usize {
+        300_296_usize + size_of::<Self::Builder>()
+    }
+    fn minimum_row_allocation_size() -> usize {
+        408usize
+    }
+    fn allocation_size(&self) -> Result<usize, crate::RelationError> {
+        let mut bytes = 0usize;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#opcode).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#input_kind_ids)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        Ok::<usize, crate::RelationError>(16usize)?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#basis_rule).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#reference_rule).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#scale_rule).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#shape_rule).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#basis_source).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#reference_source).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#scale_source).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#shape_source).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#subject_rule).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#subject_source).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#result_subject_kind).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#result_basis_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#result_reference_state_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#input_conversions)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        {
+                            let mut bytes = 1usize;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(8usize)?,
+                            )?;
+                            bytes = crate::columnar::allocation_add(
+                                bytes,
+                                Ok::<usize, crate::RelationError>(16usize)?,
+                            )?;
+                            Ok::<usize, crate::RelationError>(bytes)
+                        }?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#precondition_invariant_ids)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, _| crate::columnar::allocation_add(
+                        bytes,
+                        Ok::<usize, crate::RelationError>(16usize)?,
+                    ),
+                )?,
+        )?;
+        Ok(bytes)
+    }
+}
+/// The complete declared relation key.
+pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::RelationKey {
+    namespace: NAMESPACE,
+    name: NAME,
+    version: VERSION,
+};
+/// Stable field references projected from the declared column order.
+pub const COLUMNS: [crate::columnar::ColumnReference; 19usize] = [
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "operation_id",
+        position: 0usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "opcode",
+        position: 1usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "input_kind_ids",
+        position: 2usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "result_kind_id",
+        position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "basis_rule",
+        position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "reference_rule",
+        position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "scale_rule",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "shape_rule",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "basis_source",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "reference_source",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "scale_source",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "shape_source",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "subject_rule",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "subject_source",
+        position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "result_subject_kind",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "result_basis_id",
+        position: 15usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "result_reference_state_id",
+        position: 16usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "input_conversions",
+        position: 17usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "precondition_invariant_ids",
+        position: 18usize,
+    },
+];
+/// Borrowed Arrow columns with checked layout and local values.
+/// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct ReferenceQuantityOperationsView<'a> {
     batch: &'a crate::RecordBatch,
-    registry: &'a pse_schema::Registry,
+    operation_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    opcode_column: &'a arrow_array::StringArray,
+    input_kind_ids_column: &'a arrow_array::ListArray,
+    result_kind_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    basis_rule_column: &'a arrow_array::StringArray,
+    reference_rule_column: &'a arrow_array::StringArray,
+    scale_rule_column: &'a arrow_array::StringArray,
+    shape_rule_column: &'a arrow_array::StringArray,
+    basis_source_column: &'a arrow_array::UInt16Array,
+    reference_source_column: &'a arrow_array::UInt16Array,
+    scale_source_column: &'a arrow_array::UInt16Array,
+    shape_source_column: &'a arrow_array::UInt16Array,
+    subject_rule_column: &'a arrow_array::StringArray,
+    subject_source_column: &'a arrow_array::UInt16Array,
+    result_subject_kind_column: &'a arrow_array::StringArray,
+    result_basis_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    result_reference_state_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    input_conversions_column: &'a arrow_array::ListArray,
+    precondition_invariant_ids_column: &'a arrow_array::ListArray,
 }
 impl<'a> ReferenceQuantityOperationsView<'a> {
-    /// Admits the actual schema and visible values, including extension metadata.
+    /// Admits a raw candidate's actual schema and visible local values.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
     }
-    /// Admits a batch with an explicitly bound registry.
+    /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch_with_registry(
-        registry: &'a pse_schema::Registry,
+        registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         crate::validate::validate_batch(registry, spec(registry)?, batch)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Ok(Self { batch, registry })
+        Self::borrow_columns(batch)
     }
-    /// The admitted batch, preserving its owners and reservations.
+    /// Borrows a checked owner without rescanning visible values.
+    /// The private owner must carry this exact relation and complete declaration.
+    /// # Errors
+    /// A different generated declaration or an incompatible Arrow layout.
+    pub fn from_checked(
+        owner: &'a crate::columnar::FieldCheckedBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Self::borrow_columns(owner.for_declaration(RELATION_ID, COMPILED_DECLARATION)?)
+    }
+    fn borrow_columns(
+        batch: &'a crate::RecordBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Ok(Self {
+            batch,
+            operation_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(0usize).as_ref())?,
+            opcode_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(1usize).as_ref())?,
+            input_kind_ids_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(2usize).as_ref())?,
+            result_kind_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(3usize).as_ref())?,
+            basis_rule_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            reference_rule_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
+            scale_rule_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            shape_rule_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
+            basis_source_column: crate::columnar::array::<
+                arrow_array::UInt16Array,
+            >(batch.column(8usize).as_ref())?,
+            reference_source_column: crate::columnar::array::<
+                arrow_array::UInt16Array,
+            >(batch.column(9usize).as_ref())?,
+            scale_source_column: crate::columnar::array::<
+                arrow_array::UInt16Array,
+            >(batch.column(10usize).as_ref())?,
+            shape_source_column: crate::columnar::array::<
+                arrow_array::UInt16Array,
+            >(batch.column(11usize).as_ref())?,
+            subject_rule_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(12usize).as_ref())?,
+            subject_source_column: crate::columnar::array::<
+                arrow_array::UInt16Array,
+            >(batch.column(13usize).as_ref())?,
+            result_subject_kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(14usize).as_ref())?,
+            result_basis_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(15usize).as_ref())?,
+            result_reference_state_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(16usize).as_ref())?,
+            input_conversions_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(17usize).as_ref())?,
+            precondition_invariant_ids_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(18usize).as_ref())?,
+        })
+    }
+    /// The immutable batch, preserving its buffer owners and reservations.
     pub const fn batch(&self) -> &'a crate::RecordBatch {
         self.batch
     }
-    /// Decode dictionary values and nested fields into generated typed rows.
+    /// The number of visible relation rows.
+    pub fn len(&self) -> usize {
+        self.batch.num_rows()
+    }
+    /// Whether this view has no relation rows.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "operation_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn operation_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.operation_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "operation_id", "`.")]
+    pub fn operation_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[0usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "opcode",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn opcode_column(&self) -> &'a arrow_array::StringArray {
+        self.opcode_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "opcode", "`.")]
+    pub fn opcode_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "input_kind_ids",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn input_kind_ids_column(&self) -> &'a arrow_array::ListArray {
+        self.input_kind_ids_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "input_kind_ids", "`.")]
+    pub fn input_kind_ids_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "result_kind_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn result_kind_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.result_kind_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "result_kind_id", "`.")]
+    pub fn result_kind_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "basis_rule",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn basis_rule_column(&self) -> &'a arrow_array::StringArray {
+        self.basis_rule_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "basis_rule", "`.")]
+    pub fn basis_rule_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "reference_rule",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn reference_rule_column(&self) -> &'a arrow_array::StringArray {
+        self.reference_rule_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "reference_rule", "`.")]
+    pub fn reference_rule_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "scale_rule",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn scale_rule_column(&self) -> &'a arrow_array::StringArray {
+        self.scale_rule_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "scale_rule", "`.")]
+    pub fn scale_rule_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "shape_rule",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn shape_rule_column(&self) -> &'a arrow_array::StringArray {
+        self.shape_rule_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "shape_rule", "`.")]
+    pub fn shape_rule_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "basis_source",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn basis_source_column(&self) -> &'a arrow_array::UInt16Array {
+        self.basis_source_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "basis_source", "`.")]
+    pub fn basis_source_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "reference_source",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn reference_source_column(&self) -> &'a arrow_array::UInt16Array {
+        self.reference_source_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "reference_source", "`.")]
+    pub fn reference_source_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "scale_source",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn scale_source_column(&self) -> &'a arrow_array::UInt16Array {
+        self.scale_source_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "scale_source", "`.")]
+    pub fn scale_source_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "shape_source",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn shape_source_column(&self) -> &'a arrow_array::UInt16Array {
+        self.shape_source_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "shape_source", "`.")]
+    pub fn shape_source_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "subject_rule",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn subject_rule_column(&self) -> &'a arrow_array::StringArray {
+        self.subject_rule_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "subject_rule", "`.")]
+    pub fn subject_rule_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "subject_source",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn subject_source_column(&self) -> &'a arrow_array::UInt16Array {
+        self.subject_source_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "subject_source", "`.")]
+    pub fn subject_source_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "result_subject_kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn result_subject_kind_column(&self) -> &'a arrow_array::StringArray {
+        self.result_subject_kind_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "result_subject_kind",
+        "`.",
+    )]
+    pub fn result_subject_kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "result_basis_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn result_basis_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.result_basis_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "result_basis_id", "`.")]
+    pub fn result_basis_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[15usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "result_reference_state_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn result_reference_state_id_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.result_reference_state_id_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "result_reference_state_id",
+        "`.",
+    )]
+    pub fn result_reference_state_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[16usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "input_conversions",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn input_conversions_column(&self) -> &'a arrow_array::ListArray {
+        self.input_conversions_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "input_conversions", "`.")]
+    pub fn input_conversions_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[17usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "precondition_invariant_ids",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn precondition_invariant_ids_column(&self) -> &'a arrow_array::ListArray {
+        self.precondition_invariant_ids_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "precondition_invariant_ids",
+        "`.",
+    )]
+    pub fn precondition_invariant_ids_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[18usize]
+    }
+    /// Decodes one row for an explicit scalar algorithm boundary.
+    /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
-    /// A typed decoding error.
+    /// The row is out of range or its physical value cannot be decoded.
+    pub fn row(
+        &self,
+        index: usize,
+    ) -> Result<ReferenceQuantityOperationsRow, crate::RelationError> {
+        if index >= self.len() {
+            return Err(crate::columnar::mismatch("a row within the generated view"));
+        }
+        Ok(ReferenceQuantityOperationsRow {
+            r#operation_id: crate::columnar::ArrowValue::read(
+                self.operation_id_column,
+                index,
+            )?,
+            r#opcode: crate::columnar::ArrowValue::read(self.opcode_column, index)?,
+            r#input_kind_ids: crate::columnar::ArrowValue::read(
+                self.input_kind_ids_column,
+                index,
+            )?,
+            r#result_kind_id: crate::columnar::ArrowValue::read(
+                self.result_kind_id_column,
+                index,
+            )?,
+            r#basis_rule: crate::columnar::ArrowValue::read(
+                self.basis_rule_column,
+                index,
+            )?,
+            r#reference_rule: crate::columnar::ArrowValue::read(
+                self.reference_rule_column,
+                index,
+            )?,
+            r#scale_rule: crate::columnar::ArrowValue::read(
+                self.scale_rule_column,
+                index,
+            )?,
+            r#shape_rule: crate::columnar::ArrowValue::read(
+                self.shape_rule_column,
+                index,
+            )?,
+            r#basis_source: crate::columnar::ArrowValue::read(
+                self.basis_source_column,
+                index,
+            )?,
+            r#reference_source: crate::columnar::ArrowValue::read(
+                self.reference_source_column,
+                index,
+            )?,
+            r#scale_source: crate::columnar::ArrowValue::read(
+                self.scale_source_column,
+                index,
+            )?,
+            r#shape_source: crate::columnar::ArrowValue::read(
+                self.shape_source_column,
+                index,
+            )?,
+            r#subject_rule: crate::columnar::ArrowValue::read(
+                self.subject_rule_column,
+                index,
+            )?,
+            r#subject_source: crate::columnar::ArrowValue::read(
+                self.subject_source_column,
+                index,
+            )?,
+            r#result_subject_kind: crate::columnar::ArrowValue::read(
+                self.result_subject_kind_column,
+                index,
+            )?,
+            r#result_basis_id: crate::columnar::ArrowValue::read(
+                self.result_basis_id_column,
+                index,
+            )?,
+            r#result_reference_state_id: crate::columnar::ArrowValue::read(
+                self.result_reference_state_id_column,
+                index,
+            )?,
+            r#input_conversions: crate::columnar::ArrowValue::read(
+                self.input_conversions_column,
+                index,
+            )?,
+            r#precondition_invariant_ids: crate::columnar::ArrowValue::read(
+                self.precondition_invariant_ids_column,
+                index,
+            )?,
+        })
+    }
+    /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
+    /// This performs no schema/value admission and creates no `Cell` intermediates.
+    /// # Errors
+    /// A physical value cannot be decoded.
     pub fn rows(
         &self,
     ) -> Result<Vec<ReferenceQuantityOperationsRow>, crate::RelationError> {
-        crate::cells::cells_from_batch(self.registry, spec(self.registry)?, self.batch)?
-            .into_iter()
-            .map(ReferenceQuantityOperationsRow::from_cells)
-            .collect()
+        (0..self.len()).map(|index| self.row(index)).collect()
     }
 }
-/// Builds a batch under the declared schema, with admission before return.
-#[derive(Debug, Default)]
+/// Appends typed values directly into the declared Arrow column builders.
+/// Finish establishes layout and local value contracts, not relational validity.
+#[derive(Debug)]
 pub struct ReferenceQuantityOperationsBuilder {
-    rows: Vec<ReferenceQuantityOperationsRow>,
+    columns: crate::columnar::BatchBuilder,
 }
 impl ReferenceQuantityOperationsBuilder {
-    /// An empty builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-    /// Reserves row capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            rows: Vec::with_capacity(capacity),
-        }
-    }
-    /// Checks one candidate row before adding it. Bundle constraints run at P2.
+    /// Opens empty Arrow builders under the generated declaration.
     /// # Errors
-    /// An extension value or field contract violation.
+    /// The runtime registry or declared storage is incompatible.
+    pub fn new() -> Result<Self, crate::RelationError> {
+        Self::with_capacity(0)
+    }
+    /// Reserves initial Arrow column capacity.
+    /// # Errors
+    /// The runtime registry or declared storage is incompatible.
+    pub fn with_capacity(capacity: usize) -> Result<Self, crate::RelationError> {
+        Self::with_registry(pse_schema::registry()?, capacity)
+    }
+    /// Opens Arrow builders after checking the exact runtime declaration once.
+    /// # Errors
+    /// A generated declaration mismatch or unrepresentable storage capacity.
+    pub fn with_registry(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let schema = std::sync::Arc::new(
+            pse_schema::arrow::relation_schema(registry, spec(registry)?)?,
+        );
+        Ok(Self {
+            columns: crate::columnar::BatchBuilder::new(
+                RELATION_ID,
+                COMPILED_DECLARATION,
+                schema,
+                capacity,
+            )?,
+        })
+    }
+    /// Number of appended rows, including retained bulk column chunks.
+    pub const fn len(&self) -> usize {
+        self.columns.len()
+    }
+    /// Whether the builder contains no rows.
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Checks local logical values before appending directly to Arrow buffers.
+    /// Local refusal does not modify the builder; storage failure closes it.
+    /// # Errors
+    /// An extension value, quantity sibling or Arrow storage violation.
     pub fn push(
         &mut self,
         row: ReferenceQuantityOperationsRow,
     ) -> Result<(), crate::RelationError> {
-        let reg = pse_schema::registry()?;
-        crate::cells::batch_from_cells(reg, spec(reg)?, &[row.clone().into_cells()])?;
-        self.rows.push(row);
-        Ok(())
+        self.columns
+            .append(move |columns| {
+                let row = &row;
+                crate::columnar::ArrowValue::append(
+                    &row.r#operation_id,
+                    columns[0usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#opcode,
+                    columns[1usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#input_kind_ids,
+                    columns[2usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#result_kind_id,
+                    columns[3usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#basis_rule,
+                    columns[4usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#reference_rule,
+                    columns[5usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#scale_rule,
+                    columns[6usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#shape_rule,
+                    columns[7usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#basis_source,
+                    columns[8usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#reference_source,
+                    columns[9usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#scale_source,
+                    columns[10usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#shape_source,
+                    columns[11usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#subject_rule,
+                    columns[12usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#subject_source,
+                    columns[13usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#result_subject_kind,
+                    columns[14usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#result_basis_id,
+                    columns[15usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#result_reference_state_id,
+                    columns[16usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#input_conversions,
+                    columns[17usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#precondition_invariant_ids,
+                    columns[18usize].as_mut(),
+                )?;
+                Ok(())
+            })
     }
-    /// Builds and admits the complete batch.
+    /// Appends an admitted view's actual Arrow arrays without decoding rows.
     /// # Errors
-    /// A schema, value or Arrow layout failure.
-    pub fn finish(self) -> Result<crate::RecordBatch, crate::RelationError> {
-        self.finish_with_registry(pse_schema::registry()?)
+    /// A different field contract, Arrow failure or row-count overflow.
+    pub fn append_view(
+        &mut self,
+        view: &ReferenceQuantityOperationsView<'_>,
+    ) -> Result<(), crate::RelationError> {
+        self.columns.append_batch(view.batch())
     }
-    /// Builds under an explicitly bound runtime registry.
+    /// Finishes Arrow buffers and retains private local field evidence.
     /// # Errors
-    /// A contract mismatch or batch admission failure.
-    pub fn finish_with_registry(
+    /// Arrow rejected the physical layout or a previous append failed.
+    pub fn finish(
         self,
-        reg: &pse_schema::Registry,
-    ) -> Result<crate::RecordBatch, crate::RelationError> {
-        let cells = self
-            .rows
-            .into_iter()
-            .map(ReferenceQuantityOperationsRow::into_cells)
-            .collect::<Vec<_>>();
-        crate::cells::batch_from_cells(reg, spec(reg)?, &cells)
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        self.columns.finish()
     }
 }

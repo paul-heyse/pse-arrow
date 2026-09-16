@@ -71,6 +71,23 @@ impl VecSink {
     }
 }
 impl MathRelationSink for VecSink {
+    fn pending_path(
+        &mut self,
+        node: NodeId,
+        source_id: SemanticId,
+        path_id: u64,
+        indices: &[NodeId],
+    ) -> Result<(), MathIrError> {
+        self.payloads.push((
+            node,
+            Payload::PendingPath {
+                source_id,
+                path_id,
+                indices: indices.to_vec(),
+            },
+        ));
+        Ok(())
+    }
     fn pending_gather(
         &mut self,
         node: NodeId,

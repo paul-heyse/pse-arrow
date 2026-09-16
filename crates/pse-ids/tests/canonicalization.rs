@@ -280,8 +280,8 @@ fn budget_envelope_cancellation_and_duplicate_keys_reject_without_retained_claim
     assert_eq!(tiny.reserved(), 0);
     let budget = FixedBudget::new(64 << 20);
     for envelope in [
-        Envelope::lowered(2, 1 << 20).unwrap(),
-        Envelope::lowered(10, 1).unwrap(),
+        Envelope::new(2, 1 << 20).unwrap(),
+        Envelope::new(10, 1).unwrap(),
     ] {
         assert!(matches!(
             canonicalize(

@@ -10,13 +10,13 @@
 //! so that a pass can build and check a graph without an engine, and packet M-5's
 //! `MathRelationSink` can write the same facts out.
 //!
-//! # Why this is not a `datafusion::Expr`
+//! # Native expression boundary
 //!
-//! D6 in one paragraph: indexed operators — `SumOver`, `Gather`, `Broadcast`, `Derivative`,
-//! `Integral`, `ImplicitRef`, `KernelCall` — survive until a backend requires
-//! scalarization. A species balance over 1 000 cells stays one node with a free cell index
-//! until P12 expands it. DataFusion `Expr` is used to *compute over* this IR (the rule
-//! compiler), never to *be* it.
+//! Native `datafusion::Expr` represents mathematics wherever it preserves the required
+//! meaning (ADR-0068). Indexed, implicit, derivative and kernel contracts remain typed
+//! facts until their native lowering is available. Numerical consumers may derive
+//! temporary graph layouts, then release them after preparing native expressions;
+//! these layouts do not replace the relational model authority.
 //!
 //! # What the keel guarantees
 //!

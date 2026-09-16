@@ -17,7 +17,7 @@
 //! they are the preimage of the registry fingerprint.
 
 use pse_schema::model::{
-    Authority, Cell, DerivationGranularity, EXTENSION_TYPES, ExtensionUse, LogicalType,
+    Authority, Cell, DerivationGranularity, EXTENSION_TYPES, ExtensionUse, FieldContract,
     QuantityContract, RelationSpec, SnapshotClass, render_data_type,
 };
 use pse_schema::{catalog, registry};
@@ -48,9 +48,9 @@ fn the_registry_assembles() {
 }
 
 #[test]
-fn inference_contracts_preserve_actual_instance_member_and_index_keys() {
+fn inference_contracts_preserve_actual_instance_members_and_indexed_products() {
     let reg = registry().expect("the shipped catalog assembles");
-    let id = LogicalType::id();
+    let id = FieldContract::id();
     for (name, keys, columns) in [
         (
             "inferred.state_flash_required",
@@ -59,7 +59,7 @@ fn inference_contracts_preserve_actual_instance_member_and_index_keys() {
         ),
         (
             "inferred.connection_equations",
-            vec!["connection_id", "member_ordinal", "index"],
+            vec!["connection_id", "member_ordinal"],
             vec![
                 ("connection_id", id.clone()),
                 (
@@ -68,10 +68,10 @@ fn inference_contracts_preserve_actual_instance_member_and_index_keys() {
                         .unwrap()
                         .column("ordinal")
                         .unwrap()
-                        .logical_type
+                        .value_type()
                         .clone(),
                 ),
-                ("index", LogicalType::Ext(ExtensionUse::IndexTuple)),
+                ("product_id", id.clone()),
                 ("equation_id", id.clone()),
             ],
         ),
@@ -86,7 +86,7 @@ fn inference_contracts_preserve_actual_instance_member_and_index_keys() {
                         .unwrap()
                         .column("ordinal")
                         .unwrap()
-                        .logical_type
+                        .value_type()
                         .clone(),
                 ),
             ],
@@ -104,12 +104,12 @@ fn inference_contracts_preserve_actual_instance_member_and_index_keys() {
         assert_eq!(
             spec.columns
                 .iter()
-                .map(|column| (column.name, column.logical_type.clone()))
+                .map(|column| (column.name(), column.value_type().clone()))
                 .collect::<Vec<_>>(),
             columns,
             "{name} retains complete declared values"
         );
-        assert!(spec.columns.iter().all(|column| !column.nullable));
+        assert!(spec.columns.iter().all(|column| !column.nullable()));
         assert!(
             reg.invariants()
                 .iter()
@@ -117,7 +117,7 @@ fn inference_contracts_preserve_actual_instance_member_and_index_keys() {
         );
     }
     let connection = reg.relation("inferred.connection_equations").unwrap();
-    let reference = connection.column("connection_id").unwrap().fk.unwrap();
+    let reference = connection.column("connection_id").unwrap().fk().unwrap();
     assert_eq!(reference.relation, "authored.connections");
     assert_eq!(reference.column, "connection_id");
 }
@@ -142,20 +142,22 @@ fn every_foreign_key_resolves() {
     let reg = registry().expect("the shipped catalog assembles");
     for spec in reg.relations() {
         for column in &spec.columns {
-            let Some(fk) = column.fk else {
+            let Some(fk) = column.fk() else {
                 continue;
             };
             let target = reg.relation(fk.relation).unwrap_or_else(|| {
                 panic!(
                     "{}.{} references unknown {}",
-                    spec.key, column.name, fk.relation
+                    spec.key,
+                    column.name(),
+                    fk.relation
                 )
             });
             assert!(
                 target.column(fk.column).is_some(),
                 "{}.{} references unknown column {fk}",
                 spec.key,
-                column.name
+                column.name()
             );
         }
     }
@@ -167,20 +169,20 @@ fn every_enum_and_ordinal_reference_resolves() {
     for spec in reg.relations() {
         for column in &spec.columns {
             let mut reachable = Vec::new();
-            column.logical_type.walk_for_test(&mut reachable);
+            column.value_type().walk_for_test(&mut reachable);
             for ty in reachable {
                 match ty.extension() {
                     Some(ExtensionUse::Enum(name)) => assert!(
                         reg.enum_spec(name).is_some(),
                         "{}.{} uses undeclared enum:{name}",
                         spec.key,
-                        column.name
+                        column.name()
                     ),
                     Some(ExtensionUse::OrdinalRef { target }) => assert!(
                         reg.relation(target).is_some(),
                         "{}.{} references undeclared relation {target}",
                         spec.key,
-                        column.name
+                        column.name()
                     ),
                     _ => {}
                 }
@@ -194,7 +196,7 @@ fn every_per_row_quantity_has_its_sibling() {
     let reg = registry().expect("the shipped catalog assembles");
     for spec in reg.relations() {
         for column in &spec.columns {
-            if column.quantity != QuantityContract::PerRow {
+            if column.quantity() != QuantityContract::PerRow {
                 continue;
             }
             let sibling = column.per_row_quantity_sibling();
@@ -202,7 +204,7 @@ fn every_per_row_quantity_has_its_sibling() {
                 spec.column(&sibling).is_some(),
                 "{}.{} declares a per-row quantity contract with no {sibling} column",
                 spec.key,
-                column.name
+                column.name()
             );
         }
     }
@@ -217,7 +219,7 @@ fn every_primary_key_column_exists_and_is_not_nullable() {
                 .column(name)
                 .unwrap_or_else(|| panic!("{} has no column {name}", spec.key));
             assert!(
-                !column.nullable,
+                !column.nullable(),
                 "{}.{name} is a primary key column and nullable; a null required key is invalid \
                  (blueprint §5.3 step 1)",
                 spec.key
@@ -228,6 +230,7 @@ fn every_primary_key_column_exists_and_is_not_nullable() {
 
 #[test]
 fn there_are_eleven_extension_types_with_their_declared_storage() {
+    use arrow_schema::{DataType as D, Field as F};
     assert_eq!(EXTENSION_TYPES.len(), 11, "blueprint §4.4 declares eleven");
 
     let mut names: Vec<&str> = EXTENSION_TYPES.iter().map(|spec| spec.name).collect();
@@ -242,30 +245,76 @@ fn there_are_eleven_extension_types_with_their_declared_storage() {
         );
     }
 
+    let id = D::FixedSizeBinary(16);
     let expected = [
-        ("pse.semantic_id", "FixedSizeBinary(16)"),
-        ("pse.content_hash", "FixedSizeBinary(32)"),
+        ("pse.semantic_id", id.clone()),
+        ("pse.content_hash", D::FixedSizeBinary(32)),
         (
             "pse.dimension_vector",
-            "FixedSizeList<item: Struct<num: Int16, den: Int16>, 8>",
+            D::FixedSizeList(
+                F::new(
+                    "item",
+                    D::Struct(
+                        vec![
+                            F::new("num", D::Int16, false),
+                            F::new("den", D::Int16, false),
+                        ]
+                        .into(),
+                    ),
+                    false,
+                )
+                .into(),
+                8,
+            ),
         ),
         (
             "pse.quantity_value",
-            "Struct<value: Float64, quantity_type_id: FixedSizeBinary(16), unit_id: FixedSizeBinary(16)>",
+            D::Struct(
+                vec![
+                    F::new("value", D::Float64, false),
+                    F::new("quantity_type_id", id.clone(), false),
+                    F::new("unit_id", id.clone(), false),
+                ]
+                .into(),
+            ),
         ),
         (
             "pse.bound",
-            "Struct<kind: Dictionary(Int8, Utf8), value: Float64?>",
+            D::Struct(
+                vec![
+                    {
+                        let mut kind = pse_schema::arrow::field_for(
+                            registry().unwrap(),
+                            &FieldContract::enumeration("BoundKind").with_name("kind"),
+                        )
+                        .unwrap();
+                        kind.metadata_mut().remove(pse_schema::arrow::KEY_ROLE);
+                        kind
+                    },
+                    F::new("value", D::Float64, true),
+                ]
+                .into(),
+            ),
         ),
-        ("pse.index_tuple", "List<item: FixedSizeBinary(16)>"),
-        ("pse.ordinal_ref", "UInt64"),
+        (
+            "pse.index_tuple",
+            D::List(F::new("item", id.clone(), false).into()),
+        ),
+        ("pse.ordinal_ref", D::Int64),
         (
             "pse.source_span",
-            "Struct<document_id: FixedSizeBinary(16), start: UInt32, end: UInt32>",
+            D::Struct(
+                vec![
+                    F::new("document_id", id, false),
+                    pse_schema::model::IntegerRange::SOURCE_OFFSET.field("start"),
+                    pse_schema::model::IntegerRange::SOURCE_OFFSET.field("end"),
+                ]
+                .into(),
+            ),
         ),
-        ("pse.enum", "Dictionary(Int32, Utf8)"),
-        ("pse.expr_dsl", "Utf8"),
-        ("pse.target_path", "Utf8"),
+        ("pse.enum", D::Utf8),
+        ("pse.expr_dsl", D::Utf8),
+        ("pse.target_path", D::Utf8),
     ];
     for (name, storage) in expected {
         let spec = EXTENSION_TYPES
@@ -273,7 +322,7 @@ fn there_are_eleven_extension_types_with_their_declared_storage() {
             .find(|candidate| candidate.name == name)
             .unwrap_or_else(|| panic!("{name} is declared in blueprint §4.4"));
         assert_eq!(
-            render_data_type(&spec.storage()).unwrap(),
+            serde_json::from_str::<D>(&render_data_type(&spec.storage()).unwrap()).unwrap(),
             storage,
             "{name} storage"
         );
@@ -287,14 +336,14 @@ fn the_logical_type_catalog_covers_every_declared_column() {
     for spec in reg.relations() {
         for column in &spec.columns {
             let mut reachable = Vec::new();
-            column.logical_type.walk_for_test(&mut reachable);
+            column.value_type().walk_for_test(&mut reachable);
             for ty in reachable {
                 assert!(
-                    reg.logical_type(&ty.name()).is_some(),
+                    reg.logical_type(&ty.type_name().unwrap()).is_some(),
                     "{}.{} uses {} which the catalog does not list",
                     spec.key,
-                    column.name,
-                    ty.name()
+                    column.name(),
+                    ty.type_name().unwrap()
                 );
             }
         }
@@ -388,7 +437,7 @@ fn pk_positions(spec: &RelationSpec) -> Vec<usize> {
         .map(|name| {
             spec.columns
                 .iter()
-                .position(|column| column.name == *name)
+                .position(|column| column.name() == *name)
                 .unwrap_or_else(|| panic!("{} has no column {name}", spec.key))
         })
         .collect()
@@ -408,23 +457,27 @@ fn order_key(cell: &Cell) -> String {
     }
 }
 
-/// A local re-derivation of `LogicalType`'s child walk, so a test failure is about the
+/// A local re-derivation of `FieldContract`'s child walk, so a test failure is about the
 /// declarations rather than about the helper under test.
 trait WalkForTest {
     /// Appends this type and every type reachable from it to `out`.
-    fn walk_for_test(&self, out: &mut Vec<LogicalType>);
+    fn walk_for_test(&self, out: &mut Vec<FieldContract>);
 }
 
-impl WalkForTest for LogicalType {
-    fn walk_for_test(&self, out: &mut Vec<LogicalType>) {
+impl WalkForTest for FieldContract {
+    fn walk_for_test(&self, out: &mut Vec<FieldContract>) {
         out.push(self.clone());
-        match self {
-            LogicalType::List(element) | LogicalType::FixedList(element, _) => {
-                element.walk_for_test(out);
+        if self.extension().is_some() {
+            return;
+        }
+        match self.data_type() {
+            arrow_schema::DataType::List(field)
+            | arrow_schema::DataType::FixedSizeList(field, _) => {
+                FieldContract::from_field((*field).clone()).walk_for_test(out);
             }
-            LogicalType::Struct(children) => {
-                for (_, ty, _) in children {
-                    ty.walk_for_test(out);
+            arrow_schema::DataType::Struct(children) => {
+                for field in &children {
+                    FieldContract::from_field((**field).clone()).walk_for_test(out);
                 }
             }
             _ => {}

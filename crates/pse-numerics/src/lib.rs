@@ -6,4 +6,16 @@
 //! Per-equation reverse mode for residuals and Jacobians, `num-dual` inside kernels;
 //! one thread budget shared with tokio and rayon (blueprint §16, §18.8).
 //!
-//! Phase 0: this crate is a declared boundary with no implementation yet.
+//! Native residual and sparse Jacobian expressions are compiled once against the
+//! caller's actual engine state. Solver operators reuse their physical expressions;
+//! no query is planned inside a numerical callback. Specialized linear algebra and
+//! solver integration remain separate consumers of this derived execution layout.
+
+mod differentiate;
+pub mod error;
+pub mod expressions;
+mod finite;
+pub mod scalar_math;
+
+pub use error::NumericsError;
+pub use expressions::EvaluationProgram;

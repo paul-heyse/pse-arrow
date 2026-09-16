@@ -45,23 +45,17 @@ impl ExtensionOptions for PseOptions {
             ConfigEntry {
                 key: "datafusion.pse.kernel_outcome_policies".to_owned(),
                 value: Some("[]".to_owned()),
-                description: "Wave 1 has no executable numerical kernel outcomes.",
+                description: "Policies supplied by the frozen kernel context.",
             },
         ]
     }
 }
 
 pub(crate) fn build(
-    settings: &ExecutionSettings,
+    settings: ExecutionSettings,
     budget: ThreadBudget,
 ) -> Result<SessionConfig, CatalogError> {
-    budget.validate()?;
-    if settings.spill_compression != "uncompressed" || settings.time_zone != "UTC" {
-        return Err(invalid(
-            "execution_settings",
-            "Wave 1 requires uncompressed spill and UTC",
-        ));
-    }
+    validate(&settings)?;
     let mut config = SessionConfig::new();
     config.options_mut().extensions.insert(PseOptions);
     for (key, value) in [
@@ -73,10 +67,10 @@ pub(crate) fn build(
             "datafusion.execution.target_partitions",
             budget.target_partitions.to_string(),
         ),
-        ("datafusion.execution.time_zone", settings.time_zone.clone()),
+        ("datafusion.execution.time_zone", settings.time_zone),
         (
             "datafusion.execution.spill_compression",
-            settings.spill_compression.clone(),
+            settings.spill_compression,
         ),
         (
             "datafusion.execution.max_spill_file_size_bytes",
@@ -108,33 +102,54 @@ pub(crate) fn build(
     Ok(config)
 }
 
-/// Select exact declared keys, retaining explicit absence as a semantic value.
+/// Retain every configured setting, including explicit absence. The inventory is
+/// taken from the actual sealed session before any expression can be folded.
 /// # Errors
-/// A library version lacks a required setting or violates an asserted engine mode.
+/// An empty inventory indicates that no engine configuration was captured.
 pub fn semantic_settings(
     all: &BTreeMap<String, Option<String>>,
 ) -> Result<BTreeMap<String, Option<String>>, CatalogError> {
-    let mut selected = BTreeMap::new();
-    for key in SEMANTIC_KEYS {
-        let value = all
-            .get(*key)
-            .ok_or_else(|| invalid(key, "required semantic setting is absent"))?;
-        selected.insert((*key).to_owned(), value.clone());
+    if all.is_empty() {
+        return Err(invalid(
+            "session.settings",
+            "configured setting inventory is empty",
+        ));
     }
-    for key in [
-        "datafusion.execution.enable_ansi_mode",
-        "datafusion.execution.skip_physical_aggregate_schema_check",
+    Ok(all.clone())
+}
+
+pub(super) fn validate(settings: &ExecutionSettings) -> Result<(), CatalogError> {
+    if settings.batch_size == 0 {
+        return Err(invalid(
+            "datafusion.execution.batch_size",
+            "must be positive",
+        ));
+    }
+    settings
+        .time_zone
+        .parse::<datafusion::arrow::array::timezone::Tz>()
+        .map_err(|error| invalid("datafusion.execution.time_zone", &error.to_string()))?;
+    let mut options = datafusion::common::config::ConfigOptions::new();
+    for (key, value) in [
+        (
+            "datafusion.execution.spill_compression",
+            settings.spill_compression.as_str(),
+        ),
+        (
+            "datafusion.execution.time_zone",
+            settings.time_zone.as_str(),
+        ),
     ] {
-        if selected.get(key).and_then(Option::as_deref) != Some("false") {
-            return Err(invalid(key, "required mode is false"));
-        }
+        options
+            .set(key, value)
+            .map_err(|error| invalid(key, &error.to_string()))?;
     }
-    Ok(selected)
+    Ok(())
 }
 /// Identity of the full exact key/value inventory, with absence distinct from text.
 pub fn settings_hash(settings: &BTreeMap<String, Option<String>>) -> ContentHash {
     let mut hash = FramedHasher::new(context::SETTINGS);
-    hash.str("pse.settings.allowlist.v1");
+    hash.str("pse.settings.complete.v2");
     for (key, value) in settings {
         hash.str(key);
         match value {
@@ -155,61 +170,3 @@ fn invalid(key: &str, reason: &str) -> CatalogError {
         reason: reason.to_owned(),
     }
 }
-
-/// Explicit version-one allow-list; a pinned-library inventory test detects drift.
-pub const SEMANTIC_KEYS: &[&str] = &[
-    "datafusion.execution.enable_ansi_mode",
-    "datafusion.execution.skip_physical_aggregate_schema_check",
-    "datafusion.execution.time_zone",
-    "datafusion.optimizer.allow_symmetric_joins_without_pruning",
-    "datafusion.optimizer.default_filter_selectivity",
-    "datafusion.optimizer.enable_aggregate_dynamic_filter_pushdown",
-    "datafusion.optimizer.enable_distinct_aggregation_soft_limit",
-    "datafusion.optimizer.enable_dynamic_filter_pushdown",
-    "datafusion.optimizer.enable_join_dynamic_filter_pushdown",
-    "datafusion.optimizer.enable_leaf_expression_pushdown",
-    "datafusion.optimizer.enable_physical_uncorrelated_scalar_subquery",
-    "datafusion.optimizer.enable_piecewise_merge_join",
-    "datafusion.optimizer.enable_round_robin_repartition",
-    "datafusion.optimizer.enable_sort_pushdown",
-    "datafusion.optimizer.enable_topk_aggregation",
-    "datafusion.optimizer.enable_topk_dynamic_filter_pushdown",
-    "datafusion.optimizer.enable_topk_repartition",
-    "datafusion.optimizer.enable_unions_to_filter",
-    "datafusion.optimizer.enable_window_limits",
-    "datafusion.optimizer.enable_window_topn",
-    "datafusion.optimizer.expand_views_at_output",
-    "datafusion.optimizer.filter_null_join_keys",
-    "datafusion.optimizer.hash_join_inlist_pushdown_max_distinct_values",
-    "datafusion.optimizer.hash_join_inlist_pushdown_max_size",
-    "datafusion.optimizer.hash_join_single_partition_threshold",
-    "datafusion.optimizer.hash_join_single_partition_threshold_rows",
-    "datafusion.optimizer.join_reordering",
-    "datafusion.optimizer.max_passes",
-    "datafusion.optimizer.prefer_existing_sort",
-    "datafusion.optimizer.prefer_existing_union",
-    "datafusion.optimizer.prefer_hash_join",
-    "datafusion.optimizer.preserve_file_partitions",
-    "datafusion.optimizer.repartition_aggregations",
-    "datafusion.optimizer.repartition_file_min_size",
-    "datafusion.optimizer.repartition_file_scans",
-    "datafusion.optimizer.repartition_joins",
-    "datafusion.optimizer.repartition_sorts",
-    "datafusion.optimizer.repartition_windows",
-    "datafusion.optimizer.skip_failed_rules",
-    "datafusion.optimizer.subset_repartition_threshold",
-    "datafusion.optimizer.top_down_join_key_reordering",
-    "datafusion.optimizer.use_statistics_registry",
-    "datafusion.pse.kernel_outcome_policies",
-    "datafusion.pse.null_policy",
-    "datafusion.sql_parser.collect_spans",
-    "datafusion.sql_parser.default_null_ordering",
-    "datafusion.sql_parser.dialect",
-    "datafusion.sql_parser.enable_ident_normalization",
-    "datafusion.sql_parser.enable_options_value_normalization",
-    "datafusion.sql_parser.enable_subquery_sort_elimination",
-    "datafusion.sql_parser.map_string_types_to_utf8view",
-    "datafusion.sql_parser.parse_float_as_decimal",
-    "datafusion.sql_parser.recursion_limit",
-    "datafusion.sql_parser.support_varchar_with_length",
-];

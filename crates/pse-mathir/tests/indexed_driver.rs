@@ -129,6 +129,88 @@ fn gather(graph: &mut ExprGraph) -> NodeId {
         .unwrap()
 }
 #[test]
+fn explicit_broadcast_transfers_the_scalar_contract_and_retains_the_actual_axis() {
+    use pse_mathir::canonicalize::{RootEnvironment, canonicalize_with_environments};
+    let (original, source) = indexed_fixture();
+    let mut builder = original.to_builder();
+    let mut alternative = original.quantity_type(qid(3)).unwrap().clone();
+    alternative.id = qid(5);
+    let mut other_kind = original.kind(alternative.key.kind).unwrap().clone();
+    other_kind.id = pse_quantity::QuantityKindId::from_id(sid(6));
+    alternative.key.kind = other_kind.id;
+    builder.kind(other_kind);
+    builder.quantity_type(alternative);
+    let registry = builder.build().unwrap();
+    let mut graph = ExprGraph::new();
+    let literal = graph.float_const(0., UnitId::from_id(sid(1))).unwrap();
+    let broadcast = graph
+        .insert(
+            Opcode::Broadcast,
+            Payload::Broadcast {
+                domain: domain().into(),
+                bound_index: binder(),
+            },
+            &[literal],
+            None,
+        )
+        .unwrap();
+    let indices = pse_quantity::IndexSet::try_from_iter([pse_quantity::BoundIndexRef::new(
+        binder(),
+        domain(),
+        DomainKind::Species,
+    )])
+    .unwrap();
+    let environment = RootEnvironment {
+        indices,
+        expected: Some(qid(4)),
+    };
+    let result = canonicalize_with_environments(
+        CanonicalizeInput::new(&graph, &[broadcast], &source, &registry),
+        std::slice::from_ref(&environment),
+        Policy::Strict,
+    )
+    .unwrap();
+    let root = result.node(result.roots()[0]).unwrap();
+    assert_eq!(root.opcode, Opcode::Broadcast);
+    assert_eq!(root.quantity_type, qid(4));
+    assert_eq!(root.free_indices, environment.indices);
+    assert_eq!(result.node(root.children[0]).unwrap().quantity_type, qid(3));
+    // No broadcast is inferred for the same raw literal in an indexed consumer.
+    assert!(
+        canonicalize_with_environments(
+            CanonicalizeInput::new(&graph, &[literal], &source, &registry),
+            &[environment],
+            Policy::Strict,
+        )
+        .is_err()
+    );
+    let gathered = gather(&mut graph);
+    let difference = graph.sub(gathered, broadcast).unwrap();
+    let sum = graph
+        .insert(
+            Opcode::SumOver,
+            Payload::Reduction {
+                kind: pse_quantity::ReductionKind::Sum,
+                domain: domain().into(),
+                bound_index: binder(),
+                filter: None,
+            },
+            &[difference],
+            None,
+        )
+        .unwrap();
+    let result = canonicalize(
+        CanonicalizeInput::new(&graph, &[sum], &source, &registry),
+        Policy::Strict,
+    )
+    .unwrap();
+    assert_eq!(
+        result.node(result.roots()[0]).unwrap().quantity_type,
+        qid(3)
+    );
+}
+
+#[test]
 fn reduction_binds_gather_using_actual_member_identities() {
     let (registry, mut source) = indexed_fixture();
     let mut graph = ExprGraph::new();

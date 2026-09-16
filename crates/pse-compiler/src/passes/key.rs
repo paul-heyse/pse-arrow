@@ -9,6 +9,7 @@
 //!
 use super::{InputBundle, PassContext, StageKey, dag::invalid};
 use crate::CompilerError;
+use datafusion::arrow::array::FixedSizeBinaryArray;
 use pse_ids::{FramedHasher, derive::context};
 use pse_schema::model::PassSpec;
 
@@ -59,33 +60,27 @@ pub fn stage_key(
             .columns
             .iter()
             .position(|column| {
-                column.name == *key && column.logical_type == pse_schema::model::LogicalType::id()
+                column.name() == *key
+                    && column.value_type() == pse_schema::model::FieldContract::id()
             })
             .ok_or_else(|| invalid("policy key is not a declared semantic identity"))?;
         let batch = policy.input.relation.batch();
-        let mut reservation = ctx.reserver.open("compiler:policy-key-admission");
-        let extent = batch
-            .num_rows()
-            .checked_mul(
-                size_of::<pse_schema::model::Cell>()
-                    + size_of::<Vec<pse_schema::model::Cell>>()
-                    + 16,
-            )
-            .and_then(|bytes| bytes.checked_add(4096))
-            .ok_or_else(|| invalid("policy key extent overflow"))?;
-        reservation
-            .try_grow(extent)
-            .map_err(|error| CompilerError::Catalog(error.into()))?;
         let keys = batch
-            .project(&[ordinal])
-            .map_err(|error| invalid(error.to_string()))?;
-        let cells = pse_relations::cells::decode_columns(ctx.registry, &keys)?;
-        if cells
-            .iter()
-            .filter(|row| row.first() == Some(&pse_schema::model::Cell::Id(policy.policy_id)))
-            .count()
-            != 1
-        {
+            .column(ordinal)
+            .as_any()
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .ok_or_else(|| invalid("policy identity column has a different Arrow layout"))?;
+        let mut matches = 0;
+        for key in keys {
+            ctx.cancel.checkpoint()?;
+            if key == Some(policy.policy_id.as_bytes().as_slice()) {
+                matches += 1;
+                if matches > 1 {
+                    break;
+                }
+            }
+        }
+        if matches != 1 {
             return Err(invalid(
                 "selected policy identity absent from actual declared key",
             ));
@@ -95,11 +90,8 @@ pub fn stage_key(
             .id(&relation.id)
             .hash(&policy.input.logical_hash().content_hash());
     }
-    hash.bool(spec.executes_plans);
-    if spec.executes_plans {
-        let session = ctx
-            .session
-            .ok_or_else(|| invalid("rule-executing pass lacks sealed session"))?;
+    {
+        let session = ctx.session;
         hash.hash(&session.profile_hash())
             .hash(&session.function_registry_hash());
     }

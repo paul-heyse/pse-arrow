@@ -3,9 +3,9 @@
 
 //! §6.11 numerical and rule.
 
-use super::declarations::{column, relation, structure};
+use super::declarations::{column, relation, relation_version, structure};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.11 numerical and rule contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -16,6 +16,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_reference_rule_plan_nodes(builder);
     declare_reference_rule_expr_nodes(builder);
     declare_reference_rule_expr_edges(builder);
+    declare_reference_rule_expr_calls(builder);
     declare_reference_rule_aggregates(builder);
     declare_reference_rule_group_keys(builder);
     declare_reference_rule_unnest(builder);
@@ -65,13 +66,13 @@ fn declare_reference_pass_specs(builder: &mut RegistryBuilder) {
         &["pass_id"],
         vec![
             column("pass_id", T::id()),
-            column("name", T::Text),
-            column("version", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("version", T::native(arrow_schema::DataType::Utf8)),
             column("preconditions", T::list(T::id())),
             column("postconditions", T::list(T::id())),
             column("determinism", T::enumeration("Determinism")),
             column("diagnostics", T::list(T::enumeration("FailureClass"))),
-            column("executes_plans", T::Bool),
+            column("effects", T::list(T::enumeration("OperationEffect"))),
         ],
         "blueprint §6.11 numerical and rule: pass_specs.",
     );
@@ -86,11 +87,11 @@ fn declare_reference_pass_input_ports(builder: &mut RegistryBuilder) {
         &["pass_id", "port"],
         vec![
             column("pass_id", T::id()),
-            column("port", T::Text),
+            column("port", T::native(arrow_schema::DataType::Utf8)),
             column("relation_id", T::id()),
             column("source_pass_id", T::id()).optional(),
-            column("source_port", T::Text).optional(),
-            column("required", T::Bool),
+            column("source_port", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("required", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §6.11 numerical and rule: pass_input_ports.",
     );
@@ -105,7 +106,7 @@ fn declare_reference_pass_output_ports(builder: &mut RegistryBuilder) {
         &["pass_id", "port"],
         vec![
             column("pass_id", T::id()),
-            column("port", T::Text),
+            column("port", T::native(arrow_schema::DataType::Utf8)),
             column("relation_id", T::id()),
         ],
         "blueprint §6.11 numerical and rule: pass_output_ports.",
@@ -113,23 +114,28 @@ fn declare_reference_pass_output_ports(builder: &mut RegistryBuilder) {
 }
 
 fn declare_reference_rule_specs(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Reference,
         "rule_specs",
+        2,
         S::Model,
         &["rule_id"],
         vec![
             column("rule_id", T::id()),
-            column("version", T::Text),
-            column("stratum", T::U16),
+            column("version", T::native(arrow_schema::DataType::Utf8)),
+            column("stratum", T::native(arrow_schema::DataType::UInt16)),
             column("head_relation_id", T::id()),
+            column("assertion_relation_id", T::id()).optional(),
             column("root_node_id", T::id()),
             column("negation", T::enumeration("NegationPolicy")),
-            column("monotonic", T::Bool),
+            column("monotonic", T::native(arrow_schema::DataType::Boolean)),
             column("conflict_policy", T::enumeration("ConflictPolicy")),
             column("head_kind", T::enumeration("RuleHeadKind")),
-            column("head_key_columns", T::list(T::Text)),
+            column(
+                "head_key_columns",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
         ],
         "blueprint §6.11 numerical and rule: rule_specs.",
     );
@@ -147,26 +153,32 @@ fn declare_reference_rule_plan_nodes(builder: &mut RegistryBuilder) {
             column("rule_id", T::id()),
             column("op", T::enumeration("RulePlanOp")),
             column("relation_id", T::id()).optional(),
-            column("input_port", T::Text).optional(),
+            column("input_port", T::native(arrow_schema::DataType::Utf8)).optional(),
             column(
                 "join_keys",
-                T::list(structure(vec![("left", T::Text), ("right", T::Text)])),
+                T::list(structure(vec![
+                    ("left", T::native(arrow_schema::DataType::Utf8)),
+                    ("right", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             )
             .optional(),
             column("predicate_expr_id", T::id()).optional(),
             column(
                 "projection",
-                T::list(structure(vec![("name", T::Text), ("expr_id", T::id())])),
+                T::list(structure(vec![
+                    ("name", T::native(arrow_schema::DataType::Utf8)),
+                    ("expr_id", T::id()),
+                ])),
             )
             .optional(),
             column("kernel_binding_id", T::id()).optional(),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
             column("null_equality", T::enumeration("NullEquality")).optional(),
-            column("recursive_name", T::Text).optional(),
+            column("recursive_name", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("recursive_target_node_id", T::id()).optional(),
-            column("is_distinct", T::Bool).optional(),
+            column("is_distinct", T::native(arrow_schema::DataType::Boolean)).optional(),
             column("depth_bound", T::enumeration("DepthBound")).optional(),
-            column("depth_limit", T::U32).optional(),
+            column("depth_limit", T::native(arrow_schema::DataType::UInt32)).optional(),
         ],
         "blueprint §6.11 numerical and rule: rule_plan_nodes.",
     );
@@ -183,15 +195,15 @@ fn declare_reference_rule_expr_nodes(builder: &mut RegistryBuilder) {
             column("expr_id", T::id()),
             column("rule_id", T::id()),
             column("op", T::enumeration("RuleExprOp")),
-            column("column_name", T::Text).optional(),
+            column("column_name", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("comparison_op", T::enumeration("RuleCmpOp")).optional(),
-            column("field_name", T::Text).optional(),
+            column("field_name", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("literal_kind", T::enumeration("RuleLiteralKind")).optional(),
-            column("bool_value", T::Bool).optional(),
-            column("i64_value", T::I64).optional(),
-            column("u64_value", T::U64).optional(),
-            column("f64_bits", T::U64).optional(),
-            column("text_value", T::Text).optional(),
+            column("bool_value", T::native(arrow_schema::DataType::Boolean)).optional(),
+            column("i64_value", T::native(arrow_schema::DataType::Int64)).optional(),
+            column("u64_value", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("f64_bits", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("text_value", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("id_value", T::id()).optional(),
             column("hash_value", T::hash()).optional(),
         ],
@@ -208,10 +220,30 @@ fn declare_reference_rule_expr_edges(builder: &mut RegistryBuilder) {
         &["parent_expr_id", "ordinal"],
         vec![
             column("parent_expr_id", T::id()),
-            column("ordinal", T::U32),
+            column("ordinal", T::native(arrow_schema::DataType::UInt32)),
             column("child_expr_id", T::id()),
         ],
         "blueprint §6.11 numerical and rule: rule_expr_edges.",
+    );
+}
+
+fn declare_reference_rule_expr_calls(builder: &mut RegistryBuilder) {
+    relation(
+        builder,
+        N::Reference,
+        "rule_expr_calls",
+        S::Model,
+        &["expr_id"],
+        vec![
+            column("expr_id", T::id()).with_fk("reference.rule_expr_nodes", "expr_id"),
+            column("function_name", T::native(arrow_schema::DataType::Utf8)),
+            column("result_type", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "result_nullable",
+                T::native(arrow_schema::DataType::Boolean),
+            ),
+        ],
+        "Native function-call output obligations; actual retained implementations and return fields are checked during planning.",
     );
 }
 
@@ -224,13 +256,16 @@ fn declare_reference_rule_aggregates(builder: &mut RegistryBuilder) {
         &["node_id", "ordinal"],
         vec![
             column("node_id", T::id()),
-            column("ordinal", T::U16),
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
             column("function", T::enumeration("RuleAggregate")),
             column("input_expr_id", T::id()).optional(),
-            column("output_name", T::Text),
+            column("output_name", T::native(arrow_schema::DataType::Utf8)),
             column(
                 "order_by",
-                T::list(structure(vec![("column", T::Text), ("ascending", T::Bool)])),
+                T::list(structure(vec![
+                    ("column", T::native(arrow_schema::DataType::Utf8)),
+                    ("ascending", T::native(arrow_schema::DataType::Boolean)),
+                ])),
             ),
             column("null_policy", T::enumeration("AggregateNullPolicy")),
             column("empty_policy", T::enumeration("AggregateEmptyPolicy")),
@@ -248,8 +283,8 @@ fn declare_reference_rule_group_keys(builder: &mut RegistryBuilder) {
         &["node_id", "ordinal"],
         vec![
             column("node_id", T::id()),
-            column("ordinal", T::U16),
-            column("column", T::Text),
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("column", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.11 numerical and rule: rule_group_keys.",
     );
@@ -264,8 +299,8 @@ fn declare_reference_rule_unnest(builder: &mut RegistryBuilder) {
         &["node_id"],
         vec![
             column("node_id", T::id()),
-            column("column", T::Text),
-            column("value_name", T::Text),
+            column("column", T::native(arrow_schema::DataType::Utf8)),
+            column("value_name", T::native(arrow_schema::DataType::Utf8)),
             column("null_list_policy", T::enumeration("NullListPolicy")),
             column("empty_list_policy", T::enumeration("EmptyListPolicy")),
         ],
@@ -282,7 +317,7 @@ fn declare_reference_rule_plan_edges(builder: &mut RegistryBuilder) {
         &["parent_node_id", "ordinal"],
         vec![
             column("parent_node_id", T::id()),
-            column("ordinal", T::U16),
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
             column("child_node_id", T::id()),
         ],
         "blueprint §6.11 numerical and rule: rule_plan_edges.",
@@ -299,9 +334,9 @@ fn declare_reference_rule_dependencies(builder: &mut RegistryBuilder) {
         vec![
             column("rule_id", T::id()),
             column("relation_id", T::id()),
-            column("input_port", T::Text).optional(),
+            column("input_port", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("mode", T::enumeration("DependencyMode")),
-            column("stratum", T::U16),
+            column("stratum", T::native(arrow_schema::DataType::UInt16)),
             column("derivation_id", T::id()),
         ],
         "blueprint §6.11 numerical and rule: rule_dependencies.",
@@ -317,16 +352,34 @@ fn declare_reference_engine_profiles(builder: &mut RegistryBuilder) {
         &["engine_profile_id"],
         vec![
             column("engine_profile_id", T::id()),
-            column("datafusion_version", T::Text),
-            column("arrow_version", T::Text),
-            column("analyzer_rules", T::list(T::Text)),
-            column("optimizer_rules", T::list(T::Text)),
-            column("physical_rules", T::list(T::Text)),
+            column(
+                "datafusion_version",
+                T::native(arrow_schema::DataType::Utf8),
+            ),
+            column("arrow_version", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "analyzer_rules",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
+            column(
+                "optimizer_rules",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
+            column(
+                "physical_rules",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
             column(
                 "semantic_settings",
-                T::list(structure(vec![("key", T::Text), ("value", T::Text)])),
+                T::list(structure(vec![
+                    ("key", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             ),
-            column("setting_allow_list_version", T::Text),
+            column(
+                "setting_allow_list_version",
+                T::native(arrow_schema::DataType::Utf8),
+            ),
         ],
         "blueprint §6.11 numerical and rule: engine_profiles.",
     );
@@ -342,13 +395,13 @@ fn declare_compiled_stage_bundles(builder: &mut RegistryBuilder) {
         vec![
             column("bundle_id", T::hash()),
             column("pass_id", T::id()),
-            column("pass_version", T::Text),
+            column("pass_version", T::native(arrow_schema::DataType::Utf8)),
             column(
                 "members",
                 T::list(structure(vec![
-                    ("port", T::Text),
+                    ("port", T::native(arrow_schema::DataType::Utf8)),
                     ("relation_id", T::id()),
-                    ("schema_version", T::U32),
+                    ("schema_version", T::native(arrow_schema::DataType::UInt32)),
                     ("logical_hash", T::hash()),
                 ])),
             ),
@@ -366,25 +419,25 @@ fn declare_reference_kernel_specs(builder: &mut RegistryBuilder) {
         &["kernel_id"],
         vec![
             column("kernel_id", T::id()),
-            column("name", T::Text),
-            column("version", T::Text),
-            column("provider", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("version", T::native(arrow_schema::DataType::Utf8)),
+            column("provider", T::native(arrow_schema::DataType::Utf8)),
             column("artifact_digest", T::hash()),
             column("behavior", T::enumeration("KernelBehavior")),
             column(
                 "inputs",
                 T::list(structure(vec![
-                    ("name", T::Text),
+                    ("name", T::native(arrow_schema::DataType::Utf8)),
                     ("quantity_type_id", T::id()),
                     ("natural_unit_id", T::id()),
-                    ("nullable", T::Bool),
+                    ("nullable", T::native(arrow_schema::DataType::Boolean)),
                     ("shape", T::list(T::enumeration("DomainKind"))),
                 ])),
             ),
             column(
                 "outputs",
                 T::list(structure(vec![
-                    ("name", T::Text),
+                    ("name", T::native(arrow_schema::DataType::Utf8)),
                     ("quantity_type_id", T::id()),
                     ("natural_unit_id", T::id()),
                     ("shape", T::list(T::enumeration("DomainKind"))),
@@ -393,7 +446,7 @@ fn declare_reference_kernel_specs(builder: &mut RegistryBuilder) {
             column(
                 "parameters",
                 T::list(structure(vec![
-                    ("name", T::Text),
+                    ("name", T::native(arrow_schema::DataType::Utf8)),
                     ("quantity_type_id", T::id()),
                     ("natural_unit_id", T::id()),
                     ("indexed_by", T::list(T::enumeration("DomainKind"))),
@@ -401,22 +454,22 @@ fn declare_reference_kernel_specs(builder: &mut RegistryBuilder) {
             ),
             column("null_input_policy", T::enumeration("KernelNullPolicy")),
             column("failure_policy", T::enumeration("KernelFailurePolicy")),
-            column("tolerant_batch", T::Bool),
+            column("tolerant_batch", T::native(arrow_schema::DataType::Boolean)),
             column("effects", T::enumeration("KernelEffects")),
             column("argument_evaluation", T::enumeration("ArgumentEvaluation")),
             column("smoothness", T::enumeration("Differentiability")),
             column(
                 "validity",
                 T::list(structure(vec![
-                    ("input", T::Text),
-                    ("lower", T::Ext(crate::model::ExtensionUse::Bound)),
-                    ("upper", T::Ext(crate::model::ExtensionUse::Bound)),
+                    ("input", T::native(arrow_schema::DataType::Utf8)),
+                    ("lower", T::extended(crate::model::ExtensionUse::Bound)),
+                    ("upper", T::extended(crate::model::ExtensionUse::Bound)),
                 ])),
             ),
             column(
                 "monotonicity",
                 T::list(structure(vec![
-                    ("input", T::Text),
+                    ("input", T::native(arrow_schema::DataType::Utf8)),
                     ("direction", T::enumeration("Monotonicity")),
                 ])),
             ),
@@ -436,19 +489,19 @@ fn declare_reference_kernel_specs(builder: &mut RegistryBuilder) {
                     ("implementation_id", T::id()),
                 ])),
             ),
-            column("thread_safe", T::Bool),
+            column("thread_safe", T::native(arrow_schema::DataType::Boolean)),
             column("failure_classes", T::list(T::enumeration("KernelFailure"))),
             column(
                 "bindings",
                 T::list(structure(vec![
                     ("backend", T::enumeration("BackendBinding")),
                     ("implementation_id", T::id()),
-                    ("conformance_suite", T::Text),
+                    ("conformance_suite", T::native(arrow_schema::DataType::Utf8)),
                 ])),
             ),
-            column("nl_function_name", T::Text).optional(),
-            column("doc", T::Text),
-            column("test_suite", T::Text),
+            column("nl_function_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
+            column("test_suite", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.11 numerical and rule: kernel_specs.",
     );
@@ -463,15 +516,24 @@ fn declare_reference_numerical_policies(builder: &mut RegistryBuilder) {
         &["policy_id"],
         vec![
             column("policy_id", T::id()),
-            column("name", T::Text),
-            column("version", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("version", T::native(arrow_schema::DataType::Utf8)),
             column("reassociation", T::enumeration("ReassociationPolicy")),
             column("fma", T::enumeration("FmaPolicy")),
             column("nonfinite", T::enumeration("NonfinitePolicy")),
             column("rewrite_mode", T::enumeration("RewriteMode")),
-            column("absolute_tolerance", T::F64),
-            column("relative_tolerance", T::F64),
-            column("signed_zero_equal", T::Bool),
+            column(
+                "absolute_tolerance",
+                T::native(arrow_schema::DataType::Float64),
+            ),
+            column(
+                "relative_tolerance",
+                T::native(arrow_schema::DataType::Float64),
+            ),
+            column(
+                "signed_zero_equal",
+                T::native(arrow_schema::DataType::Boolean),
+            ),
         ],
         "blueprint §6.11 numerical and rule: numerical_policies.",
     );
@@ -490,16 +552,23 @@ fn declare_compiled_kernel_bindings(builder: &mut RegistryBuilder) {
             column("scope_instance_id", T::id()),
             column(
                 "parameter_bindings",
-                T::list(T::Struct(vec![
-                    ("name", T::Text, false),
-                    ("symbol_id", T::id(), true),
-                    ("value", T::F64, true),
-                    ("unit_id", T::id(), true),
+                T::list(T::structure(vec![
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("name")
+                        .with_nullable(false),
+                    T::id().with_name("symbol_id").with_nullable(true),
+                    T::native(arrow_schema::DataType::Float64)
+                        .with_name("value")
+                        .with_nullable(true),
+                    T::id().with_name("unit_id").with_nullable(true),
                 ])),
             ),
             column(
                 "input_bindings",
-                T::list(structure(vec![("name", T::Text), ("node_id", T::U64)])),
+                T::list(structure(vec![
+                    ("name", T::native(arrow_schema::DataType::Utf8)),
+                    ("node_id", T::native(arrow_schema::DataType::UInt64)),
+                ])),
             ),
         ],
         "blueprint §6.11 numerical and rule: kernel_bindings.",
@@ -516,11 +585,15 @@ fn declare_authored_discretization_policies(builder: &mut RegistryBuilder) {
         vec![
             column("policy_id", T::id()),
             column("package_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("method", T::enumeration("DiscretizationMethod")),
             column("scheme", T::enumeration("DiscretizationScheme")),
-            column("finite_elements", T::U32),
-            column("collocation_points", T::U8).optional(),
+            column("finite_elements", T::native(arrow_schema::DataType::UInt32)),
+            column(
+                "collocation_points",
+                T::native(arrow_schema::DataType::UInt8),
+            )
+            .optional(),
         ],
         "blueprint §6.11 numerical and rule: discretization_policies.",
     );
@@ -536,12 +609,15 @@ fn declare_authored_solver_profiles(builder: &mut RegistryBuilder) {
         vec![
             column("profile_id", T::id()),
             column("package_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("backend", T::enumeration("Backend")),
-            column("solver", T::Text),
+            column("solver", T::native(arrow_schema::DataType::Utf8)),
             column(
                 "options",
-                T::list(structure(vec![("key", T::Text), ("value", T::Text)])),
+                T::list(structure(vec![
+                    ("key", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             ),
             column("scaling_mode", T::enumeration("ScalingMode")),
             column("derivative_mode", T::enumeration("DerivativeMode")),
@@ -559,8 +635,8 @@ fn declare_compiled_variable_scales(builder: &mut RegistryBuilder) {
         &["symbol_id"],
         vec![
             column("symbol_id", T::id()),
-            column("scale", T::F64),
-            column("offset", T::F64),
+            column("scale", T::native(arrow_schema::DataType::Float64)),
+            column("offset", T::native(arrow_schema::DataType::Float64)),
             column("source", T::enumeration("ScaleSource")),
             column("derivation_id", T::id()),
         ],
@@ -577,7 +653,7 @@ fn declare_compiled_equation_scales(builder: &mut RegistryBuilder) {
         &["equation_id"],
         vec![
             column("equation_id", T::id()),
-            column("scale", T::F64),
+            column("scale", T::native(arrow_schema::DataType::Float64)),
             column("scheme", T::enumeration("ConstraintScalingScheme")),
             column("derivation_id", T::id()),
         ],
@@ -596,7 +672,7 @@ fn declare_compiled_initialization_plans(builder: &mut RegistryBuilder) {
             column("plan_id", T::id()),
             column("case_id", T::id()),
             column("template_id", T::id()),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.11 numerical and rule: initialization_plans.",
     );
@@ -612,15 +688,15 @@ fn declare_compiled_init_stages(builder: &mut RegistryBuilder) {
         vec![
             column("stage_id", T::id()),
             column("plan_id", T::id()),
-            column("ordinal", T::U16),
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
             column("kind", T::enumeration("StageKind")),
             column("target_kind", T::enumeration("StageTargetKind")),
             column("target_ids", T::list(T::id())),
             column("overlay_case_id", T::id()).optional(),
             column("solver_profile_id", T::id()).optional(),
-            column("tolerance", T::F64).optional(),
+            column("tolerance", T::native(arrow_schema::DataType::Float64)).optional(),
             column("failure_policy", T::enumeration("FailurePolicy")),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.11 numerical and rule: init_stages.",
     );
@@ -637,8 +713,11 @@ fn declare_compiled_solve_plans(builder: &mut RegistryBuilder) {
             column("plan_id", T::id()),
             column("problem_id", T::id()),
             column("class", T::enumeration("SolvePlanClass")),
-            column("justification", T::Text),
-            column("modifiers", T::list(T::Text)),
+            column("justification", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "modifiers",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
         ],
         "blueprint §6.11 and §18.7: solve class selected from actual static problem attributes, with justification and ordered modifiers.",
     );

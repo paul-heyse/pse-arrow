@@ -2,6 +2,1375 @@
 
 # Rules and invariants
 
+## `P4.count_empty_phases`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.material_member_counts` (write)
+- `normalized.material_systems` (read)
+
+## `P4.count_empty_species`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.material_member_counts` (write)
+- `normalized.material_systems` (read)
+
+## `P4.count_phases`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.material_member_counts` (write)
+- `normalized.material_systems` (read)
+
+## `P4.count_species`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.material_member_counts` (write)
+- `normalized.material_systems` (read)
+
+## `P4.feature_excludes`
+
+Version: `1`. Stratum: 2.
+
+- `inferred.feature_checks` (write)
+- `inferred.instance_features` (read)
+- `inferred.instance_features` (read)
+- `normalized.instance_bindings` (read)
+- `normalized.template_feature_rules` (read)
+
+## `P4.feature_implies`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.feature_candidates` (write)
+- `inferred.feature_candidates` (read)
+- `normalized.instance_bindings` (read)
+- `normalized.template_feature_rules` (read)
+
+## `P4.feature_inherit`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.feature_candidates` (write)
+- `inferred.feature_candidates` (read)
+- `normalized.feature_inheritance` (read)
+
+## `P4.feature_missing`
+
+Version: `1`. Stratum: 2.
+
+- `inferred.feature_requirements` (write)
+- `inferred.instance_features` (negate)
+- `normalized.instance_bindings` (read)
+- `normalized.template_features` (read)
+
+## `P4.feature_requires`
+
+Version: `1`. Stratum: 2.
+
+- `inferred.feature_checks` (write)
+- `inferred.instance_features` (read)
+- `inferred.instance_features` (read)
+- `normalized.instance_bindings` (read)
+- `normalized.template_feature_rules` (read)
+
+## `P4.feature_resolve`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.feature_candidates` (read)
+- `inferred.instance_features` (write)
+
+## `P4.feature_seed`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.feature_candidates` (write)
+- `normalized.config_values` (read)
+
+## `P4.material_template_check`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.material_member_counts` (read)
+- `inferred.material_member_counts` (read)
+- `inferred.material_template_checks` (write)
+- `normalized.instance_bindings` (read)
+- `normalized.property_packages` (read)
+- `normalized.template_material_constraints` (read)
+
+## `P4.method_absent`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.method_compatibility` (write)
+- `normalized.method_selections` (read)
+- `reference.method_specs` (negate)
+
+## `P4.method_compatible`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.method_compatibility` (write)
+- `normalized.method_selections` (read)
+- `reference.method_provisions` (read)
+- `reference.method_specs` (read)
+
+## `P4.method_family_mismatch`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.method_compatibility` (write)
+- `normalized.method_selections` (read)
+- `reference.method_specs` (read)
+
+## `P4.method_missing_provision`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.method_compatibility` (write)
+- `normalized.method_selections` (read)
+- `normalized.method_selections` (negate)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+
+## `P4.phase_species_henry`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.phase_species` (write)
+- `normalized.henry_declarations` (read)
+- `normalized.material_systems` (read)
+- `normalized.material_systems` (read)
+- `normalized.phase_species` (read)
+- `normalized.phase_species` (negate)
+- `normalized.phases` (read)
+- `normalized.species` (read)
+
+## `P4.phase_species_ordinary`
+
+Version: `1`. Stratum: 0.
+
+- `inferred.phase_species` (write)
+- `normalized.henry_declarations` (negate)
+- `normalized.material_systems` (read)
+- `normalized.material_systems` (read)
+- `normalized.phase_species` (read)
+- `normalized.phase_species` (negate)
+- `normalized.phases` (read)
+- `normalized.species` (read)
+
+## `P5.boundary_external`
+
+Version: `1`. Stratum: 19.
+
+- `inferred.boundary_crossings` (write)
+- `inferred.scope_port_decisions` (read)
+- `inferred.scope_port_decisions` (read)
+- `inferred.topology_edges` (read)
+- `normalized.connections` (read)
+
+## `P5.boundary_inbound`
+
+Version: `1`. Stratum: 19.
+
+- `inferred.boundary_crossings` (write)
+- `inferred.scope_port_decisions` (read)
+- `inferred.scope_port_decisions` (read)
+- `inferred.topology_edges` (read)
+- `normalized.connections` (read)
+
+## `P5.boundary_internal`
+
+Version: `1`. Stratum: 19.
+
+- `inferred.boundary_crossings` (write)
+- `inferred.scope_port_decisions` (read)
+- `inferred.scope_port_decisions` (read)
+- `inferred.topology_edges` (read)
+- `normalized.connections` (read)
+
+## `P5.boundary_outbound`
+
+Version: `1`. Stratum: 19.
+
+- `inferred.boundary_crossings` (write)
+- `inferred.scope_port_decisions` (read)
+- `inferred.scope_port_decisions` (read)
+- `inferred.topology_edges` (read)
+- `normalized.connections` (read)
+
+## `P5.connection_direction`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.ports` (read)
+- `inferred.ports` (read)
+- `normalized.connections` (read)
+
+## `P5.connection_from_missing`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.ports` (negate)
+- `normalized.connections` (read)
+
+## `P5.connection_kind`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.ports` (read)
+- `inferred.ports` (read)
+- `normalized.connections` (read)
+
+## `P5.connection_member_domains`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.port_member_domains` (read)
+- `inferred.port_member_domains` (read)
+- `inferred.port_members` (read)
+- `inferred.port_members` (read)
+- `normalized.connections` (read)
+
+## `P5.connection_member_from_missing`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.port_members` (read)
+- `inferred.port_members` (negate)
+- `normalized.connections` (read)
+
+## `P5.connection_member_physical`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.port_member_domains` (read)
+- `inferred.port_member_domains` (read)
+- `inferred.port_members` (read)
+- `inferred.port_members` (read)
+- `normalized.connections` (read)
+- `reference.quantity_types` (read)
+- `reference.quantity_types` (read)
+
+## `P5.connection_member_to_missing`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.port_members` (read)
+- `inferred.port_members` (negate)
+- `normalized.connections` (read)
+
+## `P5.connection_to_missing`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.connection_violations` (write)
+- `inferred.ports` (negate)
+- `normalized.connections` (read)
+
+## `P5.containment_depth`
+
+Version: `1`. Stratum: 10.
+
+- `inferred.instance_reachability` (read)
+- `inferred.instance_reachability` (read)
+- `inferred.instance_reachability` (read)
+- `inferred.instance_tree` (write)
+
+## `P5.containment_direct`
+
+Version: `1`. Stratum: 9.
+
+- `inferred.instance_reachability` (write)
+- `inferred.instances` (read)
+
+## `P5.containment_transitive`
+
+Version: `1`. Stratum: 9.
+
+- `inferred.instance_reachability` (write)
+- `inferred.instance_reachability` (read)
+- `inferred.instances` (read)
+
+## `P5.domain_element`
+
+Version: `1`. Stratum: 5.
+
+- `inferred.domain_eligible_members` (write)
+- `inferred.phase_species` (read)
+- `normalized.material_domain_members` (read)
+- `normalized.species_elements` (read)
+
+## `P5.domain_ordinary`
+
+Version: `1`. Stratum: 5.
+
+- `inferred.domain_eligible_members` (write)
+- `normalized.domain_members` (read)
+- `normalized.material_domain_members` (negate)
+
+## `P5.domain_phase`
+
+Version: `1`. Stratum: 5.
+
+- `inferred.domain_eligible_members` (write)
+- `normalized.material_domain_members` (read)
+- `normalized.phases` (read)
+
+## `P5.domain_phase_species`
+
+Version: `1`. Stratum: 5.
+
+- `inferred.domain_eligible_members` (write)
+- `inferred.phase_species` (read)
+- `normalized.material_domain_members` (read)
+
+## `P5.domain_species`
+
+Version: `1`. Stratum: 5.
+
+- `inferred.domain_eligible_members` (write)
+- `inferred.phase_species` (read)
+- `normalized.material_domain_members` (read)
+
+## `P5.global_scope_candidates`
+
+Version: `1`. Stratum: 6.
+
+- `inferred.scope_candidates` (write)
+- `normalized.scopes` (read)
+- `normalized.template_scopes` (negate)
+
+## `P5.global_scopes`
+
+Version: `1`. Stratum: 13.
+
+- `inferred.resolved_scopes` (write)
+- `inferred.scope_candidates` (read)
+
+## `P5.guard_malformed`
+
+Version: `1`. Stratum: 9.
+
+- `inferred.instance_guard_violations` (write)
+- `inferred.instances` (read)
+- `inferred.valid_index_tuples` (read)
+- `normalized.instance_binding_products` (read)
+- `normalized.instance_bindings` (read)
+
+## `P5.guard_missing`
+
+Version: `1`. Stratum: 9.
+
+- `inferred.instance_guard_violations` (write)
+- `inferred.instances` (read)
+- `inferred.predicate_outcomes` (negate)
+- `inferred.valid_index_tuples` (read)
+- `normalized.instance_binding_products` (read)
+- `normalized.instance_bindings` (read)
+
+## `P5.guard_unresolved`
+
+Version: `1`. Stratum: 9.
+
+- `inferred.instance_guard_violations` (write)
+- `inferred.instances` (read)
+- `inferred.predicate_outcomes` (read)
+- `inferred.valid_index_tuples` (read)
+- `normalized.instance_binding_products` (read)
+- `normalized.instance_bindings` (read)
+
+## `P5.index_invalid_member`
+
+Version: `1`. Stratum: 6.
+
+- `inferred.domain_eligible_members` (negate)
+- `inferred.invalid_index_tuples` (write)
+- `normalized.candidate_index_members` (read)
+
+## `P5.index_invalid_phase_species_pair`
+
+Version: `1`. Stratum: 6.
+
+- `inferred.invalid_index_tuples` (write)
+- `inferred.phase_species` (negate)
+- `normalized.candidate_index_members` (read)
+- `normalized.candidate_index_members` (read)
+- `normalized.material_domain_members` (read)
+- `normalized.material_domain_members` (read)
+
+## `P5.index_valid`
+
+Version: `1`. Stratum: 7.
+
+- `inferred.invalid_index_tuples` (negate)
+- `inferred.valid_index_tuples` (write)
+- `normalized.candidate_index_tuples` (read)
+
+## `P5.instance_guarded`
+
+Version: `1`. Stratum: 8.
+
+- `inferred.instances` (write)
+- `inferred.instances` (read)
+- `inferred.predicate_outcomes` (read)
+- `inferred.valid_index_tuples` (read)
+- `normalized.instance_binding_products` (read)
+- `normalized.instance_bindings` (read)
+
+## `P5.instance_roots`
+
+Version: `1`. Stratum: 8.
+
+- `inferred.instances` (write)
+- `inferred.valid_index_tuples` (read)
+- `normalized.instance_binding_products` (read)
+- `normalized.instance_bindings` (read)
+
+## `P5.instance_unguarded`
+
+Version: `1`. Stratum: 8.
+
+- `inferred.instances` (write)
+- `inferred.instances` (read)
+- `inferred.valid_index_tuples` (read)
+- `normalized.instance_binding_products` (read)
+- `normalized.instance_bindings` (read)
+
+## `P5.port_member_domains`
+
+Version: `1`. Stratum: 12.
+
+- `inferred.port_member_domain_candidates` (read)
+- `inferred.port_member_domains` (write)
+- `inferred.ports` (read)
+
+## `P5.port_members`
+
+Version: `1`. Stratum: 12.
+
+- `inferred.port_member_candidates` (read)
+- `inferred.port_members` (write)
+- `inferred.ports` (read)
+
+## `P5.port_state_domains`
+
+Version: `1`. Stratum: 12.
+
+- `inferred.port_state_domain_candidates` (read)
+- `inferred.port_state_domains` (write)
+- `inferred.ports` (read)
+
+## `P5.port_state_targets`
+
+Version: `1`. Stratum: 12.
+
+- `inferred.instances` (read)
+- `inferred.port_state_candidates` (read)
+- `inferred.port_state_domain_candidates` (read)
+- `inferred.port_state_targets` (write)
+- `inferred.ports` (read)
+- `inferred.valid_index_tuples` (read)
+
+## `P5.ports`
+
+Version: `1`. Stratum: 11.
+
+- `inferred.instances` (read)
+- `inferred.port_candidates` (read)
+- `inferred.port_state_candidates` (read)
+- `inferred.port_state_domain_candidates` (read)
+- `inferred.ports` (write)
+- `inferred.unbound_port_targets` (negate)
+- `inferred.valid_index_tuples` (read)
+
+## `P5.relative_scope_candidates`
+
+Version: `1`. Stratum: 6.
+
+- `inferred.scope_candidates` (write)
+- `normalized.instance_bindings` (read)
+- `normalized.scopes` (read)
+- `normalized.template_scopes` (read)
+
+## `P5.relative_scopes`
+
+Version: `1`. Stratum: 13.
+
+- `inferred.instances` (read)
+- `inferred.resolved_scopes` (write)
+- `inferred.scope_candidates` (read)
+
+## `P5.scope_bindings`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_bindings` (write)
+
+## `P5.scope_descendant_ports`
+
+Version: `1`. Stratum: 13.
+
+- `inferred.instance_reachability` (read)
+- `inferred.ports` (read)
+- `inferred.scope_reachability` (write)
+
+## `P5.scope_direct_ports`
+
+Version: `1`. Stratum: 13.
+
+- `inferred.ports` (read)
+- `inferred.scope_reachability` (write)
+
+## `P5.scope_instance_descendants`
+
+Version: `1`. Stratum: 13.
+
+- `inferred.instance_reachability` (read)
+- `inferred.scope_reachability` (write)
+
+## `P5.scope_instance_universe`
+
+Version: `1`. Stratum: 13.
+
+- `inferred.instances` (read)
+- `inferred.scope_entities` (write)
+
+## `P5.scope_members`
+
+Version: `1`. Stratum: 15.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_members` (write)
+- `inferred.selector_decisions` (read)
+- `normalized.selector_roots` (read)
+
+## `P5.scope_port_explicit`
+
+Version: `1`. Stratum: 16.
+
+- `inferred.port_state_targets` (read)
+- `inferred.ports` (read)
+- `inferred.scope_members` (read)
+- `inferred.scope_port_states` (write)
+
+## `P5.scope_port_no`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.port_state_targets` (read)
+- `inferred.ports` (read)
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_port_decisions` (write)
+- `inferred.scope_port_states` (negate)
+
+## `P5.scope_port_owner`
+
+Version: `1`. Stratum: 16.
+
+- `inferred.port_state_targets` (read)
+- `inferred.ports` (read)
+- `inferred.scope_members` (read)
+- `inferred.scope_port_states` (write)
+
+## `P5.scope_port_state`
+
+Version: `1`. Stratum: 16.
+
+- `inferred.port_state_targets` (read)
+- `inferred.ports` (read)
+- `inferred.scope_members` (read)
+- `inferred.scope_port_states` (write)
+
+## `P5.scope_port_universe`
+
+Version: `1`. Stratum: 13.
+
+- `inferred.ports` (read)
+- `inferred.scope_entities` (write)
+
+## `P5.scope_port_yes`
+
+Version: `1`. Stratum: 17.
+
+- `inferred.scope_port_decisions` (write)
+- `inferred.scope_port_states` (read)
+
+## `P5.selector_absolute_context`
+
+Version: `1`. Stratum: 8.
+
+- `inferred.scope_candidates` (read)
+- `inferred.selector_contexts` (write)
+- `normalized.selector_nodes` (read)
+
+## `P5.selector_constant`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_descendant_no`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.scope_reachability` (negate)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_descendant_yes`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.scope_reachability` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_difference`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+- `inferred.selector_decisions` (read)
+- `inferred.selector_decisions` (read)
+
+## `P5.selector_exclude`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_identity`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+- `inferred.selector_decisions` (read)
+
+## `P5.selector_include`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_intersection`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+- `inferred.selector_decisions` (read)
+- `inferred.selector_decisions` (read)
+
+## `P5.selector_kind`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_parameter`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_parameter_context`
+
+Version: `1`. Stratum: 8.
+
+- `inferred.scope_candidates` (read)
+- `inferred.selector_contexts` (write)
+- `inferred.selector_parameter_targets` (read)
+- `normalized.selector_nodes` (read)
+
+## `P5.selector_parameter_missing`
+
+Version: `1`. Stratum: 8.
+
+- `inferred.scope_candidates` (read)
+- `inferred.selector_contexts` (write)
+- `inferred.selector_parameter_targets` (negate)
+- `normalized.selector_nodes` (read)
+
+## `P5.selector_parameter_target`
+
+Version: `1`. Stratum: 7.
+
+- `inferred.scope_candidates` (read)
+- `inferred.selector_parameter_targets` (write)
+- `normalized.config_values` (read)
+- `normalized.instance_bindings` (read)
+- `normalized.instance_bindings` (read)
+- `normalized.selector_nodes` (read)
+- `normalized.template_params` (read)
+- `reference.schema_logical_types` (read)
+
+## `P5.selector_self`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.scope_entities` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+
+## `P5.selector_self_context`
+
+Version: `1`. Stratum: 8.
+
+- `inferred.scope_candidates` (read)
+- `inferred.selector_contexts` (write)
+- `normalized.selector_nodes` (read)
+
+## `P5.selector_union`
+
+Version: `1`. Stratum: 14.
+
+- `inferred.resolved_scopes` (read)
+- `inferred.selector_contexts` (read)
+- `inferred.selector_decisions` (write)
+- `inferred.selector_decisions` (read)
+- `inferred.selector_decisions` (read)
+
+## `P5.topology`
+
+Version: `1`. Stratum: 18.
+
+- `inferred.connection_violations` (negate)
+- `inferred.ports` (read)
+- `inferred.ports` (read)
+- `inferred.topology_edges` (write)
+- `normalized.connections` (read)
+
+## `P5.unbound_port_target`
+
+Version: `1`. Stratum: 10.
+
+- `inferred.instances` (negate)
+- `inferred.port_candidates` (read)
+- `inferred.port_state_candidates` (read)
+- `inferred.port_state_domain_candidates` (read)
+- `inferred.unbound_port_targets` (write)
+- `inferred.valid_index_tuples` (read)
+
+## `P6.active_read`
+
+Version: `1`. Stratum: 50.
+
+- `inferred.demand_active_reads` (write)
+- `inferred.demand_read_keys` (read)
+- `inferred.predicate_outcomes` (read)
+- `inferred.predicate_outcomes` (read)
+
+## `P6.ambiguous_method`
+
+Version: `1`. Stratum: 54.
+
+- `inferred.potential_method_resolutions` (write)
+- `inferred.potential_method_winners` (read)
+
+## `P6.authored_selection_inventory`
+
+Version: `1`. Stratum: 50.
+
+- `inferred.selection_inventory` (write)
+- `normalized.method_selections` (read)
+
+## `P6.candidate_applicable`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.demand_active_reads` (negate)
+- `inferred.demand_seed_bindings` (negate)
+- `inferred.dependency_key_maps` (negate)
+- `inferred.method_parameter_keys` (negate)
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (read)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+- `inferred.state_dependency_keys` (negate)
+- `inferred.valid_index_tuples` (negate)
+- `normalized.instance_bindings` (negate)
+- `normalized.parameter_values` (negate)
+- `normalized.template_symbols` (negate)
+- `normalized.template_symbols` (negate)
+- `reference.method_dependencies` (negate)
+- `reference.method_parameters` (negate)
+- `reference.method_precedence` (read)
+- `reference.method_provisions` (read)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+- `reference.property_kinds` (read)
+- `reference.property_kinds` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (read)
+- `reference.quantity_types` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+- `reference.units` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+- `reference.units` (negate)
+
+## `P6.candidate_family_mismatch`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (read)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+- `reference.method_specs` (negate)
+
+## `P6.candidate_incompatible_signature`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.demand_active_reads` (negate)
+- `inferred.demand_seed_bindings` (negate)
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (read)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+- `normalized.template_symbols` (negate)
+- `reference.method_provisions` (read)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+- `reference.property_kinds` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (negate)
+- `reference.units` (negate)
+- `reference.units` (negate)
+
+## `P6.candidate_missing_dependency`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.demand_active_reads` (negate)
+- `inferred.demand_seed_bindings` (negate)
+- `inferred.dependency_key_maps` (negate)
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (read)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+- `inferred.state_dependency_keys` (negate)
+- `inferred.valid_index_tuples` (negate)
+- `normalized.instance_bindings` (negate)
+- `normalized.template_symbols` (negate)
+- `normalized.template_symbols` (negate)
+- `reference.method_dependencies` (negate)
+- `reference.method_provisions` (read)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+- `reference.property_kinds` (read)
+- `reference.property_kinds` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (read)
+- `reference.quantity_types` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+
+## `P6.candidate_missing_parameter`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.demand_active_reads` (negate)
+- `inferred.demand_seed_bindings` (negate)
+- `inferred.dependency_key_maps` (negate)
+- `inferred.method_parameter_keys` (negate)
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (read)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+- `inferred.state_dependency_keys` (negate)
+- `inferred.valid_index_tuples` (negate)
+- `normalized.instance_bindings` (negate)
+- `normalized.parameter_values` (negate)
+- `normalized.template_symbols` (negate)
+- `normalized.template_symbols` (negate)
+- `reference.method_dependencies` (negate)
+- `reference.method_parameters` (negate)
+- `reference.method_provisions` (read)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+- `reference.property_kinds` (read)
+- `reference.property_kinds` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (read)
+- `reference.quantity_types` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+- `reference.units` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+- `reference.units` (negate)
+
+## `P6.candidate_missing_provision`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (read)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+
+## `P6.candidate_missing_rank`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.demand_active_reads` (negate)
+- `inferred.demand_seed_bindings` (negate)
+- `inferred.dependency_key_maps` (negate)
+- `inferred.method_parameter_keys` (negate)
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (read)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+- `inferred.state_dependency_keys` (negate)
+- `inferred.valid_index_tuples` (negate)
+- `normalized.instance_bindings` (negate)
+- `normalized.parameter_values` (negate)
+- `normalized.template_symbols` (negate)
+- `normalized.template_symbols` (negate)
+- `reference.method_dependencies` (negate)
+- `reference.method_parameters` (negate)
+- `reference.method_precedence` (negate)
+- `reference.method_provisions` (read)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+- `reference.property_kinds` (read)
+- `reference.property_kinds` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (negate)
+- `reference.quantity_types` (read)
+- `reference.quantity_types` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+- `reference.units` (negate)
+- `reference.units` (read)
+- `reference.units` (negate)
+- `reference.units` (negate)
+
+## `P6.candidate_scope_mismatch`
+
+Version: `1`. Stratum: 52.
+
+- `inferred.potential_method_candidates` (write)
+- `inferred.requirement_scope_keys` (negate)
+- `inferred.requirement_universe` (read)
+- `inferred.requirement_universe` (negate)
+- `inferred.selection_inventory` (read)
+- `inferred.selection_inventory` (negate)
+
+## `P6.demanded_candidates`
+
+Version: `1`. Stratum: 56.
+
+- `inferred.method_candidates` (write)
+- `inferred.potential_method_candidates` (read)
+- `inferred.property_requirements` (read)
+
+## `P6.demanded_resolutions`
+
+Version: `1`. Stratum: 56.
+
+- `inferred.method_resolutions` (write)
+- `inferred.potential_method_resolutions` (read)
+- `inferred.property_requirements` (read)
+
+## `P6.dependency_requirement`
+
+Version: `1`. Stratum: 55.
+
+- `inferred.dependency_key_maps` (read)
+- `inferred.potential_method_resolutions` (read)
+- `inferred.property_requirements` (write)
+- `inferred.property_requirements` (read)
+- `inferred.requirement_universe` (read)
+
+## `P6.dependency_support`
+
+Version: `1`. Stratum: 55.
+
+- `inferred.dependency_key_maps` (read)
+- `inferred.potential_method_resolutions` (read)
+- `inferred.property_requirements` (read)
+- `inferred.requirement_support` (write)
+- `inferred.requirement_universe` (read)
+
+## `P6.direct_read_scope`
+
+Version: `1`. Stratum: 51.
+
+- `inferred.demand_active_reads` (read)
+- `inferred.demand_scope_requests` (write)
+- `normalized.property_demand_seeds` (read)
+
+## `P6.global_scope_obligation`
+
+Version: `1`. Stratum: 51.
+
+- `inferred.demand_obligations` (write)
+- `inferred.demand_scope_requests` (read)
+- `inferred.resolved_scopes` (read)
+
+## `P6.greatest_rank`
+
+Version: `1`. Stratum: 53.
+
+- `inferred.potential_method_candidates` (read)
+- `inferred.potential_method_candidates` (negate)
+- `inferred.potential_method_candidates` (negate)
+- `inferred.potential_method_winners` (write)
+
+## `P6.path_read_scope`
+
+Version: `1`. Stratum: 51.
+
+- `inferred.demand_active_reads` (read)
+- `inferred.demand_scope_requests` (write)
+- `normalized.property_path_demands` (read)
+- `normalized.template_symbol_properties` (read)
+
+## `P6.path_request_key`
+
+Version: `1`. Stratum: 48.
+
+- `inferred.demand_request_keys` (write)
+- `normalized.instance_bindings` (read)
+- `normalized.property_path_demands` (read)
+
+## `P6.relative_scope_obligation`
+
+Version: `1`. Stratum: 51.
+
+- `inferred.demand_obligations` (write)
+- `inferred.demand_scope_requests` (read)
+- `inferred.scope_bindings` (read)
+
+## `P6.requirement_universe`
+
+Version: `1`. Stratum: 51.
+
+- `inferred.domain_eligible_members` (negate)
+- `inferred.requirement_key_axes` (negate)
+- `inferred.requirement_keys` (read)
+- `inferred.requirement_universe` (write)
+- `inferred.state_scopes` (read)
+- `inferred.valid_index_tuples` (read)
+
+## `P6.scoped_read_requirement`
+
+Version: `1`. Stratum: 51.
+
+- `inferred.demand_index_maps` (read)
+- `inferred.demand_obligations` (read)
+- `inferred.demand_request_keys` (read)
+- `inferred.demand_seed_bindings` (write)
+- `inferred.requirement_universe` (read)
+- `inferred.scope_members` (read)
+
+## `P6.seed_request_key`
+
+Version: `1`. Stratum: 48.
+
+- `inferred.demand_request_keys` (write)
+- `normalized.instance_bindings` (read)
+- `normalized.property_demand_seeds` (read)
+
+## `P6.seed_requirement`
+
+Version: `1`. Stratum: 55.
+
+- `inferred.demand_seed_bindings` (read)
+- `inferred.property_requirements` (write)
+
+## `P6.seed_support`
+
+Version: `1`. Stratum: 55.
+
+- `inferred.demand_seed_bindings` (read)
+- `inferred.requirement_support` (write)
+
+## `P6.state_method_selection_key`
+
+Version: `1`. Stratum: 48.
+
+- `inferred.state_method_selection_keys` (write)
+- `normalized.property_packages` (read)
+
+## `P6.state_provision_read_requirement`
+
+Version: `1`. Stratum: 51.
+
+- `inferred.demand_active_reads` (read)
+- `inferred.demand_index_maps` (read)
+- `inferred.demand_request_keys` (read)
+- `inferred.demand_seed_bindings` (write)
+- `inferred.requirement_universe` (read)
+- `normalized.property_packages` (read)
+- `normalized.property_path_demands` (read)
+- `reference.method_provisions` (read)
+
+## `P6.state_scope`
+
+Version: `1`. Stratum: 50.
+
+- `inferred.instances` (read)
+- `inferred.state_scope_keys` (read)
+- `inferred.state_scopes` (write)
+- `normalized.instance_bindings` (read)
+- `normalized.property_packages` (read)
+- `reference.method_specs` (read)
+
+## `P6.state_scope_key`
+
+Version: `1`. Stratum: 48.
+
+- `inferred.state_scope_keys` (write)
+- `normalized.instance_bindings` (read)
+
+## `P6.state_selection_inventory`
+
+Version: `1`. Stratum: 50.
+
+- `inferred.selection_inventory` (write)
+- `inferred.state_method_selection_keys` (read)
+- `normalized.property_packages` (read)
+
+## `P6.unique_method`
+
+Version: `1`. Stratum: 54.
+
+- `inferred.potential_method_resolutions` (write)
+- `inferred.potential_method_winners` (read)
+- `reference.method_specs` (read)
+
+## `P6.unsupported_method`
+
+Version: `1`. Stratum: 54.
+
+- `inferred.potential_method_resolutions` (write)
+- `inferred.potential_method_winners` (negate)
+- `inferred.requirement_universe` (read)
+
+## `P8.law_applications`
+
+Version: `1`. Stratum: 100.
+
+- `compiled.law_applications` (write)
+- `inferred.law_contexts` (read)
+- `reference.law_bindings` (read)
+
+## `P8.law_candidates`
+
+Version: `1`. Stratum: 101.
+
+- `compiled.contributions` (read)
+- `compiled.law_applications` (read)
+- `inferred.law_candidates` (write)
+- `inferred.scope_members` (read)
+
+## `P8.law_empty_applications`
+
+Version: `1`. Stratum: 105.
+
+- `compiled.law_applications` (read)
+- `inferred.law_empty_applications` (write)
+- `inferred.law_ordered_terms` (negate)
+
+## `P8.law_family_exclusion`
+
+Version: `1`. Stratum: 103.
+
+- `compiled.contributions` (read)
+- `compiled.law_applications` (read)
+- `inferred.law_candidates` (read)
+- `inferred.law_participation_decisions` (write)
+
+## `P8.law_inclusion`
+
+Version: `1`. Stratum: 103.
+
+- `compiled.contributions` (read)
+- `compiled.law_applications` (read)
+- `inferred.law_candidates` (read)
+- `inferred.law_internal_transfers` (negate)
+- `inferred.law_participation_decisions` (write)
+- `inferred.law_subject_matches` (read)
+
+## `P8.law_internal_exclusion`
+
+Version: `1`. Stratum: 103.
+
+- `compiled.contributions` (read)
+- `compiled.law_applications` (read)
+- `inferred.law_candidates` (read)
+- `inferred.law_internal_transfers` (read)
+- `inferred.law_participation_decisions` (write)
+- `inferred.law_subject_matches` (read)
+
+## `P8.law_internal_transfers`
+
+Version: `1`. Stratum: 102.
+
+- `compiled.contributions` (read)
+- `compiled.contributions` (read)
+- `compiled.law_applications` (read)
+- `inferred.boundary_crossings` (read)
+- `inferred.law_candidates` (read)
+- `inferred.law_internal_transfers` (write)
+- `inferred.scope_members` (read)
+
+## `P8.law_ordered_terms`
+
+Version: `1`. Stratum: 104.
+
+- `inferred.law_ordered_terms` (write)
+- `inferred.law_participation_decisions` (read)
+
+## `P8.law_subject_exclusion`
+
+Version: `1`. Stratum: 103.
+
+- `compiled.contributions` (read)
+- `compiled.law_applications` (read)
+- `inferred.law_candidates` (read)
+- `inferred.law_participation_decisions` (write)
+- `inferred.law_subject_matches` (negate)
+
+## `P8.law_subject_matches`
+
+Version: `1`. Stratum: 102.
+
+- `compiled.contributions` (read)
+- `compiled.law_applications` (read)
+- `inferred.law_candidates` (read)
+- `inferred.law_subject_matches` (write)
+
+## `active_read_coordinate:inferred.read_coordinate_failures`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.predicate_outcomes` (read)
+- `inferred.predicate_outcomes` (read)
+- `inferred.read_coordinate_failures` (read)
+
+## `actual_demand_target:inferred.demand_obligations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_obligations` (read)
+- `inferred.demand_seed_bindings` (negate)
+
+## `actual_guard_tuple:inferred.demand_read_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_read_keys` (read)
+- `inferred.predicate_outcomes` (negate)
+
+## `actual_guard_tuple:inferred.read_coordinate_failures`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.predicate_outcomes` (negate)
+- `inferred.read_coordinate_failures` (read)
+
+## `actual_outer_guard:inferred.demand_read_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_read_keys` (read)
+- `inferred.predicate_outcomes` (negate)
+
+## `actual_outer_guard:inferred.read_coordinate_failures`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.predicate_outcomes` (negate)
+- `inferred.read_coordinate_failures` (read)
+
+## `actual_scope_binding:inferred.demand_scope_requests`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_obligations` (negate)
+- `inferred.demand_scope_requests` (read)
+
 ## `acyclic:parents:authored.cases`
 
 Version: `1`. Stratum: 1.
@@ -25,6 +1394,12 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `authored.model_revisions` (read)
+
+## `all_state_targets_bound:inferred.unbound_port_targets`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.unbound_port_targets` (read)
 
 ## `cardinality:continuous_detail:authored.domains`
 
@@ -244,6 +1619,12 @@ Version: `1`. Stratum: 1.
 
 - `provenance.pass_records` (read)
 
+## `child_guards_decided:inferred.instance_guard_violations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.instance_guard_violations` (read)
+
 ## `closure:entity_fields:authored.cases`
 
 Version: `1`. Stratum: 1.
@@ -257,6 +1638,14 @@ Version: `1`. Stratum: 1.
 
 - `authored.datasets` (read)
 - `authored.entities` (read)
+
+## `closure:entity_fields:authored.instance_equations`
+
+Version: `1`. Stratum: 1.
+
+- `authored.entities` (read)
+- `authored.entities` (read)
+- `authored.instance_equations` (read)
 
 ## `closure:entity_fields:authored.instances`
 
@@ -279,6 +1668,20 @@ Version: `1`. Stratum: 1.
 
 - `authored.entities` (read)
 - `authored.phases` (read)
+
+## `closure:entity_fields:authored.property_packages`
+
+Version: `1`. Stratum: 1.
+
+- `authored.entities` (read)
+- `authored.property_packages` (read)
+
+## `closure:entity_fields:authored.reaction_packages`
+
+Version: `1`. Stratum: 1.
+
+- `authored.entities` (read)
+- `authored.reaction_packages` (read)
 
 ## `closure:entity_fields:authored.reactions`
 
@@ -381,6 +1784,13 @@ Version: `1`. Stratum: 1.
 - `authored.datasets` (read)
 - `authored.entities` (negate)
 
+## `closure:entity_registered:authored.instance_equations`
+
+Version: `1`. Stratum: 1.
+
+- `authored.entities` (negate)
+- `authored.instance_equations` (read)
+
 ## `closure:entity_registered:authored.instances`
 
 Version: `1`. Stratum: 1.
@@ -401,6 +1811,20 @@ Version: `1`. Stratum: 1.
 
 - `authored.entities` (negate)
 - `authored.phases` (read)
+
+## `closure:entity_registered:authored.property_packages`
+
+Version: `1`. Stratum: 1.
+
+- `authored.entities` (negate)
+- `authored.property_packages` (read)
+
+## `closure:entity_registered:authored.reaction_packages`
+
+Version: `1`. Stratum: 1.
+
+- `authored.entities` (negate)
+- `authored.reaction_packages` (read)
 
 ## `closure:entity_registered:authored.reactions`
 
@@ -589,12 +2013,48 @@ Version: `1`. Stratum: 1.
 - `authored.observation_targets` (read)
 - `authored.template_ports` (negate)
 
+## `connections_admitted:inferred.connection_violations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.connection_violations` (read)
+
+## `containment_acyclic:inferred.instance_reachability`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.instance_reachability` (read)
+
+## `decision_alternative:compiled.law_participation`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.law_participation` (read)
+
+## `demanded_method_resolved:inferred.method_resolutions`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.method_resolutions` (read)
+
 ## `domain:continuous_context:authored.continuous_domains`
 
 Version: `1`. Stratum: 1.
 
 - `authored.continuous_domains` (read)
 - `authored.domains` (read)
+
+## `feature_resolved:provenance.feature_requirement_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.feature_requirement_assertions` (read)
+
+## `feature_rule_satisfied:provenance.feature_check_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.feature_check_assertions` (read)
 
 ## `foreign_key:amount_unit_id:reference.unit_sets`
 
@@ -603,12 +2063,47 @@ Version: `1`. Stratum: 1.
 - `reference.unit_sets` (read)
 - `reference.units` (negate)
 
+## `foreign_key:assertion_relation_id:provenance.rule_support_edges`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.rule_support_edges` (read)
+- `reference.schema_relations` (negate)
+
+## `foreign_key:balance_enum_id:authored.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_law_contracts` (read)
+- `reference.schema_enums` (negate)
+
+## `foreign_key:balance_enum_id:normalized.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_law_contracts` (read)
+- `reference.schema_enums` (negate)
+
+## `foreign_key:balance_enum_id:reference.law_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `reference.law_bindings` (read)
+- `reference.schema_enums` (negate)
+
 ## `foreign_key:basis_id:reference.quantity_types`
 
 Version: `1`. Stratum: 1.
 
 - `reference.bases` (negate)
 - `reference.quantity_types` (read)
+
+## `foreign_key:boolean_kind_id:reference.math_context`
+
+Version: `1`. Stratum: 1.
+
+- `reference.math_context` (read)
+- `reference.quantity_kinds` (negate)
 
 ## `foreign_key:canonical_unit_id:reference.quantity_types`
 
@@ -631,12 +2126,40 @@ Version: `1`. Stratum: 1.
 - `authored.change_ops` (read)
 - `authored.change_sets` (negate)
 
+## `foreign_key:coefficient_quantity_type_id:reference.element_projection_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `reference.element_projection_contracts` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:coefficient_unit_id:reference.element_projection_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `reference.element_projection_contracts` (read)
+- `reference.units` (negate)
+
 ## `foreign_key:connection_id:inferred.connection_equations`
 
 Version: `1`. Stratum: 1.
 
 - `authored.connections` (negate)
 - `inferred.connection_equations` (read)
+
+## `foreign_key:contribution_decl_id:authored.template_contribution_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_contribution_contracts` (read)
+- `authored.template_contributions` (negate)
+
+## `foreign_key:contribution_decl_id:normalized.template_contribution_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_contributions` (negate)
+- `normalized.template_contribution_contracts` (read)
 
 ## `foreign_key:currency_unit_id:reference.unit_sets`
 
@@ -651,6 +2174,13 @@ Version: `1`. Stratum: 1.
 
 - `reference.unit_sets` (read)
 - `reference.units` (negate)
+
+## `foreign_key:document_id:normalized.source_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `authored.documents` (negate)
+- `normalized.source_occurrences` (read)
 
 ## `foreign_key:document_name:reference.schema_document_sections`
 
@@ -680,6 +2210,20 @@ Version: `1`. Stratum: 1.
 - `authored.domains` (negate)
 - `authored.instance_domain_bindings` (read)
 
+## `foreign_key:domain_id:authored.template_domain_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.domains` (negate)
+- `authored.template_domain_bindings` (read)
+
+## `foreign_key:domain_id:compiled.expression_root_indices`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.expression_root_indices` (read)
+- `normalized.domains` (negate)
+
 ## `foreign_key:domain_id:normalized.continuous_domains`
 
 Version: `1`. Stratum: 1.
@@ -701,11 +2245,25 @@ Version: `1`. Stratum: 1.
 - `authored.domains` (negate)
 - `normalized.instance_domain_bindings` (read)
 
+## `foreign_key:domain_id:normalized.template_domain_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.domains` (negate)
+- `normalized.template_domain_bindings` (read)
+
 ## `foreign_key:element_id:authored.species_elements`
 
 Version: `1`. Stratum: 1.
 
 - `authored.species_elements` (read)
+- `reference.elements` (negate)
+
+## `foreign_key:element_id:normalized.material_domain_members`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.material_domain_members` (read)
 - `reference.elements` (negate)
 
 ## `foreign_key:element_id:normalized.species_elements`
@@ -743,12 +2301,89 @@ Version: `1`. Stratum: 1.
 - `authored.observation_targets` (read)
 - `authored.template_equations` (negate)
 
+## `foreign_key:expr_id:reference.rule_expr_calls`
+
+Version: `1`. Stratum: 1.
+
+- `reference.rule_expr_calls` (read)
+- `reference.rule_expr_nodes` (negate)
+
 ## `foreign_key:from_quantity_type_id:reference.conversion_rules`
 
 Version: `1`. Stratum: 1.
 
 - `reference.conversion_rules` (read)
 - `reference.quantity_types` (negate)
+
+## `foreign_key:group_id:compiled.element_projection_coefficients`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.element_projection_coefficients` (read)
+- `compiled.element_projection_groups` (negate)
+
+## `foreign_key:group_id:compiled.group_collection_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collection_members` (read)
+- `compiled.group_collections` (negate)
+
+## `foreign_key:group_id:compiled.group_collections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collections` (read)
+- `compiled.symbol_groups` (negate)
+
+## `foreign_key:group_id:compiled.group_projections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_projections` (read)
+- `compiled.symbol_groups` (negate)
+
+## `foreign_key:group_id:compiled.group_reindexing_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexing_members` (read)
+- `compiled.group_reindexings` (negate)
+
+## `foreign_key:group_id:compiled.group_reindexings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexings` (read)
+- `compiled.symbol_groups` (negate)
+
+## `foreign_key:group_id:compiled.predicate_mask_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.predicate_mask_members` (read)
+- `compiled.predicate_masks` (negate)
+
+## `foreign_key:head_relation_id:inferred.rule_outcomes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.rule_outcomes` (read)
+- `reference.schema_relations` (negate)
+
+## `foreign_key:head_relation_id:provenance.rule_support_edges`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.rule_support_edges` (read)
+- `reference.schema_relations` (negate)
+
+## `foreign_key:input_relation_id:provenance.rule_support_edges`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.rule_support_edges` (read)
+- `reference.schema_relations` (negate)
 
 ## `foreign_key:instance_id:authored.flowsheets`
 
@@ -764,6 +2399,13 @@ Version: `1`. Stratum: 1.
 - `authored.instance_domain_bindings` (read)
 - `authored.instances` (negate)
 
+## `foreign_key:instance_id:authored.instance_equations`
+
+Version: `1`. Stratum: 1.
+
+- `authored.instance_equations` (read)
+- `authored.instances` (negate)
+
 ## `foreign_key:instance_id:normalized.flowsheets`
 
 Version: `1`. Stratum: 1.
@@ -777,6 +2419,41 @@ Version: `1`. Stratum: 1.
 
 - `authored.instances` (negate)
 - `normalized.instance_domain_bindings` (read)
+
+## `foreign_key:instance_id:normalized.instance_equations`
+
+Version: `1`. Stratum: 1.
+
+- `authored.instances` (negate)
+- `normalized.instance_equations` (read)
+
+## `foreign_key:law_instance_decl_id:authored.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_law_contracts` (read)
+- `authored.template_law_instances` (negate)
+
+## `foreign_key:law_instance_decl_id:normalized.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_law_instances` (negate)
+- `normalized.template_law_contracts` (read)
+
+## `foreign_key:law_template_id:reference.element_projection_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `reference.element_projection_contracts` (read)
+
+## `foreign_key:law_template_id:reference.law_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `reference.law_bindings` (read)
 
 ## `foreign_key:length_unit_id:reference.unit_sets`
 
@@ -806,6 +2483,13 @@ Version: `1`. Stratum: 1.
 - `reference.unit_sets` (read)
 - `reference.units` (negate)
 
+## `foreign_key:material_system_id:normalized.material_domain_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.material_systems` (negate)
+- `normalized.material_domain_members` (read)
+
 ## `foreign_key:mesh_id:compiled.mesh_nodes`
 
 Version: `1`. Stratum: 1.
@@ -826,6 +2510,97 @@ Version: `1`. Stratum: 1.
 
 - `compiled.meshes` (negate)
 - `compiled.stencils` (read)
+
+## `foreign_key:method_id:compiled.kernel_output_symbols`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.kernel_output_symbols` (read)
+- `reference.method_specs` (negate)
+
+## `foreign_key:method_id:reference.method_dependencies`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_dependencies` (read)
+- `reference.method_specs` (negate)
+
+## `foreign_key:method_id:reference.method_kernel_inputs`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_kernel_inputs` (read)
+- `reference.method_specs` (negate)
+
+## `foreign_key:method_id:reference.method_parameter_axes`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_parameter_axes` (read)
+- `reference.method_specs` (negate)
+
+## `foreign_key:method_id:reference.method_parameters`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_parameters` (read)
+- `reference.method_specs` (negate)
+
+## `foreign_key:method_id:reference.method_provisions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_provisions` (read)
+- `reference.method_specs` (negate)
+
+## `foreign_key:method_id:reference.method_state_parameters`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_specs` (negate)
+- `reference.method_state_parameters` (read)
+
+## `foreign_key:multiplication_operation_id:reference.element_projection_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `reference.element_projection_contracts` (read)
+- `reference.quantity_operations` (negate)
+
+## `foreign_key:natural_unit_id:reference.method_parameters`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_parameters` (read)
+- `reference.units` (negate)
+
+## `foreign_key:natural_unit_id:reference.method_provisions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_provisions` (read)
+- `reference.units` (negate)
+
+## `foreign_key:neutral_quantity_type_id:reference.math_context`
+
+Version: `1`. Stratum: 1.
+
+- `reference.math_context` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:operation_id:reference.quantity_operation_reductions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.quantity_operation_reductions` (read)
+- `reference.quantity_operations` (negate)
+
+## `foreign_key:output_relation_id:provenance.algorithm_source_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.algorithm_source_occurrences` (read)
+- `reference.schema_relations` (negate)
 
 ## `foreign_key:owner_entity_id:authored.domains`
 
@@ -854,6 +2629,13 @@ Version: `1`. Stratum: 1.
 
 - `authored.entities` (negate)
 - `normalized.parameter_values` (read)
+
+## `foreign_key:owner_instance_id:normalized.expression_sources`
+
+Version: `1`. Stratum: 1.
+
+- `authored.instances` (negate)
+- `normalized.expression_sources` (read)
 
 ## `foreign_key:owner_template_id:normalized.expression_sources`
 
@@ -1023,6 +2805,13 @@ Version: `1`. Stratum: 1.
 - `authored.packages` (negate)
 - `provenance.assertions` (read)
 
+## `foreign_key:package_id:reference.math_context`
+
+Version: `1`. Stratum: 1.
+
+- `authored.packages` (negate)
+- `reference.math_context` (read)
+
 ## `foreign_key:parent_case_id:authored.cases`
 
 Version: `1`. Stratum: 1.
@@ -1114,6 +2903,13 @@ Version: `1`. Stratum: 1.
 - `authored.phases` (negate)
 - `normalized.henry_declarations` (read)
 
+## `foreign_key:phase_id:normalized.material_domain_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.phases` (negate)
+- `normalized.material_domain_members` (read)
+
 ## `foreign_key:phase_id:normalized.phase_species`
 
 Version: `1`. Stratum: 1.
@@ -1156,12 +2952,40 @@ Version: `1`. Stratum: 1.
 - `authored.observation_targets` (read)
 - `authored.templates` (negate)
 
+## `foreign_key:product_id:compiled.group_collections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collections` (read)
+- `normalized.domain_products` (negate)
+
+## `foreign_key:product_id:compiled.group_projections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_projections` (read)
+- `normalized.domain_products` (negate)
+
+## `foreign_key:product_id:compiled.group_reindexings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexings` (read)
+- `normalized.domain_products` (negate)
+
 ## `foreign_key:product_id:inferred.valid_index_tuples`
 
 Version: `1`. Stratum: 1.
 
 - `inferred.valid_index_tuples` (read)
 - `normalized.domain_products` (negate)
+
+## `foreign_key:product_id:provenance.valid_index_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.domain_products` (negate)
+- `provenance.valid_index_assertions` (read)
 
 ## `foreign_key:property_kind_id:authored.template_symbol_properties`
 
@@ -1177,6 +3001,13 @@ Version: `1`. Stratum: 1.
 - `normalized.template_symbol_properties` (read)
 - `reference.property_kinds` (negate)
 
+## `foreign_key:property_kind_id:reference.method_provisions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_provisions` (read)
+- `reference.property_kinds` (negate)
+
 ## `foreign_key:quantity_kind_id:reference.constants`
 
 Version: `1`. Stratum: 1.
@@ -1190,6 +3021,69 @@ Version: `1`. Stratum: 1.
 
 - `reference.quantity_kinds` (negate)
 - `reference.quantity_types` (read)
+
+## `foreign_key:quantity_type_id:authored.template_contribution_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_contribution_contracts` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:authored.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_law_contracts` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:compiled.group_collections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collections` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:compiled.kernel_output_symbols`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.kernel_output_symbols` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:compiled.method_parameter_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.method_parameter_bindings` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:normalized.template_contribution_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_contribution_contracts` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:normalized.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_law_contracts` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:reference.method_parameters`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_parameters` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:quantity_type_id:reference.method_provisions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_provisions` (read)
+- `reference.quantity_types` (negate)
 
 ## `foreign_key:reaction_id:authored.reaction_methods`
 
@@ -1289,6 +3183,27 @@ Version: `1`. Stratum: 1.
 - `reference.schema_migrations` (read)
 - `reference.schema_relations` (negate)
 
+## `foreign_key:required_basis_id:reference.quantity_preconditions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.bases` (negate)
+- `reference.quantity_preconditions` (read)
+
+## `foreign_key:required_quantity_type_id:reference.quantity_preconditions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.quantity_preconditions` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:requirement_id:compiled.kernel_output_symbols`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.kernel_output_symbols` (read)
+- `inferred.property_requirements` (negate)
+
 ## `foreign_key:result_kind_id:reference.quantity_operations`
 
 Version: `1`. Stratum: 1.
@@ -1296,12 +3211,54 @@ Version: `1`. Stratum: 1.
 - `reference.quantity_kinds` (negate)
 - `reference.quantity_operations` (read)
 
+## `foreign_key:rule_id:inferred.rule_outcomes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.rule_outcomes` (read)
+- `reference.rule_specs` (negate)
+
+## `foreign_key:rule_id:provenance.rule_support_edges`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.rule_support_edges` (read)
+- `reference.rule_specs` (negate)
+
+## `foreign_key:rule_template_id:reference.connection_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `reference.connection_bindings` (read)
+
+## `foreign_key:scope_decl_id:inferred.scope_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.scopes` (negate)
+- `inferred.scope_bindings` (read)
+
+## `foreign_key:scope_decl_id:provenance.scope_binding_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `authored.scopes` (negate)
+- `provenance.scope_binding_assertions` (read)
+
 ## `foreign_key:scope_id:authored.selector_terms`
 
 Version: `1`. Stratum: 1.
 
 - `authored.scopes` (negate)
 - `authored.selector_terms` (read)
+
+## `foreign_key:scope_id:authored.template_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `authored.scopes` (negate)
+- `authored.template_scopes` (read)
 
 ## `foreign_key:scope_id:normalized.property_demand_seeds`
 
@@ -1316,6 +3273,13 @@ Version: `1`. Stratum: 1.
 
 - `authored.scopes` (negate)
 - `normalized.selector_terms` (read)
+
+## `foreign_key:scope_id:normalized.template_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `authored.scopes` (negate)
+- `normalized.template_scopes` (read)
 
 ## `foreign_key:scope_selector_id:authored.template_property_requirements`
 
@@ -1345,6 +3309,48 @@ Version: `1`. Stratum: 1.
 - `authored.scopes` (negate)
 - `normalized.template_symbol_properties` (read)
 
+## `foreign_key:source_basis_id:reference.element_projection_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `reference.bases` (negate)
+- `reference.element_projection_contracts` (read)
+
+## `foreign_key:source_group_id:compiled.group_projections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_projections` (read)
+- `compiled.symbol_groups` (negate)
+
+## `foreign_key:source_group_id:compiled.group_reindexings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexings` (read)
+- `compiled.symbol_groups` (negate)
+
+## `foreign_key:source_id:compiled.group_collections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collections` (read)
+- `normalized.expression_sources` (negate)
+
+## `foreign_key:source_id:compiled.group_reindexings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexings` (read)
+- `normalized.expression_sources` (negate)
+
+## `foreign_key:source_id:inferred.path_targets`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.path_targets` (read)
+- `normalized.expression_sources` (negate)
+
 ## `foreign_key:source_id:normalized.equation_nodes`
 
 Version: `1`. Stratum: 1.
@@ -1359,6 +3365,13 @@ Version: `1`. Stratum: 1.
 - `normalized.expression_index_bindings` (read)
 - `normalized.expression_sources` (negate)
 
+## `foreign_key:source_id:normalized.expression_paths`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.expression_paths` (read)
+- `normalized.expression_sources` (negate)
+
 ## `foreign_key:source_id:normalized.predicate_nodes`
 
 Version: `1`. Stratum: 1.
@@ -1366,11 +3379,39 @@ Version: `1`. Stratum: 1.
 - `normalized.expression_sources` (negate)
 - `normalized.predicate_nodes` (read)
 
+## `foreign_key:source_quantity_type_id:reference.element_projection_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `reference.element_projection_contracts` (read)
+- `reference.quantity_types` (negate)
+
+## `foreign_key:source_relation_id:normalized.config_values`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.config_values` (read)
+- `reference.schema_relations` (negate)
+
 ## `foreign_key:source_relation_id:normalized.expression_sources`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.expression_sources` (read)
+- `reference.schema_relations` (negate)
+
+## `foreign_key:source_relation_id:normalized.source_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.source_occurrences` (read)
+- `reference.schema_relations` (negate)
+
+## `foreign_key:source_relation_id:provenance.algorithm_source_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.algorithm_source_occurrences` (read)
 - `reference.schema_relations` (negate)
 
 ## `foreign_key:source_symbol_decl_id:normalized.property_demand_seeds`
@@ -1415,6 +3456,13 @@ Version: `1`. Stratum: 1.
 - `authored.species` (negate)
 - `normalized.henry_declarations` (read)
 
+## `foreign_key:species_id:normalized.material_domain_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.species` (negate)
+- `normalized.material_domain_members` (read)
+
 ## `foreign_key:species_id:normalized.phase_species`
 
 Version: `1`. Stratum: 1.
@@ -1436,6 +3484,41 @@ Version: `1`. Stratum: 1.
 - `authored.species` (negate)
 - `normalized.stoichiometry` (read)
 
+## `foreign_key:state_scope_id:compiled.kernel_output_symbols`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.kernel_output_symbols` (read)
+- `inferred.state_scopes` (negate)
+
+## `foreign_key:symbol_decl_id:authored.template_derivatives`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_derivatives` (read)
+- `authored.template_symbols` (negate)
+
+## `foreign_key:symbol_decl_id:authored.template_port_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_port_members` (read)
+- `authored.template_symbols` (negate)
+
+## `foreign_key:symbol_decl_id:authored.template_symbol_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbol_contracts` (read)
+- `authored.template_symbols` (negate)
+
+## `foreign_key:symbol_decl_id:authored.template_symbol_expressions`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbol_expressions` (read)
+- `authored.template_symbols` (negate)
+
 ## `foreign_key:symbol_decl_id:authored.template_symbol_properties`
 
 Version: `1`. Stratum: 1.
@@ -1443,12 +3526,75 @@ Version: `1`. Stratum: 1.
 - `authored.template_symbol_properties` (read)
 - `authored.template_symbols` (negate)
 
+## `foreign_key:symbol_decl_id:compiled.method_parameter_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbols` (negate)
+- `compiled.method_parameter_bindings` (read)
+
+## `foreign_key:symbol_decl_id:inferred.path_targets`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbols` (negate)
+- `inferred.path_targets` (read)
+
+## `foreign_key:symbol_decl_id:normalized.template_derivatives`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbols` (negate)
+- `normalized.template_derivatives` (read)
+
+## `foreign_key:symbol_decl_id:normalized.template_port_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbols` (negate)
+- `normalized.template_port_members` (read)
+
+## `foreign_key:symbol_decl_id:normalized.template_symbol_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbols` (negate)
+- `normalized.template_symbol_contracts` (read)
+
+## `foreign_key:symbol_decl_id:normalized.template_symbol_expressions`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbols` (negate)
+- `normalized.template_symbol_expressions` (read)
+
 ## `foreign_key:symbol_decl_id:normalized.template_symbol_properties`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_symbols` (negate)
 - `normalized.template_symbol_properties` (read)
+
+## `foreign_key:symbol_id:compiled.group_collection_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collection_members` (read)
+- `compiled.symbols` (negate)
+
+## `foreign_key:symbol_id:compiled.group_reindexing_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexing_members` (read)
+- `compiled.symbols` (negate)
+
+## `foreign_key:symbol_id:compiled.kernel_output_symbols`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.kernel_output_symbols` (read)
+- `compiled.symbols` (negate)
 
 ## `foreign_key:temperature_unit_id:reference.unit_sets`
 
@@ -1476,6 +3622,20 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `authored.template_display` (read)
+- `authored.templates` (negate)
+
+## `foreign_key:template_id:authored.template_display_indices`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_display_indices` (read)
+- `authored.templates` (negate)
+
+## `foreign_key:template_id:authored.template_domain_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_domain_bindings` (read)
 - `authored.templates` (negate)
 
 ## `foreign_key:template_id:authored.template_domains`
@@ -1520,11 +3680,25 @@ Version: `1`. Stratum: 1.
 - `authored.template_law_instances` (read)
 - `authored.templates` (negate)
 
+## `foreign_key:template_id:authored.template_material_constraints`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_material_constraints` (read)
+- `authored.templates` (negate)
+
 ## `foreign_key:template_id:authored.template_params`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_params` (read)
+- `authored.templates` (negate)
+
+## `foreign_key:template_id:authored.template_port_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_port_members` (read)
 - `authored.templates` (negate)
 
 ## `foreign_key:template_id:authored.template_ports`
@@ -1548,11 +3722,25 @@ Version: `1`. Stratum: 1.
 - `authored.template_requirements` (read)
 - `authored.templates` (negate)
 
+## `foreign_key:template_id:authored.template_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_scopes` (read)
+- `authored.templates` (negate)
+
 ## `foreign_key:template_id:authored.template_submodels`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_submodels` (read)
+- `authored.templates` (negate)
+
+## `foreign_key:template_id:authored.template_symbol_expressions`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbol_expressions` (read)
 - `authored.templates` (negate)
 
 ## `foreign_key:template_id:authored.template_symbols`
@@ -1646,6 +3834,13 @@ Version: `1`. Stratum: 1.
 - `authored.templates` (negate)
 - `normalized.guard_expr_reductions` (read)
 
+## `foreign_key:template_id:normalized.instance_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `normalized.instance_bindings` (read)
+
 ## `foreign_key:template_id:normalized.instance_expr_broadcasts`
 
 Version: `1`. Stratum: 1.
@@ -1694,6 +3889,20 @@ Version: `1`. Stratum: 1.
 
 - `authored.templates` (negate)
 - `normalized.template_display` (read)
+
+## `foreign_key:template_id:normalized.template_display_indices`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `normalized.template_display_indices` (read)
+
+## `foreign_key:template_id:normalized.template_domain_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `normalized.template_domain_bindings` (read)
 
 ## `foreign_key:template_id:normalized.template_domains`
 
@@ -1765,12 +3974,26 @@ Version: `1`. Stratum: 1.
 - `authored.templates` (negate)
 - `normalized.template_law_instances` (read)
 
+## `foreign_key:template_id:normalized.template_material_constraints`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `normalized.template_material_constraints` (read)
+
 ## `foreign_key:template_id:normalized.template_params`
 
 Version: `1`. Stratum: 1.
 
 - `authored.templates` (negate)
 - `normalized.template_params` (read)
+
+## `foreign_key:template_id:normalized.template_port_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `normalized.template_port_members` (read)
 
 ## `foreign_key:template_id:normalized.template_ports`
 
@@ -1793,12 +4016,26 @@ Version: `1`. Stratum: 1.
 - `authored.templates` (negate)
 - `normalized.template_requirements` (read)
 
+## `foreign_key:template_id:normalized.template_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `normalized.template_scopes` (read)
+
 ## `foreign_key:template_id:normalized.template_submodels`
 
 Version: `1`. Stratum: 1.
 
 - `authored.templates` (negate)
 - `normalized.template_submodels` (read)
+
+## `foreign_key:template_id:normalized.template_symbol_expressions`
+
+Version: `1`. Stratum: 1.
+
+- `authored.templates` (negate)
+- `normalized.template_symbol_expressions` (read)
 
 ## `foreign_key:template_id:normalized.template_symbols`
 
@@ -1833,6 +4070,13 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `authored.domains` (read)
+- `reference.units` (negate)
+
+## `foreign_key:unit_id:compiled.method_parameter_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.method_parameter_bindings` (read)
 - `reference.units` (negate)
 
 ## `foreign_key:unit_id:normalized.continuous_domains`
@@ -1876,6 +4120,142 @@ Version: `1`. Stratum: 1.
 
 - `normalized.units` (read)
 - `reference.unit_sets` (negate)
+
+## `guard_not_conflict:inferred.demand_read_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_read_keys` (read)
+- `inferred.predicate_outcomes` (read)
+
+## `guard_not_conflict:inferred.read_coordinate_failures`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.predicate_outcomes` (read)
+- `inferred.read_coordinate_failures` (read)
+
+## `kind_has_actual_universe:inferred.selector_contexts`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.selector_contexts` (read)
+
+## `material_bounds_satisfied:provenance.material_check_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.material_check_assertions` (read)
+
+## `nonnegative_cost:inferred.tear_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.tear_candidates` (read)
+
+## `outer_guard_not_conflict:inferred.demand_read_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_read_keys` (read)
+- `inferred.predicate_outcomes` (read)
+
+## `outer_guard_not_conflict:inferred.read_coordinate_failures`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.predicate_outcomes` (read)
+- `inferred.read_coordinate_failures` (read)
+
+## `output_alternative:compiled.method_realizations`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.method_realizations` (read)
+
+## `output_alternative:reference.method_provisions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_provisions` (read)
+
+## `owner_alternative:normalized.expression_sources`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.expression_sources` (read)
+
+## `provides_matches_complete_contract:reference.method_specs`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_provisions` (read)
+- `reference.method_provisions` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+
+## `realization_alternative:reference.method_specs`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_specs` (read)
+
+## `relative_target_present:inferred.selector_contexts`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.selector_contexts` (read)
+
+## `requires_matches_complete_contract:reference.method_specs`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_dependencies` (read)
+- `reference.method_dependencies` (negate)
+- `reference.method_specs` (read)
+- `reference.method_specs` (negate)
+
+## `selection_compatible:inferred.method_compatibility`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.method_compatibility` (read)
+
+## `source_alternative:authored.template_domain_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_domain_bindings` (read)
+
+## `subject_alternative:authored.template_contribution_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_contribution_contracts` (read)
+
+## `subject_alternative:compiled.contributions`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.contributions` (read)
+
+## `subject_alternative:compiled.law_applications`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.law_applications` (read)
+
+## `typed_value_alternative:inferred.instance_features`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.instance_features` (read)
+
+## `typed_value_alternative:normalized.config_values`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.config_values` (read)
 
 ## `unique:pk:authored.case_activation_targets`
 
@@ -2021,6 +4401,12 @@ Version: `1`. Stratum: 1.
 
 - `authored.instance_domain_bindings` (read)
 
+## `unique:pk:authored.instance_equations`
+
+Version: `1`. Stratum: 1.
+
+- `authored.instance_equations` (read)
+
 ## `unique:pk:authored.instances`
 
 Version: `1`. Stratum: 1.
@@ -2165,17 +4551,41 @@ Version: `1`. Stratum: 1.
 
 - `authored.stoichiometry` (read)
 
+## `unique:pk:authored.template_contribution_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_contribution_contracts` (read)
+
 ## `unique:pk:authored.template_contributions`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_contributions` (read)
 
+## `unique:pk:authored.template_derivatives`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_derivatives` (read)
+
 ## `unique:pk:authored.template_display`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_display` (read)
+
+## `unique:pk:authored.template_display_indices`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_display_indices` (read)
+
+## `unique:pk:authored.template_domain_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_domain_bindings` (read)
 
 ## `unique:pk:authored.template_domains`
 
@@ -2207,17 +4617,35 @@ Version: `1`. Stratum: 1.
 
 - `authored.template_guards` (read)
 
+## `unique:pk:authored.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_law_contracts` (read)
+
 ## `unique:pk:authored.template_law_instances`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_law_instances` (read)
 
+## `unique:pk:authored.template_material_constraints`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_material_constraints` (read)
+
 ## `unique:pk:authored.template_params`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_params` (read)
+
+## `unique:pk:authored.template_port_members`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_port_members` (read)
 
 ## `unique:pk:authored.template_ports`
 
@@ -2237,11 +4665,29 @@ Version: `1`. Stratum: 1.
 
 - `authored.template_requirements` (read)
 
+## `unique:pk:authored.template_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_scopes` (read)
+
 ## `unique:pk:authored.template_submodels`
 
 Version: `1`. Stratum: 1.
 
 - `authored.template_submodels` (read)
+
+## `unique:pk:authored.template_symbol_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbol_contracts` (read)
+
+## `unique:pk:authored.template_symbol_expressions`
+
+Version: `1`. Stratum: 1.
+
+- `authored.template_symbol_expressions` (read)
 
 ## `unique:pk:authored.template_symbol_properties`
 
@@ -2291,11 +4737,35 @@ Version: `1`. Stratum: 1.
 
 - `compiled.case_bound_substitutions` (read)
 
+## `unique:pk:compiled.contributions`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.contributions` (read)
+
 ## `unique:pk:compiled.dm_partition`
 
 Version: `1`. Stratum: 1.
 
 - `compiled.dm_partition` (read)
+
+## `unique:pk:compiled.element_projection_coefficients`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.element_projection_coefficients` (read)
+
+## `unique:pk:compiled.element_projection_groups`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.element_projection_groups` (read)
+
+## `unique:pk:compiled.equation_branches`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.equation_branches` (read)
 
 ## `unique:pk:compiled.equation_order`
 
@@ -2314,6 +4784,48 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `compiled.evaluation_programs` (read)
+
+## `unique:pk:compiled.expression_root_indices`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.expression_root_indices` (read)
+
+## `unique:pk:compiled.expression_roots`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.expression_roots` (read)
+
+## `unique:pk:compiled.group_collection_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collection_members` (read)
+
+## `unique:pk:compiled.group_collections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_collections` (read)
+
+## `unique:pk:compiled.group_projections`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_projections` (read)
+
+## `unique:pk:compiled.group_reindexing_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexing_members` (read)
+
+## `unique:pk:compiled.group_reindexings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.group_reindexings` (read)
 
 ## `unique:pk:compiled.incidence`
 
@@ -2338,6 +4850,24 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `compiled.kernel_bindings` (read)
+
+## `unique:pk:compiled.kernel_output_symbols`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.kernel_output_symbols` (read)
+
+## `unique:pk:compiled.law_applications`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.law_applications` (read)
+
+## `unique:pk:compiled.law_participation`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.law_participation` (read)
 
 ## `unique:pk:compiled.math_affine`
 
@@ -2507,6 +5037,36 @@ Version: `1`. Stratum: 1.
 
 - `compiled.meshes` (read)
 
+## `unique:pk:compiled.method_parameter_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.method_parameter_bindings` (read)
+
+## `unique:pk:compiled.method_realizations`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.method_realizations` (read)
+
+## `unique:pk:compiled.port_member_groups`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.port_member_groups` (read)
+
+## `unique:pk:compiled.predicate_mask_members`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.predicate_mask_members` (read)
+
+## `unique:pk:compiled.predicate_masks`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.predicate_masks` (read)
+
 ## `unique:pk:compiled.problems`
 
 Version: `1`. Stratum: 1.
@@ -2542,6 +5102,12 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `compiled.stencils` (read)
+
+## `unique:pk:compiled.symbol_expressions`
+
+Version: `1`. Stratum: 1.
+
+- `compiled.symbol_expressions` (read)
 
 ## `unique:pk:compiled.symbol_group_members`
 
@@ -2591,6 +5157,84 @@ Version: `1`. Stratum: 1.
 
 - `inferred.connection_equations` (read)
 
+## `unique:pk:inferred.connection_violations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.connection_violations` (read)
+
+## `unique:pk:inferred.demand_active_reads`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_active_reads` (read)
+
+## `unique:pk:inferred.demand_index_maps`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_index_maps` (read)
+
+## `unique:pk:inferred.demand_obligations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_obligations` (read)
+
+## `unique:pk:inferred.demand_read_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_read_keys` (read)
+
+## `unique:pk:inferred.demand_request_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_request_keys` (read)
+
+## `unique:pk:inferred.demand_scope_requests`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_scope_requests` (read)
+
+## `unique:pk:inferred.demand_seed_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.demand_seed_bindings` (read)
+
+## `unique:pk:inferred.dependency_key_maps`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.dependency_key_maps` (read)
+
+## `unique:pk:inferred.domain_eligible_members`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.domain_eligible_members` (read)
+
+## `unique:pk:inferred.feature_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.feature_candidates` (read)
+
+## `unique:pk:inferred.feature_checks`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.feature_checks` (read)
+
+## `unique:pk:inferred.feature_requirements`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.feature_requirements` (read)
+
 ## `unique:pk:inferred.initialization_order`
 
 Version: `1`. Stratum: 1.
@@ -2602,6 +5246,18 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `inferred.instance_features` (read)
+
+## `unique:pk:inferred.instance_guard_violations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.instance_guard_violations` (read)
+
+## `unique:pk:inferred.instance_reachability`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.instance_reachability` (read)
 
 ## `unique:pk:inferred.instance_tree`
 
@@ -2615,11 +5271,263 @@ Version: `1`. Stratum: 1.
 
 - `inferred.instances` (read)
 
+## `unique:pk:inferred.invalid_index_tuples`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.invalid_index_tuples` (read)
+
+## `unique:pk:inferred.kernel_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.kernel_bindings` (read)
+
+## `unique:pk:inferred.law_axes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_axes` (read)
+
+## `unique:pk:inferred.law_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_candidates` (read)
+
+## `unique:pk:inferred.law_contexts`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_contexts` (read)
+
+## `unique:pk:inferred.law_empty_applications`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_empty_applications` (read)
+
+## `unique:pk:inferred.law_internal_transfers`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_internal_transfers` (read)
+
+## `unique:pk:inferred.law_ordered_terms`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_ordered_terms` (read)
+
+## `unique:pk:inferred.law_participation_decisions`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_participation_decisions` (read)
+
+## `unique:pk:inferred.law_subject_matches`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.law_subject_matches` (read)
+
+## `unique:pk:inferred.material_member_counts`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.material_member_counts` (read)
+
+## `unique:pk:inferred.material_template_checks`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.material_template_checks` (read)
+
+## `unique:pk:inferred.math_affine`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_affine` (read)
+
+## `unique:pk:inferred.math_broadcasts`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_broadcasts` (read)
+
+## `unique:pk:inferred.math_complementarity`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_complementarity` (read)
+
+## `unique:pk:inferred.math_conditionals`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_conditionals` (read)
+
+## `unique:pk:inferred.math_dae_links`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_dae_links` (read)
+
+## `unique:pk:inferred.math_derivatives`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_derivatives` (read)
+
+## `unique:pk:inferred.math_equations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_equations` (read)
+
+## `unique:pk:inferred.math_expr_args`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_expr_args` (read)
+
+## `unique:pk:inferred.math_expr_nodes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_expr_nodes` (read)
+
+## `unique:pk:inferred.math_float_constants`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_float_constants` (read)
+
+## `unique:pk:inferred.math_free_indices`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_free_indices` (read)
+
+## `unique:pk:inferred.math_gathers`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_gathers` (read)
+
+## `unique:pk:inferred.math_implicit_refs`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_implicit_refs` (read)
+
+## `unique:pk:inferred.math_implicit_systems`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_implicit_systems` (read)
+
+## `unique:pk:inferred.math_indexed_equations`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_indexed_equations` (read)
+
+## `unique:pk:inferred.math_int_constants`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_int_constants` (read)
+
+## `unique:pk:inferred.math_integrals`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_integrals` (read)
+
+## `unique:pk:inferred.math_kernel_calls`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_kernel_calls` (read)
+
+## `unique:pk:inferred.math_objectives`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_objectives` (read)
+
+## `unique:pk:inferred.math_piecewise_linear`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_piecewise_linear` (read)
+
+## `unique:pk:inferred.math_quantity_selections`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_quantity_selections` (read)
+
+## `unique:pk:inferred.math_reductions`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_reductions` (read)
+
+## `unique:pk:inferred.math_smooth_ops`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_smooth_ops` (read)
+
+## `unique:pk:inferred.math_symbol_refs`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_symbol_refs` (read)
+
+## `unique:pk:inferred.math_unit_converts`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_unit_converts` (read)
+
+## `unique:pk:inferred.math_weighted_means`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.math_weighted_means` (read)
+
+## `unique:pk:inferred.method_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.method_candidates` (read)
+
+## `unique:pk:inferred.method_compatibility`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.method_compatibility` (read)
+
+## `unique:pk:inferred.method_parameter_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.method_parameter_keys` (read)
+
 ## `unique:pk:inferred.method_resolutions`
 
 Version: `1`. Stratum: 1.
 
 - `inferred.method_resolutions` (read)
+
+## `unique:pk:inferred.path_targets`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.path_targets` (read)
 
 ## `unique:pk:inferred.phase_species`
 
@@ -2627,11 +5535,59 @@ Version: `1`. Stratum: 1.
 
 - `inferred.phase_species` (read)
 
+## `unique:pk:inferred.port_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_candidates` (read)
+
+## `unique:pk:inferred.port_member_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_member_candidates` (read)
+
+## `unique:pk:inferred.port_member_domain_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_member_domain_candidates` (read)
+
+## `unique:pk:inferred.port_member_domains`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_member_domains` (read)
+
 ## `unique:pk:inferred.port_members`
 
 Version: `1`. Stratum: 1.
 
 - `inferred.port_members` (read)
+
+## `unique:pk:inferred.port_state_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_state_candidates` (read)
+
+## `unique:pk:inferred.port_state_domain_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_state_domain_candidates` (read)
+
+## `unique:pk:inferred.port_state_domains`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_state_domains` (read)
+
+## `unique:pk:inferred.port_state_targets`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.port_state_targets` (read)
 
 ## `unique:pk:inferred.ports`
 
@@ -2639,11 +5595,107 @@ Version: `1`. Stratum: 1.
 
 - `inferred.ports` (read)
 
+## `unique:pk:inferred.potential_method_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.potential_method_candidates` (read)
+
+## `unique:pk:inferred.potential_method_resolutions`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.potential_method_resolutions` (read)
+
+## `unique:pk:inferred.potential_method_winners`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.potential_method_winners` (read)
+
+## `unique:pk:inferred.predicate_axes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.predicate_axes` (read)
+
+## `unique:pk:inferred.predicate_outcomes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.predicate_outcomes` (read)
+
 ## `unique:pk:inferred.property_requirements`
 
 Version: `1`. Stratum: 1.
 
 - `inferred.property_requirements` (read)
+
+## `unique:pk:inferred.read_coordinate_failures`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.read_coordinate_failures` (read)
+
+## `unique:pk:inferred.requirement_key_axes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.requirement_key_axes` (read)
+
+## `unique:pk:inferred.requirement_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.requirement_keys` (read)
+
+## `unique:pk:inferred.requirement_scope_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.requirement_scope_keys` (read)
+
+## `unique:pk:inferred.requirement_support`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.requirement_support` (read)
+
+## `unique:pk:inferred.requirement_universe`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.requirement_universe` (read)
+
+## `unique:pk:inferred.resolved_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.resolved_scopes` (read)
+
+## `unique:pk:inferred.rule_outcomes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.rule_outcomes` (read)
+
+## `unique:pk:inferred.scope_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.scope_bindings` (read)
+
+## `unique:pk:inferred.scope_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.scope_candidates` (read)
+
+## `unique:pk:inferred.scope_entities`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.scope_entities` (read)
 
 ## `unique:pk:inferred.scope_members`
 
@@ -2651,17 +5703,95 @@ Version: `1`. Stratum: 1.
 
 - `inferred.scope_members` (read)
 
+## `unique:pk:inferred.scope_port_decisions`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.scope_port_decisions` (read)
+
+## `unique:pk:inferred.scope_port_states`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.scope_port_states` (read)
+
+## `unique:pk:inferred.scope_reachability`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.scope_reachability` (read)
+
+## `unique:pk:inferred.selection_inventory`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.selection_inventory` (read)
+
+## `unique:pk:inferred.selector_contexts`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.selector_contexts` (read)
+
+## `unique:pk:inferred.selector_decisions`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.selector_decisions` (read)
+
+## `unique:pk:inferred.selector_parameter_targets`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.selector_parameter_targets` (read)
+
+## `unique:pk:inferred.state_dependency_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.state_dependency_keys` (read)
+
 ## `unique:pk:inferred.state_flash_required`
 
 Version: `1`. Stratum: 1.
 
 - `inferred.state_flash_required` (read)
 
+## `unique:pk:inferred.state_method_selection_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.state_method_selection_keys` (read)
+
+## `unique:pk:inferred.state_scope_keys`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.state_scope_keys` (read)
+
+## `unique:pk:inferred.state_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.state_scopes` (read)
+
+## `unique:pk:inferred.tear_candidates`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.tear_candidates` (read)
+
 ## `unique:pk:inferred.topology_edges`
 
 Version: `1`. Stratum: 1.
 
 - `inferred.topology_edges` (read)
+
+## `unique:pk:inferred.unbound_port_targets`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.unbound_port_targets` (read)
 
 ## `unique:pk:inferred.undecided`
 
@@ -2674,6 +5804,24 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `inferred.valid_index_tuples` (read)
+
+## `unique:pk:normalized.candidate_index_members`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.candidate_index_members` (read)
+
+## `unique:pk:normalized.candidate_index_tuples`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.candidate_index_tuples` (read)
+
+## `unique:pk:normalized.config_values`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.config_values` (read)
 
 ## `unique:pk:normalized.connections`
 
@@ -2927,6 +6075,18 @@ Version: `1`. Stratum: 1.
 
 - `normalized.domain_members` (read)
 
+## `unique:pk:normalized.domain_product_projections`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.domain_product_projections` (read)
+
+## `unique:pk:normalized.domain_product_sources`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.domain_product_sources` (read)
+
 ## `unique:pk:normalized.domain_products`
 
 Version: `1`. Stratum: 1.
@@ -2957,11 +6117,23 @@ Version: `1`. Stratum: 1.
 
 - `normalized.expression_index_bindings` (read)
 
+## `unique:pk:normalized.expression_paths`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.expression_paths` (read)
+
 ## `unique:pk:normalized.expression_sources`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.expression_sources` (read)
+
+## `unique:pk:normalized.feature_inheritance`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.feature_inheritance` (read)
 
 ## `unique:pk:normalized.flowsheets`
 
@@ -3083,11 +6255,29 @@ Version: `1`. Stratum: 1.
 
 - `normalized.henry_declarations` (read)
 
+## `unique:pk:normalized.instance_binding_products`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.instance_binding_products` (read)
+
+## `unique:pk:normalized.instance_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.instance_bindings` (read)
+
 ## `unique:pk:normalized.instance_domain_bindings`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.instance_domain_bindings` (read)
+
+## `unique:pk:normalized.instance_equations`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.instance_equations` (read)
 
 ## `unique:pk:normalized.instance_expr_affine`
 
@@ -3203,6 +6393,12 @@ Version: `1`. Stratum: 1.
 
 - `normalized.instances` (read)
 
+## `unique:pk:normalized.material_domain_members`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.material_domain_members` (read)
+
 ## `unique:pk:normalized.material_systems`
 
 Version: `1`. Stratum: 1.
@@ -3257,6 +6453,18 @@ Version: `1`. Stratum: 1.
 
 - `normalized.phases` (read)
 
+## `unique:pk:normalized.port_binding_lengths`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.port_binding_lengths` (read)
+
+## `unique:pk:normalized.port_binding_steps`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.port_binding_steps` (read)
+
 ## `unique:pk:normalized.predicate_nodes`
 
 Version: `1`. Stratum: 1.
@@ -3274,6 +6482,12 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `normalized.property_packages` (read)
+
+## `unique:pk:normalized.property_path_demands`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.property_path_demands` (read)
 
 ## `unique:pk:normalized.reaction_methods`
 
@@ -3293,11 +6507,35 @@ Version: `1`. Stratum: 1.
 
 - `normalized.reactions` (read)
 
+## `unique:pk:normalized.resolved_source_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.resolved_source_occurrences` (read)
+
 ## `unique:pk:normalized.scopes`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.scopes` (read)
+
+## `unique:pk:normalized.selector_children`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.selector_children` (read)
+
+## `unique:pk:normalized.selector_nodes`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.selector_nodes` (read)
+
+## `unique:pk:normalized.selector_roots`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.selector_roots` (read)
 
 ## `unique:pk:normalized.selector_terms`
 
@@ -3310,6 +6548,12 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `normalized.solver_profiles` (read)
+
+## `unique:pk:normalized.source_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.source_occurrences` (read)
 
 ## `unique:pk:normalized.species`
 
@@ -3335,17 +6579,41 @@ Version: `1`. Stratum: 1.
 
 - `normalized.stoichiometry` (read)
 
+## `unique:pk:normalized.template_contribution_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_contribution_contracts` (read)
+
 ## `unique:pk:normalized.template_contributions`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.template_contributions` (read)
 
+## `unique:pk:normalized.template_derivatives`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_derivatives` (read)
+
 ## `unique:pk:normalized.template_display`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.template_display` (read)
+
+## `unique:pk:normalized.template_display_indices`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_display_indices` (read)
+
+## `unique:pk:normalized.template_domain_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_domain_bindings` (read)
 
 ## `unique:pk:normalized.template_domains`
 
@@ -3485,17 +6753,35 @@ Version: `1`. Stratum: 1.
 
 - `normalized.template_guards` (read)
 
+## `unique:pk:normalized.template_law_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_law_contracts` (read)
+
 ## `unique:pk:normalized.template_law_instances`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.template_law_instances` (read)
 
+## `unique:pk:normalized.template_material_constraints`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_material_constraints` (read)
+
 ## `unique:pk:normalized.template_params`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.template_params` (read)
+
+## `unique:pk:normalized.template_port_members`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_port_members` (read)
 
 ## `unique:pk:normalized.template_ports`
 
@@ -3515,11 +6801,29 @@ Version: `1`. Stratum: 1.
 
 - `normalized.template_requirements` (read)
 
+## `unique:pk:normalized.template_scopes`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_scopes` (read)
+
 ## `unique:pk:normalized.template_submodels`
 
 Version: `1`. Stratum: 1.
 
 - `normalized.template_submodels` (read)
+
+## `unique:pk:normalized.template_symbol_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_symbol_contracts` (read)
+
+## `unique:pk:normalized.template_symbol_expressions`
+
+Version: `1`. Stratum: 1.
+
+- `normalized.template_symbol_expressions` (read)
 
 ## `unique:pk:normalized.template_symbol_properties`
 
@@ -3545,11 +6849,65 @@ Version: `1`. Stratum: 1.
 
 - `normalized.units` (read)
 
+## `unique:pk:provenance.algorithm_source_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.algorithm_source_occurrences` (read)
+
 ## `unique:pk:provenance.assertions`
 
 Version: `1`. Stratum: 1.
 
 - `provenance.assertions` (read)
+
+## `unique:pk:provenance.boundary_crossing_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.boundary_crossing_assertions` (read)
+
+## `unique:pk:provenance.connection_violation_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.connection_violation_assertions` (read)
+
+## `unique:pk:provenance.constructed_supports`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.constructed_supports` (read)
+
+## `unique:pk:provenance.demand_active_read_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.demand_active_read_assertions` (read)
+
+## `unique:pk:provenance.demand_obligation_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.demand_obligation_assertions` (read)
+
+## `unique:pk:provenance.demand_request_key_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.demand_request_key_assertions` (read)
+
+## `unique:pk:provenance.demand_scope_request_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.demand_scope_request_assertions` (read)
+
+## `unique:pk:provenance.demand_seed_binding_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.demand_seed_binding_assertions` (read)
 
 ## `unique:pk:provenance.derivations`
 
@@ -3557,17 +6915,347 @@ Version: `1`. Stratum: 1.
 
 - `provenance.derivations` (read)
 
+## `unique:pk:provenance.domain_member_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.domain_member_assertions` (read)
+
+## `unique:pk:provenance.feature_candidate_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.feature_candidate_assertions` (read)
+
+## `unique:pk:provenance.feature_check_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.feature_check_assertions` (read)
+
+## `unique:pk:provenance.feature_requirement_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.feature_requirement_assertions` (read)
+
+## `unique:pk:provenance.instance_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.instance_assertions` (read)
+
+## `unique:pk:provenance.instance_feature_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.instance_feature_assertions` (read)
+
+## `unique:pk:provenance.instance_guard_violation_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.instance_guard_violation_assertions` (read)
+
+## `unique:pk:provenance.instance_reachability_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.instance_reachability_assertions` (read)
+
+## `unique:pk:provenance.instance_tree_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.instance_tree_assertions` (read)
+
+## `unique:pk:provenance.invalid_index_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.invalid_index_assertions` (read)
+
+## `unique:pk:provenance.law_application_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.law_application_assertions` (read)
+
+## `unique:pk:provenance.law_candidate_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.law_candidate_assertions` (read)
+
+## `unique:pk:provenance.law_empty_application_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.law_empty_application_assertions` (read)
+
+## `unique:pk:provenance.law_internal_transfer_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.law_internal_transfer_assertions` (read)
+
+## `unique:pk:provenance.law_ordered_term_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.law_ordered_term_assertions` (read)
+
+## `unique:pk:provenance.law_participation_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.law_participation_assertions` (read)
+
+## `unique:pk:provenance.law_subject_match_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.law_subject_match_assertions` (read)
+
+## `unique:pk:provenance.material_check_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.material_check_assertions` (read)
+
+## `unique:pk:provenance.material_count_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.material_count_assertions` (read)
+
+## `unique:pk:provenance.method_candidate_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.method_candidate_assertions` (read)
+
+## `unique:pk:provenance.method_compatibility_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.method_compatibility_assertions` (read)
+
+## `unique:pk:provenance.method_resolution_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.method_resolution_assertions` (read)
+
+## `unique:pk:provenance.node_rewrites`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.node_rewrites` (read)
+
 ## `unique:pk:provenance.pass_records`
 
 Version: `1`. Stratum: 1.
 
 - `provenance.pass_records` (read)
 
+## `unique:pk:provenance.phase_species_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.phase_species_assertions` (read)
+
+## `unique:pk:provenance.port_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.port_assertions` (read)
+
+## `unique:pk:provenance.port_member_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.port_member_assertions` (read)
+
+## `unique:pk:provenance.port_member_domain_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.port_member_domain_assertions` (read)
+
+## `unique:pk:provenance.port_state_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.port_state_assertions` (read)
+
+## `unique:pk:provenance.port_state_domain_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.port_state_domain_assertions` (read)
+
+## `unique:pk:provenance.potential_method_candidate_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.potential_method_candidate_assertions` (read)
+
+## `unique:pk:provenance.potential_method_resolution_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.potential_method_resolution_assertions` (read)
+
+## `unique:pk:provenance.potential_method_winner_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.potential_method_winner_assertions` (read)
+
+## `unique:pk:provenance.property_read_occurrences`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.property_read_occurrences` (read)
+
+## `unique:pk:provenance.property_requirement_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.property_requirement_assertions` (read)
+
 ## `unique:pk:provenance.refs`
 
 Version: `1`. Stratum: 1.
 
 - `provenance.refs` (read)
+
+## `unique:pk:provenance.requirement_support_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.requirement_support_assertions` (read)
+
+## `unique:pk:provenance.requirement_universe_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.requirement_universe_assertions` (read)
+
+## `unique:pk:provenance.rule_support_edges`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.rule_support_edges` (read)
+
+## `unique:pk:provenance.scope_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_assertions` (read)
+
+## `unique:pk:provenance.scope_binding_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_binding_assertions` (read)
+
+## `unique:pk:provenance.scope_candidate_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_candidate_assertions` (read)
+
+## `unique:pk:provenance.scope_entity_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_entity_assertions` (read)
+
+## `unique:pk:provenance.scope_member_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_member_assertions` (read)
+
+## `unique:pk:provenance.scope_port_decision_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_port_decision_assertions` (read)
+
+## `unique:pk:provenance.scope_port_state_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_port_state_assertions` (read)
+
+## `unique:pk:provenance.scope_reachability_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.scope_reachability_assertions` (read)
+
+## `unique:pk:provenance.selection_inventory_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.selection_inventory_assertions` (read)
+
+## `unique:pk:provenance.selector_context_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.selector_context_assertions` (read)
+
+## `unique:pk:provenance.selector_decision_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.selector_decision_assertions` (read)
+
+## `unique:pk:provenance.selector_parameter_target_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.selector_parameter_target_assertions` (read)
+
+## `unique:pk:provenance.state_method_selection_key_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.state_method_selection_key_assertions` (read)
+
+## `unique:pk:provenance.state_scope_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.state_scope_assertions` (read)
+
+## `unique:pk:provenance.state_scope_key_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.state_scope_key_assertions` (read)
+
+## `unique:pk:provenance.topology_edge_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.topology_edge_assertions` (read)
+
+## `unique:pk:provenance.unbound_port_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.unbound_port_assertions` (read)
+
+## `unique:pk:provenance.valid_index_assertions`
+
+Version: `1`. Stratum: 1.
+
+- `provenance.valid_index_assertions` (read)
 
 ## `unique:pk:reference.aliases`
 
@@ -3580,6 +7268,12 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `reference.bases` (read)
+
+## `unique:pk:reference.connection_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `reference.connection_bindings` (read)
 
 ## `unique:pk:reference.constants`
 
@@ -3599,6 +7293,12 @@ Version: `1`. Stratum: 1.
 
 - `reference.dimensions` (read)
 
+## `unique:pk:reference.element_projection_contracts`
+
+Version: `1`. Stratum: 1.
+
+- `reference.element_projection_contracts` (read)
+
 ## `unique:pk:reference.elements`
 
 Version: `1`. Stratum: 1.
@@ -3617,11 +7317,65 @@ Version: `1`. Stratum: 1.
 
 - `reference.kernel_specs` (read)
 
+## `unique:pk:reference.law_bindings`
+
+Version: `1`. Stratum: 1.
+
+- `reference.law_bindings` (read)
+
+## `unique:pk:reference.math_context`
+
+Version: `1`. Stratum: 1.
+
+- `reference.math_context` (read)
+
+## `unique:pk:reference.method_dependencies`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_dependencies` (read)
+
+## `unique:pk:reference.method_kernel_inputs`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_kernel_inputs` (read)
+
+## `unique:pk:reference.method_parameter_axes`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_parameter_axes` (read)
+
+## `unique:pk:reference.method_parameters`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_parameters` (read)
+
+## `unique:pk:reference.method_precedence`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_precedence` (read)
+
+## `unique:pk:reference.method_provisions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_provisions` (read)
+
 ## `unique:pk:reference.method_specs`
 
 Version: `1`. Stratum: 1.
 
 - `reference.method_specs` (read)
+
+## `unique:pk:reference.method_state_parameters`
+
+Version: `1`. Stratum: 1.
+
+- `reference.method_state_parameters` (read)
 
 ## `unique:pk:reference.numerical_policies`
 
@@ -3665,11 +7419,23 @@ Version: `1`. Stratum: 1.
 
 - `reference.quantity_kinds` (read)
 
+## `unique:pk:reference.quantity_operation_reductions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.quantity_operation_reductions` (read)
+
 ## `unique:pk:reference.quantity_operations`
 
 Version: `1`. Stratum: 1.
 
 - `reference.quantity_operations` (read)
+
+## `unique:pk:reference.quantity_preconditions`
+
+Version: `1`. Stratum: 1.
+
+- `reference.quantity_preconditions` (read)
 
 ## `unique:pk:reference.quantity_types`
 
@@ -3694,6 +7460,12 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `reference.rule_dependencies` (read)
+
+## `unique:pk:reference.rule_expr_calls`
+
+Version: `1`. Stratum: 1.
+
+- `reference.rule_expr_calls` (read)
 
 ## `unique:pk:reference.rule_expr_edges`
 
@@ -3833,6 +7605,12 @@ Version: `1`. Stratum: 1.
 
 - `runtime.kernel_evaluations` (read)
 
+## `unique:pk:runtime.publications`
+
+Version: `1`. Stratum: 1.
+
+- `runtime.publications` (read)
+
 ## `unique:pk:runtime.residuals`
 
 Version: `1`. Stratum: 1.
@@ -3850,6 +7628,12 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `runtime.solutions` (read)
+
+## `winner_alternative:inferred.method_resolutions`
+
+Version: `1`. Stratum: 1.
+
+- `inferred.method_resolutions` (read)
 
 ## Invariants
 
@@ -3920,6 +7704,10 @@ Version: `1`. Stratum: 1.
 | `authored.instance_domain_bindings` | `foreign_key:domain_id` | `foreign_key:domain_id:authored.instance_domain_bindings@1` |
 | `authored.instance_domain_bindings` | `foreign_key:instance_id` | `foreign_key:instance_id:authored.instance_domain_bindings@1` |
 | `authored.instance_domain_bindings` | `unique:pk` | `unique:pk:authored.instance_domain_bindings@1` |
+| `authored.instance_equations` | `closure:entity_fields` | `closure:entity_fields:authored.instance_equations@1` |
+| `authored.instance_equations` | `closure:entity_registered` | `closure:entity_registered:authored.instance_equations@1` |
+| `authored.instance_equations` | `foreign_key:instance_id` | `foreign_key:instance_id:authored.instance_equations@1` |
+| `authored.instance_equations` | `unique:pk` | `unique:pk:authored.instance_equations@1` |
 | `authored.instances` | `acyclic:parents` | `acyclic:parents:authored.instances@1` |
 | `authored.instances` | `closure:entity_fields` | `closure:entity_fields:authored.instances@1` |
 | `authored.instances` | `closure:entity_registered` | `closure:entity_registered:authored.instances@1` |
@@ -3958,10 +7746,14 @@ Version: `1`. Stratum: 1.
 | `authored.phases` | `closure:entity_registered` | `closure:entity_registered:authored.phases@1` |
 | `authored.phases` | `foreign_key:package_id` | `foreign_key:package_id:authored.phases@1` |
 | `authored.phases` | `unique:pk` | `unique:pk:authored.phases@1` |
+| `authored.property_packages` | `closure:entity_fields` | `closure:entity_fields:authored.property_packages@1` |
+| `authored.property_packages` | `closure:entity_registered` | `closure:entity_registered:authored.property_packages@1` |
 | `authored.property_packages` | `foreign_key:package_id` | `foreign_key:package_id:authored.property_packages@1` |
 | `authored.property_packages` | `unique:pk` | `unique:pk:authored.property_packages@1` |
 | `authored.reaction_methods` | `foreign_key:reaction_id` | `foreign_key:reaction_id:authored.reaction_methods@1` |
 | `authored.reaction_methods` | `unique:pk` | `unique:pk:authored.reaction_methods@1` |
+| `authored.reaction_packages` | `closure:entity_fields` | `closure:entity_fields:authored.reaction_packages@1` |
+| `authored.reaction_packages` | `closure:entity_registered` | `closure:entity_registered:authored.reaction_packages@1` |
 | `authored.reaction_packages` | `foreign_key:package_id` | `foreign_key:package_id:authored.reaction_packages@1` |
 | `authored.reaction_packages` | `unique:pk` | `unique:pk:authored.reaction_packages@1` |
 | `authored.reactions` | `closure:entity_fields` | `closure:entity_fields:authored.reactions@1` |
@@ -3987,12 +7779,24 @@ Version: `1`. Stratum: 1.
 | `authored.stoichiometry` | `foreign_key:reaction_id` | `foreign_key:reaction_id:authored.stoichiometry@1` |
 | `authored.stoichiometry` | `foreign_key:species_id` | `foreign_key:species_id:authored.stoichiometry@1` |
 | `authored.stoichiometry` | `unique:pk` | `unique:pk:authored.stoichiometry@1` |
+| `authored.template_contribution_contracts` | `foreign_key:contribution_decl_id` | `foreign_key:contribution_decl_id:authored.template_contribution_contracts@1` |
+| `authored.template_contribution_contracts` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:authored.template_contribution_contracts@1` |
+| `authored.template_contribution_contracts` | `subject_alternative` | `subject_alternative:authored.template_contribution_contracts@1` |
+| `authored.template_contribution_contracts` | `unique:pk` | `unique:pk:authored.template_contribution_contracts@1` |
 | `authored.template_contributions` | `closure:entity_fields` | `closure:entity_fields:authored.template_contributions@1` |
 | `authored.template_contributions` | `closure:entity_registered` | `closure:entity_registered:authored.template_contributions@1` |
 | `authored.template_contributions` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_contributions@1` |
 | `authored.template_contributions` | `unique:pk` | `unique:pk:authored.template_contributions@1` |
+| `authored.template_derivatives` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:authored.template_derivatives@1` |
+| `authored.template_derivatives` | `unique:pk` | `unique:pk:authored.template_derivatives@1` |
 | `authored.template_display` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_display@1` |
 | `authored.template_display` | `unique:pk` | `unique:pk:authored.template_display@1` |
+| `authored.template_display_indices` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_display_indices@1` |
+| `authored.template_display_indices` | `unique:pk` | `unique:pk:authored.template_display_indices@1` |
+| `authored.template_domain_bindings` | `foreign_key:domain_id` | `foreign_key:domain_id:authored.template_domain_bindings@1` |
+| `authored.template_domain_bindings` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_domain_bindings@1` |
+| `authored.template_domain_bindings` | `source_alternative` | `source_alternative:authored.template_domain_bindings@1` |
+| `authored.template_domain_bindings` | `unique:pk` | `unique:pk:authored.template_domain_bindings@1` |
 | `authored.template_domains` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_domains@1` |
 | `authored.template_domains` | `unique:pk` | `unique:pk:authored.template_domains@1` |
 | `authored.template_equations` | `closure:entity_fields` | `closure:entity_fields:authored.template_equations@1` |
@@ -4005,10 +7809,19 @@ Version: `1`. Stratum: 1.
 | `authored.template_features` | `unique:pk` | `unique:pk:authored.template_features@1` |
 | `authored.template_guards` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_guards@1` |
 | `authored.template_guards` | `unique:pk` | `unique:pk:authored.template_guards@1` |
+| `authored.template_law_contracts` | `foreign_key:balance_enum_id` | `foreign_key:balance_enum_id:authored.template_law_contracts@1` |
+| `authored.template_law_contracts` | `foreign_key:law_instance_decl_id` | `foreign_key:law_instance_decl_id:authored.template_law_contracts@1` |
+| `authored.template_law_contracts` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:authored.template_law_contracts@1` |
+| `authored.template_law_contracts` | `unique:pk` | `unique:pk:authored.template_law_contracts@1` |
 | `authored.template_law_instances` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_law_instances@1` |
 | `authored.template_law_instances` | `unique:pk` | `unique:pk:authored.template_law_instances@1` |
+| `authored.template_material_constraints` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_material_constraints@1` |
+| `authored.template_material_constraints` | `unique:pk` | `unique:pk:authored.template_material_constraints@1` |
 | `authored.template_params` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_params@1` |
 | `authored.template_params` | `unique:pk` | `unique:pk:authored.template_params@1` |
+| `authored.template_port_members` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:authored.template_port_members@1` |
+| `authored.template_port_members` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_port_members@1` |
+| `authored.template_port_members` | `unique:pk` | `unique:pk:authored.template_port_members@1` |
 | `authored.template_ports` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_ports@1` |
 | `authored.template_ports` | `unique:pk` | `unique:pk:authored.template_ports@1` |
 | `authored.template_property_requirements` | `foreign_key:scope_selector_id` | `foreign_key:scope_selector_id:authored.template_property_requirements@1` |
@@ -4016,8 +7829,16 @@ Version: `1`. Stratum: 1.
 | `authored.template_property_requirements` | `unique:pk` | `unique:pk:authored.template_property_requirements@1` |
 | `authored.template_requirements` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_requirements@1` |
 | `authored.template_requirements` | `unique:pk` | `unique:pk:authored.template_requirements@1` |
+| `authored.template_scopes` | `foreign_key:scope_id` | `foreign_key:scope_id:authored.template_scopes@1` |
+| `authored.template_scopes` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_scopes@1` |
+| `authored.template_scopes` | `unique:pk` | `unique:pk:authored.template_scopes@1` |
 | `authored.template_submodels` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_submodels@1` |
 | `authored.template_submodels` | `unique:pk` | `unique:pk:authored.template_submodels@1` |
+| `authored.template_symbol_contracts` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:authored.template_symbol_contracts@1` |
+| `authored.template_symbol_contracts` | `unique:pk` | `unique:pk:authored.template_symbol_contracts@1` |
+| `authored.template_symbol_expressions` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:authored.template_symbol_expressions@1` |
+| `authored.template_symbol_expressions` | `foreign_key:template_id` | `foreign_key:template_id:authored.template_symbol_expressions@1` |
+| `authored.template_symbol_expressions` | `unique:pk` | `unique:pk:authored.template_symbol_expressions@1` |
 | `authored.template_symbol_properties` | `foreign_key:property_kind_id` | `foreign_key:property_kind_id:authored.template_symbol_properties@1` |
 | `authored.template_symbol_properties` | `foreign_key:scope_selector_id` | `foreign_key:scope_selector_id:authored.template_symbol_properties@1` |
 | `authored.template_symbol_properties` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:authored.template_symbol_properties@1` |
@@ -4035,14 +7856,53 @@ Version: `1`. Stratum: 1.
 | `compiled.blocks` | `unique:pk` | `unique:pk:compiled.blocks@1` |
 | `compiled.bound_values` | `unique:pk` | `unique:pk:compiled.bound_values@1` |
 | `compiled.case_bound_substitutions` | `unique:pk` | `unique:pk:compiled.case_bound_substitutions@1` |
+| `compiled.contributions` | `subject_alternative` | `subject_alternative:compiled.contributions@1` |
+| `compiled.contributions` | `unique:pk` | `unique:pk:compiled.contributions@1` |
 | `compiled.dm_partition` | `unique:pk` | `unique:pk:compiled.dm_partition@1` |
+| `compiled.element_projection_coefficients` | `foreign_key:group_id` | `foreign_key:group_id:compiled.element_projection_coefficients@1` |
+| `compiled.element_projection_coefficients` | `unique:pk` | `unique:pk:compiled.element_projection_coefficients@1` |
+| `compiled.element_projection_groups` | `unique:pk` | `unique:pk:compiled.element_projection_groups@1` |
+| `compiled.equation_branches` | `unique:pk` | `unique:pk:compiled.equation_branches@1` |
 | `compiled.equation_order` | `unique:pk` | `unique:pk:compiled.equation_order@1` |
 | `compiled.equation_scales` | `unique:pk` | `unique:pk:compiled.equation_scales@1` |
 | `compiled.evaluation_programs` | `unique:pk` | `unique:pk:compiled.evaluation_programs@1` |
+| `compiled.expression_root_indices` | `foreign_key:domain_id` | `foreign_key:domain_id:compiled.expression_root_indices@1` |
+| `compiled.expression_root_indices` | `unique:pk` | `unique:pk:compiled.expression_root_indices@1` |
+| `compiled.expression_roots` | `unique:pk` | `unique:pk:compiled.expression_roots@1` |
+| `compiled.group_collection_members` | `foreign_key:group_id` | `foreign_key:group_id:compiled.group_collection_members@1` |
+| `compiled.group_collection_members` | `foreign_key:symbol_id` | `foreign_key:symbol_id:compiled.group_collection_members@1` |
+| `compiled.group_collection_members` | `unique:pk` | `unique:pk:compiled.group_collection_members@1` |
+| `compiled.group_collections` | `foreign_key:group_id` | `foreign_key:group_id:compiled.group_collections@1` |
+| `compiled.group_collections` | `foreign_key:product_id` | `foreign_key:product_id:compiled.group_collections@1` |
+| `compiled.group_collections` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:compiled.group_collections@1` |
+| `compiled.group_collections` | `foreign_key:source_id` | `foreign_key:source_id:compiled.group_collections@1` |
+| `compiled.group_collections` | `unique:pk` | `unique:pk:compiled.group_collections@1` |
+| `compiled.group_projections` | `foreign_key:group_id` | `foreign_key:group_id:compiled.group_projections@1` |
+| `compiled.group_projections` | `foreign_key:product_id` | `foreign_key:product_id:compiled.group_projections@1` |
+| `compiled.group_projections` | `foreign_key:source_group_id` | `foreign_key:source_group_id:compiled.group_projections@1` |
+| `compiled.group_projections` | `unique:pk` | `unique:pk:compiled.group_projections@1` |
+| `compiled.group_reindexing_members` | `foreign_key:group_id` | `foreign_key:group_id:compiled.group_reindexing_members@1` |
+| `compiled.group_reindexing_members` | `foreign_key:symbol_id` | `foreign_key:symbol_id:compiled.group_reindexing_members@1` |
+| `compiled.group_reindexing_members` | `unique:pk` | `unique:pk:compiled.group_reindexing_members@1` |
+| `compiled.group_reindexings` | `foreign_key:group_id` | `foreign_key:group_id:compiled.group_reindexings@1` |
+| `compiled.group_reindexings` | `foreign_key:product_id` | `foreign_key:product_id:compiled.group_reindexings@1` |
+| `compiled.group_reindexings` | `foreign_key:source_group_id` | `foreign_key:source_group_id:compiled.group_reindexings@1` |
+| `compiled.group_reindexings` | `foreign_key:source_id` | `foreign_key:source_id:compiled.group_reindexings@1` |
+| `compiled.group_reindexings` | `unique:pk` | `unique:pk:compiled.group_reindexings@1` |
 | `compiled.incidence` | `unique:pk` | `unique:pk:compiled.incidence@1` |
 | `compiled.init_stages` | `unique:pk` | `unique:pk:compiled.init_stages@1` |
 | `compiled.initialization_plans` | `unique:pk` | `unique:pk:compiled.initialization_plans@1` |
 | `compiled.kernel_bindings` | `unique:pk` | `unique:pk:compiled.kernel_bindings@1` |
+| `compiled.kernel_output_symbols` | `foreign_key:method_id` | `foreign_key:method_id:compiled.kernel_output_symbols@1` |
+| `compiled.kernel_output_symbols` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:compiled.kernel_output_symbols@1` |
+| `compiled.kernel_output_symbols` | `foreign_key:requirement_id` | `foreign_key:requirement_id:compiled.kernel_output_symbols@1` |
+| `compiled.kernel_output_symbols` | `foreign_key:state_scope_id` | `foreign_key:state_scope_id:compiled.kernel_output_symbols@1` |
+| `compiled.kernel_output_symbols` | `foreign_key:symbol_id` | `foreign_key:symbol_id:compiled.kernel_output_symbols@1` |
+| `compiled.kernel_output_symbols` | `unique:pk` | `unique:pk:compiled.kernel_output_symbols@1` |
+| `compiled.law_applications` | `subject_alternative` | `subject_alternative:compiled.law_applications@1` |
+| `compiled.law_applications` | `unique:pk` | `unique:pk:compiled.law_applications@1` |
+| `compiled.law_participation` | `decision_alternative` | `decision_alternative:compiled.law_participation@1` |
+| `compiled.law_participation` | `unique:pk` | `unique:pk:compiled.law_participation@1` |
 | `compiled.math_affine` | `unique:pk` | `unique:pk:compiled.math_affine@1` |
 | `compiled.math_broadcasts` | `unique:pk` | `unique:pk:compiled.math_broadcasts@1` |
 | `compiled.math_complementarity` | `unique:pk` | `unique:pk:compiled.math_complementarity@1` |
@@ -4072,6 +7932,16 @@ Version: `1`. Stratum: 1.
 | `compiled.mesh_nodes` | `foreign_key:mesh_id` | `foreign_key:mesh_id:compiled.mesh_nodes@1` |
 | `compiled.mesh_nodes` | `unique:pk` | `unique:pk:compiled.mesh_nodes@1` |
 | `compiled.meshes` | `unique:pk` | `unique:pk:compiled.meshes@1` |
+| `compiled.method_parameter_bindings` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:compiled.method_parameter_bindings@1` |
+| `compiled.method_parameter_bindings` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:compiled.method_parameter_bindings@1` |
+| `compiled.method_parameter_bindings` | `foreign_key:unit_id` | `foreign_key:unit_id:compiled.method_parameter_bindings@1` |
+| `compiled.method_parameter_bindings` | `unique:pk` | `unique:pk:compiled.method_parameter_bindings@1` |
+| `compiled.method_realizations` | `output_alternative` | `output_alternative:compiled.method_realizations@1` |
+| `compiled.method_realizations` | `unique:pk` | `unique:pk:compiled.method_realizations@1` |
+| `compiled.port_member_groups` | `unique:pk` | `unique:pk:compiled.port_member_groups@1` |
+| `compiled.predicate_mask_members` | `foreign_key:group_id` | `foreign_key:group_id:compiled.predicate_mask_members@1` |
+| `compiled.predicate_mask_members` | `unique:pk` | `unique:pk:compiled.predicate_mask_members@1` |
+| `compiled.predicate_masks` | `unique:pk` | `unique:pk:compiled.predicate_masks@1` |
 | `compiled.problems` | `unique:pk` | `unique:pk:compiled.problems@1` |
 | `compiled.quadrature_rules` | `foreign_key:mesh_id` | `foreign_key:mesh_id:compiled.quadrature_rules@1` |
 | `compiled.quadrature_rules` | `unique:pk` | `unique:pk:compiled.quadrature_rules@1` |
@@ -4080,6 +7950,7 @@ Version: `1`. Stratum: 1.
 | `compiled.stage_bundles` | `unique:pk` | `unique:pk:compiled.stage_bundles@1` |
 | `compiled.stencils` | `foreign_key:mesh_id` | `foreign_key:mesh_id:compiled.stencils@1` |
 | `compiled.stencils` | `unique:pk` | `unique:pk:compiled.stencils@1` |
+| `compiled.symbol_expressions` | `unique:pk` | `unique:pk:compiled.symbol_expressions@1` |
 | `compiled.symbol_group_members` | `unique:pk` | `unique:pk:compiled.symbol_group_members@1` |
 | `compiled.symbol_groups` | `unique:pk` | `unique:pk:compiled.symbol_groups@1` |
 | `compiled.symbol_references` | `unique:pk` | `unique:pk:compiled.symbol_references@1` |
@@ -4089,21 +7960,147 @@ Version: `1`. Stratum: 1.
 | `inferred.boundary_crossings` | `unique:pk` | `unique:pk:inferred.boundary_crossings@1` |
 | `inferred.connection_equations` | `foreign_key:connection_id` | `foreign_key:connection_id:inferred.connection_equations@1` |
 | `inferred.connection_equations` | `unique:pk` | `unique:pk:inferred.connection_equations@1` |
+| `inferred.connection_violations` | `connections_admitted` | `connections_admitted:inferred.connection_violations@1` |
+| `inferred.connection_violations` | `unique:pk` | `unique:pk:inferred.connection_violations@1` |
+| `inferred.demand_active_reads` | `unique:pk` | `unique:pk:inferred.demand_active_reads@1` |
+| `inferred.demand_index_maps` | `unique:pk` | `unique:pk:inferred.demand_index_maps@1` |
+| `inferred.demand_obligations` | `actual_demand_target` | `actual_demand_target:inferred.demand_obligations@1` |
+| `inferred.demand_obligations` | `unique:pk` | `unique:pk:inferred.demand_obligations@1` |
+| `inferred.demand_read_keys` | `actual_guard_tuple` | `actual_guard_tuple:inferred.demand_read_keys@1` |
+| `inferred.demand_read_keys` | `actual_outer_guard` | `actual_outer_guard:inferred.demand_read_keys@1` |
+| `inferred.demand_read_keys` | `guard_not_conflict` | `guard_not_conflict:inferred.demand_read_keys@1` |
+| `inferred.demand_read_keys` | `outer_guard_not_conflict` | `outer_guard_not_conflict:inferred.demand_read_keys@1` |
+| `inferred.demand_read_keys` | `unique:pk` | `unique:pk:inferred.demand_read_keys@1` |
+| `inferred.demand_request_keys` | `unique:pk` | `unique:pk:inferred.demand_request_keys@1` |
+| `inferred.demand_scope_requests` | `actual_scope_binding` | `actual_scope_binding:inferred.demand_scope_requests@1` |
+| `inferred.demand_scope_requests` | `unique:pk` | `unique:pk:inferred.demand_scope_requests@1` |
+| `inferred.demand_seed_bindings` | `unique:pk` | `unique:pk:inferred.demand_seed_bindings@1` |
+| `inferred.dependency_key_maps` | `unique:pk` | `unique:pk:inferred.dependency_key_maps@1` |
+| `inferred.domain_eligible_members` | `unique:pk` | `unique:pk:inferred.domain_eligible_members@1` |
+| `inferred.feature_candidates` | `unique:pk` | `unique:pk:inferred.feature_candidates@1` |
+| `inferred.feature_checks` | `unique:pk` | `unique:pk:inferred.feature_checks@1` |
+| `inferred.feature_requirements` | `unique:pk` | `unique:pk:inferred.feature_requirements@1` |
 | `inferred.initialization_order` | `unique:pk` | `unique:pk:inferred.initialization_order@1` |
+| `inferred.instance_features` | `typed_value_alternative` | `typed_value_alternative:inferred.instance_features@1` |
 | `inferred.instance_features` | `unique:pk` | `unique:pk:inferred.instance_features@1` |
+| `inferred.instance_guard_violations` | `child_guards_decided` | `child_guards_decided:inferred.instance_guard_violations@1` |
+| `inferred.instance_guard_violations` | `unique:pk` | `unique:pk:inferred.instance_guard_violations@1` |
+| `inferred.instance_reachability` | `containment_acyclic` | `containment_acyclic:inferred.instance_reachability@1` |
+| `inferred.instance_reachability` | `unique:pk` | `unique:pk:inferred.instance_reachability@1` |
 | `inferred.instance_tree` | `unique:pk` | `unique:pk:inferred.instance_tree@1` |
 | `inferred.instances` | `unique:pk` | `unique:pk:inferred.instances@1` |
+| `inferred.invalid_index_tuples` | `unique:pk` | `unique:pk:inferred.invalid_index_tuples@1` |
+| `inferred.kernel_bindings` | `unique:pk` | `unique:pk:inferred.kernel_bindings@1` |
+| `inferred.law_axes` | `unique:pk` | `unique:pk:inferred.law_axes@1` |
+| `inferred.law_candidates` | `unique:pk` | `unique:pk:inferred.law_candidates@1` |
+| `inferred.law_contexts` | `unique:pk` | `unique:pk:inferred.law_contexts@1` |
+| `inferred.law_empty_applications` | `unique:pk` | `unique:pk:inferred.law_empty_applications@1` |
+| `inferred.law_internal_transfers` | `unique:pk` | `unique:pk:inferred.law_internal_transfers@1` |
+| `inferred.law_ordered_terms` | `unique:pk` | `unique:pk:inferred.law_ordered_terms@1` |
+| `inferred.law_participation_decisions` | `unique:pk` | `unique:pk:inferred.law_participation_decisions@1` |
+| `inferred.law_subject_matches` | `unique:pk` | `unique:pk:inferred.law_subject_matches@1` |
+| `inferred.material_member_counts` | `unique:pk` | `unique:pk:inferred.material_member_counts@1` |
+| `inferred.material_template_checks` | `unique:pk` | `unique:pk:inferred.material_template_checks@1` |
+| `inferred.math_affine` | `unique:pk` | `unique:pk:inferred.math_affine@1` |
+| `inferred.math_broadcasts` | `unique:pk` | `unique:pk:inferred.math_broadcasts@1` |
+| `inferred.math_complementarity` | `unique:pk` | `unique:pk:inferred.math_complementarity@1` |
+| `inferred.math_conditionals` | `unique:pk` | `unique:pk:inferred.math_conditionals@1` |
+| `inferred.math_dae_links` | `unique:pk` | `unique:pk:inferred.math_dae_links@1` |
+| `inferred.math_derivatives` | `unique:pk` | `unique:pk:inferred.math_derivatives@1` |
+| `inferred.math_equations` | `unique:pk` | `unique:pk:inferred.math_equations@1` |
+| `inferred.math_expr_args` | `unique:pk` | `unique:pk:inferred.math_expr_args@1` |
+| `inferred.math_expr_nodes` | `unique:pk` | `unique:pk:inferred.math_expr_nodes@1` |
+| `inferred.math_float_constants` | `unique:pk` | `unique:pk:inferred.math_float_constants@1` |
+| `inferred.math_free_indices` | `unique:pk` | `unique:pk:inferred.math_free_indices@1` |
+| `inferred.math_gathers` | `unique:pk` | `unique:pk:inferred.math_gathers@1` |
+| `inferred.math_implicit_refs` | `unique:pk` | `unique:pk:inferred.math_implicit_refs@1` |
+| `inferred.math_implicit_systems` | `unique:pk` | `unique:pk:inferred.math_implicit_systems@1` |
+| `inferred.math_indexed_equations` | `unique:pk` | `unique:pk:inferred.math_indexed_equations@1` |
+| `inferred.math_int_constants` | `unique:pk` | `unique:pk:inferred.math_int_constants@1` |
+| `inferred.math_integrals` | `unique:pk` | `unique:pk:inferred.math_integrals@1` |
+| `inferred.math_kernel_calls` | `unique:pk` | `unique:pk:inferred.math_kernel_calls@1` |
+| `inferred.math_objectives` | `unique:pk` | `unique:pk:inferred.math_objectives@1` |
+| `inferred.math_piecewise_linear` | `unique:pk` | `unique:pk:inferred.math_piecewise_linear@1` |
+| `inferred.math_quantity_selections` | `unique:pk` | `unique:pk:inferred.math_quantity_selections@1` |
+| `inferred.math_reductions` | `unique:pk` | `unique:pk:inferred.math_reductions@1` |
+| `inferred.math_smooth_ops` | `unique:pk` | `unique:pk:inferred.math_smooth_ops@1` |
+| `inferred.math_symbol_refs` | `unique:pk` | `unique:pk:inferred.math_symbol_refs@1` |
+| `inferred.math_unit_converts` | `unique:pk` | `unique:pk:inferred.math_unit_converts@1` |
+| `inferred.math_weighted_means` | `unique:pk` | `unique:pk:inferred.math_weighted_means@1` |
+| `inferred.method_candidates` | `unique:pk` | `unique:pk:inferred.method_candidates@1` |
+| `inferred.method_compatibility` | `selection_compatible` | `selection_compatible:inferred.method_compatibility@1` |
+| `inferred.method_compatibility` | `unique:pk` | `unique:pk:inferred.method_compatibility@1` |
+| `inferred.method_parameter_keys` | `unique:pk` | `unique:pk:inferred.method_parameter_keys@1` |
+| `inferred.method_resolutions` | `demanded_method_resolved` | `demanded_method_resolved:inferred.method_resolutions@1` |
 | `inferred.method_resolutions` | `unique:pk` | `unique:pk:inferred.method_resolutions@1` |
+| `inferred.method_resolutions` | `winner_alternative` | `winner_alternative:inferred.method_resolutions@1` |
+| `inferred.path_targets` | `foreign_key:source_id` | `foreign_key:source_id:inferred.path_targets@1` |
+| `inferred.path_targets` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:inferred.path_targets@1` |
+| `inferred.path_targets` | `unique:pk` | `unique:pk:inferred.path_targets@1` |
 | `inferred.phase_species` | `unique:pk` | `unique:pk:inferred.phase_species@1` |
+| `inferred.port_candidates` | `unique:pk` | `unique:pk:inferred.port_candidates@1` |
+| `inferred.port_member_candidates` | `unique:pk` | `unique:pk:inferred.port_member_candidates@1` |
+| `inferred.port_member_domain_candidates` | `unique:pk` | `unique:pk:inferred.port_member_domain_candidates@1` |
+| `inferred.port_member_domains` | `unique:pk` | `unique:pk:inferred.port_member_domains@1` |
 | `inferred.port_members` | `unique:pk` | `unique:pk:inferred.port_members@1` |
+| `inferred.port_state_candidates` | `unique:pk` | `unique:pk:inferred.port_state_candidates@1` |
+| `inferred.port_state_domain_candidates` | `unique:pk` | `unique:pk:inferred.port_state_domain_candidates@1` |
+| `inferred.port_state_domains` | `unique:pk` | `unique:pk:inferred.port_state_domains@1` |
+| `inferred.port_state_targets` | `unique:pk` | `unique:pk:inferred.port_state_targets@1` |
 | `inferred.ports` | `unique:pk` | `unique:pk:inferred.ports@1` |
+| `inferred.potential_method_candidates` | `unique:pk` | `unique:pk:inferred.potential_method_candidates@1` |
+| `inferred.potential_method_resolutions` | `unique:pk` | `unique:pk:inferred.potential_method_resolutions@1` |
+| `inferred.potential_method_winners` | `unique:pk` | `unique:pk:inferred.potential_method_winners@1` |
+| `inferred.predicate_axes` | `unique:pk` | `unique:pk:inferred.predicate_axes@1` |
+| `inferred.predicate_outcomes` | `unique:pk` | `unique:pk:inferred.predicate_outcomes@1` |
 | `inferred.property_requirements` | `unique:pk` | `unique:pk:inferred.property_requirements@1` |
+| `inferred.read_coordinate_failures` | `active_read_coordinate` | `active_read_coordinate:inferred.read_coordinate_failures@1` |
+| `inferred.read_coordinate_failures` | `actual_guard_tuple` | `actual_guard_tuple:inferred.read_coordinate_failures@1` |
+| `inferred.read_coordinate_failures` | `actual_outer_guard` | `actual_outer_guard:inferred.read_coordinate_failures@1` |
+| `inferred.read_coordinate_failures` | `guard_not_conflict` | `guard_not_conflict:inferred.read_coordinate_failures@1` |
+| `inferred.read_coordinate_failures` | `outer_guard_not_conflict` | `outer_guard_not_conflict:inferred.read_coordinate_failures@1` |
+| `inferred.read_coordinate_failures` | `unique:pk` | `unique:pk:inferred.read_coordinate_failures@1` |
+| `inferred.requirement_key_axes` | `unique:pk` | `unique:pk:inferred.requirement_key_axes@1` |
+| `inferred.requirement_keys` | `unique:pk` | `unique:pk:inferred.requirement_keys@1` |
+| `inferred.requirement_scope_keys` | `unique:pk` | `unique:pk:inferred.requirement_scope_keys@1` |
+| `inferred.requirement_support` | `unique:pk` | `unique:pk:inferred.requirement_support@1` |
+| `inferred.requirement_universe` | `unique:pk` | `unique:pk:inferred.requirement_universe@1` |
+| `inferred.resolved_scopes` | `unique:pk` | `unique:pk:inferred.resolved_scopes@1` |
+| `inferred.rule_outcomes` | `foreign_key:head_relation_id` | `foreign_key:head_relation_id:inferred.rule_outcomes@1` |
+| `inferred.rule_outcomes` | `foreign_key:rule_id` | `foreign_key:rule_id:inferred.rule_outcomes@1` |
+| `inferred.rule_outcomes` | `unique:pk` | `unique:pk:inferred.rule_outcomes@1` |
+| `inferred.scope_bindings` | `foreign_key:scope_decl_id` | `foreign_key:scope_decl_id:inferred.scope_bindings@1` |
+| `inferred.scope_bindings` | `unique:pk` | `unique:pk:inferred.scope_bindings@1` |
+| `inferred.scope_candidates` | `unique:pk` | `unique:pk:inferred.scope_candidates@1` |
+| `inferred.scope_entities` | `unique:pk` | `unique:pk:inferred.scope_entities@1` |
 | `inferred.scope_members` | `unique:pk` | `unique:pk:inferred.scope_members@1` |
+| `inferred.scope_port_decisions` | `unique:pk` | `unique:pk:inferred.scope_port_decisions@1` |
+| `inferred.scope_port_states` | `unique:pk` | `unique:pk:inferred.scope_port_states@1` |
+| `inferred.scope_reachability` | `unique:pk` | `unique:pk:inferred.scope_reachability@1` |
+| `inferred.selection_inventory` | `unique:pk` | `unique:pk:inferred.selection_inventory@1` |
+| `inferred.selector_contexts` | `kind_has_actual_universe` | `kind_has_actual_universe:inferred.selector_contexts@1` |
+| `inferred.selector_contexts` | `relative_target_present` | `relative_target_present:inferred.selector_contexts@1` |
+| `inferred.selector_contexts` | `unique:pk` | `unique:pk:inferred.selector_contexts@1` |
+| `inferred.selector_decisions` | `unique:pk` | `unique:pk:inferred.selector_decisions@1` |
+| `inferred.selector_parameter_targets` | `unique:pk` | `unique:pk:inferred.selector_parameter_targets@1` |
+| `inferred.state_dependency_keys` | `unique:pk` | `unique:pk:inferred.state_dependency_keys@1` |
 | `inferred.state_flash_required` | `unique:pk` | `unique:pk:inferred.state_flash_required@1` |
+| `inferred.state_method_selection_keys` | `unique:pk` | `unique:pk:inferred.state_method_selection_keys@1` |
+| `inferred.state_scope_keys` | `unique:pk` | `unique:pk:inferred.state_scope_keys@1` |
+| `inferred.state_scopes` | `unique:pk` | `unique:pk:inferred.state_scopes@1` |
+| `inferred.tear_candidates` | `nonnegative_cost` | `nonnegative_cost:inferred.tear_candidates@1` |
+| `inferred.tear_candidates` | `unique:pk` | `unique:pk:inferred.tear_candidates@1` |
 | `inferred.topology_edges` | `unique:pk` | `unique:pk:inferred.topology_edges@1` |
+| `inferred.unbound_port_targets` | `all_state_targets_bound` | `all_state_targets_bound:inferred.unbound_port_targets@1` |
+| `inferred.unbound_port_targets` | `unique:pk` | `unique:pk:inferred.unbound_port_targets@1` |
 | `inferred.undecided` | `unique:pk` | `unique:pk:inferred.undecided@1` |
 | `inferred.valid_index_tuples` | `foreign_key:product_id` | `foreign_key:product_id:inferred.valid_index_tuples@1` |
 | `inferred.valid_index_tuples` | `unique:pk` | `unique:pk:inferred.valid_index_tuples@1` |
+| `normalized.candidate_index_members` | `unique:pk` | `unique:pk:normalized.candidate_index_members@1` |
+| `normalized.candidate_index_tuples` | `unique:pk` | `unique:pk:normalized.candidate_index_tuples@1` |
+| `normalized.config_values` | `foreign_key:source_relation_id` | `foreign_key:source_relation_id:normalized.config_values@1` |
+| `normalized.config_values` | `typed_value_alternative` | `typed_value_alternative:normalized.config_values@1` |
+| `normalized.config_values` | `unique:pk` | `unique:pk:normalized.config_values@1` |
 | `normalized.connections` | `unique:pk` | `unique:pk:normalized.connections@1` |
 | `normalized.continuous_domains` | `foreign_key:domain_id` | `foreign_key:domain_id:normalized.continuous_domains@1` |
 | `normalized.continuous_domains` | `foreign_key:unit_id` | `foreign_key:unit_id:normalized.continuous_domains@1` |
@@ -4167,6 +8164,8 @@ Version: `1`. Stratum: 1.
 | `normalized.domain_members` | `foreign_key:domain_id` | `foreign_key:domain_id:normalized.domain_members@1` |
 | `normalized.domain_members` | `foreign_key:ref_entity_id` | `foreign_key:ref_entity_id:normalized.domain_members@1` |
 | `normalized.domain_members` | `unique:pk` | `unique:pk:normalized.domain_members@1` |
+| `normalized.domain_product_projections` | `unique:pk` | `unique:pk:normalized.domain_product_projections@1` |
+| `normalized.domain_product_sources` | `unique:pk` | `unique:pk:normalized.domain_product_sources@1` |
 | `normalized.domain_products` | `unique:pk` | `unique:pk:normalized.domain_products@1` |
 | `normalized.domains` | `foreign_key:owner_entity_id` | `foreign_key:owner_entity_id:normalized.domains@1` |
 | `normalized.domains` | `foreign_key:parent_domain_id` | `foreign_key:parent_domain_id:normalized.domains@1` |
@@ -4180,9 +8179,14 @@ Version: `1`. Stratum: 1.
 | `normalized.expression_index_bindings` | `check:domain_reference` | `check:domain_reference:normalized.expression_index_bindings@1` |
 | `normalized.expression_index_bindings` | `foreign_key:source_id` | `foreign_key:source_id:normalized.expression_index_bindings@1` |
 | `normalized.expression_index_bindings` | `unique:pk` | `unique:pk:normalized.expression_index_bindings@1` |
+| `normalized.expression_paths` | `foreign_key:source_id` | `foreign_key:source_id:normalized.expression_paths@1` |
+| `normalized.expression_paths` | `unique:pk` | `unique:pk:normalized.expression_paths@1` |
+| `normalized.expression_sources` | `foreign_key:owner_instance_id` | `foreign_key:owner_instance_id:normalized.expression_sources@1` |
 | `normalized.expression_sources` | `foreign_key:owner_template_id` | `foreign_key:owner_template_id:normalized.expression_sources@1` |
 | `normalized.expression_sources` | `foreign_key:source_relation_id` | `foreign_key:source_relation_id:normalized.expression_sources@1` |
+| `normalized.expression_sources` | `owner_alternative` | `owner_alternative:normalized.expression_sources@1` |
 | `normalized.expression_sources` | `unique:pk` | `unique:pk:normalized.expression_sources@1` |
+| `normalized.feature_inheritance` | `unique:pk` | `unique:pk:normalized.feature_inheritance@1` |
 | `normalized.flowsheets` | `foreign_key:instance_id` | `foreign_key:instance_id:normalized.flowsheets@1` |
 | `normalized.flowsheets` | `unique:pk` | `unique:pk:normalized.flowsheets@1` |
 | `normalized.guard_expr_affine` | `unique:pk` | `unique:pk:normalized.guard_expr_affine@1` |
@@ -4214,9 +8218,14 @@ Version: `1`. Stratum: 1.
 | `normalized.henry_declarations` | `foreign_key:phase_id` | `foreign_key:phase_id:normalized.henry_declarations@1` |
 | `normalized.henry_declarations` | `foreign_key:species_id` | `foreign_key:species_id:normalized.henry_declarations@1` |
 | `normalized.henry_declarations` | `unique:pk` | `unique:pk:normalized.henry_declarations@1` |
+| `normalized.instance_binding_products` | `unique:pk` | `unique:pk:normalized.instance_binding_products@1` |
+| `normalized.instance_bindings` | `foreign_key:template_id` | `foreign_key:template_id:normalized.instance_bindings@1` |
+| `normalized.instance_bindings` | `unique:pk` | `unique:pk:normalized.instance_bindings@1` |
 | `normalized.instance_domain_bindings` | `foreign_key:domain_id` | `foreign_key:domain_id:normalized.instance_domain_bindings@1` |
 | `normalized.instance_domain_bindings` | `foreign_key:instance_id` | `foreign_key:instance_id:normalized.instance_domain_bindings@1` |
 | `normalized.instance_domain_bindings` | `unique:pk` | `unique:pk:normalized.instance_domain_bindings@1` |
+| `normalized.instance_equations` | `foreign_key:instance_id` | `foreign_key:instance_id:normalized.instance_equations@1` |
+| `normalized.instance_equations` | `unique:pk` | `unique:pk:normalized.instance_equations@1` |
 | `normalized.instance_expr_affine` | `unique:pk` | `unique:pk:normalized.instance_expr_affine@1` |
 | `normalized.instance_expr_args` | `unique:pk` | `unique:pk:normalized.instance_expr_args@1` |
 | `normalized.instance_expr_broadcasts` | `check:domain_reference` | `check:domain_reference:normalized.instance_expr_broadcasts@1` |
@@ -4246,6 +8255,11 @@ Version: `1`. Stratum: 1.
 | `normalized.instances` | `foreign_key:parent_instance_id` | `foreign_key:parent_instance_id:normalized.instances@1` |
 | `normalized.instances` | `foreign_key:template_id` | `foreign_key:template_id:normalized.instances@1` |
 | `normalized.instances` | `unique:pk` | `unique:pk:normalized.instances@1` |
+| `normalized.material_domain_members` | `foreign_key:element_id` | `foreign_key:element_id:normalized.material_domain_members@1` |
+| `normalized.material_domain_members` | `foreign_key:material_system_id` | `foreign_key:material_system_id:normalized.material_domain_members@1` |
+| `normalized.material_domain_members` | `foreign_key:phase_id` | `foreign_key:phase_id:normalized.material_domain_members@1` |
+| `normalized.material_domain_members` | `foreign_key:species_id` | `foreign_key:species_id:normalized.material_domain_members@1` |
+| `normalized.material_domain_members` | `unique:pk` | `unique:pk:normalized.material_domain_members@1` |
 | `normalized.material_systems` | `foreign_key:package_id` | `foreign_key:package_id:normalized.material_systems@1` |
 | `normalized.material_systems` | `unique:pk` | `unique:pk:normalized.material_systems@1` |
 | `normalized.method_selections` | `unique:pk` | `unique:pk:normalized.method_selections@1` |
@@ -4263,6 +8277,8 @@ Version: `1`. Stratum: 1.
 | `normalized.phase_species` | `unique:pk` | `unique:pk:normalized.phase_species@1` |
 | `normalized.phases` | `foreign_key:package_id` | `foreign_key:package_id:normalized.phases@1` |
 | `normalized.phases` | `unique:pk` | `unique:pk:normalized.phases@1` |
+| `normalized.port_binding_lengths` | `unique:pk` | `unique:pk:normalized.port_binding_lengths@1` |
+| `normalized.port_binding_steps` | `unique:pk` | `unique:pk:normalized.port_binding_steps@1` |
 | `normalized.predicate_nodes` | `foreign_key:source_id` | `foreign_key:source_id:normalized.predicate_nodes@1` |
 | `normalized.predicate_nodes` | `unique:pk` | `unique:pk:normalized.predicate_nodes@1` |
 | `normalized.property_demand_seeds` | `foreign_key:scope_id` | `foreign_key:scope_id:normalized.property_demand_seeds@1` |
@@ -4270,17 +8286,25 @@ Version: `1`. Stratum: 1.
 | `normalized.property_demand_seeds` | `unique:pk` | `unique:pk:normalized.property_demand_seeds@1` |
 | `normalized.property_packages` | `foreign_key:package_id` | `foreign_key:package_id:normalized.property_packages@1` |
 | `normalized.property_packages` | `unique:pk` | `unique:pk:normalized.property_packages@1` |
+| `normalized.property_path_demands` | `unique:pk` | `unique:pk:normalized.property_path_demands@1` |
 | `normalized.reaction_methods` | `foreign_key:reaction_id` | `foreign_key:reaction_id:normalized.reaction_methods@1` |
 | `normalized.reaction_methods` | `unique:pk` | `unique:pk:normalized.reaction_methods@1` |
 | `normalized.reaction_packages` | `foreign_key:package_id` | `foreign_key:package_id:normalized.reaction_packages@1` |
 | `normalized.reaction_packages` | `unique:pk` | `unique:pk:normalized.reaction_packages@1` |
 | `normalized.reactions` | `foreign_key:package_id` | `foreign_key:package_id:normalized.reactions@1` |
 | `normalized.reactions` | `unique:pk` | `unique:pk:normalized.reactions@1` |
+| `normalized.resolved_source_occurrences` | `unique:pk` | `unique:pk:normalized.resolved_source_occurrences@1` |
 | `normalized.scopes` | `unique:pk` | `unique:pk:normalized.scopes@1` |
+| `normalized.selector_children` | `unique:pk` | `unique:pk:normalized.selector_children@1` |
+| `normalized.selector_nodes` | `unique:pk` | `unique:pk:normalized.selector_nodes@1` |
+| `normalized.selector_roots` | `unique:pk` | `unique:pk:normalized.selector_roots@1` |
 | `normalized.selector_terms` | `foreign_key:parent_term_id` | `foreign_key:parent_term_id:normalized.selector_terms@1` |
 | `normalized.selector_terms` | `foreign_key:scope_id` | `foreign_key:scope_id:normalized.selector_terms@1` |
 | `normalized.selector_terms` | `unique:pk` | `unique:pk:normalized.selector_terms@1` |
 | `normalized.solver_profiles` | `unique:pk` | `unique:pk:normalized.solver_profiles@1` |
+| `normalized.source_occurrences` | `foreign_key:document_id` | `foreign_key:document_id:normalized.source_occurrences@1` |
+| `normalized.source_occurrences` | `foreign_key:source_relation_id` | `foreign_key:source_relation_id:normalized.source_occurrences@1` |
+| `normalized.source_occurrences` | `unique:pk` | `unique:pk:normalized.source_occurrences@1` |
 | `normalized.species` | `foreign_key:package_id` | `foreign_key:package_id:normalized.species@1` |
 | `normalized.species` | `unique:pk` | `unique:pk:normalized.species@1` |
 | `normalized.species_elements` | `foreign_key:element_id` | `foreign_key:element_id:normalized.species_elements@1` |
@@ -4291,10 +8315,20 @@ Version: `1`. Stratum: 1.
 | `normalized.stoichiometry` | `foreign_key:reaction_id` | `foreign_key:reaction_id:normalized.stoichiometry@1` |
 | `normalized.stoichiometry` | `foreign_key:species_id` | `foreign_key:species_id:normalized.stoichiometry@1` |
 | `normalized.stoichiometry` | `unique:pk` | `unique:pk:normalized.stoichiometry@1` |
+| `normalized.template_contribution_contracts` | `foreign_key:contribution_decl_id` | `foreign_key:contribution_decl_id:normalized.template_contribution_contracts@1` |
+| `normalized.template_contribution_contracts` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:normalized.template_contribution_contracts@1` |
+| `normalized.template_contribution_contracts` | `unique:pk` | `unique:pk:normalized.template_contribution_contracts@1` |
 | `normalized.template_contributions` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_contributions@1` |
 | `normalized.template_contributions` | `unique:pk` | `unique:pk:normalized.template_contributions@1` |
+| `normalized.template_derivatives` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:normalized.template_derivatives@1` |
+| `normalized.template_derivatives` | `unique:pk` | `unique:pk:normalized.template_derivatives@1` |
 | `normalized.template_display` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_display@1` |
 | `normalized.template_display` | `unique:pk` | `unique:pk:normalized.template_display@1` |
+| `normalized.template_display_indices` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_display_indices@1` |
+| `normalized.template_display_indices` | `unique:pk` | `unique:pk:normalized.template_display_indices@1` |
+| `normalized.template_domain_bindings` | `foreign_key:domain_id` | `foreign_key:domain_id:normalized.template_domain_bindings@1` |
+| `normalized.template_domain_bindings` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_domain_bindings@1` |
+| `normalized.template_domain_bindings` | `unique:pk` | `unique:pk:normalized.template_domain_bindings@1` |
 | `normalized.template_domains` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_domains@1` |
 | `normalized.template_domains` | `unique:pk` | `unique:pk:normalized.template_domains@1` |
 | `normalized.template_equations` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_equations@1` |
@@ -4331,10 +8365,19 @@ Version: `1`. Stratum: 1.
 | `normalized.template_features` | `unique:pk` | `unique:pk:normalized.template_features@1` |
 | `normalized.template_guards` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_guards@1` |
 | `normalized.template_guards` | `unique:pk` | `unique:pk:normalized.template_guards@1` |
+| `normalized.template_law_contracts` | `foreign_key:balance_enum_id` | `foreign_key:balance_enum_id:normalized.template_law_contracts@1` |
+| `normalized.template_law_contracts` | `foreign_key:law_instance_decl_id` | `foreign_key:law_instance_decl_id:normalized.template_law_contracts@1` |
+| `normalized.template_law_contracts` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:normalized.template_law_contracts@1` |
+| `normalized.template_law_contracts` | `unique:pk` | `unique:pk:normalized.template_law_contracts@1` |
 | `normalized.template_law_instances` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_law_instances@1` |
 | `normalized.template_law_instances` | `unique:pk` | `unique:pk:normalized.template_law_instances@1` |
+| `normalized.template_material_constraints` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_material_constraints@1` |
+| `normalized.template_material_constraints` | `unique:pk` | `unique:pk:normalized.template_material_constraints@1` |
 | `normalized.template_params` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_params@1` |
 | `normalized.template_params` | `unique:pk` | `unique:pk:normalized.template_params@1` |
+| `normalized.template_port_members` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:normalized.template_port_members@1` |
+| `normalized.template_port_members` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_port_members@1` |
+| `normalized.template_port_members` | `unique:pk` | `unique:pk:normalized.template_port_members@1` |
 | `normalized.template_ports` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_ports@1` |
 | `normalized.template_ports` | `unique:pk` | `unique:pk:normalized.template_ports@1` |
 | `normalized.template_property_requirements` | `foreign_key:scope_selector_id` | `foreign_key:scope_selector_id:normalized.template_property_requirements@1` |
@@ -4342,8 +8385,16 @@ Version: `1`. Stratum: 1.
 | `normalized.template_property_requirements` | `unique:pk` | `unique:pk:normalized.template_property_requirements@1` |
 | `normalized.template_requirements` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_requirements@1` |
 | `normalized.template_requirements` | `unique:pk` | `unique:pk:normalized.template_requirements@1` |
+| `normalized.template_scopes` | `foreign_key:scope_id` | `foreign_key:scope_id:normalized.template_scopes@1` |
+| `normalized.template_scopes` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_scopes@1` |
+| `normalized.template_scopes` | `unique:pk` | `unique:pk:normalized.template_scopes@1` |
 | `normalized.template_submodels` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_submodels@1` |
 | `normalized.template_submodels` | `unique:pk` | `unique:pk:normalized.template_submodels@1` |
+| `normalized.template_symbol_contracts` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:normalized.template_symbol_contracts@1` |
+| `normalized.template_symbol_contracts` | `unique:pk` | `unique:pk:normalized.template_symbol_contracts@1` |
+| `normalized.template_symbol_expressions` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:normalized.template_symbol_expressions@1` |
+| `normalized.template_symbol_expressions` | `foreign_key:template_id` | `foreign_key:template_id:normalized.template_symbol_expressions@1` |
+| `normalized.template_symbol_expressions` | `unique:pk` | `unique:pk:normalized.template_symbol_expressions@1` |
 | `normalized.template_symbol_properties` | `foreign_key:property_kind_id` | `foreign_key:property_kind_id:normalized.template_symbol_properties@1` |
 | `normalized.template_symbol_properties` | `foreign_key:scope_selector_id` | `foreign_key:scope_selector_id:normalized.template_symbol_properties@1` |
 | `normalized.template_symbol_properties` | `foreign_key:symbol_decl_id` | `foreign_key:symbol_decl_id:normalized.template_symbol_properties@1` |
@@ -4356,9 +8407,46 @@ Version: `1`. Stratum: 1.
 | `normalized.units` | `foreign_key:reference_state_id` | `foreign_key:reference_state_id:normalized.units@1` |
 | `normalized.units` | `foreign_key:unit_set_id` | `foreign_key:unit_set_id:normalized.units@1` |
 | `normalized.units` | `unique:pk` | `unique:pk:normalized.units@1` |
+| `provenance.algorithm_source_occurrences` | `foreign_key:output_relation_id` | `foreign_key:output_relation_id:provenance.algorithm_source_occurrences@1` |
+| `provenance.algorithm_source_occurrences` | `foreign_key:source_relation_id` | `foreign_key:source_relation_id:provenance.algorithm_source_occurrences@1` |
+| `provenance.algorithm_source_occurrences` | `unique:pk` | `unique:pk:provenance.algorithm_source_occurrences@1` |
 | `provenance.assertions` | `foreign_key:package_id` | `foreign_key:package_id:provenance.assertions@1` |
 | `provenance.assertions` | `unique:pk` | `unique:pk:provenance.assertions@1` |
+| `provenance.boundary_crossing_assertions` | `unique:pk` | `unique:pk:provenance.boundary_crossing_assertions@1` |
+| `provenance.connection_violation_assertions` | `unique:pk` | `unique:pk:provenance.connection_violation_assertions@1` |
+| `provenance.constructed_supports` | `unique:pk` | `unique:pk:provenance.constructed_supports@1` |
+| `provenance.demand_active_read_assertions` | `unique:pk` | `unique:pk:provenance.demand_active_read_assertions@1` |
+| `provenance.demand_obligation_assertions` | `unique:pk` | `unique:pk:provenance.demand_obligation_assertions@1` |
+| `provenance.demand_request_key_assertions` | `unique:pk` | `unique:pk:provenance.demand_request_key_assertions@1` |
+| `provenance.demand_scope_request_assertions` | `unique:pk` | `unique:pk:provenance.demand_scope_request_assertions@1` |
+| `provenance.demand_seed_binding_assertions` | `unique:pk` | `unique:pk:provenance.demand_seed_binding_assertions@1` |
 | `provenance.derivations` | `unique:pk` | `unique:pk:provenance.derivations@1` |
+| `provenance.domain_member_assertions` | `unique:pk` | `unique:pk:provenance.domain_member_assertions@1` |
+| `provenance.feature_candidate_assertions` | `unique:pk` | `unique:pk:provenance.feature_candidate_assertions@1` |
+| `provenance.feature_check_assertions` | `feature_rule_satisfied` | `feature_rule_satisfied:provenance.feature_check_assertions@1` |
+| `provenance.feature_check_assertions` | `unique:pk` | `unique:pk:provenance.feature_check_assertions@1` |
+| `provenance.feature_requirement_assertions` | `feature_resolved` | `feature_resolved:provenance.feature_requirement_assertions@1` |
+| `provenance.feature_requirement_assertions` | `unique:pk` | `unique:pk:provenance.feature_requirement_assertions@1` |
+| `provenance.instance_assertions` | `unique:pk` | `unique:pk:provenance.instance_assertions@1` |
+| `provenance.instance_feature_assertions` | `unique:pk` | `unique:pk:provenance.instance_feature_assertions@1` |
+| `provenance.instance_guard_violation_assertions` | `unique:pk` | `unique:pk:provenance.instance_guard_violation_assertions@1` |
+| `provenance.instance_reachability_assertions` | `unique:pk` | `unique:pk:provenance.instance_reachability_assertions@1` |
+| `provenance.instance_tree_assertions` | `unique:pk` | `unique:pk:provenance.instance_tree_assertions@1` |
+| `provenance.invalid_index_assertions` | `unique:pk` | `unique:pk:provenance.invalid_index_assertions@1` |
+| `provenance.law_application_assertions` | `unique:pk` | `unique:pk:provenance.law_application_assertions@1` |
+| `provenance.law_candidate_assertions` | `unique:pk` | `unique:pk:provenance.law_candidate_assertions@1` |
+| `provenance.law_empty_application_assertions` | `unique:pk` | `unique:pk:provenance.law_empty_application_assertions@1` |
+| `provenance.law_internal_transfer_assertions` | `unique:pk` | `unique:pk:provenance.law_internal_transfer_assertions@1` |
+| `provenance.law_ordered_term_assertions` | `unique:pk` | `unique:pk:provenance.law_ordered_term_assertions@1` |
+| `provenance.law_participation_assertions` | `unique:pk` | `unique:pk:provenance.law_participation_assertions@1` |
+| `provenance.law_subject_match_assertions` | `unique:pk` | `unique:pk:provenance.law_subject_match_assertions@1` |
+| `provenance.material_check_assertions` | `material_bounds_satisfied` | `material_bounds_satisfied:provenance.material_check_assertions@1` |
+| `provenance.material_check_assertions` | `unique:pk` | `unique:pk:provenance.material_check_assertions@1` |
+| `provenance.material_count_assertions` | `unique:pk` | `unique:pk:provenance.material_count_assertions@1` |
+| `provenance.method_candidate_assertions` | `unique:pk` | `unique:pk:provenance.method_candidate_assertions@1` |
+| `provenance.method_compatibility_assertions` | `unique:pk` | `unique:pk:provenance.method_compatibility_assertions@1` |
+| `provenance.method_resolution_assertions` | `unique:pk` | `unique:pk:provenance.method_resolution_assertions@1` |
+| `provenance.node_rewrites` | `unique:pk` | `unique:pk:provenance.node_rewrites@1` |
 | `provenance.pass_records` | `check:terminal_cancel_class` | `check:terminal_cancel_class:provenance.pass_records@1` |
 | `provenance.pass_records` | `check:terminal_count` | `check:terminal_count:provenance.pass_records@1` |
 | `provenance.pass_records` | `check:terminal_duration` | `check:terminal_duration:provenance.pass_records@1` |
@@ -4367,11 +8455,51 @@ Version: `1`. Stratum: 1.
 | `provenance.pass_records` | `check:terminal_failure_finding` | `check:terminal_failure_finding:provenance.pass_records@1` |
 | `provenance.pass_records` | `check:terminal_finding_origin` | `check:terminal_finding_origin:provenance.pass_records@1` |
 | `provenance.pass_records` | `unique:pk` | `unique:pk:provenance.pass_records@1` |
+| `provenance.phase_species_assertions` | `unique:pk` | `unique:pk:provenance.phase_species_assertions@1` |
+| `provenance.port_assertions` | `unique:pk` | `unique:pk:provenance.port_assertions@1` |
+| `provenance.port_member_assertions` | `unique:pk` | `unique:pk:provenance.port_member_assertions@1` |
+| `provenance.port_member_domain_assertions` | `unique:pk` | `unique:pk:provenance.port_member_domain_assertions@1` |
+| `provenance.port_state_assertions` | `unique:pk` | `unique:pk:provenance.port_state_assertions@1` |
+| `provenance.port_state_domain_assertions` | `unique:pk` | `unique:pk:provenance.port_state_domain_assertions@1` |
+| `provenance.potential_method_candidate_assertions` | `unique:pk` | `unique:pk:provenance.potential_method_candidate_assertions@1` |
+| `provenance.potential_method_resolution_assertions` | `unique:pk` | `unique:pk:provenance.potential_method_resolution_assertions@1` |
+| `provenance.potential_method_winner_assertions` | `unique:pk` | `unique:pk:provenance.potential_method_winner_assertions@1` |
+| `provenance.property_read_occurrences` | `unique:pk` | `unique:pk:provenance.property_read_occurrences@1` |
+| `provenance.property_requirement_assertions` | `unique:pk` | `unique:pk:provenance.property_requirement_assertions@1` |
 | `provenance.refs` | `unique:pk` | `unique:pk:provenance.refs@1` |
+| `provenance.requirement_support_assertions` | `unique:pk` | `unique:pk:provenance.requirement_support_assertions@1` |
+| `provenance.requirement_universe_assertions` | `unique:pk` | `unique:pk:provenance.requirement_universe_assertions@1` |
+| `provenance.rule_support_edges` | `foreign_key:assertion_relation_id` | `foreign_key:assertion_relation_id:provenance.rule_support_edges@1` |
+| `provenance.rule_support_edges` | `foreign_key:head_relation_id` | `foreign_key:head_relation_id:provenance.rule_support_edges@1` |
+| `provenance.rule_support_edges` | `foreign_key:input_relation_id` | `foreign_key:input_relation_id:provenance.rule_support_edges@1` |
+| `provenance.rule_support_edges` | `foreign_key:rule_id` | `foreign_key:rule_id:provenance.rule_support_edges@1` |
+| `provenance.rule_support_edges` | `unique:pk` | `unique:pk:provenance.rule_support_edges@1` |
+| `provenance.scope_assertions` | `unique:pk` | `unique:pk:provenance.scope_assertions@1` |
+| `provenance.scope_binding_assertions` | `foreign_key:scope_decl_id` | `foreign_key:scope_decl_id:provenance.scope_binding_assertions@1` |
+| `provenance.scope_binding_assertions` | `unique:pk` | `unique:pk:provenance.scope_binding_assertions@1` |
+| `provenance.scope_candidate_assertions` | `unique:pk` | `unique:pk:provenance.scope_candidate_assertions@1` |
+| `provenance.scope_entity_assertions` | `unique:pk` | `unique:pk:provenance.scope_entity_assertions@1` |
+| `provenance.scope_member_assertions` | `unique:pk` | `unique:pk:provenance.scope_member_assertions@1` |
+| `provenance.scope_port_decision_assertions` | `unique:pk` | `unique:pk:provenance.scope_port_decision_assertions@1` |
+| `provenance.scope_port_state_assertions` | `unique:pk` | `unique:pk:provenance.scope_port_state_assertions@1` |
+| `provenance.scope_reachability_assertions` | `unique:pk` | `unique:pk:provenance.scope_reachability_assertions@1` |
+| `provenance.selection_inventory_assertions` | `unique:pk` | `unique:pk:provenance.selection_inventory_assertions@1` |
+| `provenance.selector_context_assertions` | `unique:pk` | `unique:pk:provenance.selector_context_assertions@1` |
+| `provenance.selector_decision_assertions` | `unique:pk` | `unique:pk:provenance.selector_decision_assertions@1` |
+| `provenance.selector_parameter_target_assertions` | `unique:pk` | `unique:pk:provenance.selector_parameter_target_assertions@1` |
+| `provenance.state_method_selection_key_assertions` | `unique:pk` | `unique:pk:provenance.state_method_selection_key_assertions@1` |
+| `provenance.state_scope_assertions` | `unique:pk` | `unique:pk:provenance.state_scope_assertions@1` |
+| `provenance.state_scope_key_assertions` | `unique:pk` | `unique:pk:provenance.state_scope_key_assertions@1` |
+| `provenance.topology_edge_assertions` | `unique:pk` | `unique:pk:provenance.topology_edge_assertions@1` |
+| `provenance.unbound_port_assertions` | `unique:pk` | `unique:pk:provenance.unbound_port_assertions@1` |
+| `provenance.valid_index_assertions` | `foreign_key:product_id` | `foreign_key:product_id:provenance.valid_index_assertions@1` |
+| `provenance.valid_index_assertions` | `unique:pk` | `unique:pk:provenance.valid_index_assertions@1` |
 | `reference.aliases` | `foreign_key:entity_id` | `foreign_key:entity_id:reference.aliases@1` |
 | `reference.aliases` | `unique:pk` | `unique:pk:reference.aliases@1` |
 | `reference.bases` | `foreign_key:reference_conditions_id` | `foreign_key:reference_conditions_id:reference.bases@1` |
 | `reference.bases` | `unique:pk` | `unique:pk:reference.bases@1` |
+| `reference.connection_bindings` | `foreign_key:rule_template_id` | `foreign_key:rule_template_id:reference.connection_bindings@1` |
+| `reference.connection_bindings` | `unique:pk` | `unique:pk:reference.connection_bindings@1` |
 | `reference.constants` | `closure:entity_fields` | `closure:entity_fields:reference.constants@1` |
 | `reference.constants` | `closure:entity_registered` | `closure:entity_registered:reference.constants@1` |
 | `reference.constants` | `foreign_key:quantity_kind_id` | `foreign_key:quantity_kind_id:reference.constants@1` |
@@ -4381,14 +8509,50 @@ Version: `1`. Stratum: 1.
 | `reference.conversion_rules` | `foreign_key:to_quantity_type_id` | `foreign_key:to_quantity_type_id:reference.conversion_rules@1` |
 | `reference.conversion_rules` | `unique:pk` | `unique:pk:reference.conversion_rules@1` |
 | `reference.dimensions` | `unique:pk` | `unique:pk:reference.dimensions@1` |
+| `reference.element_projection_contracts` | `foreign_key:coefficient_quantity_type_id` | `foreign_key:coefficient_quantity_type_id:reference.element_projection_contracts@1` |
+| `reference.element_projection_contracts` | `foreign_key:coefficient_unit_id` | `foreign_key:coefficient_unit_id:reference.element_projection_contracts@1` |
+| `reference.element_projection_contracts` | `foreign_key:law_template_id` | `foreign_key:law_template_id:reference.element_projection_contracts@1` |
+| `reference.element_projection_contracts` | `foreign_key:multiplication_operation_id` | `foreign_key:multiplication_operation_id:reference.element_projection_contracts@1` |
+| `reference.element_projection_contracts` | `foreign_key:source_basis_id` | `foreign_key:source_basis_id:reference.element_projection_contracts@1` |
+| `reference.element_projection_contracts` | `foreign_key:source_quantity_type_id` | `foreign_key:source_quantity_type_id:reference.element_projection_contracts@1` |
+| `reference.element_projection_contracts` | `unique:pk` | `unique:pk:reference.element_projection_contracts@1` |
 | `reference.elements` | `closure:entity_fields` | `closure:entity_fields:reference.elements@1` |
 | `reference.elements` | `closure:entity_registered` | `closure:entity_registered:reference.elements@1` |
 | `reference.elements` | `unique:pk` | `unique:pk:reference.elements@1` |
 | `reference.engine_profiles` | `unique:pk` | `unique:pk:reference.engine_profiles@1` |
 | `reference.kernel_specs` | `unique:pk` | `unique:pk:reference.kernel_specs@1` |
+| `reference.law_bindings` | `foreign_key:balance_enum_id` | `foreign_key:balance_enum_id:reference.law_bindings@1` |
+| `reference.law_bindings` | `foreign_key:law_template_id` | `foreign_key:law_template_id:reference.law_bindings@1` |
+| `reference.law_bindings` | `unique:pk` | `unique:pk:reference.law_bindings@1` |
+| `reference.math_context` | `foreign_key:boolean_kind_id` | `foreign_key:boolean_kind_id:reference.math_context@1` |
+| `reference.math_context` | `foreign_key:neutral_quantity_type_id` | `foreign_key:neutral_quantity_type_id:reference.math_context@1` |
+| `reference.math_context` | `foreign_key:package_id` | `foreign_key:package_id:reference.math_context@1` |
+| `reference.math_context` | `unique:pk` | `unique:pk:reference.math_context@1` |
+| `reference.method_dependencies` | `foreign_key:method_id` | `foreign_key:method_id:reference.method_dependencies@1` |
+| `reference.method_dependencies` | `unique:pk` | `unique:pk:reference.method_dependencies@1` |
+| `reference.method_kernel_inputs` | `foreign_key:method_id` | `foreign_key:method_id:reference.method_kernel_inputs@1` |
+| `reference.method_kernel_inputs` | `unique:pk` | `unique:pk:reference.method_kernel_inputs@1` |
+| `reference.method_parameter_axes` | `foreign_key:method_id` | `foreign_key:method_id:reference.method_parameter_axes@1` |
+| `reference.method_parameter_axes` | `unique:pk` | `unique:pk:reference.method_parameter_axes@1` |
+| `reference.method_parameters` | `foreign_key:method_id` | `foreign_key:method_id:reference.method_parameters@1` |
+| `reference.method_parameters` | `foreign_key:natural_unit_id` | `foreign_key:natural_unit_id:reference.method_parameters@1` |
+| `reference.method_parameters` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:reference.method_parameters@1` |
+| `reference.method_parameters` | `unique:pk` | `unique:pk:reference.method_parameters@1` |
+| `reference.method_precedence` | `unique:pk` | `unique:pk:reference.method_precedence@1` |
+| `reference.method_provisions` | `foreign_key:method_id` | `foreign_key:method_id:reference.method_provisions@1` |
+| `reference.method_provisions` | `foreign_key:natural_unit_id` | `foreign_key:natural_unit_id:reference.method_provisions@1` |
+| `reference.method_provisions` | `foreign_key:property_kind_id` | `foreign_key:property_kind_id:reference.method_provisions@1` |
+| `reference.method_provisions` | `foreign_key:quantity_type_id` | `foreign_key:quantity_type_id:reference.method_provisions@1` |
+| `reference.method_provisions` | `output_alternative` | `output_alternative:reference.method_provisions@1` |
+| `reference.method_provisions` | `unique:pk` | `unique:pk:reference.method_provisions@1` |
 | `reference.method_specs` | `closure:entity_fields` | `closure:entity_fields:reference.method_specs@1` |
 | `reference.method_specs` | `closure:entity_registered` | `closure:entity_registered:reference.method_specs@1` |
+| `reference.method_specs` | `provides_matches_complete_contract` | `provides_matches_complete_contract:reference.method_specs@1` |
+| `reference.method_specs` | `realization_alternative` | `realization_alternative:reference.method_specs@1` |
+| `reference.method_specs` | `requires_matches_complete_contract` | `requires_matches_complete_contract:reference.method_specs@1` |
 | `reference.method_specs` | `unique:pk` | `unique:pk:reference.method_specs@1` |
+| `reference.method_state_parameters` | `foreign_key:method_id` | `foreign_key:method_id:reference.method_state_parameters@1` |
+| `reference.method_state_parameters` | `unique:pk` | `unique:pk:reference.method_state_parameters@1` |
 | `reference.numerical_policies` | `unique:pk` | `unique:pk:reference.numerical_policies@1` |
 | `reference.operator_specs` | `unique:pk` | `unique:pk:reference.operator_specs@1` |
 | `reference.pass_input_ports` | `unique:pk` | `unique:pk:reference.pass_input_ports@1` |
@@ -4398,8 +8562,13 @@ Version: `1`. Stratum: 1.
 | `reference.quantity_kinds` | `closure:entity_fields` | `closure:entity_fields:reference.quantity_kinds@1` |
 | `reference.quantity_kinds` | `closure:entity_registered` | `closure:entity_registered:reference.quantity_kinds@1` |
 | `reference.quantity_kinds` | `unique:pk` | `unique:pk:reference.quantity_kinds@1` |
+| `reference.quantity_operation_reductions` | `foreign_key:operation_id` | `foreign_key:operation_id:reference.quantity_operation_reductions@1` |
+| `reference.quantity_operation_reductions` | `unique:pk` | `unique:pk:reference.quantity_operation_reductions@1` |
 | `reference.quantity_operations` | `foreign_key:result_kind_id` | `foreign_key:result_kind_id:reference.quantity_operations@1` |
 | `reference.quantity_operations` | `unique:pk` | `unique:pk:reference.quantity_operations@1` |
+| `reference.quantity_preconditions` | `foreign_key:required_basis_id` | `foreign_key:required_basis_id:reference.quantity_preconditions@1` |
+| `reference.quantity_preconditions` | `foreign_key:required_quantity_type_id` | `foreign_key:required_quantity_type_id:reference.quantity_preconditions@1` |
+| `reference.quantity_preconditions` | `unique:pk` | `unique:pk:reference.quantity_preconditions@1` |
 | `reference.quantity_types` | `check:positive_nominal` | `check:positive_nominal:reference.quantity_types@1` |
 | `reference.quantity_types` | `foreign_key:basis_id` | `foreign_key:basis_id:reference.quantity_types@1` |
 | `reference.quantity_types` | `foreign_key:canonical_unit_id` | `foreign_key:canonical_unit_id:reference.quantity_types@1` |
@@ -4410,6 +8579,8 @@ Version: `1`. Stratum: 1.
 | `reference.reference_states` | `unique:pk` | `unique:pk:reference.reference_states@1` |
 | `reference.rule_aggregates` | `unique:pk` | `unique:pk:reference.rule_aggregates@1` |
 | `reference.rule_dependencies` | `unique:pk` | `unique:pk:reference.rule_dependencies@1` |
+| `reference.rule_expr_calls` | `foreign_key:expr_id` | `foreign_key:expr_id:reference.rule_expr_calls@1` |
+| `reference.rule_expr_calls` | `unique:pk` | `unique:pk:reference.rule_expr_calls@1` |
 | `reference.rule_expr_edges` | `unique:pk` | `unique:pk:reference.rule_expr_edges@1` |
 | `reference.rule_expr_nodes` | `unique:pk` | `unique:pk:reference.rule_expr_nodes@1` |
 | `reference.rule_group_keys` | `unique:pk` | `unique:pk:reference.rule_group_keys@1` |
@@ -4452,6 +8623,7 @@ Version: `1`. Stratum: 1.
 | `runtime.iterations` | `unique:pk` | `unique:pk:runtime.iterations@1` |
 | `runtime.kernel_evaluation_outcomes` | `unique:pk` | `unique:pk:runtime.kernel_evaluation_outcomes@1` |
 | `runtime.kernel_evaluations` | `unique:pk` | `unique:pk:runtime.kernel_evaluations@1` |
+| `runtime.publications` | `unique:pk` | `unique:pk:runtime.publications@1` |
 | `runtime.residuals` | `unique:pk` | `unique:pk:runtime.residuals@1` |
 | `runtime.runs` | `unique:pk` | `unique:pk:runtime.runs@1` |
 | `runtime.solutions` | `unique:pk` | `unique:pk:runtime.solutions@1` |

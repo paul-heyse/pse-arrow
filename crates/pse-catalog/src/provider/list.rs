@@ -1,37 +1,73 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! A sealed list. Catalog membership cannot change during a query.
+//! Faithful native registration in private operation-scoped catalog state.
 
 use datafusion::catalog::{CatalogProvider, CatalogProviderList};
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{
+    Arc, RwLock,
+    atomic::{AtomicU64, Ordering},
+};
 
 /// The complete catalog set supplied before the session becomes queryable.
 #[derive(Debug)]
 pub struct SnapshotCatalogList {
-    catalogs: BTreeMap<String, Arc<dyn CatalogProvider>>,
+    catalogs: RwLock<BTreeMap<String, Arc<dyn CatalogProvider>>>,
+    generation: Arc<AtomicU64>,
 }
 impl SnapshotCatalogList {
-    /// Seal the supplied inventory. No later registration mutates it.
+    /// Create private native state from an already resolved inventory.
     pub fn new(catalogs: BTreeMap<String, Arc<dyn CatalogProvider>>) -> Self {
-        Self { catalogs }
+        Self {
+            catalogs: RwLock::new(catalogs),
+            generation: Arc::new(AtomicU64::new(0)),
+        }
+    }
+    pub(crate) fn with_generation(
+        catalogs: BTreeMap<String, Arc<dyn CatalogProvider>>,
+        generation: Arc<AtomicU64>,
+    ) -> Self {
+        Self {
+            catalogs: RwLock::new(catalogs),
+            generation,
+        }
+    }
+    /// Namespace mutation witness. It never substitutes for a source revision.
+    pub fn generation(&self) -> u64 {
+        self.generation.load(Ordering::Acquire)
+    }
+    pub(crate) fn generation_owner(&self) -> Arc<AtomicU64> {
+        Arc::clone(&self.generation)
     }
 }
 impl CatalogProviderList for SnapshotCatalogList {
-    // The upstream signature has no error channel. The immutable implementation leaves
-    // membership unchanged; platform entry points reject every mutation plan beforehand.
     fn register_catalog(
         &self,
-        _name: String,
-        _catalog: Arc<dyn CatalogProvider>,
+        name: String,
+        catalog: Arc<dyn CatalogProvider>,
     ) -> Option<Arc<dyn CatalogProvider>> {
-        None
+        let mut catalogs = self
+            .catalogs
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let previous = catalogs.insert(name, catalog);
+        self.generation.fetch_add(1, Ordering::AcqRel);
+        previous
     }
     fn catalog_names(&self) -> Vec<String> {
-        self.catalogs.keys().cloned().collect()
+        self.catalogs
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .keys()
+            .cloned()
+            .collect()
     }
     fn catalog(&self, name: &str) -> Option<Arc<dyn CatalogProvider>> {
-        self.catalogs.get(name).cloned()
+        self.catalogs
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(name)
+            .cloned()
     }
 }

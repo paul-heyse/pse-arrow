@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 
 use arrow_schema::DataType;
 
-use crate::model::{DocumentSection, ExtensionUse, LogicalType, SourceColumn};
+use crate::model::{DocumentSection, ExtensionUse, FieldContract, SourceColumn};
 use crate::{Registry, SchemaError};
 
 pub(super) fn quote(value: &str) -> String {
@@ -35,16 +35,16 @@ pub(super) fn generate(reg: &Registry) -> Result<String, SchemaError> {
         let mut properties = Vec::new();
         let mut required = Vec::new();
         for column in &relation.columns {
-            let ty = logical(reg, &column.logical_type)?;
-            let ty = if column.nullable {
+            let ty = logical(reg, &column.value_type())?;
+            let ty = if column.nullable() {
                 format!("{{\"anyOf\":[{ty},{{\"type\":\"null\"}}]}}")
             } else {
                 ty
             };
-            properties.push(format!("{}:{ty}", quote(column.name)));
+            properties.push(format!("{}:{ty}", quote(column.name())));
             // Nullable serde fields admit an absent value; all others are required.
-            if !column.nullable {
-                required.push(quote(column.name));
+            if !column.nullable() {
+                required.push(quote(column.name()));
             }
         }
         definitions.push(format!(
@@ -100,17 +100,17 @@ fn source_row(reg: &Registry, section: &DocumentSection) -> Result<String, Schem
         ) {
             continue;
         }
-        let ty=logical(reg,&column.logical_type)?.replace("^[0-9a-f]{32}$","^([0-9a-f]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$");
-        let ty = if column.nullable {
+        let ty=logical(reg,&column.value_type())?.replace("^[0-9a-f]{32}$","^([0-9a-f]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$");
+        let ty = if column.nullable() {
             format!("{{\"anyOf\":[{ty},{{\"type\":\"null\"}}]}}")
         } else {
             ty
         };
-        properties.push(format!("{}:{ty}", quote(column.name)));
-        if section.identity_column == Some(column.name) {
+        properties.push(format!("{}:{ty}", quote(column.name())));
+        if section.identity_column == Some(column.name()) {
             properties.push(format!("\"id\":{ty}"));
-        } else if !column.nullable && context != SourceColumn::PackageContext {
-            required.push(quote(column.name));
+        } else if !column.nullable() && context != SourceColumn::PackageContext {
+            required.push(quote(column.name()));
         }
     }
     let mut object = object(&properties, &required);
@@ -185,9 +185,15 @@ fn object(properties: &[String], required: &[String]) -> String {
     )
 }
 
-fn logical(reg: &Registry, ty: &LogicalType) -> Result<String, SchemaError> {
-    Ok(match ty {
-        LogicalType::Ext(ExtensionUse::Enum(name)) => {
+fn logical(reg: &Registry, ty: &FieldContract) -> Result<String, SchemaError> {
+    if let Some(range) = crate::model::IntegerRange::from_field(ty.field())? {
+        return Ok(integer(
+            i128::from(range.minimum),
+            i128::from(range.maximum),
+        ));
+    }
+    Ok(match (ty.extension(), ty.data_type()) {
+        (Some(ExtensionUse::Enum(name)), _) => {
             let spec = reg
                 .enum_spec(name)
                 .ok_or_else(|| error(format!("unknown enum {name}")))?;
@@ -200,17 +206,20 @@ fn logical(reg: &Registry, ty: &LogicalType) -> Result<String, SchemaError> {
                     .join(",")
             )
         }
-        LogicalType::Ext(ExtensionUse::ContentHash) => {
+        (Some(ExtensionUse::ContentHash), _) => {
             "{\"type\":\"string\",\"pattern\":\"^blake3:[0-9a-f]{64}$\"}".to_owned()
         }
-        LogicalType::List(child) => list(&logical(reg, child)?, None),
-        LogicalType::FixedList(child, width) => list(&logical(reg, child)?, Some(*width)),
-        LogicalType::Struct(children) => {
+        (None, DataType::List(child)) => list(&logical_field(reg, &child)?, None),
+        (None, DataType::FixedSizeList(child, width)) => {
+            list(&logical_field(reg, &child)?, Some(width))
+        }
+        (None, DataType::Struct(children)) => {
             let mut properties = Vec::new();
             let mut required = Vec::new();
-            for (name, ty, nullable) in children {
-                let ty = logical(reg, ty)?;
-                let ty = if *nullable {
+            for field in &children {
+                let name = field.name();
+                let ty = logical(reg, &FieldContract::from_field((**field).clone()))?;
+                let ty = if field.is_nullable() {
                     format!("{{\"anyOf\":[{ty},{{\"type\":\"null\"}}]}}")
                 } else {
                     required.push(quote(name));
@@ -220,7 +229,22 @@ fn logical(reg: &Registry, ty: &LogicalType) -> Result<String, SchemaError> {
             }
             object(&properties, &required)
         }
-        _ => storage(&ty.data_type())?,
+        (None, DataType::FixedSizeBinary(_) | DataType::Dictionary(..)) => {
+            return Err(error(format!(
+                "no native language codec for {}; domain meaning requires an explicit declaration",
+                ty.data_type()
+            )));
+        }
+        _ => storage(reg, &ty.data_type())?,
+    })
+}
+
+fn logical_field(reg: &Registry, field: &arrow_schema::Field) -> Result<String, SchemaError> {
+    let value = logical(reg, &FieldContract::from_field(field.clone()))?;
+    Ok(if field.is_nullable() {
+        format!("{{\"anyOf\":[{value},{{\"type\":\"null\"}}]}}")
+    } else {
+        value
     })
 }
 
@@ -231,7 +255,7 @@ fn list(child: &str, width: Option<i32>) -> String {
     format!("{{\"type\":\"array\",\"items\":{child}{length}}}")
 }
 
-fn storage(ty: &DataType) -> Result<String, SchemaError> {
+fn storage(reg: &Registry, ty: &DataType) -> Result<String, SchemaError> {
     Ok(match ty {
         DataType::Boolean => "{\"type\":\"boolean\"}".to_owned(),
         DataType::Utf8 => "{\"type\":\"string\"}".to_owned(),
@@ -251,16 +275,21 @@ fn storage(ty: &DataType) -> Result<String, SchemaError> {
         DataType::FixedSizeBinary(32) => {
             "{\"type\":\"string\",\"pattern\":\"^blake3:[0-9a-f]{64}$\"}".to_owned()
         }
-        DataType::Dictionary(..) => {
-            "{\"type\":\"string\",\"enum\":[\"finite\",\"unbounded\"]}".to_owned()
+        DataType::List(child) => list(&storage(reg, child.data_type())?, None),
+        DataType::FixedSizeList(child, width) => {
+            list(&storage(reg, child.data_type())?, Some(*width))
         }
-        DataType::List(child) => list(&storage(child.data_type())?, None),
-        DataType::FixedSizeList(child, width) => list(&storage(child.data_type())?, Some(*width)),
         DataType::Struct(children) => {
             let mut properties = Vec::new();
             let mut required = Vec::new();
             for child in children {
-                let ty = storage(child.data_type())?;
+                let ty = if let Some(range) = crate::model::IntegerRange::from_field(child)? {
+                    integer(i128::from(range.minimum), i128::from(range.maximum))
+                } else if let Some(name) = super::enum_name(child) {
+                    logical(reg, &FieldContract::enumeration(name))?
+                } else {
+                    storage(reg, child.data_type())?
+                };
                 let ty = if child.is_nullable() {
                     format!("{{\"anyOf\":[{ty},{{\"type\":\"null\"}}]}}")
                 } else {

@@ -4,7 +4,7 @@
 //! Declared 6.12 derived structure contracts.
 use super::declarations::{column, relation};
 use crate::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 /// Declare the structural contracts; no later pass is implemented by these declarations.
 pub fn declare(builder: &mut RegistryBuilder) {
     declare_problems(builder);
@@ -51,11 +51,17 @@ fn declare_problems(builder: &mut RegistryBuilder) {
             column("model_revision_id", T::id()),
             column("case_id", T::id()),
             column("discretization_policy_ids", T::list(T::id())),
-            column("variable_count", T::U64),
-            column("equation_count", T::U64),
-            column("inequality_count", T::U64),
-            column("objective_count", T::U64),
-            column("degrees_of_freedom", T::I64),
+            column("variable_count", T::native(arrow_schema::DataType::UInt64)),
+            column("equation_count", T::native(arrow_schema::DataType::UInt64)),
+            column(
+                "inequality_count",
+                T::native(arrow_schema::DataType::UInt64),
+            ),
+            column("objective_count", T::native(arrow_schema::DataType::UInt64)),
+            column(
+                "degrees_of_freedom",
+                T::native(arrow_schema::DataType::Int64),
+            ),
             column("input_bundle_hash", T::hash()),
         ],
         "blueprint §6.12 derived structure: problems.",
@@ -72,13 +78,13 @@ fn declare_variable_order(builder: &mut RegistryBuilder) {
         vec![
             column("problem_id", T::id()),
             column("symbol_id", T::id()),
-            column("position", T::U64).optional(),
+            column("position", T::native(arrow_schema::DataType::UInt64)).optional(),
             column("treatment", T::enumeration("Treatment")),
-            column("lower", T::Ext(crate::model::ExtensionUse::Bound)),
-            column("upper", T::Ext(crate::model::ExtensionUse::Bound)),
-            column("initial", T::F64).optional(),
-            column("scale", T::F64),
-            column("offset", T::F64),
+            column("lower", T::extended(crate::model::ExtensionUse::Bound)),
+            column("upper", T::extended(crate::model::ExtensionUse::Bound)),
+            column("initial", T::native(arrow_schema::DataType::Float64)).optional(),
+            column("scale", T::native(arrow_schema::DataType::Float64)),
+            column("offset", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.12 derived structure: variable_order.",
     );
@@ -94,9 +100,9 @@ fn declare_equation_order(builder: &mut RegistryBuilder) {
         vec![
             column("problem_id", T::id()),
             column("equation_id", T::id()),
-            column("position", T::U64).optional(),
-            column("active", T::Bool),
-            column("scale", T::F64),
+            column("position", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("active", T::native(arrow_schema::DataType::Boolean)),
+            column("scale", T::native(arrow_schema::DataType::Float64)),
             column("kind", T::enumeration("RowKind")),
         ],
         "blueprint §6.12 derived structure: equation_order.",
@@ -114,7 +120,7 @@ fn declare_bound_values(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("symbol_id", T::id()),
             column("treatment", T::enumeration("Treatment")),
-            column("value", T::F64),
+            column("value", T::native(arrow_schema::DataType::Float64)),
             column("unit_id", T::id()),
             column("value_hash", T::hash()),
             column("source_spec_id", T::id()).optional(),
@@ -133,7 +139,7 @@ fn declare_case_bound_substitutions(builder: &mut RegistryBuilder) {
         vec![
             column("problem_id", T::id()),
             column("symbol_id", T::id()),
-            column("value", T::F64),
+            column("value", T::native(arrow_schema::DataType::Float64)),
             column("unit_id", T::id()),
             column("value_hash", T::hash()),
             column("source", T::enumeration("ValueSource")),
@@ -153,8 +159,8 @@ fn declare_incidence(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("equation_id", T::id()),
             column("symbol_id", T::id()),
-            column("linear", T::Bool),
-            column("coefficient", T::F64).optional(),
+            column("linear", T::native(arrow_schema::DataType::Boolean)),
+            column("coefficient", T::native(arrow_schema::DataType::Float64)).optional(),
         ],
         "blueprint §6.12 derived structure: incidence.",
     );
@@ -189,8 +195,8 @@ fn declare_blocks(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("block_id", T::id()),
             column("kind", T::enumeration("BlockKind")),
-            column("order", T::U32),
-            column("size", T::U32),
+            column("order", T::native(arrow_schema::DataType::UInt32)),
+            column("size", T::native(arrow_schema::DataType::UInt32)),
         ],
         "blueprint §6.12 derived structure: blocks.",
     );
@@ -222,8 +228,14 @@ fn declare_sparsity_patterns(builder: &mut RegistryBuilder) {
         vec![
             column("problem_id", T::id()),
             column("kind", T::enumeration("SparsityKind")),
-            column("row_ptr", T::list(T::U32)),
-            column("col_idx", T::list(T::U32)),
+            column(
+                "row_ptr",
+                T::list(T::native(arrow_schema::DataType::UInt32)),
+            ),
+            column(
+                "col_idx",
+                T::list(T::native(arrow_schema::DataType::UInt32)),
+            ),
             column("content_hash", T::hash()),
         ],
         "blueprint §6.12 derived structure: sparsity_patterns.",
@@ -241,8 +253,11 @@ fn declare_evaluation_programs(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("program_id", T::id()),
             column("artifact_hash", T::hash()),
-            column("instruction_count", T::U64),
-            column("workspace_size", T::U64),
+            column(
+                "instruction_count",
+                T::native(arrow_schema::DataType::UInt64),
+            ),
+            column("workspace_size", T::native(arrow_schema::DataType::UInt64)),
         ],
         "blueprint §6.12 derived structure: evaluation_programs.",
     );
@@ -259,7 +274,10 @@ fn declare_backend_bindings(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("backend", T::enumeration("Backend")),
             column("status", T::enumeration("BindingStatus")),
-            column("unsupported_opcodes", T::list(T::Text)),
+            column(
+                "unsupported_opcodes",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
             column("artifact_hash", T::hash()).optional(),
         ],
         "blueprint §6.12 derived structure: backend_bindings.",

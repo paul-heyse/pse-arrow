@@ -9,6 +9,16 @@ paths:
 
 # Working in the Rust workspace
 
+## Reach for the library
+
+No third-party crate is refused and no licence is grounds to refuse one through phases
+0–1. `deny.toml` bans nothing, `cargo deny` reports without gating, and blueprint §3.1 is
+a pin list, not an admission list. Adding a dependency needs no ADR and no design review —
+add it, `=`-pin it in `[workspace.dependencies]`, commit `Cargo.lock`. Read
+[`docs/dev/dependency-policy.md`](../../docs/dev/dependency-policy.md) before assuming
+something is off-limits; it also says what *is* still enforced, starting with the next
+section.
+
 ## One type universe
 
 Exactly one resolved version of `arrow`, `parquet`, `object_store` and `datafusion` may
@@ -34,13 +44,16 @@ the failure is silent and reads like a logic bug (blueprint §3.1).
   (§23.2, error code `config.invalid`).
 - `SchemaLike::from_type` / `from_samples` — schemas come from the registry, never
   inferred (§5.3).
-- `IpcWriteOptions::try_with_compression` — canonical IPC is uncompressed (§5.3,
-  `pse.canon.v2`, ADR-0045).
 - `anyhow::Error` — every `pse-*` crate returns a concrete `thiserror` enum that also
   derives `miette::Diagnostic` with a §23.2 code. `xtask` opts out at crate level.
 
 `unwrap`/`expect`/`panic`/`todo`/`print*`/`dbg!` are denied outside tests for the same
 reason: a panic crossing the PyO3 or Ipopt boundary is an abort risk.
+
+Canonical identity IPC remains uncompressed (§5.3, `pse.canon.v2`, ADR-0045).
+The governance pattern restricts `try_with_compression` only under
+`crates/pse-ids/src/canon`; the API is available for noncanonical transport
+(blueprint §3.3.1, ADR-0065). Compression is not a library-wide prohibition.
 
 ## Lint escapes carry a reason
 

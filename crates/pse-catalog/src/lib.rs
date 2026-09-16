@@ -41,10 +41,16 @@
 //! retain those admitted inputs. Plan protobufs are diagnostic artifacts. Optional
 //! evidence helpers and undeclared run producers remain outside this foundation.
 
+pub mod computation;
 pub mod contract;
+pub mod delta;
 pub mod error;
 pub mod evidence;
 pub mod failure;
+pub mod source_production;
+#[rustfmt::skip]
+pub mod generated;
+pub mod inspection;
 pub mod provider;
 pub mod session;
 pub mod snapshot;
@@ -58,8 +64,7 @@ pub use crate::session::{ExecutionSettings, ThreadBudget};
 pub use crate::snapshot::{LoadedRelation, Snapshot, TrustLevel};
 pub use crate::store::clock::{Clock, FixedClock, SystemClock};
 pub use crate::store::layout::{
-    EncodingFormat, RefName, document_path, evidence_path, manifest_path, ref_path, relation_path,
-    stage_path,
+    EncodingFormat, RefName, evidence_path, manifest_path, ref_path, relation_path, stage_path,
 };
 pub use crate::store::manifest::{
     CompilerRef, EncodingRecord, EngineProfileRef, EvidenceRecord, KernelRef, MANIFEST_VERSION,

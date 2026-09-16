@@ -8,18 +8,18 @@ blueprint §6.10 case: case_activation_targets.
 
 Version: 1. Snapshot class: `case`. Primary key: `activation_id, ordinal`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `activation_id` | `semantic_id` | false | `key` | — |
-| `ordinal` | `u16` | false | `key` | — |
-| `instance_id` | `semantic_id` | false | `payload` | — |
-| `member_kind` | `enum:TargetKind` | false | `payload` | — |
-| `symbol_decl_id` | `semantic_id` | true | `payload` | — |
-| `equation_decl_id` | `semantic_id` | true | `payload` | `authored.template_equations.equation_decl_id` |
-| `port_template_id` | `semantic_id` | true | `payload` | `authored.templates.template_id` |
-| `port_name` | `text` | true | `payload` | — |
-| `index` | `index_tuple` | true | `payload` | — |
-| `wildcard` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `activation_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `UInt16` | false | `key` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `member_kind` | `enum:TargetKind` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
+| `equation_decl_id` | `semantic_id` | true | `payload` | `authored.template_equations.equation_decl_id` | — |
+| `port_template_id` | `semantic_id` | true | `payload` | `authored.templates.template_id` | — |
+| `port_name` | `Utf8` | true | `payload` | — | — |
+| `index` | `index_tuple` | true | `payload` | — | — |
+| `wildcard` | `Boolean` | false | `payload` | — | — |
 
 ## `case_activations`
 
@@ -27,12 +27,12 @@ blueprint §6.10 case: case_activations.
 
 Version: 1. Snapshot class: `case`. Primary key: `activation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `activation_id` | `semantic_id` | false | `key` | — |
-| `case_id` | `semantic_id` | false | `payload` | — |
-| `target` | `target_path` | false | `payload` | — |
-| `active` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `activation_id` | `semantic_id` | false | `key` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `target` | `target_path` | false | `payload` | — | — |
+| `active` | `Boolean` | false | `payload` | — | — |
 
 ## `case_objectives`
 
@@ -40,12 +40,12 @@ blueprint §6.10 case: case_objectives.
 
 Version: 1. Snapshot class: `case`. Primary key: `case_id, objective_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `case_id` | `semantic_id` | false | `key` | — |
-| `objective_id` | `semantic_id` | false | `key` | — |
-| `active` | `bool` | false | `payload` | — |
-| `weight` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `case_id` | `semantic_id` | false | `key` | — | — |
+| `objective_id` | `semantic_id` | false | `key` | — | — |
+| `active` | `Boolean` | false | `payload` | — | — |
+| `weight` | `Float64` | false | `payload` | — | — |
 
 ## `case_policies`
 
@@ -53,14 +53,14 @@ blueprint §6.10 case: case_policies.
 
 Version: 1. Snapshot class: `case`. Primary key: `case_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `case_id` | `semantic_id` | false | `key` | — |
-| `discretization_policy_id` | `semantic_id` | true | `payload` | — |
-| `scaler_template_id` | `semantic_id` | true | `payload` | — |
-| `numerical_policy_id` | `semantic_id` | true | `payload` | — |
-| `initializer_template_id` | `semantic_id` | true | `payload` | — |
-| `solver_profile_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `case_id` | `semantic_id` | false | `key` | — | — |
+| `discretization_policy_id` | `semantic_id` | true | `payload` | — | — |
+| `scaler_template_id` | `semantic_id` | true | `payload` | — | — |
+| `numerical_policy_id` | `semantic_id` | true | `payload` | — | — |
+| `initializer_template_id` | `semantic_id` | true | `payload` | — | — |
+| `solver_profile_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `case_revisions`
 
@@ -68,15 +68,15 @@ blueprint §5.2 revision: case_revisions.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `case_revision_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `case_revision_id` | `semantic_id` | false | `key` | — |
-| `model_revision_id` | `semantic_id` | false | `payload` | — |
-| `parent_case_id` | `semantic_id` | true | `payload` | — |
-| `snapshot_id` | `content_hash` | false | `payload` | — |
-| `created_at` | `ts` | false | `payload` | — |
-| `author` | `text` | false | `payload` | — |
-| `message` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `case_revision_id` | `semantic_id` | false | `key` | — | — |
+| `model_revision_id` | `semantic_id` | false | `payload` | — | — |
+| `parent_case_id` | `semantic_id` | true | `payload` | — | — |
+| `snapshot_id` | `content_hash` | false | `payload` | — | — |
+| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `author` | `Utf8` | false | `payload` | — | — |
+| `message` | `Utf8` | false | `payload` | — | — |
 
 ## `case_set_samples`
 
@@ -84,11 +84,11 @@ blueprint §6.10 case: case_set_samples.
 
 Version: 1. Snapshot class: `case`. Primary key: `case_set_id, sample_ordinal`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `case_set_id` | `semantic_id` | false | `key` | — |
-| `sample_ordinal` | `u64` | false | `key` | — |
-| `case_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `case_set_id` | `semantic_id` | false | `key` | — | — |
+| `sample_ordinal` | `UInt64` | false | `key` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `case_sets`
 
@@ -96,14 +96,17 @@ blueprint §6.10 case: case_sets.
 
 Version: 1. Snapshot class: `case`. Primary key: `case_set_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `case_set_id` | `semantic_id` | false | `key` | — |
-| `base_case_id` | `semantic_id` | false | `payload` | — |
-| `generator_kind` | `enum:GeneratorKind` | false | `payload` | — |
-| `generator_params` | `list<struct{key:text,value:text}>` | false | `payload` | — |
-| `seed` | `u64` | true | `payload` | — |
-| `sample_count` | `u64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `case_set_id` | `semantic_id` | false | `key` | — | — |
+| `base_case_id` | `semantic_id` | false | `payload` | — | — |
+| `generator_kind` | `enum:GeneratorKind` | false | `payload` | — | — |
+| `generator_params` | `List` | false | `payload` | — | — |
+| `generator_params.item` | `Struct` | false | `payload` | — | — |
+| `generator_params.item.key` | `Utf8` | false | `payload` | — | — |
+| `generator_params.item.value` | `Utf8` | false | `payload` | — | — |
+| `seed` | `UInt64` | true | `payload` | — | — |
+| `sample_count` | `UInt64` | false | `payload` | — | — |
 
 ## `case_spec_targets`
 
@@ -111,18 +114,18 @@ blueprint §6.10 case: case_spec_targets.
 
 Version: 1. Snapshot class: `case`. Primary key: `spec_id, ordinal`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `spec_id` | `semantic_id` | false | `key` | — |
-| `ordinal` | `u16` | false | `key` | — |
-| `instance_id` | `semantic_id` | false | `payload` | — |
-| `member_kind` | `enum:TargetKind` | false | `payload` | — |
-| `symbol_decl_id` | `semantic_id` | true | `payload` | — |
-| `equation_decl_id` | `semantic_id` | true | `payload` | `authored.template_equations.equation_decl_id` |
-| `port_template_id` | `semantic_id` | true | `payload` | `authored.templates.template_id` |
-| `port_name` | `text` | true | `payload` | — |
-| `index` | `index_tuple` | true | `payload` | — |
-| `wildcard` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `spec_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `UInt16` | false | `key` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `member_kind` | `enum:TargetKind` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
+| `equation_decl_id` | `semantic_id` | true | `payload` | `authored.template_equations.equation_decl_id` | — |
+| `port_template_id` | `semantic_id` | true | `payload` | `authored.templates.template_id` | — |
+| `port_name` | `Utf8` | true | `payload` | — | — |
+| `index` | `index_tuple` | true | `payload` | — | — |
+| `wildcard` | `Boolean` | false | `payload` | — | — |
 
 ## `case_specs`
 
@@ -130,19 +133,19 @@ blueprint §6.10 case: case_specs.
 
 Version: 1. Snapshot class: `case`. Primary key: `spec_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `spec_id` | `semantic_id` | false | `key` | — |
-| `case_id` | `semantic_id` | false | `payload` | `authored.cases.case_id` |
-| `target` | `target_path` | false | `payload` | — |
-| `treatment` | `enum:Treatment` | true | `payload` | — |
-| `value` | `f64` | true | `payload` | — |
-| `unit_id` | `semantic_id` | true | `payload` | — |
-| `initial` | `f64` | true | `payload` | — |
-| `lower` | `bound` | true | `payload` | — |
-| `upper` | `bound` | true | `payload` | — |
-| `scaling_factor` | `f64` | true | `payload` | — |
-| `priority` | `i32` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `spec_id` | `semantic_id` | false | `key` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | `authored.cases.case_id` | — |
+| `target` | `target_path` | false | `payload` | — | — |
+| `treatment` | `enum:Treatment` | true | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
+| `unit_id` | `semantic_id` | true | `payload` | — | — |
+| `initial` | `Float64` | true | `payload` | — | — |
+| `lower` | `bound` | true | `payload` | — | — |
+| `upper` | `bound` | true | `payload` | — | — |
+| `scaling_factor` | `Float64` | true | `payload` | — | — |
+| `priority` | `Int32` | false | `payload` | — | — |
 
 ## `cases`
 
@@ -150,14 +153,14 @@ blueprint §6.10 case: cases.
 
 Version: 1. Snapshot class: `case`. Primary key: `case_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `case_id` | `semantic_id` | false | `key` | — |
-| `model_revision_id` | `semantic_id` | false | `payload` | — |
-| `name` | `text` | false | `payload` | — |
-| `parent_case_id` | `semantic_id` | true | `payload` | `authored.cases.case_id` |
-| `kind` | `enum:CaseKind` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `case_id` | `semantic_id` | false | `key` | — | — |
+| `model_revision_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `parent_case_id` | `semantic_id` | true | `payload` | `authored.cases.case_id` | — |
+| `kind` | `enum:CaseKind` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `change_ops`
 
@@ -165,15 +168,19 @@ The operations of a change set, in application order.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `change_set_id, ordinal`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `change_set_id` | `semantic_id` | false | `key` | `authored.change_sets.change_set_id` |
-| `ordinal` | `u32` | false | `key` | — |
-| `op` | `enum:ChangeOpKind` | false | `label` | — |
-| `relation_id` | `semantic_id` | false | `reference` | `reference.schema_relations.relation_id` |
-| `row_key` | `struct{staged_port:text,staged_ordinal:u64}` | false | `payload` | — |
-| `row` | `struct{staged_port:text,staged_ordinal:u64}` | true | `payload` | — |
-| `precondition` | `text` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `change_set_id` | `semantic_id` | false | `key` | `authored.change_sets.change_set_id` | — |
+| `ordinal` | `UInt32` | false | `key` | — | — |
+| `op` | `enum:ChangeOpKind` | false | `label` | — | — |
+| `relation_id` | `semantic_id` | false | `reference` | `reference.schema_relations.relation_id` | — |
+| `row_key` | `Struct` | false | `payload` | — | — |
+| `row_key.staged_port` | `Utf8` | false | `payload` | — | — |
+| `row_key.staged_ordinal` | `UInt64` | false | `payload` | — | — |
+| `row` | `Struct` | true | `payload` | — | — |
+| `row.staged_port` | `Utf8` | false | `payload` | — | — |
+| `row.staged_ordinal` | `UInt64` | false | `payload` | — | — |
+| `precondition` | `Utf8` | true | `payload` | — | — |
 
 ## `change_sets`
 
@@ -181,13 +188,13 @@ One row per proposed change set: the unit that is validated, applied atomically 
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `change_set_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `change_set_id` | `semantic_id` | false | `key` | — |
-| `base_revision_id` | `semantic_id` | false | `reference` | — |
-| `author` | `text` | false | `label` | — |
-| `message` | `text` | false | `label` | — |
-| `created_at` | `ts` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `change_set_id` | `semantic_id` | false | `key` | — | — |
+| `base_revision_id` | `semantic_id` | false | `reference` | — | — |
+| `author` | `Utf8` | false | `label` | — | — |
+| `message` | `Utf8` | false | `label` | — | — |
+| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
 
 ## `connections`
 
@@ -195,14 +202,14 @@ blueprint §6.7 instance: connections.
 
 Version: 1. Snapshot class: `model`. Primary key: `connection_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `connection_id` | `semantic_id` | false | `key` | — |
-| `from_port_id` | `semantic_id` | false | `payload` | — |
-| `to_port_id` | `semantic_id` | false | `payload` | — |
-| `rule_template_id` | `semantic_id` | false | `payload` | — |
-| `tear_cost` | `f64` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `connection_id` | `semantic_id` | false | `key` | — | — |
+| `from_port_id` | `semantic_id` | false | `payload` | — | — |
+| `to_port_id` | `semantic_id` | false | `payload` | — | — |
+| `rule_template_id` | `semantic_id` | false | `payload` | — | — |
+| `tear_cost` | `Float64` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `continuous_domains`
 
@@ -210,14 +217,15 @@ blueprint §6.3 domain: continuous_domains.
 
 Version: 1. Snapshot class: `model`. Primary key: `domain_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `domain_id` | `semantic_id` | false | `key` | `authored.domains.domain_id` |
-| `lower` | `f64` | false | `payload` | — |
-| `upper` | `f64` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | `reference.units.unit_id` |
-| `initial_points` | `list<f64>` | false | `payload` | — |
-| `discretization_policy_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `domain_id` | `semantic_id` | false | `key` | `authored.domains.domain_id` | — |
+| `lower` | `Float64` | false | `payload` | — | — |
+| `upper` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | `reference.units.unit_id` | — |
+| `initial_points` | `List` | false | `payload` | — | — |
+| `initial_points.item` | `Float64` | false | `payload` | — | — |
+| `discretization_policy_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `datasets`
 
@@ -225,12 +233,12 @@ blueprint §6.10 case: datasets.
 
 Version: 1. Snapshot class: `case`. Primary key: `dataset_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `dataset_id` | `semantic_id` | false | `key` | — |
-| `name` | `text` | false | `payload` | — |
-| `source` | `text` | false | `payload` | — |
-| `content_hash` | `content_hash` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `dataset_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `source` | `Utf8` | false | `payload` | — | — |
+| `content_hash` | `content_hash` | false | `payload` | — | — |
 
 ## `default_scaling`
 
@@ -238,12 +246,12 @@ blueprint §6.5 property: default_scaling.
 
 Version: 1. Snapshot class: `model`. Primary key: `property_package_id, property_kind_id, index`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `property_package_id` | `semantic_id` | false | `key` | — |
-| `property_kind_id` | `semantic_id` | false | `key` | — |
-| `index` | `index_tuple` | false | `key` | — |
-| `scaling_factor` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `property_package_id` | `semantic_id` | false | `key` | — | — |
+| `property_kind_id` | `semantic_id` | false | `key` | — | — |
+| `index` | `index_tuple` | false | `key` | — | — |
+| `scaling_factor` | `Float64` | false | `payload` | — | — |
 
 ## `discretization_policies`
 
@@ -251,15 +259,15 @@ blueprint §6.11 numerical and rule: discretization_policies.
 
 Version: 1. Snapshot class: `model`. Primary key: `policy_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `policy_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | — |
-| `name` | `text` | false | `payload` | — |
-| `method` | `enum:DiscretizationMethod` | false | `payload` | — |
-| `scheme` | `enum:DiscretizationScheme` | false | `payload` | — |
-| `finite_elements` | `u32` | false | `payload` | — |
-| `collocation_points` | `u8` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `policy_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `method` | `enum:DiscretizationMethod` | false | `payload` | — | — |
+| `scheme` | `enum:DiscretizationScheme` | false | `payload` | — | — |
+| `finite_elements` | `UInt32` | false | `payload` | — | — |
+| `collocation_points` | `UInt8` | true | `payload` | — | — |
 
 ## `documents`
 
@@ -267,12 +275,12 @@ One row per authoring document; every row's source span points back into one of 
 
 Version: 1. Snapshot class: `model`. Primary key: `document_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `document_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `reference` | `authored.packages.package_id` |
-| `path` | `text` | false | `label` | — |
-| `content_hash` | `content_hash` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `document_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `reference` | `authored.packages.package_id` | — |
+| `path` | `Utf8` | false | `label` | — | — |
+| `source_text` | `Utf8` | false | `payload` | — | — |
 
 ## `domain_members`
 
@@ -280,14 +288,14 @@ blueprint §6.3 domain: domain_members.
 
 Version: 1. Snapshot class: `model`. Primary key: `member_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `domain_id` | `semantic_id` | false | `payload` | `authored.domains.domain_id` |
-| `member_id` | `semantic_id` | false | `key` | — |
-| `ordinal` | `u32` | false | `payload` | — |
-| `label` | `text` | false | `payload` | — |
-| `coordinate` | `f64` | true | `payload` | — |
-| `ref_entity_id` | `semantic_id` | true | `payload` | `authored.entities.entity_id` |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `domain_id` | `semantic_id` | false | `payload` | `authored.domains.domain_id` | — |
+| `member_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `UInt32` | false | `payload` | — | — |
+| `label` | `Utf8` | false | `payload` | — | — |
+| `coordinate` | `Float64` | true | `payload` | — | — |
+| `ref_entity_id` | `semantic_id` | true | `payload` | `authored.entities.entity_id` | — |
 
 ## `domains`
 
@@ -295,15 +303,15 @@ blueprint §6.3 domain: domains.
 
 Version: 1. Snapshot class: `model`. Primary key: `domain_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `domain_id` | `semantic_id` | false | `key` | — |
-| `owner_entity_id` | `semantic_id` | false | `payload` | `authored.entities.entity_id` |
-| `kind` | `enum:DomainKind` | false | `payload` | — |
-| `continuous` | `bool` | false | `payload` | — |
-| `unit_id` | `semantic_id` | true | `payload` | `reference.units.unit_id` |
-| `parent_domain_id` | `semantic_id` | true | `payload` | `authored.domains.domain_id` |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `domain_id` | `semantic_id` | false | `key` | — | — |
+| `owner_entity_id` | `semantic_id` | false | `payload` | `authored.entities.entity_id` | — |
+| `kind` | `enum:DomainKind` | false | `payload` | — | — |
+| `continuous` | `Boolean` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | true | `payload` | `reference.units.unit_id` | — |
+| `parent_domain_id` | `semantic_id` | true | `payload` | `authored.domains.domain_id` | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `entities`
 
@@ -311,15 +319,15 @@ Explicitly declared authored entities; registration validates exact declaration 
 
 Version: 1. Snapshot class: `model`. Primary key: `entity_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `entity_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `reference` | `authored.packages.package_id` |
-| `kind` | `enum:EntityKind` | false | `label` | — |
-| `name` | `text` | false | `label` | — |
-| `qualified_name` | `text` | false | `label` | — |
-| `parent_entity_id` | `semantic_id` | true | `reference` | `authored.entities.entity_id` |
-| `source_span` | `source_span` | true | `provenance` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `entity_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `reference` | `authored.packages.package_id` | — |
+| `kind` | `enum:EntityKind` | false | `label` | — | — |
+| `name` | `Utf8` | false | `label` | — | — |
+| `qualified_name` | `Utf8` | false | `label` | — | — |
+| `parent_entity_id` | `semantic_id` | true | `reference` | `authored.entities.entity_id` | — |
+| `source_span` | `source_span` | true | `provenance` | — | — |
 
 ## `flowsheets`
 
@@ -327,12 +335,12 @@ blueprint §6.7 instance: flowsheets.
 
 Version: 1. Snapshot class: `model`. Primary key: `instance_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `instance_id` | `semantic_id` | false | `key` | `authored.instances.instance_id` |
-| `time_domain_id` | `semantic_id` | false | `payload` | — |
-| `dynamic` | `enum:TriState` | false | `payload` | — |
-| `default_property_package_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `instance_id` | `semantic_id` | false | `key` | `authored.instances.instance_id` | — |
+| `time_domain_id` | `semantic_id` | false | `payload` | — | — |
+| `dynamic` | `enum:TriState` | false | `payload` | — | — |
+| `default_property_package_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `henry_declarations`
 
@@ -340,12 +348,12 @@ blueprint §6.4 material: henry_declarations.
 
 Version: 1. Snapshot class: `model`. Primary key: `species_id, phase_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` |
-| `phase_id` | `semantic_id` | false | `key` | `authored.phases.phase_id` |
-| `henry_type` | `enum:HenryType` | false | `payload` | — |
-| `method_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` | — |
+| `phase_id` | `semantic_id` | false | `key` | `authored.phases.phase_id` | — |
+| `henry_type` | `enum:HenryType` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `instance_domain_bindings`
 
@@ -353,11 +361,33 @@ Actual domain bound to an instance's declared template-local domain name.
 
 Version: 1. Snapshot class: `model`. Primary key: `instance_id, domain_name`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `instance_id` | `semantic_id` | false | `key` | `authored.instances.instance_id` |
-| `domain_name` | `text` | false | `key` | — |
-| `domain_id` | `semantic_id` | false | `payload` | `authored.domains.domain_id` |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `instance_id` | `semantic_id` | false | `key` | `authored.instances.instance_id` | — |
+| `domain_name` | `Utf8` | false | `key` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | `authored.domains.domain_id` | — |
+
+## `instance_equations`
+
+Instance-owned equation declaration (blueprint §6.15.4).
+
+Version: 1. Snapshot class: `model`. Primary key: `equation_decl_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `instance_id` | `semantic_id` | false | `payload` | `authored.instances.instance_id` | — |
+| `equation_decl_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `indexed_by` | `List` | false | `payload` | — | — |
+| `indexed_by.item` | `Utf8` | false | `payload` | — | — |
+| `filter` | `expr_dsl` | true | `payload` | — | — |
+| `expression` | `expr_dsl` | false | `payload` | — | — |
+| `sense` | `enum:Sense` | false | `payload` | — | — |
+| `family_hint` | `enum:EquationFamily` | true | `payload` | — | — |
+| `role_hint` | `enum:EquationRole` | true | `payload` | — | — |
+| `guard_id` | `semantic_id` | true | `payload` | — | — |
+| `idaes_name` | `Utf8` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `instances`
 
@@ -365,17 +395,23 @@ blueprint §6.7 instance: instances.
 
 Version: 1. Snapshot class: `model`. Primary key: `instance_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `instance_id` | `semantic_id` | false | `key` | — |
-| `parent_instance_id` | `semantic_id` | true | `payload` | `authored.instances.instance_id` |
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` |
-| `name` | `text` | false | `payload` | — |
-| `param_values` | `list<struct{name:text,value:text}>` | false | `payload` | — |
-| `feature_values` | `list<struct{name:text,value:text}>` | false | `payload` | — |
-| `property_package_id` | `semantic_id` | true | `payload` | — |
-| `reaction_package_id` | `semantic_id` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `instance_id` | `semantic_id` | false | `key` | — | — |
+| `parent_instance_id` | `semantic_id` | true | `payload` | `authored.instances.instance_id` | — |
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `param_values` | `List` | false | `payload` | — | — |
+| `param_values.item` | `Struct` | false | `payload` | — | — |
+| `param_values.item.name` | `Utf8` | false | `payload` | — | — |
+| `param_values.item.value` | `Utf8` | false | `payload` | — | — |
+| `feature_values` | `List` | false | `payload` | — | — |
+| `feature_values.item` | `Struct` | false | `payload` | — | — |
+| `feature_values.item.name` | `Utf8` | false | `payload` | — | — |
+| `feature_values.item.value` | `Utf8` | false | `payload` | — | — |
+| `property_package_id` | `semantic_id` | true | `payload` | — | — |
+| `reaction_package_id` | `semantic_id` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `material_systems`
 
@@ -383,30 +419,37 @@ blueprint §6.4 material: material_systems.
 
 Version: 1. Snapshot class: `model`. Primary key: `material_system_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `material_system_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `name` | `text` | false | `payload` | — |
-| `species_ids` | `list<semantic_id>` | false | `payload` | — |
-| `phase_ids` | `list<semantic_id>` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `material_system_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `species_ids` | `List` | false | `payload` | — | — |
+| `species_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `phase_ids` | `List` | false | `payload` | — | — |
+| `phase_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `method_selections`
 
 blueprint §6.5 property: method_selections.
 
-Version: 1. Snapshot class: `model`. Primary key: `property_package_id, scope_kind, scope_ids, family, method_id`.
+Version: 2. Snapshot class: `model`. Primary key: `selection_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `property_package_id` | `semantic_id` | false | `key` | — |
-| `scope_kind` | `enum:ScopeKind` | false | `key` | — |
-| `scope_ids` | `index_tuple` | false | `key` | — |
-| `property_kind_id` | `semantic_id` | true | `payload` | — |
-| `family` | `enum:MethodFamily` | false | `key` | — |
-| `method_id` | `semantic_id` | false | `key` | — |
-| `options` | `list<struct{key:text,value:text}>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `selection_id` | `semantic_id` | false | `key` | — | — |
+| `is_default` | `Boolean` | false | `payload` | — | — |
+| `property_package_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_kind` | `enum:ScopeKind` | false | `payload` | — | — |
+| `scope_ids` | `index_tuple` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | true | `payload` | — | — |
+| `family` | `enum:MethodFamily` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
+| `options` | `List` | false | `payload` | — | — |
+| `options.item` | `Struct` | false | `payload` | — | — |
+| `options.item.key` | `Utf8` | false | `payload` | — | — |
+| `options.item.value` | `Utf8` | false | `payload` | — | — |
 
 ## `model_revisions`
 
@@ -414,14 +457,14 @@ blueprint §5.2 revision: model_revisions.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `model_revision_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `model_revision_id` | `semantic_id` | false | `key` | — |
-| `parent_revision_id` | `semantic_id` | true | `payload` | — |
-| `snapshot_id` | `content_hash` | false | `payload` | — |
-| `created_at` | `ts` | false | `payload` | — |
-| `author` | `text` | false | `payload` | — |
-| `message` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `model_revision_id` | `semantic_id` | false | `key` | — | — |
+| `parent_revision_id` | `semantic_id` | true | `payload` | — | — |
+| `snapshot_id` | `content_hash` | false | `payload` | — | — |
+| `created_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `author` | `Utf8` | false | `payload` | — | — |
+| `message` | `Utf8` | false | `payload` | — | — |
 
 ## `observation_targets`
 
@@ -429,18 +472,18 @@ blueprint §6.10 case: observation_targets.
 
 Version: 1. Snapshot class: `case`. Primary key: `observation_id, ordinal`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `observation_id` | `semantic_id` | false | `key` | — |
-| `ordinal` | `u16` | false | `key` | — |
-| `instance_id` | `semantic_id` | false | `payload` | — |
-| `member_kind` | `enum:TargetKind` | false | `payload` | — |
-| `symbol_decl_id` | `semantic_id` | true | `payload` | — |
-| `equation_decl_id` | `semantic_id` | true | `payload` | `authored.template_equations.equation_decl_id` |
-| `port_template_id` | `semantic_id` | true | `payload` | `authored.templates.template_id` |
-| `port_name` | `text` | true | `payload` | — |
-| `index` | `index_tuple` | true | `payload` | — |
-| `wildcard` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `observation_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `UInt16` | false | `key` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `member_kind` | `enum:TargetKind` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
+| `equation_decl_id` | `semantic_id` | true | `payload` | `authored.template_equations.equation_decl_id` | — |
+| `port_template_id` | `semantic_id` | true | `payload` | `authored.templates.template_id` | — |
+| `port_name` | `Utf8` | true | `payload` | — | — |
+| `index` | `index_tuple` | true | `payload` | — | — |
+| `wildcard` | `Boolean` | false | `payload` | — | — |
 
 ## `observations`
 
@@ -448,16 +491,16 @@ blueprint §6.10 case: observations.
 
 Version: 1. Snapshot class: `case`. Primary key: `observation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `observation_id` | `semantic_id` | false | `key` | — |
-| `dataset_id` | `semantic_id` | false | `payload` | — |
-| `target` | `target_path` | false | `payload` | — |
-| `value` | `f64` | true | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
-| `std_dev` | `f64` | true | `payload` | — |
-| `timestamp` | `ts` | true | `payload` | — |
-| `tag` | `text` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `observation_id` | `semantic_id` | false | `key` | — | — |
+| `dataset_id` | `semantic_id` | false | `payload` | — | — |
+| `target` | `target_path` | false | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `std_dev` | `Float64` | true | `payload` | — | — |
+| `timestamp` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+| `tag` | `Utf8` | true | `payload` | — | — |
 
 ## `package_unit_sets`
 
@@ -465,10 +508,10 @@ Explicit package representation unit selection; absence is not a default.
 
 Version: 1. Snapshot class: `model`. Primary key: `package_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `package_id` | `semantic_id` | false | `key` | `authored.packages.package_id` |
-| `unit_set_id` | `semantic_id` | false | `payload` | `reference.unit_sets.unit_set_id` |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `package_id` | `semantic_id` | false | `key` | `authored.packages.package_id` | — |
+| `unit_set_id` | `semantic_id` | false | `payload` | `reference.unit_sets.unit_set_id` | — |
 
 ## `packages`
 
@@ -476,16 +519,19 @@ One row per package: its version, its identity policy and its exact dependencies
 
 Version: 1. Snapshot class: `model`. Primary key: `package_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `package_id` | `semantic_id` | false | `key` | — |
-| `name` | `text` | false | `label` | — |
-| `version` | `text` | false | `label` | — |
-| `kind` | `enum:PackageKind` | false | `label` | — |
-| `id_policy` | `enum:IdPolicy` | false | `label` | — |
-| `dependencies` | `list<struct{package_id:semantic_id,version_req:text}>` | false | `payload` | — |
-| `content_hash` | `content_hash` | false | `payload` | — |
-| `doc` | `text` | false | `label` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `package_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `label` | — | — |
+| `version` | `Utf8` | false | `label` | — | — |
+| `kind` | `enum:PackageKind` | false | `label` | — | — |
+| `id_policy` | `enum:IdPolicy` | false | `label` | — | — |
+| `dependencies` | `List` | false | `payload` | — | — |
+| `dependencies.item` | `Struct` | false | `payload` | — | — |
+| `dependencies.item.package_id` | `semantic_id` | false | `payload` | — | — |
+| `dependencies.item.version_req` | `Utf8` | false | `payload` | — | — |
+| `content_hash` | `content_hash` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `label` | — | — |
 
 ## `parameter_values`
 
@@ -493,16 +539,16 @@ blueprint §6.4 material: parameter_values.
 
 Version: 1. Snapshot class: `model`. Primary key: `owner_entity_id, parameter_kind, index`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `owner_entity_id` | `semantic_id` | false | `key` | `authored.entities.entity_id` |
-| `parameter_kind` | `text` | false | `key` | — |
-| `index` | `index_tuple` | false | `key` | — |
-| `value` | `f64` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
-| `source` | `text` | true | `payload` | — |
-| `std_dev` | `f64` | true | `payload` | — |
-| `estimable` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `owner_entity_id` | `semantic_id` | false | `key` | `authored.entities.entity_id` | — |
+| `parameter_kind` | `Utf8` | false | `key` | — | — |
+| `index` | `index_tuple` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `source` | `Utf8` | true | `payload` | — | — |
+| `std_dev` | `Float64` | true | `payload` | — | — |
+| `estimable` | `Boolean` | false | `payload` | — | — |
 
 ## `phase_equilibrium_pairs`
 
@@ -510,13 +556,13 @@ blueprint §6.5 property: phase_equilibrium_pairs.
 
 Version: 1. Snapshot class: `model`. Primary key: `property_package_id, phase_a_id, phase_b_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `property_package_id` | `semantic_id` | false | `key` | — |
-| `phase_a_id` | `semantic_id` | false | `key` | — |
-| `phase_b_id` | `semantic_id` | false | `key` | — |
-| `state_method_id` | `semantic_id` | false | `payload` | — |
-| `form_method_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `property_package_id` | `semantic_id` | false | `key` | — | — |
+| `phase_a_id` | `semantic_id` | false | `key` | — | — |
+| `phase_b_id` | `semantic_id` | false | `key` | — | — |
+| `state_method_id` | `semantic_id` | false | `payload` | — | — |
+| `form_method_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `phase_species`
 
@@ -524,10 +570,10 @@ blueprint §6.4 material: phase_species.
 
 Version: 1. Snapshot class: `model`. Primary key: `phase_id, species_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `phase_id` | `semantic_id` | false | `key` | `authored.phases.phase_id` |
-| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `phase_id` | `semantic_id` | false | `key` | `authored.phases.phase_id` | — |
+| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` | — |
 
 ## `phases`
 
@@ -535,33 +581,34 @@ blueprint §6.4 material: phases.
 
 Version: 1. Snapshot class: `model`. Primary key: `phase_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `phase_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `name` | `text` | false | `payload` | — |
-| `phase_type` | `enum:PhaseType` | false | `payload` | — |
-| `is_solvent_phase` | `bool` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `phase_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `phase_type` | `enum:PhaseType` | false | `payload` | — | — |
+| `is_solvent_phase` | `Boolean` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `property_packages`
 
 blueprint §6.5 property: property_packages.
 
-Version: 1. Snapshot class: `model`. Primary key: `property_package_id`.
+Version: 2. Snapshot class: `model`. Primary key: `property_package_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `property_package_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `material_system_id` | `semantic_id` | false | `payload` | — |
-| `unit_set_id` | `semantic_id` | false | `payload` | — |
-| `state_definition_method_id` | `semantic_id` | false | `payload` | — |
-| `temperature_ref` | `f64` | false | `payload` | — |
-| `pressure_ref` | `f64` | false | `payload` | — |
-| `include_enthalpy_of_formation` | `bool` | false | `payload` | — |
-| `bubble_dew_method_id` | `semantic_id` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `property_package_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `material_system_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_set_id` | `semantic_id` | false | `payload` | — | — |
+| `state_definition_method_id` | `semantic_id` | false | `payload` | — | — |
+| `temperature_ref` | `Float64` | false | `payload` | — | — |
+| `pressure_ref` | `Float64` | false | `payload` | — | — |
+| `include_enthalpy_of_formation` | `Boolean` | false | `payload` | — | — |
+| `bubble_dew_method_id` | `semantic_id` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `reaction_methods`
 
@@ -569,30 +616,35 @@ blueprint §6.4 material: reaction_methods.
 
 Version: 1. Snapshot class: `model`. Primary key: `reaction_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `reaction_id` | `semantic_id` | false | `key` | `authored.reactions.reaction_id` |
-| `rate_form_method_id` | `semantic_id` | true | `payload` | — |
-| `rate_constant_method_id` | `semantic_id` | true | `payload` | — |
-| `equilibrium_form_method_id` | `semantic_id` | true | `payload` | — |
-| `equilibrium_constant_method_id` | `semantic_id` | true | `payload` | — |
-| `heat_of_reaction_method_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `reaction_id` | `semantic_id` | false | `key` | `authored.reactions.reaction_id` | — |
+| `rate_form_method_id` | `semantic_id` | true | `payload` | — | — |
+| `rate_constant_method_id` | `semantic_id` | true | `payload` | — | — |
+| `equilibrium_form_method_id` | `semantic_id` | true | `payload` | — | — |
+| `equilibrium_constant_method_id` | `semantic_id` | true | `payload` | — | — |
+| `heat_of_reaction_method_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `reaction_packages`
 
 blueprint §6.4 material: reaction_packages.
 
-Version: 1. Snapshot class: `model`. Primary key: `reaction_package_id`.
+Version: 2. Snapshot class: `model`. Primary key: `reaction_package_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `reaction_package_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `property_package_id` | `semantic_id` | false | `payload` | — |
-| `reaction_ids` | `list<semantic_id>` | false | `payload` | — |
-| `unit_set_id` | `semantic_id` | false | `payload` | — |
-| `default_arguments` | `list<struct{key:text,value:text}>` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `reaction_package_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `property_package_id` | `semantic_id` | false | `payload` | — | — |
+| `reaction_ids` | `List` | false | `payload` | — | — |
+| `reaction_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `unit_set_id` | `semantic_id` | false | `payload` | — | — |
+| `default_arguments` | `List` | false | `payload` | — | — |
+| `default_arguments.item` | `Struct` | false | `payload` | — | — |
+| `default_arguments.item.key` | `Utf8` | false | `payload` | — | — |
+| `default_arguments.item.value` | `Utf8` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `reactions`
 
@@ -600,16 +652,16 @@ blueprint §6.4 material: reactions.
 
 Version: 1. Snapshot class: `model`. Primary key: `reaction_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `reaction_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `name` | `text` | false | `payload` | — |
-| `kind` | `enum:ReactionKind` | false | `payload` | — |
-| `basis` | `enum:BasisKind` | false | `payload` | — |
-| `concentration_form` | `enum:ConcentrationForm` | true | `payload` | — |
-| `reaction_phase_id` | `semantic_id` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `reaction_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `kind` | `enum:ReactionKind` | false | `payload` | — | — |
+| `basis` | `enum:BasisKind` | false | `payload` | — | — |
+| `concentration_form` | `enum:ConcentrationForm` | true | `payload` | — | — |
+| `reaction_phase_id` | `semantic_id` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `scenarios`
 
@@ -617,12 +669,12 @@ blueprint §6.10 case: scenarios.
 
 Version: 1. Snapshot class: `case`. Primary key: `scenario_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `scenario_id` | `semantic_id` | false | `key` | — |
-| `case_id` | `semantic_id` | false | `payload` | — |
-| `weight` | `f64` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `scenario_id` | `semantic_id` | false | `key` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `weight` | `Float64` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `scopes`
 
@@ -630,27 +682,28 @@ blueprint §6.7 instance: scopes.
 
 Version: 1. Snapshot class: `model`. Primary key: `scope_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `scope_id` | `semantic_id` | false | `key` | — |
-| `root_term_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `scope_id` | `semantic_id` | false | `key` | — | — |
+| `root_term_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `selector_terms`
 
 blueprint §6.7 instance: selector_terms.
 
-Version: 1. Snapshot class: `model`. Primary key: `term_id`.
+Version: 2. Snapshot class: `model`. Primary key: `term_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `term_id` | `semantic_id` | false | `key` | — |
-| `scope_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` |
-| `parent_term_id` | `semantic_id` | true | `payload` | `authored.selector_terms.term_id` |
-| `ordinal` | `u16` | false | `payload` | — |
-| `op` | `enum:SelectorOp` | false | `payload` | — |
-| `entity_id` | `semantic_id` | true | `payload` | — |
-| `entity_kind` | `enum:EntityKind` | true | `payload` | — |
-| `tag` | `text` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `term_id` | `semantic_id` | false | `key` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` | — |
+| `parent_term_id` | `semantic_id` | true | `payload` | `authored.selector_terms.term_id` | — |
+| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `op` | `enum:SelectorOp` | false | `payload` | — | — |
+| `entity_id` | `semantic_id` | true | `payload` | — | — |
+| `entity_kind` | `enum:EntityKind` | true | `payload` | — | — |
+| `tag` | `Utf8` | true | `payload` | — | — |
+| `parameter_name` | `Utf8` | true | `payload` | — | — |
 
 ## `solver_profiles`
 
@@ -658,16 +711,19 @@ blueprint §6.11 numerical and rule: solver_profiles.
 
 Version: 1. Snapshot class: `model`. Primary key: `profile_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `profile_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | — |
-| `name` | `text` | false | `payload` | — |
-| `backend` | `enum:Backend` | false | `payload` | — |
-| `solver` | `text` | false | `payload` | — |
-| `options` | `list<struct{key:text,value:text}>` | false | `payload` | — |
-| `scaling_mode` | `enum:ScalingMode` | false | `payload` | — |
-| `derivative_mode` | `enum:DerivativeMode` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `profile_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `backend` | `enum:Backend` | false | `payload` | — | — |
+| `solver` | `Utf8` | false | `payload` | — | — |
+| `options` | `List` | false | `payload` | — | — |
+| `options.item` | `Struct` | false | `payload` | — | — |
+| `options.item.key` | `Utf8` | false | `payload` | — | — |
+| `options.item.value` | `Utf8` | false | `payload` | — | — |
+| `scaling_mode` | `enum:ScalingMode` | false | `payload` | — | — |
+| `derivative_mode` | `enum:DerivativeMode` | false | `payload` | — | — |
 
 ## `species`
 
@@ -675,18 +731,22 @@ blueprint §6.4 material: species.
 
 Version: 1. Snapshot class: `model`. Primary key: `species_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `species_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `name` | `text` | false | `payload` | — |
-| `formula` | `text` | true | `payload` | — |
-| `mw` | `f64` | true | `payload` | — |
-| `component_type` | `enum:ComponentType` | false | `payload` | — |
-| `charge` | `i64` | false | `payload` | — |
-| `dissociation_species` | `list<struct{species_id:semantic_id,coefficient:f64}>` | true | `payload` | — |
-| `valid_phase_types` | `list<enum:PhaseType>` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `species_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `formula` | `Utf8` | true | `payload` | — | — |
+| `mw` | `Float64` | true | `payload` | — | — |
+| `component_type` | `enum:ComponentType` | false | `payload` | — | — |
+| `charge` | `Int64` | false | `payload` | — | — |
+| `dissociation_species` | `List` | true | `payload` | — | — |
+| `dissociation_species.item` | `Struct` | false | `payload` | — | — |
+| `dissociation_species.item.species_id` | `semantic_id` | false | `payload` | — | — |
+| `dissociation_species.item.coefficient` | `Float64` | false | `payload` | — | — |
+| `valid_phase_types` | `List` | true | `payload` | — | — |
+| `valid_phase_types.item` | `enum:PhaseType` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `species_elements`
 
@@ -694,11 +754,11 @@ blueprint §6.4 material: species_elements.
 
 Version: 1. Snapshot class: `model`. Primary key: `species_id, element_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` |
-| `element_id` | `semantic_id` | false | `key` | `reference.elements.element_id` |
-| `count` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` | — |
+| `element_id` | `semantic_id` | false | `key` | `reference.elements.element_id` | — |
+| `count` | `Float64` | false | `payload` | — | — |
 
 ## `state_bounds`
 
@@ -706,14 +766,14 @@ blueprint §6.5 property: state_bounds.
 
 Version: 1. Snapshot class: `model`. Primary key: `property_package_id, state_symbol`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `property_package_id` | `semantic_id` | false | `key` | — |
-| `state_symbol` | `text` | false | `key` | — |
-| `lower` | `bound` | false | `payload` | — |
-| `initial` | `f64` | false | `payload` | — |
-| `upper` | `bound` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `property_package_id` | `semantic_id` | false | `key` | — | — |
+| `state_symbol` | `Utf8` | false | `key` | — | — |
+| `lower` | `bound` | false | `payload` | — | — |
+| `initial` | `Float64` | false | `payload` | — | — |
+| `upper` | `bound` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `stoichiometry`
 
@@ -721,31 +781,61 @@ blueprint §6.4 material: stoichiometry.
 
 Version: 1. Snapshot class: `model`. Primary key: `reaction_id, phase_id, species_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `reaction_id` | `semantic_id` | false | `key` | `authored.reactions.reaction_id` |
-| `phase_id` | `semantic_id` | false | `key` | `authored.phases.phase_id` |
-| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` |
-| `coefficient` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `reaction_id` | `semantic_id` | false | `key` | `authored.reactions.reaction_id` | — |
+| `phase_id` | `semantic_id` | false | `key` | `authored.phases.phase_id` | — |
+| `species_id` | `semantic_id` | false | `key` | `authored.species.species_id` | — |
+| `coefficient` | `Float64` | false | `payload` | — | — |
+
+## `template_contribution_contracts`
+
+Exact contribution axes and physical subject claim; a subject is fixed or a declared axis, never inferred from its name.
+
+Version: 2. Snapshot class: `model`. Primary key: `contribution_decl_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `contribution_decl_id` | `semantic_id` | false | `key` | `authored.template_contributions.contribution_decl_id` | — |
+| `indexed_by` | `List` | false | `payload` | — | — |
+| `indexed_by.item` | `Utf8` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
+| `subject_kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
+| `subject_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_axis` | `UInt16` | true | `payload` | — | — |
+| `subject_id` | `semantic_id` | true | `payload` | — | — |
+| `phase_id` | `semantic_id` | true | `payload` | — | — |
+| `transfer_port_name` | `Utf8` | true | `payload` | — | — |
+| `transfer_member_ordinal` | `UInt16` | true | `payload` | — | — |
 
 ## `template_contributions`
 
 blueprint §6.6 template: template_contributions.
 
-Version: 1. Snapshot class: `model`. Primary key: `contribution_decl_id`.
+Version: 2. Snapshot class: `model`. Primary key: `contribution_decl_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` |
-| `contribution_decl_id` | `semantic_id` | false | `key` | — |
-| `name` | `text` | false | `payload` | — |
-| `law_family` | `enum:LawFamily` | false | `payload` | — |
-| `subject` | `expr_dsl` | true | `payload` | — |
-| `expression` | `expr_dsl` | false | `payload` | — |
-| `orientation` | `enum:Orientation` | false | `payload` | — |
-| `scope` | `text` | false | `payload` | — |
-| `guard_id` | `semantic_id` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `contribution_decl_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `law_family` | `enum:LawFamily` | false | `payload` | — | — |
+| `expression` | `expr_dsl` | false | `payload` | — | — |
+| `orientation` | `enum:Orientation` | false | `payload` | — | — |
+| `scope` | `Utf8` | false | `payload` | — | — |
+| `guard_id` | `semantic_id` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
+
+## `template_derivatives`
+
+Explicit positive derivative order; derivative-role reference_to binds the actual base symbol and wrt_domain names the declared continuous axis.
+
+Version: 1. Snapshot class: `model`. Primary key: `symbol_decl_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_decl_id` | `semantic_id` | false | `key` | `authored.template_symbols.symbol_decl_id` | — |
+| `order` | `UInt8` | false | `payload` | — | — |
 
 ## `template_display`
 
@@ -753,14 +843,42 @@ blueprint §6.6 template: template_display.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, kind, label`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `kind` | `enum:DisplayKind` | false | `key` | — |
-| `label` | `text` | false | `key` | — |
-| `expression` | `expr_dsl` | false | `payload` | — |
-| `display_unit_id` | `semantic_id` | true | `payload` | — |
-| `format` | `text` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `kind` | `enum:DisplayKind` | false | `key` | — | — |
+| `label` | `Utf8` | false | `key` | — | — |
+| `expression` | `expr_dsl` | false | `payload` | — | — |
+| `display_unit_id` | `semantic_id` | true | `payload` | — | — |
+| `format` | `Utf8` | true | `payload` | — | — |
+
+## `template_display_indices`
+
+Declared outer axes for an indexed display expression; scalar expressions omit this companion.
+
+Version: 1. Snapshot class: `model`. Primary key: `template_id, kind, label`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `kind` | `enum:DisplayKind` | false | `key` | — | — |
+| `label` | `Utf8` | false | `key` | — | — |
+| `indexed_by` | `List` | false | `payload` | — | — |
+| `indexed_by.item` | `Utf8` | false | `payload` | — | — |
+
+## `template_domain_bindings`
+
+Finite domain source, with only its tagged payload present (blueprint §6.15.1).
+
+Version: 1. Snapshot class: `model`. Primary key: `template_id, name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `source` | `enum:DomainBindingSource` | false | `payload` | — | — |
+| `domain_id` | `semantic_id` | true | `payload` | `authored.domains.domain_id` | — |
+| `parameter_name` | `Utf8` | true | `payload` | — | — |
 
 ## `template_domains`
 
@@ -768,15 +886,17 @@ blueprint §6.6 template: template_domains.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, name`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `name` | `text` | false | `key` | — |
-| `kind` | `enum:DomainKind` | false | `payload` | — |
-| `continuous` | `bool` | false | `payload` | — |
-| `members_from` | `text` | true | `payload` | — |
-| `bounds` | `struct{lower:f64,upper:f64}` | true | `payload` | — |
-| `unit_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `kind` | `enum:DomainKind` | false | `payload` | — | — |
+| `continuous` | `Boolean` | false | `payload` | — | — |
+| `members_from` | `Utf8` | true | `payload` | — | — |
+| `bounds` | `Struct` | true | `payload` | — | — |
+| `bounds.lower` | `Float64` | false | `payload` | — | — |
+| `bounds.upper` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `template_equations`
 
@@ -784,20 +904,21 @@ blueprint §6.6 template: template_equations.
 
 Version: 1. Snapshot class: `model`. Primary key: `equation_decl_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` |
-| `equation_decl_id` | `semantic_id` | false | `key` | — |
-| `name` | `text` | false | `payload` | — |
-| `indexed_by` | `list<text>` | false | `payload` | — |
-| `filter` | `expr_dsl` | true | `payload` | — |
-| `expression` | `expr_dsl` | false | `payload` | — |
-| `sense` | `enum:Sense` | false | `payload` | — |
-| `family_hint` | `enum:EquationFamily` | true | `payload` | — |
-| `role_hint` | `enum:EquationRole` | true | `payload` | — |
-| `guard_id` | `semantic_id` | true | `payload` | — |
-| `idaes_name` | `text` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `equation_decl_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `indexed_by` | `List` | false | `payload` | — | — |
+| `indexed_by.item` | `Utf8` | false | `payload` | — | — |
+| `filter` | `expr_dsl` | true | `payload` | — | — |
+| `expression` | `expr_dsl` | false | `payload` | — | — |
+| `sense` | `enum:Sense` | false | `payload` | — | — |
+| `family_hint` | `enum:EquationFamily` | true | `payload` | — | — |
+| `role_hint` | `enum:EquationRole` | true | `payload` | — | — |
+| `guard_id` | `semantic_id` | true | `payload` | — | — |
+| `idaes_name` | `Utf8` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `template_feature_rules`
 
@@ -805,12 +926,12 @@ blueprint §6.6 template: template_feature_rules.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, rule, antecedent, consequent`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `rule` | `enum:FeatureRuleKind` | false | `key` | — |
-| `antecedent` | `text` | false | `key` | — |
-| `consequent` | `text` | false | `key` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `rule` | `enum:FeatureRuleKind` | false | `key` | — | — |
+| `antecedent` | `Utf8` | false | `key` | — | — |
+| `consequent` | `Utf8` | false | `key` | — | — |
 
 ## `template_features`
 
@@ -818,15 +939,15 @@ blueprint §6.6 template: template_features.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, name`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `name` | `text` | false | `key` | — |
-| `kind` | `enum:FeatureKind` | false | `payload` | — |
-| `enum_id` | `semantic_id` | true | `payload` | — |
-| `default` | `text` | true | `payload` | — |
-| `inherit_from` | `text` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `kind` | `enum:FeatureKind` | false | `payload` | — | — |
+| `enum_id` | `semantic_id` | true | `payload` | — | — |
+| `default` | `Utf8` | true | `payload` | — | — |
+| `inherit_from` | `Utf8` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `template_guards`
 
@@ -834,28 +955,64 @@ blueprint §6.6 template: template_guards.
 
 Version: 1. Snapshot class: `model`. Primary key: `guard_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `guard_id` | `semantic_id` | false | `key` | — |
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` |
-| `predicate` | `expr_dsl` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `guard_id` | `semantic_id` | false | `key` | — | — |
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `predicate` | `expr_dsl` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
+
+## `template_law_contracts`
+
+Actual law index and required physical result; typed balance choice selects one declared law binding.
+
+Version: 1. Snapshot class: `model`. Primary key: `law_instance_decl_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `law_instance_decl_id` | `semantic_id` | false | `key` | `authored.template_law_instances.law_instance_decl_id` | — |
+| `indexed_by` | `List` | false | `payload` | — | — |
+| `indexed_by.item` | `Utf8` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
+| `balance_enum_id` | `semantic_id` | false | `payload` | `reference.schema_enums.enum_id` | — |
+| `default_state_child` | `Utf8` | true | `payload` | — | — |
+| `default_feature_name` | `Utf8` | true | `payload` | — | — |
+| `subject_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_axis` | `UInt16` | true | `payload` | — | — |
+| `subject_id` | `semantic_id` | true | `payload` | — | — |
+| `phase_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `template_law_instances`
 
 blueprint §6.6 template: template_law_instances.
 
-Version: 1. Snapshot class: `model`. Primary key: `law_instance_decl_id`.
+Version: 2. Snapshot class: `model`. Primary key: `law_instance_decl_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` |
-| `law_instance_decl_id` | `semantic_id` | false | `key` | — |
-| `law_template_id` | `semantic_id` | false | `payload` | — |
-| `scope` | `text` | false | `payload` | — |
-| `subject_selector` | `expr_dsl` | false | `payload` | — |
-| `options` | `list<struct{key:text,value:text}>` | false | `payload` | — |
-| `guard_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `law_instance_decl_id` | `semantic_id` | false | `key` | — | — |
+| `law_template_id` | `semantic_id` | false | `payload` | — | — |
+| `scope` | `Utf8` | false | `payload` | — | — |
+| `options` | `List` | false | `payload` | — | — |
+| `options.item` | `Struct` | false | `payload` | — | — |
+| `options.item.key` | `Utf8` | false | `payload` | — | — |
+| `options.item.value` | `Utf8` | false | `payload` | — | — |
+| `guard_id` | `semantic_id` | true | `payload` | — | — |
+
+## `template_material_constraints`
+
+Bounds on the distinct actual phase and species members of the selected material system, evaluated before realization; caller declarations of counts are not evidence.
+
+Version: 1. Snapshot class: `model`. Primary key: `template_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `min_phases` | `UInt16` | false | `payload` | — | — |
+| `max_phases` | `UInt16` | true | `payload` | — | — |
+| `min_species` | `UInt16` | false | `payload` | — | — |
+| `max_species` | `UInt16` | true | `payload` | — | — |
 
 ## `template_params`
 
@@ -863,16 +1020,29 @@ blueprint §6.6 template: template_params.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, name`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `name` | `text` | false | `key` | — |
-| `logical_type_id` | `semantic_id` | false | `payload` | — |
-| `enum_id` | `semantic_id` | true | `payload` | — |
-| `default` | `text` | true | `payload` | — |
-| `required` | `bool` | false | `payload` | — |
-| `domain_spec` | `text` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `logical_type_id` | `semantic_id` | false | `payload` | — | — |
+| `enum_id` | `semantic_id` | true | `payload` | — | — |
+| `default` | `Utf8` | true | `payload` | — | — |
+| `required` | `Boolean` | false | `payload` | — | — |
+| `domain_spec` | `Utf8` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
+
+## `template_port_members`
+
+The bound state template declares its complete port interface; variable and expression symbol declarations are equally supported.
+
+Version: 1. Snapshot class: `model`. Primary key: `template_id, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `ordinal` | `UInt16` | false | `key` | — | — |
+| `symbol_decl_id` | `semantic_id` | false | `payload` | `authored.template_symbols.symbol_decl_id` | — |
+| `symbol_group` | `Utf8` | false | `payload` | — | — |
 
 ## `template_ports`
 
@@ -880,15 +1050,15 @@ blueprint §6.6 template: template_ports.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, name`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `name` | `text` | false | `key` | — |
-| `kind` | `enum:PortKind` | false | `payload` | — |
-| `direction` | `enum:Direction` | false | `payload` | — |
-| `bound_to` | `text` | false | `payload` | — |
-| `guard_id` | `semantic_id` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `kind` | `enum:PortKind` | false | `payload` | — | — |
+| `direction` | `enum:Direction` | false | `payload` | — | — |
+| `bound_to` | `Utf8` | false | `payload` | — | — |
+| `guard_id` | `semantic_id` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `template_property_requirements`
 
@@ -896,15 +1066,18 @@ blueprint §6.6 template: template_property_requirements.
 
 Version: 1. Snapshot class: `model`. Primary key: `requirement_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `requirement_id` | `semantic_id` | false | `key` | — |
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` |
-| `operation_id` | `semantic_id` | false | `payload` | — |
-| `scope_selector_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` |
-| `property_kind_id` | `semantic_id` | false | `payload` | — |
-| `guard` | `expr_dsl` | true | `payload` | — |
-| `index_domain_bindings` | `list<struct{index_name:text,domain_id:semantic_id}>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `requirement_id` | `semantic_id` | false | `key` | — | — |
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `operation_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_selector_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
+| `guard` | `expr_dsl` | true | `payload` | — | — |
+| `index_domain_bindings` | `List` | false | `payload` | — | — |
+| `index_domain_bindings.item` | `Struct` | false | `payload` | — | — |
+| `index_domain_bindings.item.index_name` | `Utf8` | false | `payload` | — | — |
+| `index_domain_bindings.item.domain_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `template_requirements`
 
@@ -912,11 +1085,23 @@ blueprint §6.6 template: template_requirements.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, requirement`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `requirement` | `enum:CapabilityRequirement` | false | `key` | — |
-| `detail` | `text` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `requirement` | `enum:CapabilityRequirement` | false | `key` | — | — |
+| `detail` | `Utf8` | true | `payload` | — | — |
+
+## `template_scopes`
+
+Reusable scope declaration bound once per actual template instance.
+
+Version: 1. Snapshot class: `model`. Primary key: `template_id, name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` | — |
 
 ## `template_submodels`
 
@@ -924,15 +1109,42 @@ blueprint §6.6 template: template_submodels.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id, name`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` |
-| `name` | `text` | false | `key` | — |
-| `child_template_id` | `semantic_id` | true | `payload` | — |
-| `child_from_param` | `text` | true | `payload` | — |
-| `multiplicity_domain` | `text` | true | `payload` | — |
-| `bindings` | `list<struct{child_param:text,value:expr_dsl}>` | false | `payload` | — |
-| `guard_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `child_template_id` | `semantic_id` | true | `payload` | — | — |
+| `child_from_param` | `Utf8` | true | `payload` | — | — |
+| `multiplicity_domain` | `Utf8` | true | `payload` | — | — |
+| `bindings` | `List` | false | `payload` | — | — |
+| `bindings.item` | `Struct` | false | `payload` | — | — |
+| `bindings.item.child_param` | `Utf8` | false | `payload` | — | — |
+| `bindings.item.value` | `expr_dsl` | false | `payload` | — | — |
+| `guard_id` | `semantic_id` | true | `payload` | — | — |
+
+## `template_symbol_contracts`
+
+Every realized symbol declaration has exactly one explicit solver and semantic role contract, including parameter, reference and expression roles.
+
+Version: 1. Snapshot class: `model`. Primary key: `symbol_decl_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_decl_id` | `semantic_id` | false | `key` | `authored.template_symbols.symbol_decl_id` | — |
+| `solver_type` | `enum:SolverVariableType` | false | `payload` | — | — |
+| `semantic_role` | `enum:VariableSemanticRole` | false | `payload` | — | — |
+
+## `template_symbol_expressions`
+
+The sole expression-role symbol body; owner and role must match the symbol declaration.
+
+Version: 1. Snapshot class: `model`. Primary key: `symbol_decl_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_decl_id` | `semantic_id` | false | `key` | `authored.template_symbols.symbol_decl_id` | — |
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `expression` | `expr_dsl` | false | `payload` | — | — |
 
 ## `template_symbol_properties`
 
@@ -940,34 +1152,35 @@ Explicit property signature of a template symbol, shared by expression demand ex
 
 Version: 1. Snapshot class: `model`. Primary key: `symbol_decl_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `symbol_decl_id` | `semantic_id` | false | `key` | `authored.template_symbols.symbol_decl_id` |
-| `property_kind_id` | `semantic_id` | false | `payload` | `reference.property_kinds.property_kind_id` |
-| `scope_selector_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_decl_id` | `semantic_id` | false | `key` | `authored.template_symbols.symbol_decl_id` | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | `reference.property_kinds.property_kind_id` | — |
+| `scope_selector_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` | — |
 
 ## `template_symbols`
 
 blueprint §6.6 template: template_symbols.
 
-Version: 1. Snapshot class: `model`. Primary key: `symbol_decl_id`.
+Version: 2. Snapshot class: `model`. Primary key: `symbol_decl_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` |
-| `symbol_decl_id` | `semantic_id` | false | `key` | — |
-| `name` | `text` | false | `payload` | — |
-| `role` | `enum:SymbolRole` | false | `payload` | — |
-| `quantity_type_id` | `semantic_id` | false | `payload` | — |
-| `indexed_by` | `list<text>` | false | `payload` | — |
-| `default_lower` | `bound` | true | `payload` | — |
-| `default_upper` | `bound` | true | `payload` | — |
-| `default_initial` | `f64` | true | `payload` | — |
-| `reference_to` | `text` | true | `payload` | — |
-| `wrt_domain` | `text` | true | `payload` | — |
-| `guard_id` | `semantic_id` | true | `payload` | — |
-| `idaes_name` | `text` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
+| `symbol_decl_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `role` | `enum:SymbolRole` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `indexed_by` | `List` | false | `payload` | — | — |
+| `indexed_by.item` | `Utf8` | false | `payload` | — | — |
+| `default_lower` | `bound` | true | `payload` | — | — |
+| `default_upper` | `bound` | true | `payload` | — | — |
+| `default_initial` | `Float64` | true | `payload` | — | — |
+| `reference_to` | `expr_dsl` | true | `payload` | — | — |
+| `wrt_domain` | `Utf8` | true | `payload` | — | — |
+| `guard_id` | `semantic_id` | true | `payload` | — | — |
+| `idaes_name` | `Utf8` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `templates`
 
@@ -975,14 +1188,14 @@ blueprint §6.6 template: templates.
 
 Version: 1. Snapshot class: `model`. Primary key: `template_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `template_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `name` | `text` | false | `payload` | — |
-| `version` | `text` | false | `payload` | — |
-| `kind` | `enum:TemplateKind` | false | `payload` | — |
-| `default_initializer_template_id` | `semantic_id` | true | `payload` | — |
-| `default_scaler_template_id` | `semantic_id` | true | `payload` | — |
-| `idaes_class` | `text` | true | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `template_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `kind` | `enum:TemplateKind` | false | `payload` | — | — |
+| `default_initializer_template_id` | `semantic_id` | true | `payload` | — | — |
+| `default_scaler_template_id` | `semantic_id` | true | `payload` | — | — |
+| `idaes_class` | `Utf8` | true | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |

@@ -7,8 +7,7 @@ use arrow::util::display::{
     ArrayFormatter, ArrayFormatterFactory, DisplayIndex, FormatOptions, FormatResult,
 };
 use arrow_array::{
-    Array, FixedSizeBinaryArray, FixedSizeListArray, Int16Array, ListArray, StructArray,
-    UInt64Array,
+    Array, FixedSizeBinaryArray, FixedSizeListArray, Int16Array, Int64Array, ListArray, StructArray,
 };
 use arrow_schema::{ArrowError, Field};
 use pse_ids::{ContentHash, SemanticId};
@@ -178,7 +177,7 @@ fn render(array: &dyn Array, field: &Field, index: usize) -> Result<String, Arro
             Ok(format!(
                 "{}#{}",
                 target.to_hex(),
-                cast::<UInt64Array>(array)?.value(index)
+                cast::<Int64Array>(array)?.value(index)
             ))
         }
         "pse.enum" | "pse.expr_dsl" | "pse.target_path" => plain(array, index),

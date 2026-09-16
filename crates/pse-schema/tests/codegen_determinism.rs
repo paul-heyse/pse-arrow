@@ -34,11 +34,11 @@ fn source_schema_sorts_nested_objects_and_keeps_required_column_order() {
                 .columns
                 .iter()
                 .filter(|column| {
-                    !column.nullable
-                        && section.identity_column != Some(column.name)
+                    !column.nullable()
+                        && section.identity_column != Some(column.name())
                         && section.source_column(column) == SourceColumn::Authored
                 })
-                .map(|column| column.name)
+                .map(pse_schema::model::FieldContract::name)
                 .collect();
             assert_eq!(definition["required"], serde_json::json!(required), "{key}");
         }

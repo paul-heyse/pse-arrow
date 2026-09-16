@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "b27409be5572b8712e47db271fae28cd"
+name = "pse.physical"
+version = "1.0.0"
+kind = "reference"
+id_policy = "explicit"
+dependencies = [
+  { package_id = "13ede9023d9f4dd7ae5caf5e9b319b8c", version_req = "=1.0.0" },
+]
+doc = "See sources.md for located definitions and limits."

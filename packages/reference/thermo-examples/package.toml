@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "7f518f9ba5af4b8cb54bfdfd4e2c805a"
+name = "pse.thermo_examples"
+version = "1.0.0"
+kind = "library"
+id_policy = "explicit"
+dependencies = [
+  { package_id = "f72889ca948f4c01bf5334a8ab18ea94", version_req = "=1.0.0" },
+]
+doc = "See sources.md for source, domain and qualification boundaries."
+
+[[unit_sets]]
+package_id = "7f518f9ba5af4b8cb54bfdfd4e2c805a"
+unit_set_id = "e95dc4e82a284f3877f924cb656b1de2"

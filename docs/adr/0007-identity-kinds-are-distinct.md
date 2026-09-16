@@ -1,7 +1,7 @@
 ---
 id: ADR-0007
 title: Adopt D4: semantic IDs, artifact ordinals and content hashes are three different things
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D4, §5.1, §5.2]
 review: not-required: revision 2 resolved the identity finding (F1); revision 3 records no further finding against D4
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0068
 revisit: A relation needs an identity that is neither a semantic ID, an ordinal nor a content hash
 verification: `tests/governance/blake3_owner.rs`; the canonicalization property tests in `tests/conformance`
 
@@ -61,3 +61,4 @@ Blueprint §D4, §5.1 (three forms of identity), §5.2 (revisions and runs); ADR
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-15 — superseded by ADR-0068.

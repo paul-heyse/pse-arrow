@@ -12,7 +12,7 @@ issues go through [SECURITY.md](SECURITY.md), never a public issue.
 ## 1. Environment
 
 Prerequisites: `git`, a C toolchain, [`just`](https://just.systems),
-[`uv`](https://docs.astral.sh/uv/) 0.12.13, and either Docker/Podman (for the solver
+[`uv`](https://docs.astral.sh/uv/) (any current release), and either Docker/Podman (for the solver
 container) or a local Ipopt 3.14.x. Rust is installed *by the repository*: the pinned
 toolchain comes from `rust-toolchain.toml` — never `rustup default`.
 
@@ -85,9 +85,9 @@ Every claim in a PR, ADR, plan, or register row carries one of these labels, and
 
 | Change | Needs |
 |---|---|
-| Alters D1–D14; adds or removes a crate; adds, drops, or majors a dependency family; changes the hashing contract, the Python boundary contract, metadata conventions, or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** — label `needs-review`; verdict Accept or Accept-scoped before the ADR becomes `accepted` |
+| Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions, or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** — label `needs-review`; verdict Accept or Accept-scoped before the ADR becomes `accepted` |
 | A new relation family, pass, kernel contract, or backend binding *within* an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | **ADR (short)**; review at maintainer discretion |
-| Bug fixes; refactors inside existing contracts; tests; documentation wording; a patch bump inside an already-pinned family; tooling | **Neither** — an ordinary PR with the evidence field filled |
+| Bug fixes; refactors inside existing contracts; tests; documentation wording; a patch bump inside an already-pinned family; adding, removing or upgrading a third-party dependency; tooling | **Neither** — an ordinary PR with the evidence field filled |
 
 `just adr-new` scaffolds a record from `docs/adr/template.md`; `just adr-lint` checks it;
 `just adr-index` regenerates `docs/adr/README.md` and the book's decisions section. An
@@ -106,7 +106,8 @@ observable trigger and a check; `just register-check` reports which are due.
 | `just codegen-check` | committed generated sources match the generator, byte for byte | that the generator is *correct* |
 | `just family-check` | exactly one resolved version per pinned family, matching the evidence lockfiles | that the pinned versions are the best ones |
 | `just governance` | the repository's own invariants (pins, registration, MSRV, floors, unsafe allowlist, error taxonomy) | anything about the domain |
-| `just policy` | `cargo deny` + `cargo audit` + `cargo shear`: licenses, advisories, bans, unused deps | that a dependency is *appropriate* |
+| `just deps-report` | what is in the dependency graph and under what licences — **advisory, always exits 0** | nothing: it refuses nothing, and no library or licence blocks a merge (§3.3.2, ADR-0066) |
+| `just policy` | the same `cargo deny` + `cargo audit` checks run strictly. Opt-in; not part of `just ci-pr` | that a dependency is *appropriate* |
 | `just coverage` | line/branch coverage numbers | that the covered lines assert anything meaningful |
 | `just bench-smoke` | benchmarks still build and run | any performance claim — that needs `Measured` with conditions |
 | `just quality` | ruff, pyrefly, import-linter, REUSE, lockfile freshness | that the Python surface matches the native extension |
@@ -127,8 +128,12 @@ Say what you verified using the §D vocabulary, and say what you did not.
   `uv.lock` are committed and every gate passes `--locked`.
 - **Moving a pin is a deliberate act.** Rust: `cargo update -p <name> --precise <ver>`;
   Python: `uv lock --upgrade-package <name>`. Never a bare `cargo update` or `uv lock`
-  in a feature PR. A family move (arrow, datafusion, pyo3, object_store) needs an ADR,
-  a regenerated capability map, and a green `family-check`.
+  in a feature PR. A family **major** (arrow, datafusion, pyo3, object_store) needs an
+  ADR, a regenerated capability map, and a green `family-check`.
+- **Adding a dependency needs none of that.** No library is refused and no licence is
+  grounds to refuse one through phases 0–1: add it, pin it, commit the lockfile, and
+  carry on. See [dependency policy](docs/dev/dependency-policy.md) for what *is* still
+  enforced and why.
 - `cargo tree -d` cannot detect a *mixed* family — `cargo xtask family-check` is the
   check that can. Pinning the umbrella crate does not pin the family.
 - Dependabot opens grouped PRs monthly (cargo, uv) and weekly (actions). Groups exist so

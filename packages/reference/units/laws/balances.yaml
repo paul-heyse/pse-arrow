@@ -1,0 +1,418 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "templates": [
+    {
+      "template_id": "f31a63b5534d48aeb372d6a8f9afff35",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "componentTotal_law",
+      "version": "1.0.0",
+      "kind": "law",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Declared conservation/equality expansion selected by exact typed balance member."
+    },
+    {
+      "template_id": "bfa8dc24bbdf44a2a742ba920ebd6948",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "componentPhase_law",
+      "version": "1.0.0",
+      "kind": "law",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Declared conservation/equality expansion selected by exact typed balance member."
+    },
+    {
+      "template_id": "98cb8d5091804d909c3db348fa1d3f89",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "elementTotal_law",
+      "version": "1.0.0",
+      "kind": "law",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Declared conservation/equality expansion selected by exact typed balance member."
+    },
+    {
+      "template_id": "793d4dfed14f40909e98691bb9ddfff3",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "enthalpyTotal_law",
+      "version": "1.0.0",
+      "kind": "law",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Declared conservation/equality expansion selected by exact typed balance member."
+    },
+    {
+      "template_id": "8a5645c06b134443b857740a056e354c",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "isothermal_law",
+      "version": "1.0.0",
+      "kind": "law",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Declared conservation/equality expansion selected by exact typed balance member."
+    },
+    {
+      "template_id": "151190fa45a74d469623f656be2fc52a",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "pressureTotal_law",
+      "version": "1.0.0",
+      "kind": "law",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Declared conservation/equality expansion selected by exact typed balance member."
+    },
+    {
+      "template_id": "b2cafcf95be74bf492d5c04017c39ba7",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "mixerTotal_law",
+      "version": "1.0.0",
+      "kind": "law",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Mixer-only total-flow contraction of the actual species contributions."
+    }
+  ],
+  "law_bindings": [
+    {
+      "law_template_id": "f31a63b5534d48aeb372d6a8f9afff35",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "balance_member": "componentTotal",
+      "family": "material",
+      "source_family": "material",
+      "expansion": "conservation",
+      "subject_kind": "species",
+      "subject_projection": "identity"
+    },
+    {
+      "law_template_id": "bfa8dc24bbdf44a2a742ba920ebd6948",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "balance_member": "componentPhase",
+      "family": "material",
+      "source_family": "material",
+      "expansion": "conservation",
+      "subject_kind": "phase_species",
+      "subject_projection": "identity"
+    },
+    {
+      "law_template_id": "98cb8d5091804d909c3db348fa1d3f89",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "balance_member": "elementTotal",
+      "family": "element",
+      "source_family": "material",
+      "expansion": "conservation",
+      "subject_kind": "element",
+      "subject_projection": "species_to_element"
+    },
+    {
+      "law_template_id": "793d4dfed14f40909e98691bb9ddfff3",
+      "balance_enum_id": "290c5aece709971026ad20276f691ae0",
+      "balance_member": "enthalpyTotal",
+      "family": "energy",
+      "source_family": "energy",
+      "expansion": "conservation",
+      "subject_kind": "energy",
+      "subject_projection": "identity"
+    },
+    {
+      "law_template_id": "8a5645c06b134443b857740a056e354c",
+      "balance_enum_id": "290c5aece709971026ad20276f691ae0",
+      "balance_member": "isothermal",
+      "family": "energy",
+      "source_family": "energy",
+      "expansion": "isothermal",
+      "subject_kind": "energy",
+      "subject_projection": "identity"
+    },
+    {
+      "law_template_id": "151190fa45a74d469623f656be2fc52a",
+      "balance_enum_id": "5145173e37a8ed1e2587be500f9ee5e6",
+      "balance_member": "pressureTotal",
+      "family": "momentum",
+      "source_family": "momentum",
+      "expansion": "pressure_total",
+      "subject_kind": "momentum",
+      "subject_projection": "identity"
+    },
+    {
+      "law_template_id": "b2cafcf95be74bf492d5c04017c39ba7",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "balance_member": "total",
+      "family": "material",
+      "source_family": "material",
+      "expansion": "conservation",
+      "subject_kind": "total",
+      "subject_projection": "identity"
+    }
+  ],
+  "template_law_instances": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "law_instance_decl_id": "7bf49c24adf64639ad8db786665fd84a",
+      "law_template_id": "f31a63b5534d48aeb372d6a8f9afff35",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.material_balance_type"
+        }
+      ],
+      "guard_id": "aa5fd56111da43a69d34a37953050e66"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "law_instance_decl_id": "8073babb055d45bf84b24f71d3eb70ee",
+      "law_template_id": "f31a63b5534d48aeb372d6a8f9afff35",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.material_balance_type"
+        }
+      ],
+      "guard_id": "b8d7e9d5d14c4d5c848472b66fc8ed47"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "law_instance_decl_id": "6eca410d9f854fc89bb7e73ad6923866",
+      "law_template_id": "bfa8dc24bbdf44a2a742ba920ebd6948",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.material_balance_type"
+        }
+      ],
+      "guard_id": "3c0dd9f4283e45109d8b9e28bf5cf246"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "law_instance_decl_id": "a2773546bb964c8f8ae90b14f6303867",
+      "law_template_id": "bfa8dc24bbdf44a2a742ba920ebd6948",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.material_balance_type"
+        }
+      ],
+      "guard_id": "270b499b82cd4de6a0e52925a69c1084"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "law_instance_decl_id": "6ab8d602e47248b4ac4a8e1c93a7bf91",
+      "law_template_id": "98cb8d5091804d909c3db348fa1d3f89",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.material_balance_type"
+        }
+      ],
+      "guard_id": "1805a65fff5a4fa8b4407f6f15860654"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "law_instance_decl_id": "9b6a3df8534046d98c0aa69f429a0392",
+      "law_template_id": "98cb8d5091804d909c3db348fa1d3f89",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.material_balance_type"
+        }
+      ],
+      "guard_id": "bfa31be00e9c4b6691e12ad40de1ad6b"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "law_instance_decl_id": "67594f3521004705ae380a33fd853dbf",
+      "law_template_id": "793d4dfed14f40909e98691bb9ddfff3",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.energy_balance_type"
+        }
+      ],
+      "guard_id": "c1371ef6ef2145b2bd7b5ca51836fb1d"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "law_instance_decl_id": "a74230f12455469ebc397354898aeca3",
+      "law_template_id": "793d4dfed14f40909e98691bb9ddfff3",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.energy_balance_type"
+        }
+      ],
+      "guard_id": "53619d3400824eeab6d7d2daee0a848d"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "law_instance_decl_id": "972c9dd9a71d40239c7d95965dea07b7",
+      "law_template_id": "b2cafcf95be74bf492d5c04017c39ba7",
+      "scope": "self",
+      "options": [
+        {
+          "key": "balance_type",
+          "value": "self.material_balance_type"
+        }
+      ],
+      "guard_id": "ee808043b5004f5bbf9305a67f5ba8fe"
+    }
+  ],
+  "template_law_contracts": [
+    {
+      "law_instance_decl_id": "7bf49c24adf64639ad8db786665fd84a",
+      "indexed_by": [
+        "j"
+      ],
+      "quantity_type_id": "08f85f7bd5164fc79f815eaf7e78e748",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "subject_axis": 0,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "properties_out",
+      "default_feature_name": "default_material_balance_type"
+    },
+    {
+      "law_instance_decl_id": "8073babb055d45bf84b24f71d3eb70ee",
+      "indexed_by": [
+        "j"
+      ],
+      "quantity_type_id": "08f85f7bd5164fc79f815eaf7e78e748",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "subject_axis": 0,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "mixed_state",
+      "default_feature_name": "default_material_balance_type"
+    },
+    {
+      "law_instance_decl_id": "6eca410d9f854fc89bb7e73ad6923866",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "subject_axis": 1,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "properties_out",
+      "default_feature_name": "default_material_balance_type"
+    },
+    {
+      "law_instance_decl_id": "a2773546bb964c8f8ae90b14f6303867",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "subject_axis": 1,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "mixed_state",
+      "default_feature_name": "default_material_balance_type"
+    },
+    {
+      "law_instance_decl_id": "6ab8d602e47248b4ac4a8e1c93a7bf91",
+      "indexed_by": [
+        "e"
+      ],
+      "quantity_type_id": "c2a3ac7b619c45239bae6808fa7b9fa2",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "subject_axis": 0,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "properties_out",
+      "default_feature_name": "default_material_balance_type"
+    },
+    {
+      "law_instance_decl_id": "9b6a3df8534046d98c0aa69f429a0392",
+      "indexed_by": [
+        "e"
+      ],
+      "quantity_type_id": "c2a3ac7b619c45239bae6808fa7b9fa2",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "subject_axis": 0,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "mixed_state",
+      "default_feature_name": "default_material_balance_type"
+    },
+    {
+      "law_instance_decl_id": "67594f3521004705ae380a33fd853dbf",
+      "indexed_by": [],
+      "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "balance_enum_id": "290c5aece709971026ad20276f691ae0",
+      "subject_axis": null,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "properties_out",
+      "default_feature_name": "default_energy_balance_type"
+    },
+    {
+      "law_instance_decl_id": "a74230f12455469ebc397354898aeca3",
+      "indexed_by": [],
+      "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "balance_enum_id": "290c5aece709971026ad20276f691ae0",
+      "subject_axis": null,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "mixed_state",
+      "default_feature_name": "default_energy_balance_type"
+    },
+    {
+      "law_instance_decl_id": "972c9dd9a71d40239c7d95965dea07b7",
+      "indexed_by": [],
+      "quantity_type_id": "6df479e3be3bda77c5938727311f1063",
+      "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
+      "subject_axis": null,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null,
+      "default_state_child": "mixed_state",
+      "default_feature_name": "default_material_balance_type"
+    }
+  ],
+  "element_projection_contracts": [
+    {
+      "law_template_id": "98cb8d5091804d909c3db348fa1d3f89",
+      "source_basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "formula": "molar_count",
+      "source_quantity_type_id": "08f85f7bd5164fc79f815eaf7e78e748",
+      "coefficient_quantity_type_id": "00456c2484ee43699c38bfa83df01fef",
+      "coefficient_unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "multiplication_operation_id": "1f8ef0b575e14856b890172083dc6dce"
+    },
+    {
+      "law_template_id": "98cb8d5091804d909c3db348fa1d3f89",
+      "source_basis_id": "3d39297dc34f41d18a13d6cd29784f95",
+      "formula": "mass_count_over_mw",
+      "source_quantity_type_id": "0cad6ac9ef77431e88f47cd31bdcec4d",
+      "coefficient_quantity_type_id": "30c3e95f8b2a430a8df818e37ef31f80",
+      "coefficient_unit_id": "dc22c9bdabe244c6939c3225c84df577",
+      "multiplication_operation_id": "f332c4979d124dbb91be1b1f4789b386"
+    }
+  ]
+}

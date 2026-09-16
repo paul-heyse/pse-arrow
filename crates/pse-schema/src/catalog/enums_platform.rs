@@ -23,6 +23,12 @@ use crate::model::{
 
 /// Declares every platform vocabulary.
 pub fn declare(builder: &mut RegistryBuilder) {
+    super::declarations::enumeration(
+        builder,
+        "OperationEffect",
+        crate::model::provider::OperationEffect::ALL
+            .map(crate::model::provider::OperationEffect::as_str),
+    );
     super::declarations::enumeration(builder, "BoundKind", ["finite", "unbounded"]);
     declare_schema_vocabularies(builder);
     declare_rule_vocabularies(builder);
@@ -471,6 +477,7 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
                 member("kernel", "A kernel."),
                 member("template", "A template."),
                 member("instance", "A template instance."),
+                member("port", "An actual typed interface bound to a state instance or collection."),
                 member("flowsheet", "A flowsheet."),
                 member("scope", "A scope."),
                 member("connection", "A connection between ports."),
@@ -515,6 +522,10 @@ fn declare_failure_classes(builder: &mut RegistryBuilder) {
             member(
                 "compile.math",
                 "Incompatible physical contracts or a cyclic expression.",
+            ),
+            member(
+                "kernel.unbound_parameter",
+                "A selected kernel lacks its actual executable or parameter binding.",
             ),
             member(
                 "compile.discretization",

@@ -8,7 +8,7 @@ use super::Fixture;
 use pse_ids::{ContentHash, SemanticId};
 use pse_schema::{
     Registry,
-    model::{Cell, ExtensionUse, InvariantSpec, LogicalType, RelationSpec},
+    model::{Cell, ExtensionUse, FieldContract, InvariantSpec, RelationSpec},
 };
 use std::collections::BTreeMap;
 pub(super) type Row = BTreeMap<String, Cell>;
@@ -29,10 +29,10 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
     if invariant.name == "unique:pk" {
         invalid.get_mut(&invariant.relation).unwrap().push(subject);
     } else if let Some(column) = invariant.name.strip_prefix("foreign_key:") {
-        let fk = spec.column(column).unwrap().fk.unwrap();
+        let fk = spec.column(column).unwrap().fk().unwrap();
         let target = registry.relation(fk.relation).unwrap();
         let mut target_row = row(registry, target, 1);
-        let value = default_value(registry, &spec.column(column).unwrap().logical_type, 1);
+        let value = default_value(registry, &spec.column(column).unwrap().value_type(), 1);
         target_row.insert(fk.column.to_owned(), value.clone());
         valid.get_mut(&invariant.relation).unwrap()[0].insert(column.to_owned(), value);
         if fk.relation == invariant.relation {
@@ -44,7 +44,7 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
         invalid = valid.clone();
         invalid.get_mut(&invariant.relation).unwrap()[0].insert(
             column.to_owned(),
-            default_value(registry, &spec.column(column).unwrap().logical_type, 2),
+            default_value(registry, &spec.column(column).unwrap().value_type(), 2),
         );
     } else {
         semantic::populate(registry, invariant, &mut valid, &mut invalid);
@@ -89,8 +89,8 @@ pub(super) fn row(registry: &Registry, spec: &RelationSpec, identity: u8) -> Row
         .iter()
         .map(|column| {
             (
-                column.name.to_owned(),
-                default_value(registry, &column.logical_type, identity),
+                column.name().to_owned(),
+                default_value(registry, &column.value_type(), identity),
             )
         })
         .collect()
@@ -116,28 +116,10 @@ pub(super) fn put(registry: &Registry, rows: &mut Rows, relation: &str, identity
 pub(super) fn id(value: u8) -> Cell {
     Cell::Id(SemanticId::from_bytes([value; 16]))
 }
-fn default_value(registry: &Registry, ty: &LogicalType, value: u8) -> Cell {
-    match ty {
-        LogicalType::Bool => Cell::Bool(value != 0),
-        LogicalType::F64 => Cell::F64(f64::from(value)),
-        LogicalType::I64 | LogicalType::I32 | LogicalType::Timestamp => Cell::I64(i64::from(value)),
-        LogicalType::U8 | LogicalType::U16 | LogicalType::U32 | LogicalType::U64 => {
-            Cell::U64(u64::from(value))
-        }
-        LogicalType::Text => Cell::text(format!("value-{value}")),
-        LogicalType::List(_) => Cell::List(vec![]),
-        LogicalType::FixedList(child, width) => Cell::List(
-            (0..*width)
-                .map(|_| default_value(registry, child, value))
-                .collect(),
-        ),
-        LogicalType::Struct(children) => Cell::Struct(
-            children
-                .iter()
-                .map(|(_, ty, _)| default_value(registry, ty, value))
-                .collect(),
-        ),
-        LogicalType::Ext(extension) => match extension {
+fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
+    use datafusion::arrow::datatypes::DataType;
+    if let Some(extension) = ty.extension() {
+        return match extension {
             ExtensionUse::SemanticId => id(value),
             ExtensionUse::ContentHash => Cell::Hash(ContentHash::from_bytes([value; 32])),
             ExtensionUse::Enum(name) => {
@@ -153,6 +135,40 @@ fn default_value(registry: &Registry, ty: &LogicalType, value: u8) -> Cell {
             ExtensionUse::QuantityValue => Cell::Struct(vec![Cell::F64(1.0), id(value), id(value)]),
             ExtensionUse::Bound => Cell::Struct(vec![Cell::Enum("unbounded"), Cell::Null]),
             ExtensionUse::SourceSpan => Cell::Struct(vec![id(value), Cell::U64(0), Cell::U64(1)]),
-        },
+        };
+    }
+    match ty.data_type() {
+        DataType::Boolean => Cell::Bool(value != 0),
+        DataType::Float64 => Cell::F64(f64::from(value)),
+        DataType::Int64 | DataType::Int32 | DataType::Timestamp(..) => Cell::I64(i64::from(value)),
+        DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+            Cell::U64(u64::from(value))
+        }
+        DataType::Utf8 => Cell::text(format!("value-{value}")),
+        DataType::List(_) => Cell::List(vec![]),
+        DataType::FixedSizeList(child, width) => Cell::List(
+            (0..width)
+                .map(|_| {
+                    default_value(
+                        registry,
+                        &FieldContract::from_field((*child).clone()),
+                        value,
+                    )
+                })
+                .collect(),
+        ),
+        DataType::Struct(children) => Cell::Struct(
+            children
+                .iter()
+                .map(|child| {
+                    default_value(
+                        registry,
+                        &FieldContract::from_field((**child).clone()),
+                        value,
+                    )
+                })
+                .collect(),
+        ),
+        other => panic!("fixture has no default for {other}"),
     }
 }

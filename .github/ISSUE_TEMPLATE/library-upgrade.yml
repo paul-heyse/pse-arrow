@@ -15,8 +15,10 @@ body:
 
 
         Routine patch bumps inside an already-pinned family arrive as grouped Dependabot
-        pull requests and do not need this issue. Use this form for a family move, a
-        major version, a new dependency, or a drop — see
+        pull requests and do not need this issue. **Adding a new dependency does not need
+        it either** — no library and no licence is refused during phases 0-1
+        ([dependency policy](https://github.com/paul-heyse/pse-arrow/blob/main/docs/dev/dependency-policy.md)).
+        Use this form for a pinned-family major or a drop — see
         [GOVERNANCE.md §5](https://github.com/paul-heyse/pse-arrow/blob/main/GOVERNANCE.md#5-how-the-pins-move).
 
   - type: dropdown
@@ -47,7 +49,6 @@ body:
       options:
         - Patch or minor bump inside the pinned family
         - Major version — the family moves
-        - Add a new dependency
         - Drop a dependency
         - Replace one dependency with another
     validations:
@@ -92,7 +93,7 @@ body:
         Tick what applies; the pull request has to actually do these. Unticked boxes are
         fine if genuinely not applicable — say why below.
       options:
-        - label: An ADR is required (a family moves, a dependency is added or dropped, or a major version).
+        - label: An ADR is required (one of the four pinned families is majored, or a dependency is dropped).
         - label: >-
             The capability map under `docs/capability-maps/` must be regenerated
             (`just evidence-regen`) and its `pins:` front matter updated.
@@ -101,7 +102,6 @@ body:
         - label: >-
             Pre-1.0 floors must be re-checked (`dependency_floors`) — a pre-1.0
             dependency may raise its own `rust-version`.
-        - label: "`deny.toml` `skip` entries must be re-seeded from a fresh `cargo deny check bans`."
         - label: "`cargo semver-checks` must be re-run (this changes our own public API)."
         - label: Generated sources change and must be regenerated (`just codegen`) in the same pull request.
         - label: A `datafusion-proto` bump — serialized plan byte stability must be re-checked (register row).
@@ -125,7 +125,7 @@ body:
       label: How the move will be verified
       description: >-
         Beyond a green `just ci-pr`: the specific things that would catch a bad move —
-        a parity run, a benchmark comparison with conditions, a golden-store round trip,
+        a parity run, a benchmark comparison with conditions, a fresh-store round trip,
         a feature-powerset run. Label with the §D evidence vocabulary.
     validations:
       required: true

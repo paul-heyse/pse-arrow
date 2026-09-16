@@ -8,21 +8,26 @@ use pse_authoring::{
     document::binding::{BoundPath, ParsedExpression, PathMeaning, SourceExpression},
     dsl,
 };
-use pse_ids::{CancellationToken, SemanticId};
+use pse_ids::{CancellationToken, Reservation, SemanticId};
 use pse_mathir::{
     BoundIndexId, DomainRef, ExprGraph, GuardRef, NodeId, Opcode, Payload, ReductionKind,
     TemplateValueKind, ValueRef, WeightNormalization, WeightedPair,
 };
-use pse_schema::model::Cell;
+use pse_relations::generated::{
+    enums::{EquationSyntax, PredicateComparison, PredicateKind, PredicateOperandKind, Sense},
+    normalized,
+};
 use std::collections::BTreeMap;
 
 pub(super) struct Lowered {
     pub graph: ExprGraph,
     pub root: u64,
     pub syntax: &'static str,
-    pub predicates: Vec<Vec<Cell>>,
-    pub equations: Vec<Vec<Cell>>,
-    pub bindings: Vec<Vec<Cell>>,
+    pub predicates: Vec<normalized::predicate_nodes::Row>,
+    pub equations: Vec<normalized::equation_nodes::Row>,
+    pub bindings: Vec<normalized::expression_index_bindings::Row>,
+    pub instance_paths: Vec<normalized::expression_paths::Row>,
+    pub literal_units: BTreeMap<u64, Vec<SemanticId>>,
 }
 #[derive(Clone)]
 enum Local {
@@ -34,11 +39,20 @@ pub(super) fn lower(
     source: &SourceExpression,
     source_id: SemanticId,
     offset: u64,
-    context: &pse_authoring::targets::TargetContext,
+    context: &pse_authoring::document::Batches,
     cancel: &CancellationToken,
-    units: &mut super::units::Units,
+    units: &mut super::units::Units<'_>,
     package: SemanticId,
+    work: &mut dyn Reservation,
 ) -> Result<Lowered, CompilerError> {
+    work.try_grow(
+        source
+            .indexed_by
+            .len()
+            .checked_mul(4096)
+            .ok_or_else(|| super::invalid("source index allocation overflow"))?,
+    )
+    .map_err(pse_ids::CanonError::from)?;
     let mut lower = Lower {
         source,
         context,
@@ -47,12 +61,15 @@ pub(super) fn lower(
         cancel,
         units,
         package,
+        work,
         paths: source.paths.iter(),
         graph: ExprGraph::new(),
         locals: BTreeMap::new(),
         predicates: Vec::new(),
         equations: Vec::new(),
         bindings: Vec::new(),
+        instance_paths: Vec::new(),
+        literal_units: BTreeMap::new(),
     };
     for (position, name) in source.indexed_by.iter().enumerate() {
         let domain = DomainRef::Template {
@@ -81,24 +98,29 @@ pub(super) fn lower(
         predicates: lower.predicates,
         equations: lower.equations,
         bindings: lower.bindings,
+        instance_paths: lower.instance_paths,
+        literal_units: lower.literal_units,
     })
 }
-struct Lower<'a, 'b> {
+struct Lower<'a, 'b, 'c> {
     source: &'a SourceExpression,
-    context: &'a pse_authoring::targets::TargetContext,
+    context: &'a pse_authoring::document::Batches,
     source_id: SemanticId,
     offset: u64,
     cancel: &'a CancellationToken,
-    units: &'b mut super::units::Units,
+    units: &'b mut super::units::Units<'c>,
+    work: &'b mut dyn Reservation,
     package: SemanticId,
     paths: std::slice::Iter<'a, BoundPath>,
     graph: ExprGraph,
     locals: BTreeMap<String, Local>,
-    predicates: Vec<Vec<Cell>>,
-    equations: Vec<Vec<Cell>>,
-    bindings: Vec<Vec<Cell>>,
+    predicates: Vec<normalized::predicate_nodes::Row>,
+    equations: Vec<normalized::equation_nodes::Row>,
+    bindings: Vec<normalized::expression_index_bindings::Row>,
+    instance_paths: Vec<normalized::expression_paths::Row>,
+    literal_units: BTreeMap<u64, Vec<SemanticId>>,
 }
-impl Lower<'_, '_> {
+impl Lower<'_, '_, '_> {
     fn error(&self, reason: &str) -> CompilerError {
         pse_authoring::AuthoringError::Contract {
             at: Some(self.source.source_span),
@@ -113,13 +135,21 @@ impl Lower<'_, '_> {
     }
     fn expr(&mut self, expr: &dsl::Expr) -> Result<NodeId, CompilerError> {
         self.cancel.checkpoint()?;
-        if self.graph.len() >= 65_536 {
-            return Err(self.error("source expression node budget exhausted"));
-        }
+        self.work
+            .try_grow(8192)
+            .map_err(pse_ids::CanonError::from)?;
         match &expr.kind {
             dsl::ExprKind::Number(value) => {
+                self.units.source_uses.clear();
                 let payload = self.units.literal(self.package, value)?;
-                Ok(self.graph.insert(Opcode::Const, payload, &[], None)?)
+                let node = self.graph.insert(Opcode::Const, payload, &[], None)?;
+                let units = std::mem::take(&mut self.units.source_uses)
+                    .into_iter()
+                    .map(pse_quantity::UnitId::as_id)
+                    .collect::<Vec<_>>();
+                let global = self.global(node)?;
+                self.literal_units.entry(global).or_default().extend(units);
+                Ok(node)
             }
             dsl::ExprKind::Path(path) => self.path(path),
             dsl::ExprKind::Neg(value) => {
@@ -206,12 +236,45 @@ impl Lower<'_, '_> {
         Ok(binding.meaning.clone())
     }
     fn path(&mut self, path: &dsl::Path) -> Result<NodeId, CompilerError> {
+        let span = self
+            .paths
+            .as_slice()
+            .first()
+            .ok_or_else(|| self.error("path source span missing"))?
+            .span;
         let meaning = self.next_path(path)?;
         let indices = path
             .segments
             .iter()
             .flat_map(|segment| &segment.indices)
             .collect::<Vec<_>>();
+        if let PathMeaning::InstancePath(binding) = meaning {
+            let path_id = u64::try_from(self.instance_paths.len())
+                .map_err(|_| self.error("path count overflow"))?;
+            // Insert the obligation before descending so nested index paths get distinct ordinals.
+            self.instance_paths.push(normalized::expression_paths::Row {
+                source_id: self.source_id, path_id, root_instance_id: binding.root_instance_id,
+                segments: binding.segments.into_iter().map(|segment| Ok(normalized::expression_paths::NormalizedExpressionPathsFieldSegmentsItem {
+                    kind: segment.kind.as_str().parse()?, name: segment.name, index_count: segment.index_count,
+                })).collect::<Result<_, pse_relations::RelationError>>()?,
+                path_start: span.start, path_end: span.end,
+                derivation_id: pse_ids::named_id(self.source_id, &format!("pass:P3:path:{path_id}")),
+            });
+            let indices = indices
+                .into_iter()
+                .map(|index| self.expr(index))
+                .collect::<Result<Vec<_>, _>>()?;
+            return Ok(self.graph.insert(
+                Opcode::SymbolRef,
+                Payload::PendingPath {
+                    source_id: self.source_id,
+                    path_id,
+                    indices,
+                },
+                &[],
+                None,
+            )?);
+        }
         if let PathMeaning::Local(name) = &meaning {
             if !indices.is_empty() {
                 return Err(self.error("local scalar/index value cannot carry extra subscripts"));
@@ -291,22 +354,34 @@ impl Lower<'_, '_> {
         }
     }
     fn continuous(&self, domain: &DomainRef) -> Result<(), CompilerError> {
+        use pse_relations::generated::authored;
         let continuous = match domain {
             DomainRef::Template {
                 template_id,
                 domain_name,
-            } => self
-                .context
-                .template_domains
-                .iter()
-                .find(|row| row.template_id == *template_id && row.name == *domain_name)
-                .is_some_and(|row| row.continuous),
-            DomainRef::Actual(id) => self
-                .context
-                .domains
-                .iter()
-                .find(|row| row.domain_id == id.as_id())
-                .is_some_and(|row| row.continuous),
+            } => {
+                let batch = self
+                    .context
+                    .get(&authored::template_domains::RELATION_ID)
+                    .ok_or_else(|| self.error("template domain input absent"))?;
+                let view = authored::template_domains::View::from_checked(batch)?;
+                (0..view.len())
+                    .find(|row| {
+                        view.template_id_column().value(*row) == template_id.as_bytes()
+                            && view.name_column().value(*row) == domain_name
+                    })
+                    .is_some_and(|row| view.continuous_column().value(row))
+            }
+            DomainRef::Actual(id) => {
+                let batch = self
+                    .context
+                    .get(&authored::domains::RELATION_ID)
+                    .ok_or_else(|| self.error("actual domain input absent"))?;
+                let view = authored::domains::View::from_checked(batch)?;
+                (0..view.len())
+                    .find(|row| view.domain_id_column().value(*row) == id.as_id().as_bytes())
+                    .is_some_and(|row| view.continuous_column().value(row))
+            }
         };
         if !continuous {
             return Err(self
@@ -320,16 +395,17 @@ impl Lower<'_, '_> {
             self.source_id,
             &format!("pse:p3:index:v1:{ordinal}"),
         ));
-        let (actual, template, domain_name) = domain_cells(&domain);
-        self.bindings.push(vec![
-            Cell::Id(self.source_id),
-            Cell::Id(id.as_id()),
-            Cell::Text(name.to_owned()),
-            actual,
-            template,
-            domain_name,
-            position.map_or(Cell::Null, |position| Cell::U64(u64::from(position))),
-        ]);
+        let (actual, template, domain_name) = domain_fields(&domain);
+        self.bindings
+            .push(normalized::expression_index_bindings::Row {
+                source_id: self.source_id,
+                bound_index_id: id.as_id(),
+                name: name.to_owned(),
+                domain_id: actual,
+                template_id: template,
+                domain_name,
+                position,
+            });
         self.locals
             .insert(name.to_owned(), Local::Index(id, domain));
         id
@@ -394,16 +470,23 @@ impl Lower<'_, '_> {
         template: SemanticId,
         indices: &[&dsl::Expr],
     ) -> Result<NodeId, CompilerError> {
-        let symbols = self
+        use pse_relations::generated::authored;
+        let batch = self
             .context
-            .symbols
-            .iter()
-            .filter(|row| row.symbol_decl_id == symbol && row.template_id == template)
-            .collect::<Vec<_>>();
-        let [declaration] = symbols.as_slice() else {
-            return Err(self.error("indexed symbol declaration is missing or ambiguous"));
-        };
-        let axes = declaration.indexed_by.clone();
+            .get(&authored::template_symbols::RELATION_ID)
+            .ok_or_else(|| self.error("indexed symbol input absent"))?;
+        let symbols = authored::template_symbols::View::from_checked(batch)?;
+        let mut matches = (0..symbols.len()).filter(|row| {
+            symbols.symbol_decl_id_column().value(*row) == symbol.as_bytes()
+                && symbols.template_id_column().value(*row) == template.as_bytes()
+        });
+        let declaration = matches
+            .next()
+            .ok_or_else(|| self.error("indexed symbol declaration is missing"))?;
+        if matches.next().is_some() {
+            return Err(self.error("indexed symbol declaration is ambiguous"));
+        }
+        let axes = symbols.row(declaration)?.indexed_by;
         if axes.len() != indices.len() {
             return Err(self.error("indexed read arity differs from declared axes"));
         }
@@ -485,11 +568,11 @@ impl Lower<'_, '_> {
                 let binding = self
                     .bindings
                     .iter()
-                    .find(|row| row[1] == Cell::Id(index.as_id()))
+                    .find(|row| row.bound_index_id == index.as_id())
                     .ok_or_else(|| self.error("index value lacks an actual lexical binding"))?;
-                if binding[3] != Cell::Null
-                    || binding[4] != Cell::Id(template)
-                    || binding[5] != Cell::text(axis)
+                if binding.domain_id.is_some()
+                    || binding.template_id != Some(template)
+                    || binding.domain_name.as_deref() != Some(axis)
                 {
                     return Err(self.error("index expression uses a different declared axis"));
                 }
@@ -506,6 +589,9 @@ impl Lower<'_, '_> {
         named: &[dsl::NamedArg],
     ) -> Result<NodeId, CompilerError> {
         use dsl::Function as F;
+        if function == F::Broadcast {
+            return self.broadcast(args);
+        }
         if function == F::Convert {
             let child = self.expr(&args[0])?;
             self.unit_bindings(&args[1])?;
@@ -590,6 +676,34 @@ impl Lower<'_, '_> {
         };
         Ok(self.graph.insert(opcode, payload, &children, None)?)
     }
+    fn broadcast(&mut self, args: &[dsl::Expr]) -> Result<NodeId, CompilerError> {
+        let [
+            value,
+            dsl::Expr {
+                kind: dsl::ExprKind::Path(path),
+                ..
+            },
+        ] = args
+        else {
+            return Err(self.error("broadcast requires a value and a lexical index"));
+        };
+        let child = self.expr(value)?;
+        let PathMeaning::Local(name) = self.next_path(path)? else {
+            return Err(self.error("broadcast index must name an actual lexical binding"));
+        };
+        let Some(Local::Index(bound_index, domain)) = self.locals.get(&name).cloned() else {
+            return Err(self.error("broadcast index cannot be a scalar lexical value"));
+        };
+        Ok(self.graph.insert(
+            Opcode::Broadcast,
+            Payload::Broadcast {
+                domain,
+                bound_index,
+            },
+            &[child],
+            None,
+        )?)
+    }
     fn unit_bindings(&mut self, expr: &dsl::Expr) -> Result<(), CompilerError> {
         match &expr.kind {
             dsl::ExprKind::Path(path) => {
@@ -609,73 +723,90 @@ impl Lower<'_, '_> {
     }
     fn predicate(&mut self, predicate: &dsl::Predicate) -> Result<u64, CompilerError> {
         self.cancel.checkpoint()?;
-        let mut row = vec![Cell::Null; 18];
-        row[0] = Cell::Id(self.source_id);
+        self.work
+            .try_grow(4096)
+            .map_err(pse_ids::CanonError::from)?;
+        let mut row = predicate_row(self.source_id, PredicateKind::Null);
         match &predicate.kind {
             dsl::PredicateKind::Bool(value) => {
-                row[2] = Cell::Enum("boolean");
-                row[3] = Cell::Bool(*value);
+                row.kind = PredicateKind::Boolean;
+                row.boolean_value = Some(*value);
             }
-            dsl::PredicateKind::Null => row[2] = Cell::Enum("null"),
+            dsl::PredicateKind::Null => {}
             dsl::PredicateKind::Atom(value) => {
-                row[2] = Cell::Enum("atom");
+                row.kind = PredicateKind::Atom;
                 let node = self.expr(value)?;
-                row[5] = Cell::U64(self.global(node)?);
-                row[12] = Cell::Enum("expression");
+                row.left_expr = Some(self.global(node)?);
+                row.left_kind = Some(PredicateOperandKind::Expression);
             }
             dsl::PredicateKind::Compare { op, lhs, rhs } => {
-                row[2] = Cell::Enum("compare");
-                row[4] = Cell::Enum(match op {
-                    dsl::CompareOp::Eq => "eq",
-                    dsl::CompareOp::NotEq => "not_eq",
-                    dsl::CompareOp::Lt => "lt",
-                    dsl::CompareOp::Le => "le",
-                    dsl::CompareOp::Gt => "gt",
-                    dsl::CompareOp::Ge => "ge",
+                row.kind = PredicateKind::Compare;
+                row.comparison = Some(match op {
+                    dsl::CompareOp::Eq => PredicateComparison::Eq,
+                    dsl::CompareOp::NotEq => PredicateComparison::NotEq,
+                    dsl::CompareOp::Lt => PredicateComparison::Lt,
+                    dsl::CompareOp::Le => PredicateComparison::Le,
+                    dsl::CompareOp::Gt => PredicateComparison::Gt,
+                    dsl::CompareOp::Ge => PredicateComparison::Ge,
                 });
                 self.predicate_operand(lhs, &mut row, true)?;
                 self.predicate_operand(rhs, &mut row, false)?;
+                if (row.left_kind == Some(PredicateOperandKind::EnumLiteral)
+                    || row.right_kind == Some(PredicateOperandKind::EnumLiteral))
+                    && !matches!(op, dsl::CompareOp::Eq | dsl::CompareOp::NotEq)
+                {
+                    return Err(self.error("enum ordering is not declared"));
+                }
             }
             dsl::PredicateKind::In { expr, domain } => {
-                row[2] = Cell::Enum("in");
+                row.kind = PredicateKind::In;
                 let node = self.expr(expr)?;
-                row[5] = Cell::U64(self.global(node)?);
-                row[12] = Cell::Enum("expression");
-                let (actual, template, name) = domain_cells(&self.domain(domain)?);
-                row[9] = actual;
-                row[10] = template;
-                row[11] = name;
+                row.left_expr = Some(self.global(node)?);
+                row.left_kind = Some(PredicateOperandKind::Expression);
+                (row.domain_id, row.domain_template_id, row.domain_name) =
+                    domain_fields(&self.domain(domain)?);
             }
             dsl::PredicateKind::And(left, right) | dsl::PredicateKind::Or(left, right) => {
-                row[2] = Cell::Enum(if matches!(predicate.kind, dsl::PredicateKind::And(..)) {
-                    "and"
+                row.kind = if matches!(predicate.kind, dsl::PredicateKind::And(..)) {
+                    PredicateKind::And
                 } else {
-                    "or"
-                });
-                row[7] = Cell::U64(self.predicate(left)?);
-                row[8] = Cell::U64(self.predicate(right)?);
+                    PredicateKind::Or
+                };
+                row.left_predicate = Some(self.predicate(left)?);
+                row.right_predicate = Some(self.predicate(right)?);
             }
             dsl::PredicateKind::Not(value) => {
-                row[2] = Cell::Enum("not");
-                row[7] = Cell::U64(self.predicate(value)?);
+                row.kind = PredicateKind::Not;
+                row.left_predicate = Some(self.predicate(value)?);
             }
         }
-        let id = u64::try_from(self.predicates.len())
+        // Assign parents after children: syntax ordinals establish acyclicity at construction.
+        row.predicate_id = u64::try_from(self.predicates.len())
             .map_err(|_| self.error("predicate ordinal overflow"))?;
-        row[1] = Cell::U64(id);
+        let id = row.predicate_id;
         self.predicates.push(row);
         Ok(id)
     }
     fn predicate_operand(
         &mut self,
         expr: &dsl::Expr,
-        row: &mut [Cell],
+        row: &mut normalized::predicate_nodes::Row,
         left: bool,
     ) -> Result<(), CompilerError> {
         let (value, kind, identity, member) = if left {
-            (5, 12, 13, 14)
+            (
+                &mut row.left_expr,
+                &mut row.left_kind,
+                &mut row.left_enum_id,
+                &mut row.left_enum_member,
+            )
         } else {
-            (6, 15, 16, 17)
+            (
+                &mut row.right_expr,
+                &mut row.right_kind,
+                &mut row.right_enum_id,
+                &mut row.right_enum_member,
+            )
         };
         if let dsl::ExprKind::Path(path) = &expr.kind
             && let Some(binding) = self.paths.as_slice().first()
@@ -688,70 +819,94 @@ impl Lower<'_, '_> {
             else {
                 return Err(self.error("enum literal binding changed"));
             };
-            row[kind] = Cell::Enum("enum_literal");
-            row[identity] = Cell::Id(enum_id);
-            row[member] = Cell::Text(spelling);
+            // Exact enum/member membership is owned by the actual source binder.
+            *kind = Some(PredicateOperandKind::EnumLiteral);
+            *identity = Some(enum_id);
+            *member = Some(spelling);
         } else {
             let node = self.expr(expr)?;
-            row[kind] = Cell::Enum("expression");
-            row[value] = Cell::U64(self.global(node)?);
+            *kind = Some(PredicateOperandKind::Expression);
+            *value = Some(self.global(node)?);
         }
         Ok(())
     }
     fn equation(&mut self, equation: &dsl::Equation) -> Result<u64, CompilerError> {
         self.cancel.checkpoint()?;
-        let mut row = vec![
-            Cell::Id(self.source_id),
-            Cell::Null,
-            Cell::Null,
-            Cell::Null,
-            Cell::Null,
-            Cell::Null,
-            Cell::Null,
-            Cell::Null,
-            Cell::Null,
-        ];
+        self.work
+            .try_grow(4096)
+            .map_err(pse_ids::CanonError::from)?;
+        let mut row = normalized::equation_nodes::Row {
+            source_id: self.source_id,
+            equation_id: 0,
+            kind: EquationSyntax::Relation,
+            sense: None,
+            left_expr: None,
+            right_expr: None,
+            guard_predicate: None,
+            then_equation: None,
+            else_equation: None,
+        };
         match &equation.kind {
             dsl::EquationKind::Relation { lhs, sense, rhs } => {
-                row[2] = Cell::Enum("relation");
-                row[3] = Cell::Enum(match sense {
-                    dsl::EquationSense::Eq => "eq",
-                    dsl::EquationSense::Le => "le",
-                    dsl::EquationSense::Ge => "ge",
+                row.sense = Some(match sense {
+                    dsl::EquationSense::Eq => Sense::Eq,
+                    dsl::EquationSense::Le => Sense::Le,
+                    dsl::EquationSense::Ge => Sense::Ge,
                 });
                 let left = self.expr(lhs)?;
                 let right = self.expr(rhs)?;
-                row[4] = Cell::U64(self.global(left)?);
-                row[5] = Cell::U64(self.global(right)?);
+                row.left_expr = Some(self.global(left)?);
+                row.right_expr = Some(self.global(right)?);
             }
             dsl::EquationKind::Conditional {
                 guard,
                 then,
                 otherwise,
             } => {
-                row[2] = Cell::Enum("conditional");
-                row[6] = Cell::U64(self.predicate(guard)?);
-                row[7] = Cell::U64(self.equation(then)?);
-                row[8] = Cell::U64(self.equation(otherwise)?);
+                row.kind = EquationSyntax::Conditional;
+                row.guard_predicate = Some(self.predicate(guard)?);
+                row.then_equation = Some(self.equation(then)?);
+                row.else_equation = Some(self.equation(otherwise)?);
             }
         }
-        let id = u64::try_from(self.equations.len())
+        row.equation_id = u64::try_from(self.equations.len())
             .map_err(|_| self.error("equation ordinal overflow"))?;
-        row[1] = Cell::U64(id);
+        let id = row.equation_id;
         self.equations.push(row);
         Ok(id)
     }
 }
-fn domain_cells(domain: &DomainRef) -> (Cell, Cell, Cell) {
+fn domain_fields(domain: &DomainRef) -> (Option<SemanticId>, Option<SemanticId>, Option<String>) {
     match domain {
-        DomainRef::Actual(id) => (Cell::Id(id.as_id()), Cell::Null, Cell::Null),
+        DomainRef::Actual(id) => (Some(id.as_id()), None, None),
         DomainRef::Template {
             template_id,
             domain_name,
-        } => (
-            Cell::Null,
-            Cell::Id(*template_id),
-            Cell::Text(domain_name.clone()),
-        ),
+        } => (None, Some(*template_id), Some(domain_name.clone())),
+    }
+}
+pub(super) fn predicate_row(
+    source_id: SemanticId,
+    kind: PredicateKind,
+) -> normalized::predicate_nodes::Row {
+    normalized::predicate_nodes::Row {
+        source_id,
+        predicate_id: 0,
+        kind,
+        boolean_value: None,
+        comparison: None,
+        left_expr: None,
+        right_expr: None,
+        left_predicate: None,
+        right_predicate: None,
+        domain_id: None,
+        domain_template_id: None,
+        domain_name: None,
+        left_kind: None,
+        left_enum_id: None,
+        left_enum_member: None,
+        right_kind: None,
+        right_enum_id: None,
+        right_enum_member: None,
     }
 }

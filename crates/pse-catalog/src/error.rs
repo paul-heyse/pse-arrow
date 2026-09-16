@@ -28,6 +28,10 @@ use pse_ids::{ContentHash, LogicalHash};
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[non_exhaustive]
 pub enum CatalogError {
+    /// A declared Arrow field or local value contract failed admission.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Relation(std::sync::Arc<pse_relations::RelationError>),
     /// A typed semantic diagnostic from the rule layer, without a dependency cycle.
     /// Shared ownership preserves its code, labels and related findings through engine
     /// `Shared` wrappers instead of stringifying a non-cloneable source.
@@ -100,6 +104,18 @@ pub enum CatalogError {
     RefConflict {
         /// The ref that moved.
         name: String,
+    },
+
+    /// Execution or delivery failed after a conditional write may have taken effect.
+    /// Exact outcomes must be reconciled before retrying the logical operation.
+    #[error("publication outcome must be reconciled: {source}")]
+    #[diagnostic(code(runtime::infrastructure))]
+    Publication {
+        /// Every actual write in this operation, independent of native result delivery.
+        outcomes: Vec<crate::store::publication::PublicationOutcome>,
+        /// Original failure, retaining its diagnostic class and detail.
+        #[source]
+        source: Box<CatalogError>,
     },
 
     /// A manifest is structurally or semantically inconsistent (blueprint §20.2).
@@ -237,6 +253,12 @@ pub enum CatalogError {
         /// What was expected to hold.
         message: String,
     },
+}
+
+impl From<pse_relations::RelationError> for CatalogError {
+    fn from(error: pse_relations::RelationError) -> Self {
+        Self::Relation(std::sync::Arc::new(error))
+    }
 }
 
 #[cfg(test)]

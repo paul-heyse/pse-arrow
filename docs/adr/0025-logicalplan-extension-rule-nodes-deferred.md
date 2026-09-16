@@ -1,7 +1,7 @@
 ---
 id: ADR-0025
 title: Defer LogicalPlan::Extension rule nodes; derivations already answer the attribution question
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§14.2]
 review: not-required: recorded in the second review's observations as an adopt-candidate, not as a finding
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0067
 revisit: The §22.4 diff report or agent tooling needs per-rule attribution inside a plan rendering
 verification: Register row R-02; the §22.4 diff-report acceptance test when it is written
 
@@ -61,3 +61,4 @@ Blueprint §14.2 rule 8; the second review's observations; `docs/adr/register.md
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-14 — superseded by ADR-0067.

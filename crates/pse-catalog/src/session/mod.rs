@@ -20,18 +20,45 @@
 
 pub mod admission;
 mod candidate;
+pub mod capture;
+mod commands;
+mod computed;
 pub mod config;
+pub mod execution;
 mod factory;
+mod facts;
 mod functions;
+mod indexed;
+mod inspection;
+mod materialized;
+pub mod mutation;
+mod native;
 mod observation;
+pub mod operation;
+pub mod output;
+mod physical_fields;
+pub mod planner;
+pub mod policy;
+mod preparation;
+pub(crate) mod query_schema;
+pub mod resolution;
+mod resources;
+mod roles;
+mod schema_transform;
+mod trace;
+pub use preparation::{CompletedComputation, OwnedComputationStream, PreparedComputation};
 pub mod plan_codec;
 pub use observation::PlanObservation;
+pub mod aggregate;
 pub mod profile;
 pub mod registry;
+pub mod scalar;
 mod snapshot_session;
+pub(crate) use snapshot_session::engine;
 
 pub use factory::SessionFactory;
-pub use profile::{EngineProfile, RuleCatalog, phase0_reference_profile};
+pub use facts::RelationFacts;
+pub use profile::{EngineProfile, EngineRules, native_engine_profile};
 pub use snapshot_session::{
     SessionSemantics, SnapshotSession, build_candidate_session,
     build_candidate_session_with_cancel, build_session,
@@ -41,13 +68,10 @@ use std::num::NonZeroUsize;
 
 use crate::error::CatalogError;
 
-/// The DataFusion setting that bounds query parallelism.
-const KEY_TARGET_PARTITIONS: &str = "datafusion.execution.target_partitions";
-
 /// The default `RecordBatch` size DataFusion uses.
 const DEFAULT_BATCH_SIZE: usize = 8_192;
 
-/// The only spill compression the platform selects: none.
+/// The default spill compression; callers may select another supported codec.
 const DEFAULT_SPILL_COMPRESSION: &str = "uncompressed";
 
 /// The default cap on one spill file: 1 GiB.
@@ -59,42 +83,14 @@ const DEFAULT_SORT_SPILL_RESERVATION_BYTES: usize = 10 << 20;
 /// The one timezone the registry writes (blueprint §4.4, `Timestamp(ns, "UTC")`).
 const DEFAULT_TIME_ZONE: &str = "UTC";
 
-/// How many threads the process may use, and how many partitions a query may use
-/// (blueprint §18.8).
-///
-/// One configuration owns the whole budget: the DataFusion `tokio` runtime and
-/// `target_partitions`, the `rayon` pool for kernels and passes, artifact hashing, the
-/// diagnostics linear algebra and the solver's threads. Two of those asking for the same
-/// cores is not a slowdown that shows up in a profile — it is a configuration error, and
-/// [`Self::validate`] is where it is caught.
+/// Shared worker capacity and native query partition count. Partitions are work
+/// units scheduled on workers, not additional operating-system threads.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ThreadBudget {
     /// Threads in the shared pool.
     pub pool_threads: NonZeroUsize,
     /// Partitions a query may be split into.
     pub target_partitions: NonZeroUsize,
-}
-
-impl ThreadBudget {
-    /// Checks the budget against itself.
-    ///
-    /// # Errors
-    ///
-    /// [`CatalogError::ConfigInvalid`] naming `datafusion.execution.target_partitions`
-    /// when more partitions are asked for than the pool has threads. §18.8 calls this
-    /// oversubscription and requires it to be a configuration error.
-    pub fn validate(&self) -> Result<(), CatalogError> {
-        if self.target_partitions > self.pool_threads {
-            return Err(CatalogError::ConfigInvalid {
-                key: KEY_TARGET_PARTITIONS.to_owned(),
-                reason: format!(
-                    "{} partitions oversubscribe a pool of {} threads (blueprint §18.8)",
-                    self.target_partitions, self.pool_threads
-                ),
-            });
-        }
-        Ok(())
-    }
 }
 
 /// The execution settings a snapshot session is built with (blueprint §5.4, §14.3).
@@ -114,6 +110,15 @@ pub struct ExecutionSettings {
     pub sort_spill_reservation_bytes: usize,
     /// The session timezone.
     pub time_zone: String,
+}
+
+impl ExecutionSettings {
+    /// Validate selected settings using the pinned engine's typed configuration.
+    /// # Errors
+    /// An invalid selected value or zero batch size.
+    pub fn validate(&self) -> Result<(), CatalogError> {
+        config::validate(self)
+    }
 }
 
 impl Default for ExecutionSettings {
@@ -147,22 +152,22 @@ mod tests {
                 pool_threads: threads(pool),
                 target_partitions: threads(partitions),
             };
-            assert!(budget.validate().is_ok(), "{pool} threads, {partitions}");
+            assert!(config::build(ExecutionSettings::default(), budget).is_ok());
         }
     }
 
     #[test]
-    fn more_partitions_than_threads_is_a_configuration_error() {
-        let budget = ThreadBudget {
-            pool_threads: threads(4),
-            target_partitions: threads(8),
-        };
-        let refused = budget.validate();
-        assert!(matches!(
-            refused,
-            Err(CatalogError::ConfigInvalid { ref key, .. })
-                if key == "datafusion.execution.target_partitions"
-        ));
+    fn partitions_are_scheduled_work_units() {
+        assert!(
+            config::build(
+                ExecutionSettings::default(),
+                ThreadBudget {
+                    pool_threads: threads(2),
+                    target_partitions: threads(8)
+                }
+            )
+            .is_ok()
+        );
     }
 
     #[test]

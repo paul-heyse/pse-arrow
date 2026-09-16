@@ -24,8 +24,8 @@ workspace = true
 default = []
 # The probe is a FEATURE, not unconditional build-script behaviour: `cargo check
 # --workspace` builds every member's build script, and Ipopt >= 3.14 is not on every host
-# (this development machine ships 3.11.9). With `link` off the build script emits only
-# rerun-if-env-changed and the crate compiles to an empty shell. `pse-backend-native`'s
+# (some hosts ship 3.11.9). With `link` off the generated declarations still compile,
+# while the build script emits only rerun-if-env-changed directives. `pse-backend-native`'s
 # `ipopt` feature turns it on, which is the only path that actually links.
 link = []
 

@@ -1,7 +1,7 @@
 ---
 id: ADR-0050
 title: Freeze the identity framing constants, canonical frames and the phase-1 relation envelope
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§4.3, §5.1, §5.3, §14.3]
 review: not-required: the constants make ADR-0045's and ADR-0007's accepted contracts implementable without changing them; the revision-5 review already carries the Accept verdict for the contracts themselves
 evidence: Tested
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0067
 revisit: any constant listed here has to change — that is a new version string and a superseding record, never an edit
 verification: `crates/pse-ids/tests/golden_vectors.rs` (frozen hexadecimal vectors for every derive context, `derive_hash`, `snapshot_id` and `encoding_checksum`); the canonical metamorphic fixtures under `tests/conformance/tests/`
 
@@ -103,3 +103,4 @@ Blueprint §5.1 (identity forms and derived-id formulas), §5.3 (canonical seria
 ## Status history
 
 - 2026-09-13 — accepted. Evidence is `Proposed`: the constants are written, the implementation and its golden vectors land with packet K-1.
+- 2026-09-14 — superseded by ADR-0067.

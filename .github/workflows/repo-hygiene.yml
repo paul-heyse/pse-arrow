@@ -25,16 +25,6 @@ defaults:
   run:
     shell: bash
 
-env:
-  TAPLO_VERSION: 0.10.0
-  ZIZMOR_VERSION: 1.30.1
-  SHELLCHECK_VERSION: 0.11.0
-  ACTIONLINT_VERSION: 1.7.12
-  # sha256 of actionlint_1.7.12_linux_amd64.tar.gz, from the release's checksums.txt.
-  # actionlint is not available as a prebuilt install-action tool, so it is fetched
-  # directly and verified rather than trusted.
-  ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
-
 jobs:
   typos:
     name: typos
@@ -57,7 +47,7 @@ jobs:
           persist-credentials: false
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
-          tool: taplo@${{ env.TAPLO_VERSION }}
+          tool: taplo
       - name: TOML formatting
         run: taplo fmt --check --diff
       - name: TOML validity
@@ -74,15 +64,15 @@ jobs:
         with:
           # actionlint shells out to shellcheck for every `run:` block; without it the
           # most valuable half of the check silently does nothing.
-          tool: shellcheck@${{ env.SHELLCHECK_VERSION }}
+          tool: shellcheck
       - name: fetch actionlint
+        # The upstream download script resolves the current release; scripts/bootstrap.sh
+        # installs actionlint locally the same way.
         run: |
           set -euo pipefail
-          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           curl --proto '=https' --tlsv1.2 -sSfL --retry 5 --retry-connrefused \
-            -o "${RUNNER_TEMP}/actionlint.tar.gz" "${url}"
-          echo "${ACTIONLINT_SHA256}  ${RUNNER_TEMP}/actionlint.tar.gz" | sha256sum --check --strict -
-          tar -xzf "${RUNNER_TEMP}/actionlint.tar.gz" -C "${RUNNER_TEMP}" actionlint
+            https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash \
+            | bash -s -- latest "${RUNNER_TEMP}"
           "${RUNNER_TEMP}/actionlint" --version
       - name: lint the workflows
         run: |
@@ -103,7 +93,7 @@ jobs:
           persist-credentials: false
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
-          tool: zizmor@${{ env.ZIZMOR_VERSION }}
+          tool: zizmor
       - name: audit the workflows
         env:
           GH_TOKEN: ${{ github.token }}
@@ -118,7 +108,7 @@ jobs:
           persist-credentials: false
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
-          tool: shellcheck@${{ env.SHELLCHECK_VERSION }}
+          tool: shellcheck
       - name: lint every shell script
         run: |
           set -euo pipefail

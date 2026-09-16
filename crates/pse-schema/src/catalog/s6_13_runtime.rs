@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Declared 6.13 execution and evidence contracts.
-use super::declarations::{column, relation, structure};
+use super::declarations::{column, relation, relation_version, structure};
 use crate::RegistryBuilder;
-use crate::model::{ColumnSpec, LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract, FieldContract as T, Namespace as N, SnapshotClass as S};
 /// Declare the structural contracts; no later pass is implemented by these declarations.
 pub fn declare(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
@@ -16,19 +16,12 @@ pub fn declare(builder: &mut RegistryBuilder) {
     );
     declare_provenance(builder);
     super::terminal_attempts::declare(builder);
-    super::declarations::enumeration(
-        builder,
-        "FindingSeverity",
-        crate::model::Severity::ALL
-            .iter()
-            .map(|value| value.as_str()),
-    );
+    declare_diagnostics(builder);
     declare_runs(builder);
     declare_solutions(builder);
     declare_duals(builder);
     declare_residuals(builder);
     declare_iterations(builder);
-    declare_diagnostics_findings(builder);
     declare_kernel_evaluations(builder);
     declare_kernel_evaluation_outcomes(builder);
     declare_host_capabilities(builder);
@@ -65,6 +58,18 @@ pub fn declare(builder: &mut RegistryBuilder) {
     );
     super::declarations::enumeration(builder, "AssertionStatus", ["pass", "fail", "obsolete"]);
 }
+
+/// Minimal shared diagnostic foundation for an otherwise explicit custom registry.
+pub(super) fn declare_diagnostics(builder: &mut RegistryBuilder) {
+    super::declarations::enumeration(
+        builder,
+        "FindingSeverity",
+        crate::model::Severity::ALL
+            .iter()
+            .map(|value| value.as_str()),
+    );
+    declare_diagnostics_findings(builder);
+}
 fn declare_runs(builder: &mut RegistryBuilder) {
     relation(
         builder,
@@ -82,26 +87,35 @@ fn declare_runs(builder: &mut RegistryBuilder) {
             column("plan_id", T::id()).optional(),
             column("stage_id", T::id()).optional(),
             column("parent_run_id", T::id()).optional(),
-            column("attempt", T::U16),
+            column("attempt", T::native(arrow_schema::DataType::UInt16)),
             column(
                 "resolved_options",
-                T::list(structure(vec![("key", T::Text), ("value", T::Text)])),
+                T::list(structure(vec![
+                    ("key", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             ),
-            column("started_at", T::Timestamp),
-            column("finished_at", T::Timestamp),
+            column(
+                "started_at",
+                T::native(crate::model::extension::timestamp_storage()),
+            ),
+            column(
+                "finished_at",
+                T::native(crate::model::extension::timestamp_storage()),
+            ),
             column("status", T::enumeration("TerminationStatus")),
             column(
                 "environment",
                 structure(vec![
-                    ("platform_version", T::Text),
-                    ("compiler_version", T::Text),
-                    ("solver_version", T::Text),
+                    ("platform_version", T::native(arrow_schema::DataType::Utf8)),
+                    ("compiler_version", T::native(arrow_schema::DataType::Utf8)),
+                    ("solver_version", T::native(arrow_schema::DataType::Utf8)),
                     ("kernel_digests", T::list(T::hash())),
-                    ("host", T::Text),
+                    ("host", T::native(arrow_schema::DataType::Utf8)),
                 ]),
             ),
-            column("wall_seconds", T::F64),
-            column("iterations", T::U32).optional(),
+            column("wall_seconds", T::native(arrow_schema::DataType::Float64)),
+            column("iterations", T::native(arrow_schema::DataType::UInt32)).optional(),
         ],
         "blueprint §6.13 execution and evidence: runs.",
     );
@@ -117,7 +131,7 @@ fn declare_solutions(builder: &mut RegistryBuilder) {
         vec![
             column("run_id", T::id()),
             column("symbol_id", T::id()),
-            column("value", T::F64),
+            column("value", T::native(arrow_schema::DataType::Float64)),
             column("unit_id", T::id()),
             column("bound_status", T::enumeration("BoundStatus")),
         ],
@@ -135,9 +149,17 @@ fn declare_duals(builder: &mut RegistryBuilder) {
         vec![
             column("run_id", T::id()),
             column("equation_id", T::id()),
-            column("dual", T::F64),
-            column("bound_multiplier_lower", T::F64).optional(),
-            column("bound_multiplier_upper", T::F64).optional(),
+            column("dual", T::native(arrow_schema::DataType::Float64)),
+            column(
+                "bound_multiplier_lower",
+                T::native(arrow_schema::DataType::Float64),
+            )
+            .optional(),
+            column(
+                "bound_multiplier_upper",
+                T::native(arrow_schema::DataType::Float64),
+            )
+            .optional(),
         ],
         "blueprint §6.13 execution and evidence: duals.",
     );
@@ -153,9 +175,16 @@ fn declare_residuals(builder: &mut RegistryBuilder) {
         vec![
             column("run_id", T::id()),
             column("equation_id", T::id()),
-            column("residual", T::F64),
-            column("scaled_residual", T::F64),
-            column("relative_residual", T::F64).optional(),
+            column("residual", T::native(arrow_schema::DataType::Float64)),
+            column(
+                "scaled_residual",
+                T::native(arrow_schema::DataType::Float64),
+            ),
+            column(
+                "relative_residual",
+                T::native(arrow_schema::DataType::Float64),
+            )
+            .optional(),
         ],
         "blueprint §6.13 execution and evidence: residuals.",
     );
@@ -170,14 +199,14 @@ fn declare_iterations(builder: &mut RegistryBuilder) {
         &["run_id", "iteration"],
         vec![
             column("run_id", T::id()),
-            column("iteration", T::U32),
-            column("objective", T::F64),
-            column("inf_pr", T::F64),
-            column("inf_du", T::F64),
-            column("mu", T::F64),
-            column("step_size", T::F64),
-            column("regularization", T::F64),
-            column("restoration", T::Bool),
+            column("iteration", T::native(arrow_schema::DataType::UInt32)),
+            column("objective", T::native(arrow_schema::DataType::Float64)),
+            column("inf_pr", T::native(arrow_schema::DataType::Float64)),
+            column("inf_du", T::native(arrow_schema::DataType::Float64)),
+            column("mu", T::native(arrow_schema::DataType::Float64)),
+            column("step_size", T::native(arrow_schema::DataType::Float64)),
+            column("regularization", T::native(arrow_schema::DataType::Float64)),
+            column("restoration", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §6.13 execution and evidence: iterations.",
     );
@@ -185,7 +214,7 @@ fn declare_iterations(builder: &mut RegistryBuilder) {
 
 /// The sole diagnostic-field declaration. Only an execution finding without a check
 /// origin may omit `check_id` inside an attributed terminal pass record.
-pub fn diagnostic_columns(execution_finding: bool) -> Vec<ColumnSpec> {
+pub fn diagnostic_columns(execution_finding: bool) -> Vec<FieldContract> {
     let mut fields = vec![
         column("finding_id", T::id()),
         column("subject_snapshot", T::hash()).optional(),
@@ -193,21 +222,19 @@ pub fn diagnostic_columns(execution_finding: bool) -> Vec<ColumnSpec> {
         column("check_id", T::id()),
         column("severity", T::enumeration("FindingSeverity")),
         column("subjects", T::list(T::id())),
-        column("values", T::Text),
-        column("message", T::Text),
-        column("next_steps", T::list(T::Text)),
+        column("values", T::native(arrow_schema::DataType::Utf8)),
+        column("message", T::native(arrow_schema::DataType::Utf8)),
+        column(
+            "next_steps",
+            T::list(T::native(arrow_schema::DataType::Utf8)),
+        ),
     ];
-    fields[3].nullable = execution_finding;
+    fields[3] = fields[3].clone().with_nullable(execution_finding);
     fields
 }
 
 fn diagnostic_type() -> T {
-    T::Struct(
-        diagnostic_columns(true)
-            .into_iter()
-            .map(|column| (column.name, column.logical_type, column.nullable))
-            .collect(),
-    )
+    T::structure(diagnostic_columns(true))
 }
 
 fn declare_diagnostics_findings(builder: &mut RegistryBuilder) {
@@ -248,10 +275,10 @@ fn declare_kernel_evaluation_outcomes(builder: &mut RegistryBuilder) {
         &["evaluation_id", "row_ordinal", "output_ordinal"],
         vec![
             column("evaluation_id", T::id()),
-            column("row_ordinal", T::U64),
-            column("output_ordinal", T::U16),
+            column("row_ordinal", T::native(arrow_schema::DataType::UInt64)),
+            column("output_ordinal", T::native(arrow_schema::DataType::UInt16)),
             column("outcome", T::enumeration("KernelOutcome")),
-            column("value", T::F64).optional(),
+            column("value", T::native(arrow_schema::DataType::Float64)).optional(),
             column("quantity_type_id", T::id()),
             column("unit_id", T::id()),
             column("reason_code", T::enumeration("KernelFailure")).optional(),
@@ -268,27 +295,48 @@ fn declare_host_capabilities(builder: &mut RegistryBuilder) {
         S::Derived,
         &["host"],
         vec![
-            column("host", T::Text),
-            column("probed_at", T::Timestamp),
-            column("ipopt_version", T::Text),
-            column("linear_solvers", T::list(T::Text)),
-            column("hsl_available", T::Bool),
-            column("petsc_version", T::Text).optional(),
+            column("host", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "probed_at",
+                T::native(crate::model::extension::timestamp_storage()),
+            ),
+            column("ipopt_version", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "linear_solvers",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
+            column("hsl_available", T::native(arrow_schema::DataType::Boolean)),
+            column("petsc_version", T::native(arrow_schema::DataType::Utf8)).optional(),
             column(
                 "python_env",
-                T::Struct(vec![
-                    ("interpreter", T::Text, false),
-                    ("pyomo", T::Text, false),
-                    ("pint", T::Text, false),
-                    ("pyarrow", T::Text, false),
-                    ("numpy", T::Text, false),
-                    ("scipy", T::Text, false),
-                    ("idaes", T::Text, true),
-                    (
-                        "pyomo_contrib",
-                        T::list(structure(vec![("name", T::Text), ("version", T::Text)])),
-                        false,
-                    ),
+                T::structure(vec![
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("interpreter")
+                        .with_nullable(false),
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("pyomo")
+                        .with_nullable(false),
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("pint")
+                        .with_nullable(false),
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("pyarrow")
+                        .with_nullable(false),
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("numpy")
+                        .with_nullable(false),
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("scipy")
+                        .with_nullable(false),
+                    T::native(arrow_schema::DataType::Utf8)
+                        .with_name("idaes")
+                        .with_nullable(true),
+                    T::list(structure(vec![
+                        ("name", T::native(arrow_schema::DataType::Utf8)),
+                        ("version", T::native(arrow_schema::DataType::Utf8)),
+                    ]))
+                    .with_name("pyomo_contrib")
+                    .with_nullable(false),
                 ]),
             )
             .optional(),
@@ -307,14 +355,14 @@ fn declare_provenance(builder: &mut RegistryBuilder) {
         vec![
             column("derivation_id", T::id()),
             column("relation_id", T::id()),
-            column("row_key", T::Text),
+            column("row_key", T::native(arrow_schema::DataType::Utf8)),
             column("rule_id", T::id()).optional(),
             column("pass_id", T::id()).optional(),
             column(
                 "supporting",
                 T::list(structure(vec![
                     ("relation_id", T::id()),
-                    ("row_key", T::Text),
+                    ("row_key", T::native(arrow_schema::DataType::Utf8)),
                 ])),
             ),
             column("snapshot_id", T::hash()).optional(),
@@ -329,10 +377,13 @@ fn declare_provenance(builder: &mut RegistryBuilder) {
         S::Sidecar,
         &["name"],
         vec![
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("snapshot_id", T::hash()),
             column("manifest_checksum", T::hash()),
-            column("updated_at", T::Timestamp),
+            column(
+                "updated_at",
+                T::native(crate::model::extension::timestamp_storage()),
+            ),
         ],
         "blueprint §6.13 mutable refs.",
     );
@@ -348,25 +399,34 @@ fn declare_provenance(builder: &mut RegistryBuilder) {
         )
         .pk(&["assertion_id"])
         .columns(vec![
-            ColumnSpec::key("assertion_id", T::id(), "The authored assertion identity."),
+            FieldContract::key("assertion_id", T::id(), "The authored assertion identity."),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
-            column("expected", T::Text),
+            column("expected", T::native(arrow_schema::DataType::Utf8)),
             column("status", T::enumeration("AssertionStatus")),
-            column("reason", T::Text),
+            column("reason", T::native(arrow_schema::DataType::Utf8)),
         ]),
     );
 }
 fn declare_pass_records(builder: &mut RegistryBuilder) {
-    relation(
+    let derivations = builder
+        .declared_relations()
+        .iter()
+        .find(|relation| relation.key.qualified_name() == "provenance.derivations")
+        .map_or_else(
+            || T::structure(Vec::new()),
+            |relation| T::structure(relation.columns.clone()),
+        );
+    relation_version(
         builder,
         N::Provenance,
         "pass_records",
+        2,
         S::Sidecar,
         &["pass_run_id"],
         vec![
             column("pass_run_id", T::id()),
             column("pass_id", T::id()),
-            column("version", T::Text),
+            column("version", T::native(arrow_schema::DataType::Utf8)),
             column("snapshot_in", T::hash()).optional(),
             column("snapshot_out", T::hash()).optional(),
             column("engine_profile_hash", T::hash()).optional(),
@@ -374,24 +434,28 @@ fn declare_pass_records(builder: &mut RegistryBuilder) {
                 "plan_evidence",
                 T::list(structure(vec![
                     ("encoding_checksum", T::hash()),
-                    ("encoding", T::Text),
-                    ("codec_version", T::Text),
+                    ("encoding", T::native(arrow_schema::DataType::Utf8)),
+                    ("codec_version", T::native(arrow_schema::DataType::Utf8)),
                 ])),
             ),
-            column("plan_explain", T::list(T::Text)),
+            column(
+                "plan_explain",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
             column(
                 "rules_fired",
                 T::list(structure(vec![
-                    ("plan_ordinal", T::U16),
-                    ("rule_name", T::Text),
-                    ("ordinal", T::U16),
+                    ("plan_ordinal", T::native(arrow_schema::DataType::UInt16)),
+                    ("rule_name", T::native(arrow_schema::DataType::Utf8)),
+                    ("ordinal", T::native(arrow_schema::DataType::UInt16)),
                 ])),
             ),
-            column("duration_ms", T::F64),
-            column("finding_count", T::U64),
+            column("duration_ms", T::native(arrow_schema::DataType::Float64)),
+            column("finding_count", T::native(arrow_schema::DataType::UInt64)),
             column("status", T::enumeration("PassStatus")),
             column("findings", T::list(diagnostic_type())),
             column("failure_class", T::enumeration("FailureClass")).optional(),
+            column("derivations", T::list(derivations)),
         ],
         "blueprint §6.13 noncanonical execution evidence.",
     );

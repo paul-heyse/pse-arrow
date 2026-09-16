@@ -5,8 +5,8 @@
 
 use crate::builder::RegistryBuilder;
 use crate::model::{
-    Authority, ColumnSpec, DerivationGranularity, ExtensionUse, LogicalType, Namespace,
-    RelationDecl, SnapshotClass,
+    Authority, DerivationGranularity, ExtensionUse, FieldContract, Namespace, RelationDecl,
+    SnapshotClass,
 };
 
 /// Declares normalized copies and the five parsed expression families.
@@ -24,10 +24,42 @@ pub fn declare(builder: &mut RegistryBuilder) {
         spec.authority = Authority::Derived;
         spec.snapshot_class = SnapshotClass::Derived;
         spec.derivation_granularity = Some(DerivationGranularity::Row);
+        // Configuration introduces actual child instances and finite domains.
+        // Normalized references bind that complete inventory; authored references
+        // retain their original source-only targets.
+        for column in &mut spec.columns {
+            if let Some(fk) = &mut column.fk() {
+                fk.relation = match fk.relation {
+                    "authored.domains" => "normalized.domains",
+                    "authored.instances" => "normalized.instance_bindings",
+                    other => other,
+                };
+            }
+        }
         builder.declare_relation(spec);
     }
     for prefix in ["template", "instance", "display", "contribution", "guard"] {
         declare_expression_family(builder, prefix);
+    }
+    declare_instantiated(builder);
+}
+
+/// P7–P9 keep deferred physical requests, but cannot keep unresolved template bindings.
+fn declare_instantiated(builder: &mut RegistryBuilder) {
+    let sources: Vec<_> = builder
+        .declared_relations()
+        .iter()
+        .filter(|spec| {
+            spec.key.namespace == Namespace::Compiled
+                && (spec.key.name.starts_with("math_") || spec.key.name == "kernel_bindings")
+        })
+        .cloned()
+        .collect();
+    for mut spec in sources {
+        project_conversion_request(&mut spec);
+        project_smoothing_request(&mut spec);
+        spec.key.namespace = Namespace::Inferred;
+        builder.declare_relation(spec);
     }
 }
 
@@ -56,17 +88,17 @@ fn declare_expression_family(builder: &mut RegistryBuilder, prefix: &str) {
             if spec
                 .columns
                 .first()
-                .is_some_and(|column| column.name == "node_id")
-                && spec.columns.iter().any(|column| column.name == "opcode")
+                .is_some_and(|column| column.name() == "node_id")
+                && spec.columns.iter().any(|column| column.name() == "opcode")
             {
-                spec.columns.push(ColumnSpec::provenance(
+                spec.columns.push(FieldContract::provenance(
                     "derivation_id",
-                    LogicalType::id(),
+                    FieldContract::id(),
                     "The source-expression derivation.",
                 ));
-                spec.columns.push(ColumnSpec::provenance(
+                spec.columns.push(FieldContract::provenance(
                     "source_span",
-                    LogicalType::Ext(ExtensionUse::SourceSpan),
+                    FieldContract::extended(ExtensionUse::SourceSpan),
                     "Exact authored expression byte span.",
                 ));
             }
@@ -98,32 +130,51 @@ fn project_value_reference(spec: &mut RelationDecl) {
         return;
     }
     for column in &mut spec.columns {
-        if column.name == "symbol_id" {
-            column.nullable = true;
+        if column.name() == "symbol_id" {
+            *column = column.clone().with_nullable(true);
         }
     }
     spec.columns.extend([
-        ColumnSpec::payload(
+        FieldContract::payload(
             "kind",
-            LogicalType::enumeration("NormalizedReferenceKind"),
+            FieldContract::enumeration("NormalizedReferenceKind"),
             "Exact reference alternative.",
         ),
-        ColumnSpec::reference(
+        FieldContract::reference(
             "template_id",
-            LogicalType::id(),
+            FieldContract::id(),
             "Composite template owner.",
         )
         .optional(),
-        ColumnSpec::label(
+        FieldContract::label(
             "name",
-            LogicalType::Text,
+            FieldContract::native(arrow_schema::DataType::Utf8),
             "Composite declaration or domain name.",
         )
         .optional(),
-        ColumnSpec::reference("domain_id", LogicalType::id(), "Actual domain value.").optional(),
-        ColumnSpec::reference(
+        FieldContract::reference(
+            "path_source_id",
+            FieldContract::id(),
+            "Exact source path owner.",
+        )
+        .optional(),
+        FieldContract::reference(
+            "path_id",
+            FieldContract::native(arrow_schema::DataType::UInt64),
+            "Source-local path ordinal.",
+        )
+        .optional(),
+        FieldContract::reference(
+            "path_index_nodes",
+            FieldContract::list(FieldContract::native(arrow_schema::DataType::UInt64)),
+            "Ordered index expressions partitioned by declared path segments.",
+        )
+        .optional(),
+        FieldContract::reference("domain_id", FieldContract::id(), "Actual domain value.")
+            .optional(),
+        FieldContract::reference(
             "bound_index_id",
-            LogicalType::id(),
+            FieldContract::id(),
             "Explicit lexical index binding.",
         )
         .optional(),
@@ -134,13 +185,13 @@ fn project_conversion_request(spec: &mut RelationDecl) {
         return;
     }
     for column in &mut spec.columns {
-        if matches!(column.name, "from_unit_id" | "scale" | "offset") {
-            column.nullable = true;
+        if matches!(column.name(), "from_unit_id" | "scale" | "offset") {
+            *column = column.clone().with_nullable(true);
         }
     }
-    spec.columns.push(ColumnSpec::payload(
+    spec.columns.push(FieldContract::payload(
         "conversion_state",
-        LogicalType::enumeration("UnitConversionState"),
+        FieldContract::enumeration("UnitConversionState"),
         "Exclusive resolved coefficients or pending target-only request.",
     ));
 }
@@ -150,14 +201,14 @@ fn project_smoothing_request(spec: &mut RelationDecl) {
         return;
     }
     spec.columns.extend([
-        ColumnSpec::payload(
+        FieldContract::payload(
             "epsilon_state",
-            LogicalType::enumeration("SmoothingEpsilonState"),
+            FieldContract::enumeration("SmoothingEpsilonState"),
             "Exclusive canonical-coordinate or pending declared-unit tolerance.",
         ),
-        ColumnSpec::reference(
+        FieldContract::reference(
             "eps_unit_id",
-            LogicalType::id(),
+            FieldContract::id(),
             "Actual unit of a pending tolerance.",
         )
         .optional(),
@@ -169,19 +220,19 @@ fn project_gather_request(spec: &mut RelationDecl) {
         return;
     }
     for column in &mut spec.columns {
-        if column.name == "coordinate_map" {
-            column.nullable = true;
+        if column.name() == "coordinate_map" {
+            *column = column.clone().with_nullable(true);
         }
     }
     spec.columns.extend([
-        ColumnSpec::payload(
+        FieldContract::payload(
             "gather_state",
-            LogicalType::enumeration("GatherState"),
+            FieldContract::enumeration("GatherState"),
             "Exclusive resolved lexical map or pending ordered index expressions.",
         ),
-        ColumnSpec::reference(
+        FieldContract::reference(
             "index_nodes",
-            LogicalType::list(LogicalType::U64),
+            FieldContract::list(FieldContract::native(arrow_schema::DataType::UInt64)),
             "Ordered graph references awaiting actual template/member resolution.",
         )
         .optional(),
@@ -197,14 +248,19 @@ fn project_guard_reference(spec: &mut RelationDecl) {
         _ => return,
     };
     for column in &mut spec.columns {
-        if column.name == actual {
-            column.nullable = true;
+        if column.name() == actual {
+            *column = column.clone().with_nullable(true);
         }
     }
     spec.columns.extend([
-        ColumnSpec::reference(source, LogicalType::id(), "Normalized predicate source.").optional(),
-        ColumnSpec::reference(predicate, LogicalType::U64, "Normalized predicate ordinal.")
+        FieldContract::reference(source, FieldContract::id(), "Normalized predicate source.")
             .optional(),
+        FieldContract::reference(
+            predicate,
+            FieldContract::native(arrow_schema::DataType::UInt64),
+            "Normalized predicate ordinal.",
+        )
+        .optional(),
     ]);
 }
 
@@ -216,21 +272,21 @@ fn project_domain_reference(spec: &mut RelationDecl) {
         _ => return,
     };
     for column in &mut spec.columns {
-        if column.name == actual {
-            column.nullable = true;
+        if column.name() == actual {
+            *column = column.clone().with_nullable(true);
         }
     }
     spec.columns.extend([
-        ColumnSpec::reference(
+        FieldContract::reference(
             "template_id",
-            LogicalType::id(),
+            FieldContract::id(),
             "Owner of an unresolved template domain.",
         )
         .optional()
         .with_fk("authored.templates", "template_id"),
-        ColumnSpec::label(
+        FieldContract::label(
             "domain_name",
-            LogicalType::Text,
+            FieldContract::native(arrow_schema::DataType::Utf8),
             "Exact unresolved local template domain name.",
         )
         .optional(),

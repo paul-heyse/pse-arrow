@@ -52,3 +52,7 @@ iz = "iz"
 Datas = "Datas"
 compilability = "compilability"
 Serializeable = "Serializeable"
+
+[default.extend-identifiers]
+# Exact crate/feature name retained from Cargo metadata, not prose.
+flate2 = "flate2"

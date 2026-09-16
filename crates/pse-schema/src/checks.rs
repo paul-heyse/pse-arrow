@@ -11,12 +11,13 @@
 //!
 //! Every declared rule and pass participates, including custom registry fixtures.
 
+use arrow_schema::DataType as D;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::builder::Registry;
 use crate::error::SchemaError;
 use crate::model::{
-    Cell, DependencyMode, ExtensionUse, LogicalType, NegationPolicy, PortSource, RelationDecl,
+    Cell, DependencyMode, ExtensionUse, FieldContract, NegationPolicy, PortSource, RelationDecl,
     RuleHead,
 };
 
@@ -24,49 +25,69 @@ use crate::model::{
 /// become a migration default or a context-resolved expression value.
 pub(crate) fn cell_value(
     value: &Cell,
-    ty: &LogicalType,
+    ty: &FieldContract,
     nullable: bool,
     registry: &Registry,
 ) -> bool {
     if matches!(value, Cell::Null) {
         return nullable;
     }
-    match (value, ty) {
-        (Cell::Bool(_), LogicalType::Bool)
-        | (Cell::F64(_), LogicalType::F64)
-        | (Cell::I64(_), LogicalType::I64 | LogicalType::Timestamp)
-        | (Cell::U64(_), LogicalType::U64 | LogicalType::Ext(ExtensionUse::OrdinalRef { .. }))
-        | (
-            Cell::Text(_),
-            LogicalType::Text | LogicalType::Ext(ExtensionUse::ExprDsl | ExtensionUse::TargetPath),
-        )
-        | (Cell::Id(_), LogicalType::Ext(ExtensionUse::SemanticId))
-        | (Cell::Hash(_), LogicalType::Ext(ExtensionUse::ContentHash)) => true,
-        (Cell::I64(value), LogicalType::I32) => i32::try_from(*value).is_ok(),
-        (Cell::U64(value), LogicalType::U8) => u8::try_from(*value).is_ok(),
-        (Cell::U64(value), LogicalType::U16) => u16::try_from(*value).is_ok(),
-        (Cell::U64(value), LogicalType::U32) => u32::try_from(*value).is_ok(),
-        (Cell::Enum(value), LogicalType::Ext(ExtensionUse::Enum(name))) => registry
+    match crate::model::IntegerRange::from_field(ty.field()) {
+        Err(_) => return false,
+        Ok(Some(range)) if !matches!(value, Cell::I64(value) if range.contains(*value)) => {
+            return false;
+        }
+        _ => {}
+    }
+    match (value, ty.extension(), ty.data_type()) {
+        (Cell::Enum(value), Some(ExtensionUse::Enum(name)), _) => registry
             .enum_spec(name)
             .is_some_and(|spec| spec.members.iter().any(|member| member.name == *value)),
-        (Cell::List(values), LogicalType::List(element)) => values
-            .iter()
-            .all(|value| cell_value(value, element, false, registry)),
-        (Cell::List(values), LogicalType::FixedList(element, width)) => {
-            usize::try_from(*width).ok() == Some(values.len())
-                && values
-                    .iter()
-                    .all(|value| cell_value(value, element, false, registry))
-        }
-        (Cell::Struct(values), LogicalType::Struct(fields)) => {
-            values.len() == fields.len()
-                && values
-                    .iter()
-                    .zip(fields)
-                    .all(|(value, (_, ty, nullable))| cell_value(value, ty, *nullable, registry))
-        }
-        (Cell::List(values), LogicalType::Ext(ExtensionUse::IndexTuple)) => {
+        (Cell::List(values), Some(ExtensionUse::IndexTuple), _) => {
             values.iter().all(|value| matches!(value, Cell::Id(_)))
+        }
+        (Cell::Id(_), Some(ExtensionUse::SemanticId), _)
+        | (Cell::Hash(_), Some(ExtensionUse::ContentHash), _)
+        | (Cell::Bool(_), None, D::Boolean)
+        | (Cell::F64(_), None, D::Float64)
+        | (Cell::I64(_), None, D::Int64 | D::Timestamp(..))
+        | (Cell::U64(_), None, D::UInt64)
+        | (Cell::I64(_), Some(ExtensionUse::OrdinalRef { .. }), _)
+        | (Cell::Text(_), None, D::Utf8)
+        | (Cell::Text(_), Some(ExtensionUse::ExprDsl | ExtensionUse::TargetPath), _) => true,
+        (Cell::I64(value), None, D::Int32) => i32::try_from(*value).is_ok(),
+        (Cell::U64(value), None, D::UInt8) => u8::try_from(*value).is_ok(),
+        (Cell::U64(value), None, D::UInt16) => u16::try_from(*value).is_ok(),
+        (Cell::U64(value), None, D::UInt32) => u32::try_from(*value).is_ok(),
+        (Cell::List(values), None, D::List(field)) => values.iter().all(|value| {
+            cell_value(
+                value,
+                &FieldContract::from_field((*field).clone()),
+                field.is_nullable(),
+                registry,
+            )
+        }),
+        (Cell::List(values), None, D::FixedSizeList(field, width)) => {
+            usize::try_from(width).ok() == Some(values.len())
+                && values.iter().all(|value| {
+                    cell_value(
+                        value,
+                        &FieldContract::from_field((*field).clone()),
+                        field.is_nullable(),
+                        registry,
+                    )
+                })
+        }
+        (Cell::Struct(values), None, D::Struct(fields)) => {
+            values.len() == fields.len()
+                && values.iter().zip(fields.iter()).all(|(value, field)| {
+                    cell_value(
+                        value,
+                        &FieldContract::from_field((**field).clone()),
+                        field.is_nullable(),
+                        registry,
+                    )
+                })
         }
         _ => false,
     }
@@ -89,13 +110,16 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
     }
     let mut columns = BTreeSet::new();
     for column in &decl.columns {
-        if !columns.insert(column.name) {
+        if !columns.insert(column.name()) {
             return Err(SchemaError::DuplicateDeclaration {
                 kind: "column",
-                name: format!("{context}.{}", column.name),
+                name: format!("{context}.{}", column.name()),
             });
         }
-        logical_type(&column.logical_type, &format!("{context}.{}", column.name))?;
+        logical_type(
+            &column.value_type(),
+            &format!("{context}.{}", column.name()),
+        )?;
     }
     let mut keys = BTreeSet::new();
     for key in &decl.primary_key {
@@ -108,12 +132,12 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
         let column = decl
             .columns
             .iter()
-            .find(|column| column.name == *key)
+            .find(|column| column.name() == *key)
             .ok_or_else(|| SchemaError::UnknownReference {
                 context: format!("primary key of {context}"),
                 reference: (*key).to_owned(),
             })?;
-        if column.nullable || !key_type(&column.logical_type) {
+        if column.nullable() || !key_type(&column.value_type()) {
             return Err(invalid(
                 format!("primary key {context}.{key}"),
                 "key columns must be nonnullable identities, enums, ordinals, booleans, timestamps or text",
@@ -125,31 +149,32 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
 
 /// Key equality must be defined by an admitted scalar contract; floating-point and
 /// quantity/composite payloads cannot silently acquire identity semantics.
-pub(crate) fn key_type(ty: &LogicalType) -> bool {
+pub(crate) fn key_type(ty: &FieldContract) -> bool {
     ty.admits_exact_key()
 }
 
-fn logical_type(ty: &LogicalType, context: &str) -> Result<(), SchemaError> {
-    match ty {
-        LogicalType::FixedList(_, width) if *width <= 0 => {
-            return Err(invalid(context, "fixed-list width must be positive"));
+fn logical_type(ty: &FieldContract, context: &str) -> Result<(), SchemaError> {
+    if matches!(ty.data_type(), arrow_schema::DataType::FixedSizeList(_, width) if width < 0) {
+        return Err(invalid(context, "fixed-list width cannot be negative"));
+    }
+    if let Some(use_) = ty.extension() {
+        if ty.data_type() != use_.spec().storage() {
+            return Err(invalid(
+                context,
+                "domain extension storage differs from its declaration",
+            ));
         }
-        LogicalType::List(element) | LogicalType::FixedList(element, _) => {
-            logical_type(element, context)?;
+        return Ok(());
+    }
+    let mut names = BTreeSet::new();
+    for child in ty.children() {
+        if !names.insert(child.name().to_owned()) {
+            return Err(SchemaError::DuplicateDeclaration {
+                kind: "struct field",
+                name: format!("{context}.{}", child.name()),
+            });
         }
-        LogicalType::Struct(children) => {
-            let mut names = BTreeSet::new();
-            for (name, child, _) in children {
-                if !names.insert(name) {
-                    return Err(SchemaError::DuplicateDeclaration {
-                        kind: "struct field",
-                        name: format!("{context}.{name}"),
-                    });
-                }
-                logical_type(child, &format!("{context}.{name}"))?;
-            }
-        }
-        _ => {}
+        logical_type(&child, &format!("{context}.{}", child.name()))?;
     }
     Ok(())
 }
@@ -165,6 +190,37 @@ pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
         manifest_fields(manifest.fields(), "manifest")?;
     }
     for rule in registry.rules() {
+        if let Some(assertion) = &rule.assertion_relation {
+            let head = registry
+                .relation(rule.head.relation())
+                .ok_or_else(|| invalid(rule.qualified_name(), "undeclared head"))?;
+            let assertion = registry
+                .relation(assertion)
+                .ok_or_else(|| invalid(rule.qualified_name(), "undeclared assertion relation"))?;
+            if !matches!(rule.head, RuleHead::Relation(_))
+                || assertion.primary_key != ["assertion_id"]
+                || assertion.columns != crate::model::rule::assertion_columns(&head.columns)
+                || assertion.authority != crate::model::Authority::Derived
+            {
+                return Err(invalid(
+                    rule.qualified_name(),
+                    "assertion relation is not the exact declared head projection",
+                ));
+            }
+        }
+        for writer in registry.rules().iter().filter(|writer| {
+            writer.head.relation() == rule.head.relation()
+                && matches!(writer.head, RuleHead::Relation(_))
+        }) {
+            if matches!(rule.head, RuleHead::Relation(_))
+                && writer.conflict_policy != rule.conflict_policy
+            {
+                return Err(invalid(
+                    rule.qualified_name(),
+                    "one head cannot mix conflict policies",
+                ));
+            }
+        }
         let dependencies = rule.plan.dependencies();
         if dependencies
             .iter()
@@ -177,14 +233,26 @@ pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
             ));
         }
         for (relation, _, mode) in dependencies {
-            for writer in registry.rules().iter().filter(
-                |writer| matches!(&writer.head, RuleHead::Relation(target) if target == relation),
-            ) {
+            for writer in registry.rules().iter().filter(|writer| {
+                matches!(&rule.head, RuleHead::Relation(_))
+                    && matches!(&writer.head, RuleHead::Relation(target) if target == relation)
+            }) {
                 if mode == DependencyMode::Negate && writer.stratum >= rule.stratum {
                     return Err(SchemaError::RuleStratification {
                         rule: rule.qualified_name(),
                         relation: relation.to_owned(),
                     });
+                }
+                if writer.stratum == rule.stratum
+                    && mode == DependencyMode::Read
+                    && (writer.conflict_policy == crate::model::ConflictPolicy::Undecided
+                        || !rule.monotonic
+                        || !crate::model::rule_validation::monotone_over(&rule.plan, relation))
+                {
+                    return Err(invalid(
+                        rule.qualified_name(),
+                        "same-stratum consumer requires a monotone plan and a reject-conflict head",
+                    ));
                 }
                 if mode == DependencyMode::Read && writer.stratum > rule.stratum {
                     return Err(invalid(
@@ -198,6 +266,10 @@ pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
             }
         }
     }
+    stage_graph(registry)
+}
+
+fn stage_graph(registry: &Registry) -> Result<(), SchemaError> {
     let mut completed = BTreeSet::new();
     let mut pending: BTreeMap<_, _> = registry
         .passes()
@@ -241,6 +313,17 @@ fn manifest_fields(
                 kind: "manifest field",
                 name: format!("{context}.{}", field.name),
             });
+        }
+        if let Some(binding) = field.rust
+            && !binding.accepts(&field.ty)
+        {
+            return Err(invalid(
+                format!("{context}.{}", field.name),
+                format!(
+                    "Rust binding {binding:?} is incompatible with declared wire type {}",
+                    field.ty
+                ),
+            ));
         }
         manifest_type(&field.ty, &format!("{context}.{}", field.name))?;
     }
@@ -286,13 +369,13 @@ pub(crate) fn migration(
     for step in &spec.steps {
         match step {
             MigrationStep::AddColumn { name, default } => {
-                if columns.iter().any(|column| column.name == *name) {
+                if columns.iter().any(|column| column.name() == *name) {
                     return Err(invalid(&context, format!("column {name} already exists")));
                 }
                 let column = target.column(name).ok_or_else(|| {
                     invalid(&context, format!("new column {name} is absent from target"))
                 })?;
-                if !cell_value(default, &column.logical_type, column.nullable, registry) {
+                if !cell_value(default, &column.value_type(), column.nullable(), registry) {
                     return Err(invalid(
                         &context,
                         format!("default for {name} violates its target type/nullability"),
@@ -303,12 +386,12 @@ pub(crate) fn migration(
             MigrationStep::DropColumn(name) => {
                 let index = columns
                     .iter()
-                    .position(|column| column.name == *name)
+                    .position(|column| column.name() == *name)
                     .ok_or_else(|| invalid(&context, format!("column {name} does not exist")))?;
                 columns.remove(index);
             }
             MigrationStep::RenameColumn { from, to } => {
-                if columns.iter().any(|column| column.name == *to) {
+                if columns.iter().any(|column| column.name() == *to) {
                     return Err(invalid(
                         &context,
                         format!("rename target {to} already exists"),
@@ -316,26 +399,26 @@ pub(crate) fn migration(
                 }
                 let column = columns
                     .iter_mut()
-                    .find(|column| column.name == *from)
+                    .find(|column| column.name() == *from)
                     .ok_or_else(|| {
                         invalid(&context, format!("rename source {from} does not exist"))
                     })?;
-                column.name = to;
+                *column = column.clone().with_name(*to);
             }
             MigrationStep::ChangeNullable { name, nullable } => {
                 let column = columns
                     .iter_mut()
-                    .find(|column| column.name == *name)
+                    .find(|column| column.name() == *name)
                     .ok_or_else(|| invalid(&context, format!("column {name} does not exist")))?;
-                column.nullable = *nullable;
+                *column = column.clone().with_nullable(*nullable);
             }
         }
     }
     if columns.len() != target.columns.len()
         || columns.iter().zip(&target.columns).any(|(actual, target)| {
-            actual.name != target.name
-                || actual.logical_type != target.logical_type
-                || actual.nullable != target.nullable
+            actual.name() != target.name()
+                || actual.value_type() != target.value_type()
+                || actual.nullable() != target.nullable()
         })
     {
         return Err(invalid(
@@ -380,7 +463,7 @@ pub(crate) fn documents(
                 let owner = registry
                     .relation(section.relation)
                     .and_then(|relation| relation.column(scope))
-                    .and_then(|column| column.fk)
+                    .and_then(FieldContract::fk)
                     .ok_or_else(|| {
                         invalid_document(
                             section.relation,
@@ -418,9 +501,9 @@ fn document_section(
     document_grammars(section, relation)?;
     if let Some(identity) = section.identity_column
         && (relation.primary_key != [identity]
-            || !relation
-                .column(identity)
-                .is_some_and(|column| column.logical_type == LogicalType::id() && !column.nullable))
+            || !relation.column(identity).is_some_and(|column| {
+                column.value_type() == FieldContract::id() && !column.nullable()
+            }))
     {
         return Err(invalid_document(
             section.relation,
@@ -447,9 +530,10 @@ fn document_section(
         ));
     }
     if let Some(name) = section.name_column
-        && !relation
-            .column(name)
-            .is_some_and(|column| column.logical_type == LogicalType::Text && !column.nullable)
+        && !relation.column(name).is_some_and(|column| {
+            column.value_type() == FieldContract::native(arrow_schema::DataType::Utf8)
+                && !column.nullable()
+        })
     {
         return Err(invalid_document(
             section.relation,
@@ -457,9 +541,9 @@ fn document_section(
         ));
     }
     if let Some(scope) = section.naming_scope_column
-        && !relation
-            .column(scope)
-            .is_some_and(|column| column.logical_type == LogicalType::id() && column.fk.is_some())
+        && !relation.column(scope).is_some_and(|column| {
+            column.value_type() == FieldContract::id() && column.fk().is_some()
+        })
     {
         return Err(invalid_document(
             section.relation,
@@ -468,12 +552,14 @@ fn document_section(
     }
     let has_dsl = relation.columns.iter().any(|column| {
         let mut nested = Vec::new();
-        column.logical_type.walk(&mut nested);
+        column.value_type().walk(&mut nested);
         nested
             .into_iter()
-            .any(|ty| ty == LogicalType::Ext(ExtensionUse::ExprDsl))
+            .any(|ty| matches!(ty.extension(), Some(ExtensionUse::ExprDsl)))
     });
-    if has_dsl != section.expression_owner_column.is_some() {
+    if has_dsl != section.expression_owner_column.is_some()
+        || has_dsl != section.expression_owner_kind.is_some()
+    {
         return Err(invalid_document(
             section.relation,
             "every DSL-bearing section requires exactly one explicit expression owner",
@@ -481,16 +567,18 @@ fn document_section(
     }
     if let Some(owner) = section.expression_owner_column
         && !relation.column(owner).is_some_and(|column| {
-            column.logical_type == LogicalType::id()
-                && !column.nullable
-                && column.fk.is_some_and(|fk| {
-                    fk.relation == "authored.templates" && fk.column == "template_id"
+            column.value_type() == FieldContract::id()
+                && !column.nullable()
+                && column.fk().is_some_and(|fk| {
+                    section
+                        .expression_owner_kind
+                        .is_some_and(|kind| kind.target() == (fk.relation, fk.column))
                 })
         })
     {
         return Err(invalid_document(
             section.relation,
-            "expression owner must be an explicit nonnullable template identity foreign key",
+            "expression owner must be the explicit nonnullable foreign key for its declared kind",
         ));
     }
     Ok(())
@@ -502,7 +590,7 @@ fn document_grammars(
 ) -> Result<(), SchemaError> {
     let mut expected = BTreeSet::new();
     for column in &relation.columns {
-        dsl_field_paths(&column.logical_type, column.name, &mut expected);
+        dsl_field_paths(&column.value_type(), column.name(), &mut expected);
     }
     let declared = section
         .expression_fields
@@ -517,19 +605,18 @@ fn document_grammars(
     }
     Ok(())
 }
-fn dsl_field_paths(ty: &LogicalType, path: &str, paths: &mut BTreeSet<String>) {
-    match ty {
-        LogicalType::Ext(ExtensionUse::ExprDsl) => {
-            paths.insert(path.to_owned());
-        }
-        LogicalType::List(inner) | LogicalType::FixedList(inner, _) => {
-            dsl_field_paths(inner, &format!("{path}[]"), paths);
-        }
-        LogicalType::Struct(fields) => {
-            for (name, ty, _) in fields {
-                dsl_field_paths(ty, &format!("{path}.{name}"), paths);
-            }
-        }
-        _ => {}
+fn dsl_field_paths(ty: &FieldContract, path: &str, paths: &mut BTreeSet<String>) {
+    if matches!(ty.extension(), Some(ExtensionUse::ExprDsl)) {
+        paths.insert(path.to_owned());
+        return;
+    }
+    for child in ty.children() {
+        let child_path = match ty.data_type() {
+            arrow_schema::DataType::List(_)
+            | arrow_schema::DataType::LargeList(_)
+            | arrow_schema::DataType::FixedSizeList(..) => format!("{path}[]"),
+            _ => format!("{path}.{}", child.name()),
+        };
+        dsl_field_paths(&child, &child_path, paths);
     }
 }

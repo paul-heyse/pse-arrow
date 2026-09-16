@@ -10,10 +10,10 @@ use crate::{
 use arrow_array::RecordBatch;
 use bytes::Bytes;
 
-/// Deployment-lowered construction limits and optional retained outputs.
+/// Deployment-selected construction limits and optional retained outputs.
 #[derive(Clone, Debug, Default)]
 pub struct CanonicalizeOptions {
-    /// The supported row and normalized-buffer envelope, which may only be lowered.
+    /// The selected row and normalized-buffer resource envelope.
     pub envelope: Envelope,
     /// Retain the complete framed canonical preimage with its reservation owner.
     pub keep_preimage: bool,

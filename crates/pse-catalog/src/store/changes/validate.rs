@@ -3,12 +3,11 @@
 
 //! Direct typed control-row and operation-reference admission.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use pse_ids::{CancellationToken, SemanticId, SnapshotKind};
-use pse_relations::generated::authored;
-use pse_schema::model::Cell;
+use pse_relations::{columnar::RelationRow, generated::authored};
 
 use super::{ChangeSetDraft, RevisionBinding};
 use crate::CatalogError;
@@ -16,29 +15,24 @@ use crate::store::open::Catalog;
 use crate::store::sidecar::{RevisionReceipt, RevisionRef, SidecarArtifact};
 use crate::store::verify::admission;
 
-fn rows(
+fn rows<T: RelationRow>(
     catalog: &Catalog,
     artifact: &SidecarArtifact,
-    name: &str,
-) -> Result<Vec<Vec<Cell>>, CatalogError> {
+) -> Result<Vec<T>, CatalogError> {
     if !Arc::ptr_eq(&artifact.admission, &catalog.admission) {
         return Err(admission(
             "change set",
             "foreign control artifact must be reopened",
         ));
     }
-    let spec = catalog
-        .registry
-        .relation(name)
-        .ok_or_else(|| admission("change set", "control declaration missing"))?;
-    if artifact.relation().contract().canonical.relation_id != spec.id {
-        return Err(admission(
-            "change set",
-            "control artifact has the wrong relation",
-        ));
-    }
-    pse_relations::cells::cells_from_batch(&catalog.registry, spec, artifact.relation().batch())
-        .map_err(|error| CatalogError::Semantic(Arc::new(error)))
+    let spec =
+        T::relation(&catalog.registry).map_err(|error| CatalogError::Semantic(Arc::new(error)))?;
+    artifact
+        .relation()
+        .checked()
+        .check_declaration(&catalog.registry, spec)
+        .map_err(|error| CatalogError::Semantic(Arc::new(error)))?;
+    T::rows(artifact.relation().checked()).map_err(|error| CatalogError::Semantic(Arc::new(error)))
 }
 pub(super) fn envelope(
     catalog: &Catalog,
@@ -52,26 +46,23 @@ pub(super) fn envelope(
         )?)
         .ok_or_else(crate::store::encode::overflow)?;
     reservation.try_grow(extent)?;
-    let mut headers = rows(catalog, &draft.header, "authored.change_sets")?;
+    let mut headers = rows::<authored::change_sets::Row>(catalog, &draft.header)?;
     if headers.len() != 1 {
         return Err(admission(
             "change set",
             "exactly one typed header is required",
         ));
     }
-    let header = authored::change_sets::Row::from_cells(headers.remove(0))
-        .map_err(|error| CatalogError::Semantic(Arc::new(error)))?;
+    let header = headers.remove(0);
     if header.base_revision_id != base {
         return Err(admission(
             "change set",
             "actual header expects another base revision",
         ));
     }
-    let operations = rows(catalog, &draft.operations, "authored.change_ops")?;
-    let mut expected = BTreeSet::new();
-    for (ordinal, row) in operations.into_iter().enumerate() {
-        let operation = authored::change_ops::Row::from_cells(row)
-            .map_err(|error| CatalogError::Semantic(Arc::new(error)))?;
+    let operations = rows::<authored::change_ops::Row>(catalog, &draft.operations)?;
+    let mut expected = BTreeMap::<String, BTreeSet<u64>>::new();
+    for (ordinal, operation) in operations.into_iter().enumerate() {
         if operation.change_set_id != header.change_set_id
             || usize::try_from(operation.ordinal).ok() != Some(ordinal)
         {
@@ -92,23 +83,30 @@ pub(super) fn envelope(
                 .staged
                 .get(port)
                 .ok_or_else(|| admission("change set", "referenced staging port is missing"))?;
-            if ordinal != 0
-                || staged.relation().rows() != 1
+            if usize::try_from(ordinal)
+                .ok()
+                .is_none_or(|ordinal| ordinal >= staged.relation().rows())
                 || staged.relation().contract().canonical.relation_id != operation.relation_id
                 || !staged.belongs_to(catalog)
             {
                 return Err(admission(
                     "change set",
-                    "staged reference does not name its actual single declared row",
+                    "staged ordinal does not name an actual row of its declared batch",
                 ));
             }
-            expected.insert(port.clone());
+            expected.entry(port.clone()).or_default().insert(ordinal);
         }
     }
-    if expected != draft.staged.keys().cloned().collect() {
+    if expected.len() != draft.staged.len()
+        || draft.staged.iter().any(|(port, batch)| {
+            expected
+                .get(port)
+                .is_none_or(|ordinals| ordinals.len() != batch.relation().rows())
+        })
+    {
         return Err(admission(
             "change set",
-            "staging inventory contains unreferenced or missing ports",
+            "staging inventory contains unreferenced or missing batch rows",
         ));
     }
     Ok(header.change_set_id)
@@ -122,21 +120,14 @@ pub(super) async fn supporting(
 ) -> Result<(), CatalogError> {
     let mut seen = BTreeSet::new();
     let model = if output.snapshot.manifest().snapshot_kind == SnapshotKind::Case {
-        let rows = rows(catalog, &output.artifact, "authored.case_revisions")?;
-        let key = output
-            .artifact
-            .relation()
-            .batch()
-            .schema()
-            .index_of("model_revision_id")
-            .map_err(crate::store::encode::arrow)?;
-        let Some(Cell::Id(id)) = rows.first().and_then(|row| row.get(key)) else {
+        let rows = rows::<authored::case_revisions::Row>(catalog, &output.artifact)?;
+        let [revision] = rows.as_slice() else {
             return Err(admission(
                 "change set",
-                "case revision lacks actual model revision identity",
+                "exactly one actual case revision is required",
             ));
         };
-        Some(*id)
+        Some(revision.model_revision_id)
     } else {
         None
     };

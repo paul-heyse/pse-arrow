@@ -14,6 +14,7 @@ use pse_authoring::{
 };
 use pse_relations::generated::authored;
 use std::collections::BTreeMap;
+mod support;
 
 fn fixture(name: &str) -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -29,14 +30,15 @@ fn texts(name: &str) -> BTreeMap<String, String> {
     .unwrap();
     loaded
         .documents
-        .into_iter()
-        .map(|document| (document.path, document.text))
+        .iter()
+        .map(|document| (document.path.clone(), document.text.clone()))
         .collect()
 }
 
 #[test]
 fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans() {
-    let registry = pse_schema::registry().unwrap();
+    let registry_owner = support::registry();
+    let registry = registry_owner.as_ref();
     let explicit = load_package(
         &fixture("minimal_explicit"),
         registry,
@@ -44,12 +46,12 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
     )
     .unwrap();
     let species = authored::species::Row::from_cells(
-        explicit.rows[&authored::species::RELATION_ID][0].clone(),
+        explicit.decode_rows(registry).unwrap()[&authored::species::RELATION_ID][0].clone(),
     )
     .unwrap();
     assert_eq!(species.package_id, explicit.package.package_id);
     assert_eq!(species.name, "water");
-    let entity = explicit.rows[&authored::entities::RELATION_ID]
+    let entity = explicit.decode_rows(registry).unwrap()[&authored::entities::RELATION_ID]
         .iter()
         .cloned()
         .map(authored::entities::Row::from_cells)
@@ -66,7 +68,8 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
         .iter()
         .find(|document| document.id == span.document_id)
         .unwrap();
-    let original = &document.text[span.start as usize..span.end as usize];
+    let original =
+        &document.text[usize::try_from(span.start).unwrap()..usize::try_from(span.end).unwrap()];
     assert!(
         original.contains("name: water"),
         "row span: {original:?}; {span:?}"
@@ -74,7 +77,7 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
     assert!(original.contains("component_type: Component"));
     let named = load_package(&fixture("minimal_named"), registry, ParseBudget::default()).unwrap();
     let entity = authored::entities::Row::from_cells(
-        named.rows[&authored::entities::RELATION_ID][0].clone(),
+        named.decode_rows(registry).unwrap()[&authored::entities::RELATION_ID][0].clone(),
     )
     .unwrap();
     assert_eq!(
@@ -86,7 +89,8 @@ fn explicit_and_named_fixtures_decode_generated_rows_and_original_source_spans()
 
 #[test]
 fn missing_ids_unknown_fields_duplicate_keys_and_wrong_package_context_fail() {
-    let registry = pse_schema::registry().unwrap();
+    let registry_owner = support::registry();
+    let registry = registry_owner.as_ref();
     let original = texts("minimal_explicit");
     let document = &original["materials/species.yaml"];
     let variants = [
@@ -114,7 +118,8 @@ fn missing_ids_unknown_fields_duplicate_keys_and_wrong_package_context_fail() {
 
 #[test]
 fn nested_named_identities_use_the_actual_declared_parent_independent_of_file_order() {
-    let registry = pse_schema::registry().unwrap();
+    let registry_owner = support::registry();
+    let registry = registry_owner.as_ref();
     let mut inputs = texts("minimal_named");
     let parent = pse_ids::named_id(
         pse_authoring::ids::parse_id(
@@ -131,7 +136,7 @@ fn nested_named_identities_use_the_actual_declared_parent_independent_of_file_or
     );
     inputs.insert("templates/a_child.yaml".to_owned(), format!("template_symbols:\n  - template_id: '{parent}'\n    name: temperature\n    role: variable\n    quantity_type_id: '00000000000000000000000000000001'\n    indexed_by: []\n    doc: Temperature.\n"));
     let bundle = load_package_texts(inputs.clone(), registry, ParseBudget::default()).unwrap();
-    let entities = bundle.rows[&authored::entities::RELATION_ID]
+    let entities = bundle.decode_rows(registry).unwrap()[&authored::entities::RELATION_ID]
         .iter()
         .cloned()
         .map(authored::entities::Row::from_cells)
@@ -149,15 +154,17 @@ fn nested_named_identities_use_the_actual_declared_parent_independent_of_file_or
 
 #[test]
 fn composite_relationships_never_accept_an_entity_id_alias() {
-    let registry = pse_schema::registry().unwrap();
+    let registry_owner = support::registry();
+    let registry = registry_owner.as_ref();
     let mut inputs = texts("minimal_explicit");
     inputs.insert("materials/bad.yaml".to_owned(), "phase_species:\n  - id: '00000000000000000000000000000001'\n    phase_id: '00000000000000000000000000000002'\n    species_id: '00000000000000000000000000000003'\n".to_owned());
     assert!(load_package_texts(inputs, registry, ParseBudget::default()).is_err());
 }
 
-#[test]
-fn declared_field_grammar_preserves_atomic_guards_and_refuses_equations_in_values() {
-    let registry = pse_schema::registry().unwrap();
+#[tokio::test]
+async fn declared_field_grammar_preserves_atomic_guards_and_refuses_equations_in_values() {
+    let registry_owner = support::registry();
+    let registry = registry_owner.as_ref();
     let mut inputs = texts("minimal_explicit");
     let template = "00000000000000000000000000000031";
     let source = format!(
@@ -165,12 +172,17 @@ fn declared_field_grammar_preserves_atomic_guards_and_refuses_equations_in_value
     );
     inputs.insert("templates/grammar.yaml".to_owned(), source.clone());
     let bundle = load_package_texts(inputs.clone(), registry, ParseBudget::default()).unwrap();
-    let bound = pse_authoring::document::binding::bind_sources(
-        std::slice::from_ref(&bundle),
-        &bundle.rows,
-        registry,
-    )
-    .unwrap();
+    let budget = pse_ids::FixedBudget::new(512 << 20);
+    let session = support::session(std::sync::Arc::clone(&registry_owner), budget.clone());
+    let cancel = pse_ids::CancellationToken::new();
+    let owned =
+        pse_authoring::document::load_bundles_owned(&[bundle], registry, budget.as_ref(), &cancel)
+            .unwrap();
+    let batches = pse_authoring::p1::source_batches(owned.bundles(), registry).unwrap();
+    let bound =
+        pse_authoring::document::binding::bind_sources_owned(&owned, &batches, &session, &cancel)
+            .await
+            .unwrap();
     assert!(bound.expressions().iter().any(|source| matches!(
         source.parsed,
         pse_authoring::document::binding::ParsedExpression::Predicate(_)
@@ -180,4 +192,149 @@ fn declared_field_grammar_preserves_atomic_guards_and_refuses_equations_in_value
         source.replace("2 + 3", "2 == 3"),
     );
     assert!(load_package_texts(inputs, registry, ParseBudget::default()).is_err());
+}
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one source fixture covers known, unknown and deferred enum predicates"
+)]
+async fn enum_predicates_bind_exact_known_members_and_explicit_deferred_types() {
+    use pse_authoring::document::binding::{PathMeaning, bind_sources_owned};
+    let registry = support::registry();
+    let material = registry
+        .enums()
+        .iter()
+        .find(|value| value.name == "MaterialBalanceType")
+        .unwrap()
+        .id;
+    let id_type = registry.logical_type("semantic_id").unwrap().id;
+    let owner = "00000000000000000000000000000031";
+    let child = "00000000000000000000000000000032";
+    let declaration = format!(
+        r"
+templates:
+  - id: '{owner}'
+    name: parent
+    version: '1.0.0'
+    kind: unit
+    doc: ''
+  - id: '{child}'
+    name: child
+    version: '1.0.0'
+    kind: state_block
+    doc: ''
+template_params:
+  - template_id: '{owner}'
+    name: selected_template
+    logical_type_id: '{id_type}'
+    enum_id: null
+    default: null
+    required: true
+    domain_spec: null
+    doc: ''
+template_features:
+  - template_id: '{child}'
+    name: enabled
+    kind: bool
+    enum_id: null
+    default: 'false'
+    inherit_from: null
+    doc: ''
+  - template_id: '{child}'
+    name: policy
+    kind: enum
+    enum_id: '{material}'
+    default: componentTotal
+    inherit_from: null
+    doc: ''
+  - template_id: '{owner}'
+    name: enabled
+    kind: bool
+    enum_id: null
+    default: 'true'
+    inherit_from: null
+    doc: ''
+template_submodels:
+  - template_id: '{owner}'
+    name: known
+    child_template_id: '{child}'
+    child_from_param: null
+    multiplicity_domain: null
+    bindings:
+      - child_param: enabled
+        value: parent.enabled
+    guard_id: null
+  - template_id: '{owner}'
+    name: selected
+    child_template_id: null
+    child_from_param: selected_template
+    multiplicity_domain: null
+    bindings:
+      - child_param: enabled
+        value: 'true'
+    guard_id: null
+template_guards:
+  - id: '00000000000000000000000000000033'
+    template_id: '{owner}'
+    predicate: 'PREDICATE'
+    doc: ''
+"
+    );
+    for (predicate, admitted) in [
+        ("known.policy == componentTotal", true),
+        (
+            "selected.policy == MaterialBalanceType.componentTotal",
+            true,
+        ),
+        ("selected.policy == componentTotal", false),
+        ("known.policy == EnergyBalanceType.enthalpyTotal", false),
+        ("selected.policy == MaterialBalanceType.missing", false),
+        ("enabled == MaterialBalanceType.componentTotal", false),
+        (
+            "selected.policy < MaterialBalanceType.componentTotal",
+            false,
+        ),
+    ] {
+        let mut inputs = texts("minimal_explicit");
+        inputs.insert(
+            "templates/enums.yaml".to_owned(),
+            declaration.replace("PREDICATE", predicate),
+        );
+        let bundle = load_package_texts(inputs, &registry, ParseBudget::default()).unwrap();
+        let budget = pse_ids::FixedBudget::new(128 << 20);
+        let session = support::session(registry.clone(), budget.clone());
+        let cancel = pse_ids::CancellationToken::new();
+        let documents = pse_authoring::document::load_bundles_owned(
+            &[bundle],
+            &registry,
+            budget.as_ref(),
+            &cancel,
+        )
+        .unwrap();
+        let batches = pse_authoring::p1::source_batches(documents.bundles(), &registry).unwrap();
+        let result = bind_sources_owned(&documents, &batches, &session, &cancel).await;
+        assert_eq!(
+            result.is_ok(),
+            admitted,
+            "{predicate}: {}",
+            result
+                .as_ref()
+                .err()
+                .map(ToString::to_string)
+                .unwrap_or_default()
+        );
+        if let Ok(bound) = result {
+            assert!(
+                bound
+                    .expressions()
+                    .iter()
+                    .flat_map(|expression| &expression.paths)
+                    .any(|path| matches!(path.meaning, PathMeaning::BooleanLiteral(true)))
+            );
+            assert!(bound.expressions().iter().flat_map(|expression| &expression.paths).any(|path| {
+                matches!(&path.meaning, PathMeaning::EnumLiteral { enum_id, member } if *enum_id == material && member == "componentTotal")
+            }));
+        }
+    }
 }

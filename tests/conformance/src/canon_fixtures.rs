@@ -21,7 +21,7 @@ use pse_catalog::{EncodingPolicy, RelationContract};
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{
-        Authority, Cell, ColumnSpec, EnumDecl, EnumMember, LogicalType, Namespace, RelationDecl,
+        Authority, Cell, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl,
         SnapshotClass,
     },
 };
@@ -176,13 +176,22 @@ fn registry() -> Arc<Registry> {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::U64, "Key"),
-            ColumnSpec::payload("value", LogicalType::F64, "Float").optional(),
-            ColumnSpec::payload("choice", LogicalType::enumeration("Choice"), "Choice").optional(),
-            ColumnSpec::payload("list", LogicalType::list(LogicalType::U64), "List").optional(),
-            ColumnSpec::payload(
+            FieldContract::key("id", FieldContract::native(DataType::UInt64), "Key"),
+            FieldContract::payload("value", FieldContract::native(DataType::Float64), "Float")
+                .optional(),
+            FieldContract::payload("choice", FieldContract::enumeration("Choice"), "Choice")
+                .optional(),
+            FieldContract::payload(
+                "list",
+                FieldContract::list(FieldContract::native(DataType::UInt64)),
+                "List",
+            )
+            .optional(),
+            FieldContract::payload(
                 "structure",
-                LogicalType::Struct(vec![("child", LogicalType::U64, false)]),
+                FieldContract::structure(vec![
+                    FieldContract::native(DataType::UInt64).with_name("child"),
+                ]),
                 "Struct",
             )
             .optional(),

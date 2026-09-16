@@ -6,6 +6,8 @@
     clippy::expect_used,
     reason = "fixture assertions identify exact failures"
 )]
+#[path = "../../support/native_catalog.rs"]
+mod native_catalog;
 #[path = "../src/oracle.rs"]
 mod oracle;
 use datafusion::{
@@ -26,14 +28,15 @@ use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SnapshotKind};
 use pse_schema::{
     RegistryBuilder,
     model::{
-        Authority, Cell, ColumnRole, ColumnSpec, EnumDecl, EnumMember, LogicalType, Namespace,
-        RelationDecl, SnapshotClass,
+        Authority, Cell, ColumnRole, EnumDecl, EnumMember, FieldContract, Namespace, RelationDecl,
+        SnapshotClass,
     },
 };
 use std::{collections::BTreeMap, sync::Arc};
 
 async fn fixture() -> (Arc<RelationTable>, RecordBatch) {
     let mut builder = RegistryBuilder::new();
+    pse_schema::catalog::declare_diagnostics(&mut builder);
     builder.declare_enum(EnumDecl::platform(
         "Choice",
         vec![EnumMember::new("one", "One"), EnumMember::new("two", "Two")],
@@ -49,12 +52,21 @@ async fn fixture() -> (Arc<RelationTable>, RecordBatch) {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::I64, "key"),
-            ColumnSpec::payload("choice", LogicalType::enumeration("Choice"), "enum").optional(),
-            ColumnSpec::payload("label", LogicalType::Text, "payload"),
-            ColumnSpec::new(
+            FieldContract::key(
+                "id",
+                FieldContract::native(arrow::datatypes::DataType::Int64),
+                "key",
+            ),
+            FieldContract::payload("choice", FieldContract::enumeration("Choice"), "enum")
+                .optional(),
+            FieldContract::payload(
+                "label",
+                FieldContract::native(arrow::datatypes::DataType::Utf8),
+                "payload",
+            ),
+            FieldContract::new(
                 "parent",
-                LogicalType::I64,
+                FieldContract::native(arrow::datatypes::DataType::Int64),
                 true,
                 ColumnRole::Reference,
                 "reference",
@@ -84,13 +96,13 @@ async fn fixture() -> (Arc<RelationTable>, RecordBatch) {
         .collect::<Vec<_>>();
     let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows).expect("batch");
     let reserver: Arc<dyn MemoryReserver> = FixedBudget::new(64 << 20);
-    let catalog = Catalog::open(
+    let catalog = native_catalog::with_invariants(Catalog::open(
         Arc::new(object_store::memory::InMemory::new()),
         Arc::clone(&registry),
         TrustLevel::Untrusted,
         Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        Arc::clone(&reserver),
-    );
+        native_catalog::from_reserver(Arc::clone(&reserver)),
+    ));
     let context = AdmissionContext::default();
     let snapshot = catalog
         .publish_bundle(
@@ -114,9 +126,7 @@ async fn fixture() -> (Arc<RelationTable>, RecordBatch) {
         )
         .await
         .expect("publish");
-    let table = Arc::new(
-        RelationTable::new(snapshot, spec.id, &registry, reserver).expect("admitted table"),
-    );
+    let table = Arc::new(RelationTable::new(snapshot, spec.id, &registry).expect("admitted table"));
     (Arc::clone(&table), table.relation().batch().clone())
 }
 fn unpruned(batch: RecordBatch) -> Arc<dyn TableProvider> {

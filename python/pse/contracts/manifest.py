@@ -58,6 +58,12 @@ class ManifestPackagesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     logical_hash: Annotated[str, msgspec.Meta(pattern=r"^blake3:[0-9a-f]{64}$")]
 
 
+class ManifestAdmissionBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Declared manifest object."""
+
+    encoding_checksum: Annotated[str, msgspec.Meta(pattern=r"^blake3:[0-9a-f]{64}$")]
+
+
 class ManifestCompilerPassesItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Declared manifest object."""
 
@@ -129,6 +135,7 @@ class Manifest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=
     schema_registry_fingerprint: Annotated[str, msgspec.Meta(pattern=r"^blake3:[0-9a-f]{64}$")]
     relations: tuple[ManifestRelationsItem, ...]
     packages: tuple[ManifestPackagesItem, ...]
+    admission_binding: ManifestAdmissionBinding | None = None
     compiler: ManifestCompiler
     engine_profile: ManifestEngineProfile | None = None
     numerical_policy: ManifestNumericalPolicy | None = None

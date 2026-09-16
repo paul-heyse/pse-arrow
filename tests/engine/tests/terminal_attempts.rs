@@ -19,19 +19,19 @@ use pse_authoring::{
     ParseBudget,
     document::{DocumentBundle, load_package_texts},
 };
+use pse_catalog::computation::ProducedStage;
 use pse_catalog::{
     Catalog, EncodingPolicy, ExecutionSettings, FixedClock, RefName, RelationContract, Snapshot,
     ThreadBudget, TrustLevel,
-    session::{SessionFactory, phase0_reference_profile},
+    session::{SessionFactory, native_engine_profile},
     store::{
-        membership::{AdmissionContext, SemanticValidator},
+        membership::AdmissionContext,
         publish::{BundleDraft, RelationDraft},
         sidecar::SidecarArtifact,
     },
 };
 use pse_compiler::{
-    BoundInput, CompilerError, ExternalInputs, InputBundle, Pass, PassContext, PassOutput,
-    PassRecordDraft, PassStatus, PolicySet,
+    CompilerError, InputBundle, Pass, PassContext, PolicySet,
     driver::{CommitBase, CommitRequest, Driver, PipelineRequest},
 };
 use pse_ids::{
@@ -43,9 +43,9 @@ use pse_runtime::{ResourceBudget, SharedRuntime};
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{
-        Authority, Cell, CmpOp, ColumnSpec, Determinism, EnumDecl, InputPort, InvariantDecl,
-        InvariantKind, LogicalType, Namespace, NullEquality, OutputPort, PassDecl, PassSpec,
-        PortSource, RelationDecl, RuleDecl, RuleExpr, RuleHead, RulePlan, SnapshotClass,
+        Authority, Cell, CmpOp, Determinism, EnumDecl, FieldContract, InputPort, InvariantDecl,
+        InvariantKind, Namespace, NullEquality, PassDecl, PassSpec, PortSource, RelationDecl,
+        RuleDecl, RuleExpr, RuleHead, RulePlan, SnapshotClass,
     },
 };
 use std::{
@@ -55,7 +55,6 @@ use std::{
         Arc, OnceLock,
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
-    time::Duration,
 };
 
 fn registry() -> Arc<Registry> {
@@ -96,7 +95,7 @@ fn registry() -> Arc<Registry> {
                 postconditions: vec![],
                 determinism: pass.determinism,
                 diagnostics: pass.diagnostics.clone(),
-                executes_plans: pass.executes_plans,
+                effects: pass.effects.clone(),
             });
         }
         let mut terminal_count = 0;
@@ -111,6 +110,7 @@ fn registry() -> Arc<Registry> {
                 version: rule.version,
                 stratum: rule.stratum,
                 head: rule.head.clone(),
+                assertion_relation: rule.assertion_relation.clone(),
                 plan: rule.plan.clone(),
                 negation: rule.negation,
                 monotonic: rule.monotonic,
@@ -165,11 +165,14 @@ fn positive_mw(builder: &mut RegistryBuilder) {
                 }),
                 predicate: RuleExpr::cmp(
                     CmpOp::LtEq,
-                    RuleExpr::Col("mw"),
+                    RuleExpr::col("mw"),
                     RuleExpr::Lit(Cell::F64(0.0)),
                 ),
             }),
-            columns: vec![("species_id", RuleExpr::Col("species_id"))],
+            columns: (vec![("species_id", RuleExpr::col("species_id"))])
+                .into_iter()
+                .map(|(name, expression)| (name.into(), expression))
+                .collect(),
         },
     ));
     builder.declare_invariant(InvariantDecl::error(
@@ -226,9 +229,9 @@ impl Reservation for RecordReservation {
 struct Fixture {
     registry: Arc<Registry>,
     catalog: Arc<Catalog>,
-    sessions: Arc<SessionFactory>,
     store: Arc<FaultStore>,
     deny_record: Arc<AtomicBool>,
+    calls: BTreeMap<String, Arc<AtomicUsize>>,
     _spill: tempfile::TempDir,
 }
 impl Fixture {
@@ -255,14 +258,36 @@ impl Fixture {
             inner: runtime.reserver(),
             deny: Arc::clone(&deny_record),
         });
-        let validator = pse_rules::validator::InvariantValidator::new(
-            Arc::clone(&registry),
-            runtime.runtime_env(),
-            Arc::clone(&reserver),
-            ExecutionSettings::default(),
-            threads,
-            phase0_reference_profile(),
+        let sessions = Arc::new(
+            SessionFactory::new(
+                runtime.runtime_env(),
+                Arc::clone(&reserver),
+                ExecutionSettings::default(),
+                threads,
+                native_engine_profile(),
+            )
+            .unwrap(),
         );
+        let invariants = pse_rules::validator::InvariantValidator::new(Arc::clone(&registry));
+        let mut validator =
+            pse_compiler::validator::CompilerValidator::new(Arc::new(invariants), &registry)
+                .unwrap();
+        let mut calls = BTreeMap::new();
+        for name in ["FixtureFailure", "FixtureCancel", "FixtureMissing"] {
+            let counter = Arc::new(AtomicUsize::new(0));
+            validator
+                .register(
+                    Arc::new(FailingPass {
+                        spec: registry.pass(name).unwrap().clone(),
+                        calls: Arc::clone(&counter),
+                        findings: findings(&registry).0,
+                        cancel_during: name == "FixtureCancel",
+                    }),
+                    &registry,
+                )
+                .unwrap();
+            calls.insert(name.to_owned(), counter);
+        }
         let store = FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
         let catalog = Arc::new(
             Catalog::open(
@@ -270,33 +295,21 @@ impl Fixture {
                 Arc::clone(&registry),
                 TrustLevel::Untrusted,
                 Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-                Arc::clone(&reserver),
+                Arc::clone(&sessions),
             )
-            .with_semantic_validator(Arc::new(FixtureValidator {
-                real: pse_compiler::validator::CompilerValidator::new(Arc::new(validator)),
-            })),
-        );
-        let sessions = Arc::new(
-            SessionFactory::new(
-                runtime.runtime_env(),
-                reserver,
-                ExecutionSettings::default(),
-                threads,
-                phase0_reference_profile(),
-            )
-            .unwrap(),
+            .with_semantic_validator(Arc::new(validator.with_sessions(Arc::clone(&sessions)))),
         );
         Self {
             registry,
             catalog,
-            sessions,
             store,
             deny_record,
+            calls,
             _spill: spill,
         }
     }
     fn driver(&self) -> Driver {
-        Driver::new(Arc::clone(&self.catalog), Arc::clone(&self.sessions)).unwrap()
+        Driver::new(Arc::clone(&self.catalog)).unwrap()
     }
     async fn source_free_model(&self) -> Arc<Snapshot> {
         self.source_free_value_model(1).await
@@ -372,7 +385,7 @@ fn record_prefix() -> String {
     pse_catalog::relation_path(
         "provenance",
         "pass_records",
-        pse_ids::SchemaVersion(1),
+        pse_ids::SchemaVersion(pse_relations::generated::provenance::pass_records::VERSION),
         &pse_ids::encoding_checksum(b"path fixture"),
         pse_catalog::EncodingFormat::ArrowIpcFile,
     )
@@ -471,7 +484,7 @@ impl Pass for FailingPass {
         &'a self,
         ctx: &'a PassContext<'a>,
         _: &'a InputBundle,
-    ) -> pse_catalog::BoxFut<'a, Result<PassOutput, CompilerError>> {
+    ) -> pse_catalog::BoxFut<'a, Result<ProducedStage, CompilerError>> {
         Box::pin(async move {
             self.calls.fetch_add(1, Ordering::SeqCst);
             if self.cancel_during {
@@ -480,15 +493,9 @@ impl Pass for FailingPass {
                     findings: vec![self.findings.clone()],
                 });
             }
-            Ok(PassOutput {
-                ports: BTreeMap::new(),
+            Err(CompilerError::Postcondition {
+                pass: self.spec.name.to_owned(),
                 findings: vec![self.findings.clone()],
-                record: PassRecordDraft {
-                    pass_id: self.spec.id,
-                    version: self.spec.version,
-                    duration: Duration::ZERO,
-                    status: PassStatus::Failed,
-                },
             })
         })
     }
@@ -498,28 +505,25 @@ fn request(snapshot: Arc<Snapshot>, pass: &str) -> PipelineRequest {
         through: pass.to_owned(),
         snapshot,
         policies: PolicySet::default(),
-        external_bindings: ExternalInputs::default(),
-        fixture_mode: true,
         reuse: false,
     }
 }
-fn register(
-    fixture: &Fixture,
-    driver: &mut Driver,
-    name: &str,
-    cancel_during: bool,
-) -> (Arc<AtomicUsize>, Vec<Cell>) {
-    let calls = Arc::new(AtomicUsize::new(0));
-    let (findings, expected) = findings(&fixture.registry);
-    driver
-        .register(Arc::new(FailingPass {
-            spec: fixture.registry.pass(name).unwrap().clone(),
-            calls: Arc::clone(&calls),
-            findings,
-            cancel_during,
-        }))
-        .unwrap();
-    (calls, expected)
+fn failure(fixture: &Fixture, name: &str) -> (Arc<AtomicUsize>, Vec<Cell>) {
+    let calls = Arc::clone(&fixture.calls[name]);
+    calls.store(0, Ordering::SeqCst);
+    (calls, findings(&fixture.registry).1)
+}
+
+fn producer_error(error: &CompilerError) -> &CompilerError {
+    match error {
+        CompilerError::Catalog(pse_catalog::CatalogError::Semantic(source)) => {
+            let source: &(dyn std::error::Error + 'static) = source.as_ref();
+            source
+                .downcast_ref::<CompilerError>()
+                .map_or(error, producer_error)
+        }
+        _ => error,
+    }
 }
 
 #[tokio::test]
@@ -531,19 +535,21 @@ async fn driver_failed_and_mid_cancelled_passes_keep_every_typed_finding() {
         ("FixtureCancel", true, "cancelled", "runtime.cancelled"),
     ] {
         let mut driver = fixture.driver();
-        let (calls, expected) = register(&fixture, &mut driver, name, cancelled);
+        let (calls, expected) = failure(&fixture, name);
         let cancel = CancellationToken::new();
         let error = driver
             .run(request(Arc::clone(&model), name), &cancel)
             .await
-            .unwrap_err();
+            .err()
+            .expect("the operation must fail");
         let CompilerError::AttemptFailed {
             pass_run_id,
             record,
             source,
+            ..
         } = error
         else {
-            panic!("expected durable terminal failure, got {error:?}")
+            panic!("expected durable terminal failure, got {error}")
         };
         assert_eq!(calls.load(Ordering::SeqCst), 1);
         assert_eq!(cancel.is_cancelled(), cancelled);
@@ -552,7 +558,7 @@ async fn driver_failed_and_mid_cancelled_passes_keep_every_typed_finding() {
         assert_eq!(row[3], Cell::Hash(model.snapshot_id().content_hash()));
         assert_eq!(row[12], Cell::List(expected));
         assert!(matches!(
-            *source,
+            producer_error(&source),
             CompilerError::Cancelled { .. } | CompilerError::Postcondition { .. }
         ));
     }
@@ -567,7 +573,7 @@ async fn driver_pre_cancel_and_missing_required_input_are_recorded_before_body_r
         ("FixtureMissing", false, "failed", "internal.invariant"),
     ] {
         let mut driver = fixture.driver();
-        let (calls, _) = register(&fixture, &mut driver, name, false);
+        let (calls, _) = failure(&fixture, name);
         let cancel = CancellationToken::new();
         if pre_cancel {
             cancel.cancel();
@@ -575,9 +581,10 @@ async fn driver_pre_cancel_and_missing_required_input_are_recorded_before_body_r
         let error = driver
             .run(request(Arc::clone(&model), name), &cancel)
             .await
-            .unwrap_err();
+            .err()
+            .expect("the operation must fail");
         let CompilerError::AttemptFailed { record, source, .. } = error else {
-            panic!("expected terminal failure, got {error:?}")
+            panic!("expected terminal failure, got {error}")
         };
         assert_eq!(calls.load(Ordering::SeqCst), 0);
         let row = checked_record(&fixture, &record, name, status, Some(class), None).await;
@@ -609,7 +616,7 @@ async fn failed_terminal_storage_and_reservation_keep_original_execution_error()
     let model = fixture.source_free_model().await;
     for budget_failure in [false, true] {
         let mut driver = fixture.driver();
-        let (_, expected) = register(&fixture, &mut driver, "FixtureFailure", false);
+        let (_, expected) = failure(&fixture, "FixtureFailure");
         if budget_failure {
             fixture.deny_record.store(true, Ordering::SeqCst);
         } else {
@@ -621,18 +628,19 @@ async fn failed_terminal_storage_and_reservation_keep_original_execution_error()
                 &CancellationToken::new(),
             )
             .await
-            .unwrap_err();
+            .err()
+            .expect("the operation must fail");
         fixture.deny_record.store(false, Ordering::SeqCst);
         let CompilerError::TerminalRecording {
             pass_run_id,
             errors,
         } = error
         else {
-            panic!("expected both original and recording error, got {error:?}")
+            panic!("expected both original and recording error, got {error}")
         };
         assert_ne!(pass_run_id, SemanticId::NIL);
         assert_eq!(errors.len(), 2);
-        let CompilerError::Postcondition { findings, .. } = &errors[0] else {
+        let CompilerError::Postcondition { findings, .. } = producer_error(&errors[0]) else {
             panic!("original typed execution error lost")
         };
         let spec = fixture
@@ -703,7 +711,7 @@ async fn base_commit(fixture: &Fixture, driver: &mut Driver, reference: &RefName
         )
         .await
         .unwrap();
-    assert_eq!(report.validation.error_count, 0);
+    assert_eq!(report.validation.error_count(), 0);
     assert_eq!(report.attempts.len(), 3);
     let tip = report.tip.unwrap();
     for (index, name) in ["P0", "P1", "P2"].into_iter().enumerate() {
@@ -741,7 +749,7 @@ async fn unchanged_ref(fixture: &Fixture, reference: &RefName, base: &CommitBase
 }
 
 #[tokio::test]
-async fn commit_pre_cancel_and_parser_failure_publish_truthful_p0_terminal_records() {
+async fn commit_pre_cancel_and_unresolved_dependency_publish_truthful_p0_terminal_records() {
     let fixture = Fixture::new();
     let reference = RefName::parse("terminal-p0").unwrap();
     for pre_cancel in [true, false] {
@@ -751,13 +759,23 @@ async fn commit_pre_cancel_and_parser_failure_publish_truthful_p0_terminal_recor
         if pre_cancel {
             cancel.cancel();
         } else {
-            request.documents[0].documents[0]
-                .text
-                .push_str("\n[malformed\n");
+            let mut texts = request.documents[0]
+                .documents
+                .iter()
+                .map(|document| (document.path.clone(), document.text.clone()))
+                .collect::<BTreeMap<_, _>>();
+            let package = texts.get_mut("package.toml").unwrap();
+            *package = package.replace("dependencies = []", "dependencies = [{ package_id = 'ffffffffffffffffffffffffffffffff', version_req = '=1.0.0' }]");
+            request.documents[0] =
+                load_package_texts(texts, &fixture.registry, ParseBudget::default()).unwrap();
         }
-        let error = driver.commit(request, &cancel).await.unwrap_err();
+        let error = driver
+            .commit(request, &cancel)
+            .await
+            .err()
+            .expect("the operation must fail");
         let CompilerError::AttemptFailed { record, source, .. } = error else {
-            panic!("expected P0 terminal diagnostic, got {error:?}")
+            panic!("expected P0 terminal diagnostic, got {error}")
         };
         let (status, class) = if pre_cancel {
             ("cancelled", "runtime.cancelled")
@@ -794,7 +812,7 @@ async fn commit_p2_violation_retains_actual_rule_finding_and_leaves_old_ref() {
         )
         .await
         .unwrap();
-    assert_eq!(report.validation.error_count, 1);
+    assert_eq!(report.validation.error_count(), 1);
     assert!(report.model.is_none() && report.tip.is_none() && report.revision_id.is_none());
     assert_eq!(report.attempts.len(), 3);
     let row = checked_record(
@@ -812,10 +830,10 @@ async fn commit_p2_violation_retains_actual_rule_finding_and_leaves_old_ref() {
         .unwrap();
     let actual = report
         .validation
-        .findings
+        .findings()
         .iter()
         .flat_map(|batch| {
-            pse_relations::cells::cells_from_batch(&fixture.registry, spec, batch).unwrap()
+            pse_relations::cells::cells_from_batch(&fixture.registry, spec, batch.batch()).unwrap()
         })
         .map(Cell::Struct)
         .collect::<Vec<_>>();
@@ -854,14 +872,15 @@ async fn successful_p2_cannot_move_ref_when_its_terminal_record_storage_fails() 
             &CancellationToken::new(),
         )
         .await
-        .unwrap_err();
+        .err()
+        .expect("the operation must fail");
     let CompilerError::SuccessRecording {
         pass_run_id,
         output,
         source,
     } = error
     else {
-        panic!("expected P2 terminal recording failure, got {error:?}")
+        panic!("expected P2 terminal recording failure, got {error}")
     };
     assert_ne!(pass_run_id, SemanticId::NIL);
     assert!(
@@ -901,7 +920,8 @@ async fn final_cas_failure_retains_the_already_successful_p2_record() {
             &CancellationToken::new(),
         )
         .await
-        .unwrap_err();
+        .err()
+        .expect("the operation must fail");
     let CompilerError::CommitPublication {
         pass_run_id,
         output,
@@ -909,7 +929,7 @@ async fn final_cas_failure_retains_the_already_successful_p2_record() {
         source,
     } = error
     else {
-        panic!("expected recorded success followed by CAS failure, got {error:?}")
+        panic!("expected recorded success followed by CAS failure, got {error}")
     };
     let row = checked_record(&fixture, &record, "P2", "ok", None, Some(output)).await;
     assert_eq!(row[0], Cell::Id(pass_run_id));
@@ -935,36 +955,7 @@ async fn final_cas_failure_retains_the_already_successful_p2_record() {
     unchanged_ref(&fixture, &reference, &base).await;
 }
 
-fn empty_carrier_contract(builder: &mut RegistryBuilder) {
-    builder.declare_relation(
-        RelationDecl::new(
-            Namespace::Normalized,
-            "terminal_carrier",
-            1,
-            Authority::Derived,
-            SnapshotClass::Derived,
-            "The explicit fixture producer emits exactly zero rows.",
-        )
-        .granularity(pse_schema::model::DerivationGranularity::Rule)
-        .pk(&["record_id"])
-        .columns(vec![ColumnSpec::key(
-            "record_id",
-            LogicalType::U64,
-            "actual key",
-        )]),
-    );
-    builder.declare_pass(
-        PassDecl::new("FixtureEmptyCarrier", "1", Determinism::Deterministic).outputs(vec![
-            OutputPort {
-                port: "empty",
-                relation: "normalized.terminal_carrier".to_owned(),
-            },
-        ]),
-    );
-}
-
 fn joined_precondition(builder: &mut RegistryBuilder) {
-    empty_carrier_contract(builder);
     for name in ["terminal_left", "terminal_right"] {
         builder.declare_relation(
             RelationDecl::new(
@@ -977,8 +968,16 @@ fn joined_precondition(builder: &mut RegistryBuilder) {
             )
             .pk(&["record_id"])
             .columns(vec![
-                ColumnSpec::key("record_id", LogicalType::U64, "actual key"),
-                ColumnSpec::payload("value", LogicalType::U64, "actual value"),
+                FieldContract::key(
+                    "record_id",
+                    FieldContract::native(arrow::datatypes::DataType::UInt64),
+                    "actual key",
+                ),
+                FieldContract::payload(
+                    "value",
+                    FieldContract::native(arrow::datatypes::DataType::UInt64),
+                    "actual value",
+                ),
             ]),
         );
     }
@@ -991,15 +990,21 @@ fn joined_precondition(builder: &mut RegistryBuilder) {
             relation: "authored.terminal_right".to_owned(),
             port: "right",
         }),
-        columns: vec![
-            ("other_id", RuleExpr::Col("record_id")),
-            ("other_value", RuleExpr::Col("value")),
-        ],
+        columns: (vec![
+            ("other_id", RuleExpr::col("record_id")),
+            ("other_value", RuleExpr::col("value")),
+        ])
+        .into_iter()
+        .map(|(name, expression)| (name.into(), expression))
+        .collect(),
     };
     let joined = RulePlan::EquiJoin {
         left: Box::new(left),
         right: Box::new(right),
-        keys: vec![("record_id", "other_id")],
+        keys: (vec![("record_id", "other_id")])
+            .into_iter()
+            .map(|(left, right)| (left.into(), right.into()))
+            .collect(),
         null_equality: NullEquality::NullEqualsNothing,
     };
     let violations = RulePlan::Project {
@@ -1007,11 +1012,14 @@ fn joined_precondition(builder: &mut RegistryBuilder) {
             input: Box::new(joined),
             predicate: RuleExpr::cmp(
                 CmpOp::NotEq,
-                RuleExpr::Col("value"),
-                RuleExpr::Col("other_value"),
+                RuleExpr::col("value"),
+                RuleExpr::col("other_value"),
             ),
         }),
-        columns: vec![("record_id", RuleExpr::Col("record_id"))],
+        columns: (vec![("record_id", RuleExpr::col("record_id"))])
+            .into_iter()
+            .map(|(name, expression)| (name.into(), expression))
+            .collect(),
     };
     builder.declare_rule(RuleDecl::new(
         "fixture_join_matches",
@@ -1030,198 +1038,4 @@ fn joined_precondition(builder: &mut RegistryBuilder) {
         "fixture_join_matches@1",
         "A bounded fixture precondition checks actual paired values.",
     ));
-    let mut precondition = PassDecl::new("FixturePrecondition", "1", Determinism::Deterministic)
-        .inputs(vec![
-            InputPort {
-                port: "left",
-                relation: "authored.terminal_left".to_owned(),
-                source: PortSource::Pinned,
-                required: true,
-            },
-            InputPort {
-                port: "right",
-                relation: "authored.terminal_right".to_owned(),
-                source: PortSource::Pinned,
-                required: true,
-            },
-        ])
-        .diagnostics(vec!["validation.invariant", "internal.invariant"]);
-    precondition.preconditions = vec!["authored.terminal_left:fixture_join_matches".to_owned()];
-    builder.declare_pass(precondition);
-}
-
-#[derive(Debug)]
-struct FixtureValidator {
-    real: pse_compiler::validator::CompilerValidator,
-}
-impl SemanticValidator for FixtureValidator {
-    fn validate<'a>(
-        &'a self,
-        registry: &'a Registry,
-        rows: &'a BTreeMap<pse_schema::model::RelationKey, RecordBatch>,
-        cancel: &'a CancellationToken,
-    ) -> pse_catalog::BoxFut<'a, Result<(), pse_catalog::CatalogError>> {
-        self.real.validate(registry, rows, cancel)
-    }
-    fn validate_sidecar<'a>(
-        &'a self,
-        registry: &'a Registry,
-        rows: &'a BTreeMap<pse_schema::model::RelationKey, RecordBatch>,
-        cancel: &'a CancellationToken,
-    ) -> pse_catalog::BoxFut<'a, Result<(), pse_catalog::CatalogError>> {
-        self.real.validate_sidecar(registry, rows, cancel)
-    }
-    fn validate_snapshot_sources<'a>(
-        &'a self,
-        catalog: &'a Catalog,
-        kind: SnapshotKind,
-        context: &'a AdmissionContext,
-        rows: &'a BTreeMap<pse_schema::model::RelationKey, RecordBatch>,
-        cancel: &'a CancellationToken,
-    ) -> pse_catalog::BoxFut<'a, Result<(), pse_catalog::CatalogError>> {
-        self.real
-            .validate_snapshot_sources(catalog, kind, context, rows, cancel)
-    }
-    fn validate_stage<'a>(
-        &'a self,
-        catalog: &'a Catalog,
-        context: &'a AdmissionContext,
-        candidates: &'a BTreeMap<String, RecordBatch>,
-        cancel: &'a CancellationToken,
-    ) -> pse_catalog::BoxFut<'a, Result<(), pse_catalog::CatalogError>> {
-        let carrier = catalog.registry().pass("FixtureEmptyCarrier").unwrap().id;
-        if context.stage_pass != Some(carrier) {
-            return self
-                .real
-                .validate_stage(catalog, context, candidates, cancel);
-        }
-        Box::pin(async move {
-            cancel.checkpoint()?;
-            // This fixture producer has no inputs and its complete declared output
-            // is the empty relation. Catalog already checked the exact schema and
-            // port inventory. The actual row count, not its hash, proves emptiness.
-            if !context.parents.is_empty()
-                || candidates.len() != 1
-                || candidates
-                    .get("empty")
-                    .is_none_or(|batch| batch.num_rows() != 0)
-            {
-                return Err(pse_catalog::CatalogError::Semantic(Arc::new(
-                    CompilerError::Internal {
-                        what: "empty carrier differs from its declared fixture computation"
-                            .to_owned(),
-                    },
-                )));
-            }
-            Ok(())
-        })
-    }
-}
-async fn empty_carrier(fixture: &Fixture) -> Arc<Snapshot> {
-    let context = AdmissionContext {
-        stage_pass: Some(fixture.registry.pass("FixtureEmptyCarrier").unwrap().id),
-        parents: BTreeMap::new(),
-    };
-    let spec = fixture
-        .registry
-        .relation("normalized.terminal_carrier")
-        .unwrap();
-    let batch = pse_relations::cells::batch_from_cells_owned(
-        &fixture.registry,
-        spec,
-        &[],
-        fixture.catalog.reserver().as_ref(),
-        &CancellationToken::new(),
-    )
-    .unwrap();
-    let manifest = fixture
-        .catalog
-        .manifest_template(SnapshotKind::Stage, &context)
-        .unwrap();
-    fixture
-        .catalog
-        .publish_bundle(
-            BundleDraft {
-                manifest,
-                context,
-                relations: BTreeMap::from([(
-                    "empty".to_owned(),
-                    RelationDraft {
-                        contract: Arc::new(
-                            RelationContract::from_spec(
-                                &fixture.registry,
-                                spec,
-                                EncodingPolicy::IpcFile,
-                            )
-                            .unwrap(),
-                        ),
-                        batches: vec![batch],
-                    },
-                )]),
-            },
-            &CancellationToken::new(),
-        )
-        .await
-        .unwrap()
-}
-
-#[tokio::test]
-async fn driver_preconditions_compare_actual_external_inputs_before_pass_body() {
-    let fixture = Fixture::new();
-    // Each complete Model independently satisfies the registered relational check.
-    // The explicit fixture request joins a left value of 1 with a right value of 2.
-    let first = fixture.source_free_value_model(1).await;
-    let second = fixture.source_free_value_model(2).await;
-    let mut driver = fixture.driver();
-    let (calls, _) = register(&fixture, &mut driver, "FixturePrecondition", false);
-    let mut request = request(empty_carrier(&fixture).await, "FixturePrecondition");
-    for (port, relation, snapshot) in [
-        ("left", "authored.terminal_left", first),
-        ("right", "authored.terminal_right", second),
-    ] {
-        request.external_bindings.bindings.insert(
-            format!("FixturePrecondition/{port}"),
-            BoundInput::bind(
-                snapshot,
-                fixture.registry.relation(relation).unwrap().key,
-                &fixture.registry,
-            )
-            .unwrap(),
-        );
-    }
-    let error = driver
-        .run(request, &CancellationToken::new())
-        .await
-        .unwrap_err();
-    let CompilerError::AttemptFailed { record, source, .. } = error else {
-        panic!("expected declared precondition failure, got {error:?}")
-    };
-    assert_eq!(calls.load(Ordering::SeqCst), 0);
-    let CompilerError::Rule(pse_rules::RuleError::InvariantViolations { count, findings }) =
-        *source
-    else {
-        panic!("expected actual relational violations")
-    };
-    assert_eq!(count, 1);
-    let row = checked_record(
-        &fixture,
-        &record,
-        "FixturePrecondition",
-        "failed",
-        Some("validation.invariant"),
-        None,
-    )
-    .await;
-    let spec = fixture
-        .registry
-        .relation("runtime.diagnostics_findings")
-        .unwrap();
-    let actual = findings
-        .iter()
-        .flat_map(|batch| {
-            pse_relations::cells::cells_from_batch(&fixture.registry, spec, batch).unwrap()
-        })
-        .map(Cell::Struct)
-        .collect::<Vec<_>>();
-    assert_eq!(row[12], Cell::List(actual));
 }

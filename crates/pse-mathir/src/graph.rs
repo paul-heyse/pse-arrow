@@ -382,7 +382,10 @@ fn check_payload_belongs_to(opcode: Opcode, payload: &Payload) -> Result<(), Mat
             payload,
             Payload::FloatConst { .. } | Payload::IntConst { .. }
         ),
-        Opcode::SymbolRef => matches!(payload, Payload::SymbolRef { .. }),
+        Opcode::SymbolRef => matches!(
+            payload,
+            Payload::SymbolRef { .. } | Payload::PendingPath { .. }
+        ),
         Opcode::Affine => matches!(payload, Payload::Affine { .. }),
         Opcode::WeightedMean => matches!(payload, Payload::WeightedMean { .. }),
         Opcode::SmoothMax
@@ -400,7 +403,7 @@ fn check_payload_belongs_to(opcode: Opcode, payload: &Payload) -> Result<(), Mat
         Opcode::MaxOver => matches_reduction(payload, pse_quantity::ReductionKind::Max),
         Opcode::Gather => matches!(
             payload,
-            Payload::Gather { .. } | Payload::PendingGather { .. }
+            Payload::Gather { .. } | Payload::PendingGather { .. } | Payload::PendingPath { .. }
         ),
         Opcode::Broadcast => matches!(payload, Payload::Broadcast { .. }),
         Opcode::Derivative => matches!(payload, Payload::Derivative { .. }),
@@ -550,6 +553,7 @@ fn check_payload_values(
         | Payload::Reduction { .. }
         | Payload::Gather { .. }
         | Payload::PendingGather { .. }
+        | Payload::PendingPath { .. }
         | Payload::Broadcast { .. }
         | Payload::Integral { .. }
         | Payload::PendingUnitConvert { .. }
@@ -749,6 +753,19 @@ pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
     match payload {
         Payload::None => {}
         Payload::SymbolRef { symbol } => put_value(out, symbol),
+        Payload::PendingPath {
+            source_id,
+            path_id,
+            indices,
+        } => {
+            put_str(out, Payload::PENDING_PATH_KIND);
+            put_id(out, *source_id);
+            put_u64(out, *path_id);
+            put_len(out, indices.len());
+            for index in indices {
+                put_u64(out, index.0);
+            }
+        }
         Payload::FloatConst { value, unit } => {
             put_f64(out, *value);
             put_id(out, unit.as_id());

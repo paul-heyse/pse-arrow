@@ -7,7 +7,7 @@
 use datafusion::execution::runtime_env::RuntimeEnv;
 use pse_catalog::session::{
     ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
-    profile::phase0_reference_profile,
+    profile::native_engine_profile,
 };
 use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId};
 use pse_rules::{
@@ -18,15 +18,16 @@ use pse_rules::{
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{
-        Authority, Cell, ColumnSpec, DerivationGranularity, EnumDecl, EnumMember, LogicalType as T,
-        Namespace, RelationDecl, RuleDecl, RuleExpr, RuleHead, RulePlan, RuleSpec, SnapshotClass,
+        Authority, Cell, DerivationGranularity, EnumDecl, EnumMember, FieldContract,
+        FieldContract as T, Namespace, RelationDecl, RuleDecl, RuleExpr, RuleHead, RulePlan,
+        RuleSpec, SnapshotClass,
     },
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 
 fn fixture(
-    source: ColumnSpec,
-    target: ColumnSpec,
+    source: FieldContract,
+    target: FieldContract,
     value: Cell,
 ) -> (Arc<Registry>, SnapshotSession, PortBinding) {
     let mut builder = RegistryBuilder::new();
@@ -52,7 +53,14 @@ fn fixture(
             "exact conversion input",
         )
         .pk(&["id"])
-        .columns(vec![ColumnSpec::key("id", T::U32, "identity"), source]),
+        .columns(vec![
+            FieldContract::key(
+                "id",
+                T::native(datafusion::arrow::datatypes::DataType::UInt32),
+                "identity",
+            ),
+            source,
+        ]),
     );
     builder.declare_relation(
         RelationDecl::new(
@@ -65,7 +73,14 @@ fn fixture(
         )
         .granularity(DerivationGranularity::Row)
         .pk(&["id"])
-        .columns(vec![ColumnSpec::key("id", T::U32, "identity"), target]),
+        .columns(vec![
+            FieldContract::key(
+                "id",
+                T::native(datafusion::arrow::datatypes::DataType::UInt32),
+                "identity",
+            ),
+            target,
+        ]),
     );
     let registry = Arc::new(builder.build().unwrap());
     let spec = registry.relation("authored.input").unwrap();
@@ -84,7 +99,7 @@ fn fixture(
             pool_threads: NonZeroUsize::new(1).unwrap(),
             target_partitions: NonZeroUsize::new(1).unwrap(),
         },
-        phase0_reference_profile(),
+        native_engine_profile(),
     )
     .unwrap();
     (
@@ -96,8 +111,8 @@ fn fixture(
     )
 }
 
-fn column(ty: T) -> ColumnSpec {
-    ColumnSpec::payload("value", ty, "value contract")
+fn column(ty: T) -> FieldContract {
+    FieldContract::payload("value", ty, "value contract")
 }
 fn rule(value: RuleExpr) -> RuleSpec {
     let declaration = RuleDecl::new(
@@ -110,7 +125,7 @@ fn rule(value: RuleExpr) -> RuleSpec {
                 relation: "authored.input".to_owned(),
                 port: "input",
             }),
-            columns: vec![("id", RuleExpr::Col("id")), ("value", value)],
+            columns: vec![("id".into(), RuleExpr::col("id")), ("value".into(), value)],
         },
     );
     RuleSpec {
@@ -119,14 +134,19 @@ fn rule(value: RuleExpr) -> RuleSpec {
         version: declaration.version,
         stratum: declaration.stratum,
         head: declaration.head,
+        assertion_relation: None,
         plan: declaration.plan,
         negation: declaration.negation,
         monotonic: declaration.monotonic,
         conflict_policy: declaration.conflict_policy,
     }
 }
-async fn admitted(target: ColumnSpec, literal: Cell, expected: Cell) {
-    let (registry, session, ports) = fixture(column(T::U32), target, Cell::U64(0));
+async fn admitted(target: FieldContract, literal: Cell, expected: Cell) {
+    let (registry, session, ports) = fixture(
+        column(T::native(datafusion::arrow::datatypes::DataType::UInt32)),
+        target,
+        Cell::U64(0),
+    );
     let compiled = compile(&rule(RuleExpr::Lit(literal)), &ports, &session, &registry).unwrap();
     let outcome = execute(&compiled, &session, &registry, &CancellationToken::new())
         .await
@@ -138,8 +158,12 @@ async fn admitted(target: ColumnSpec, literal: Cell, expected: Cell) {
         .collect::<Vec<_>>();
     assert_eq!(rows, vec![vec![Cell::U64(1), expected]]);
 }
-fn refused(target: ColumnSpec, literal: Cell) {
-    let (registry, session, ports) = fixture(column(T::U32), target, Cell::U64(0));
+fn refused(target: FieldContract, literal: Cell) {
+    let (registry, session, ports) = fixture(
+        column(T::native(datafusion::arrow::datatypes::DataType::UInt32)),
+        target,
+        Cell::U64(0),
+    );
     assert!(matches!(
         compile(&rule(RuleExpr::Lit(literal)), &ports, &session, &registry),
         Err(RuleError::HeadSchemaMismatch { .. })
@@ -155,10 +179,18 @@ async fn integer_to_float_requires_exact_representability_at_the_binary_boundary
         (9_007_199_254_740_994, 9_007_199_254_740_994.0),
         (i64::MIN, -9_223_372_036_854_775_808.0),
     ] {
-        admitted(column(T::F64), Cell::I64(integer), Cell::F64(float)).await;
+        admitted(
+            column(T::native(datafusion::arrow::datatypes::DataType::Float64)),
+            Cell::I64(integer),
+            Cell::F64(float),
+        )
+        .await;
     }
     for value in [9_007_199_254_740_993, -9_007_199_254_740_993, i64::MAX] {
-        refused(column(T::F64), Cell::I64(value));
+        refused(
+            column(T::native(datafusion::arrow::datatypes::DataType::Float64)),
+            Cell::I64(value),
+        );
     }
 }
 
@@ -170,7 +202,12 @@ async fn float_to_integer_requires_integrality_and_the_actual_signed_range() {
         (-9_223_372_036_854_775_808.0, i64::MIN),
         (9_223_372_036_854_774_784.0, 9_223_372_036_854_774_784),
     ] {
-        admitted(column(T::I64), Cell::F64(float), Cell::I64(integer)).await;
+        admitted(
+            column(T::native(datafusion::arrow::datatypes::DataType::Int64)),
+            Cell::F64(float),
+            Cell::I64(integer),
+        )
+        .await;
     }
     for value in [
         42.5,
@@ -178,32 +215,52 @@ async fn float_to_integer_requires_integrality_and_the_actual_signed_range() {
         9_223_372_036_854_775_808.0,
         -18_446_744_073_709_551_616.0,
     ] {
-        refused(column(T::I64), Cell::F64(value));
+        refused(
+            column(T::native(datafusion::arrow::datatypes::DataType::Int64)),
+            Cell::F64(value),
+        );
     }
 }
 
 #[tokio::test]
 async fn nullable_heads_accept_typed_null_without_allowing_nullability_narrowing() {
-    admitted(column(T::I64).optional(), Cell::Null, Cell::Null).await;
-    refused(column(T::I64), Cell::Null);
-    let (registry, session, ports) =
-        fixture(column(T::I64).optional(), column(T::I64), Cell::I64(3));
+    admitted(
+        column(T::native(datafusion::arrow::datatypes::DataType::Int64)).optional(),
+        Cell::Null,
+        Cell::Null,
+    )
+    .await;
+    refused(
+        column(T::native(datafusion::arrow::datatypes::DataType::Int64)),
+        Cell::Null,
+    );
+    let (registry, session, ports) = fixture(
+        column(T::native(datafusion::arrow::datatypes::DataType::Int64)).optional(),
+        column(T::native(datafusion::arrow::datatypes::DataType::Int64)),
+        Cell::I64(3),
+    );
     assert!(matches!(
-        compile(&rule(RuleExpr::Col("value")), &ports, &session, &registry),
+        compile(&rule(RuleExpr::col("value")), &ports, &session, &registry),
         Err(RuleError::HeadSchemaMismatch { .. })
     ));
 }
 
 #[tokio::test]
 async fn quantity_and_enum_contracts_cannot_be_obtained_from_storage_agreement() {
-    refused(column(T::F64).with_quantity("temperature"), Cell::F64(3.0));
+    refused(
+        column(T::native(datafusion::arrow::datatypes::DataType::Float64))
+            .with_quantity("temperature"),
+        Cell::F64(3.0),
+    );
     let (registry, session, ports) = fixture(
-        column(T::F64).with_quantity("temperature"),
-        column(T::F64).with_quantity("pressure"),
+        column(T::native(datafusion::arrow::datatypes::DataType::Float64))
+            .with_quantity("temperature"),
+        column(T::native(datafusion::arrow::datatypes::DataType::Float64))
+            .with_quantity("pressure"),
         Cell::F64(3.0),
     );
     assert!(matches!(
-        compile(&rule(RuleExpr::Col("value")), &ports, &session, &registry),
+        compile(&rule(RuleExpr::col("value")), &ports, &session, &registry),
         Err(RuleError::HeadSchemaMismatch { .. })
     ));
     let (registry, session, ports) = fixture(
@@ -212,7 +269,7 @@ async fn quantity_and_enum_contracts_cannot_be_obtained_from_storage_agreement()
         Cell::Enum("shared"),
     );
     assert!(matches!(
-        compile(&rule(RuleExpr::Col("value")), &ports, &session, &registry),
+        compile(&rule(RuleExpr::col("value")), &ports, &session, &registry),
         Err(RuleError::HeadSchemaMismatch { .. })
     ));
     refused(

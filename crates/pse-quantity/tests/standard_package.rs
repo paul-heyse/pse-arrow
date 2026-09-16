@@ -187,13 +187,6 @@ fn smoothing_tolerances_scale_declared_units_without_adding_affine_origins() {
     use pse_quantity::{Opcode, smoothing::resolve_epsilon};
     let original = standard_registry().unwrap();
     let mut builder = original.to_builder();
-    let mut pressure = original
-        .quantity_type(ids::quantity("pressure.absolute"))
-        .unwrap()
-        .clone();
-    pressure.id = ids::quantity("pressure.difference");
-    pressure.key.scale_kind = ScaleKind::Difference;
-    builder.quantity_type(pressure);
     let mut kpa = original.unit(ids::unit("Pa")).unwrap().clone();
     kpa.id = ids::unit("kPa");
     kpa.symbol = "kPa".to_owned();

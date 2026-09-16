@@ -17,6 +17,13 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+datafusion.workspace = true
+pse-catalog.workspace = true
+pse-ids.workspace = true
+pse-schema.workspace = true
+async-trait.workspace = true
+futures-util.workspace = true
+tokio.workspace = true
 pse-numerics.workspace = true
 pse-relations.workspace = true
 tracing.workspace = true
@@ -28,13 +35,10 @@ workspace = true
 optional = true
 
 [features]
-# OFF by default in phase 0: the native backend is not implemented yet and Ipopt >= 3.14
-# is not on every host (this machine ships 3.11.9), so a default-on feature would make
-# `cargo check --workspace` fail for anyone without the solver container. Turning it on
-# is an ADR at phase 1 (plan §4, §11 step 5).
+# Native plans can be built and inspected without a linked solver. Executing them
+# requires this capability explicitly; no other solver or simulated result is used.
 default = []
-# `pse-ipopt-sys/link` is what makes that crate's build script probe for the library;
-# without it the -sys crate compiles to an empty shell on any host.
+# Link against the qualified Ipopt C interface.
 ipopt = ["dep:pse-ipopt-sys", "pse-ipopt-sys/link"]
 # Phase-4 placeholder: `diffsol` enters [workspace.dependencies] with this feature
 # (blueprint §13.6), not before.

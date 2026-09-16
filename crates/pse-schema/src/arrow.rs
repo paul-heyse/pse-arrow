@@ -16,12 +16,12 @@
 
 use std::collections::HashMap;
 
-use arrow_schema::{Field, Fields, Schema};
+use arrow_schema::{DataType, Field, Schema};
 
 use crate::builder::{Registry, quantity_type_id};
 use crate::error::SchemaError;
 use crate::ext_metadata;
-use crate::model::{ColumnSpec, ExtensionUse, LogicalType, QuantityContract, RelationSpec};
+use crate::model::{ExtensionUse, FieldContract, QuantityContract, RelationSpec};
 
 /// `pse.contract.id`: the relation identity as 32 lowercase hexadecimal digits.
 pub const KEY_CONTRACT_ID: &str = "pse.contract.id";
@@ -82,73 +82,103 @@ pub fn relation_schema(reg: &Registry, spec: &RelationSpec) -> Result<Schema, Sc
 ///
 /// [`SchemaError::UnknownReference`] when the column references an enumeration or an
 /// ordinal-ref target the registry does not declare.
-pub fn field_for(reg: &Registry, col: &ColumnSpec) -> Result<Field, SchemaError> {
-    let mut metadata = semantic_metadata(reg, &col.logical_type, col.name)?;
-    metadata.insert(KEY_ROLE.to_owned(), col.role.as_str().to_owned());
-    match col.quantity {
-        QuantityContract::None | QuantityContract::PerRow => {}
-        QuantityContract::Column(name) => {
-            metadata.insert(
-                KEY_QUANTITY_TYPE.to_owned(),
-                quantity_type_id(name).to_hex(),
-            );
-        }
-    }
-    if let Some(fk) = col.fk {
-        metadata.insert(KEY_FK.to_owned(), fk.to_string());
-    }
-    Ok(Field::new(
-        col.name,
-        data_type_for(reg, &col.logical_type, col.name)?,
-        col.nullable,
-    )
-    .with_metadata(metadata))
+pub fn field_for(reg: &Registry, col: &FieldContract) -> Result<Field, SchemaError> {
+    bind_field(reg, col.field(), col.name())
 }
 
-/// The Arrow storage of a logical type, with its children's metadata attached.
+fn bind_field(reg: &Registry, field: &Field, path: &str) -> Result<Field, SchemaError> {
+    let contract = FieldContract::from_field(field.clone());
+    let mut metadata = field.metadata().clone();
+    if contract.extension().is_none()
+        && metadata
+            .get(KEY_EXTENSION_NAME)
+            .is_some_and(|name| name.starts_with("pse."))
+    {
+        return Err(crate::checks::invalid(
+            path,
+            "PSE extension requires a domain declaration",
+        ));
+    }
+    metadata.retain(|key, _| !key.starts_with("pse.domain."));
+    let mut semantic = semantic_metadata(reg, &contract, path)?;
+    semantic.insert(KEY_ROLE.to_owned(), contract.role().as_str().to_owned());
+    if let QuantityContract::Column(name) = contract.quantity() {
+        semantic.insert(
+            KEY_QUANTITY_TYPE.to_owned(),
+            quantity_type_id(name).to_hex(),
+        );
+    }
+    if let Some(fk) = contract.fk() {
+        semantic.insert(KEY_FK.to_owned(), fk.to_string());
+    }
+    for (key, value) in &semantic {
+        if metadata.get(key).is_some_and(|existing| existing != value) {
+            return Err(crate::checks::invalid(
+                path,
+                format!("native metadata disagrees with derived {key}"),
+            ));
+        }
+    }
+    for key in [KEY_ENUM, KEY_QUANTITY_TYPE, KEY_FK] {
+        if metadata.contains_key(key) && !semantic.contains_key(key) {
+            return Err(crate::checks::invalid(
+                path,
+                format!("derived {key} requires a domain declaration"),
+            ));
+        }
+    }
+    metadata.extend(semantic);
+    Ok(field
+        .clone()
+        .with_data_type(if contract.extension().is_some() {
+            field.data_type().clone()
+        } else {
+            bind_type(reg, field.data_type(), path)?
+        })
+        .with_metadata(metadata))
+}
+
+/// Bind the domain annotations on the child fields of a native physical type.
 ///
 /// # Errors
-///
-/// The errors of [`semantic_metadata`] for any nested extension use.
-fn data_type_for(
-    reg: &Registry,
-    ty: &LogicalType,
-    path: &str,
-) -> Result<arrow_schema::DataType, SchemaError> {
-    let data_type = match ty {
-        LogicalType::List(element) => {
-            arrow_schema::DataType::List(child_field(reg, element, &format!("{path}.item"))?.into())
-        }
-        LogicalType::FixedList(element, width) => arrow_schema::DataType::FixedSizeList(
-            child_field(reg, element, &format!("{path}.item"))?.into(),
-            *width,
-        ),
-        LogicalType::Struct(children) => {
-            let mut fields = Vec::with_capacity(children.len());
-            for (name, child_type, nullable) in children {
-                let mut field = child_field(reg, child_type, &format!("{path}.{name}"))?;
-                field = field.with_name(*name).with_nullable(*nullable);
-                fields.push(field);
-            }
-            arrow_schema::DataType::Struct(Fields::from(fields))
-        }
-        other => other.data_type(),
+/// An enum or ordinal domain does not resolve in the registry.
+pub fn bind_type(reg: &Registry, ty: &DataType, path: &str) -> Result<DataType, SchemaError> {
+    let child = |f: &std::sync::Arc<Field>| {
+        bind_field(reg, f, &format!("{path}.{}", f.name())).map(std::sync::Arc::new)
     };
-    Ok(data_type)
-}
-
-/// A nested child field, named `item` unless the caller renames it.
-///
-/// Children carry `pse.semantic.logical_type` and, for an extension use, the Arrow
-/// extension keys — but never a role, a foreign key or a quantity contract, which are
-/// statements about a *column* and would be a second, weaker claim on a child.
-///
-/// # Errors
-///
-/// The errors of [`semantic_metadata`].
-fn child_field(reg: &Registry, ty: &LogicalType, path: &str) -> Result<Field, SchemaError> {
-    let metadata = semantic_metadata(reg, ty, path)?;
-    Ok(Field::new("item", data_type_for(reg, ty, path)?, false).with_metadata(metadata))
+    Ok(match ty {
+        DataType::List(f) => DataType::List(child(f)?),
+        DataType::LargeList(f) => DataType::LargeList(child(f)?),
+        DataType::ListView(f) => DataType::ListView(child(f)?),
+        DataType::LargeListView(f) => DataType::LargeListView(child(f)?),
+        DataType::FixedSizeList(f, n) => DataType::FixedSizeList(child(f)?, *n),
+        DataType::Map(f, sorted) => DataType::Map(child(f)?, *sorted),
+        DataType::Struct(fields) => DataType::Struct(
+            fields
+                .iter()
+                .map(child)
+                .collect::<Result<Vec<_>, _>>()?
+                .into(),
+        ),
+        DataType::Union(fields, mode) => DataType::Union(
+            arrow_schema::UnionFields::try_new(
+                fields.iter().map(|(id, _)| id),
+                fields
+                    .iter()
+                    .map(|(_, f)| child(f))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+            .map_err(|e| crate::checks::invalid(path, e.to_string()))?,
+            *mode,
+        ),
+        DataType::Dictionary(key, value) => {
+            DataType::Dictionary(key.clone(), Box::new(bind_type(reg, value, path)?))
+        }
+        DataType::RunEndEncoded(run, values) => {
+            DataType::RunEndEncoded(child(run)?, child(values)?)
+        }
+        other => other.clone(),
+    })
 }
 
 /// The `pse.semantic.*` and `ARROW:extension:*` metadata of one logical type.
@@ -159,10 +189,10 @@ fn child_field(reg: &Registry, ty: &LogicalType, path: &str) -> Result<Field, Sc
 /// resolve.
 fn semantic_metadata(
     reg: &Registry,
-    ty: &LogicalType,
+    ty: &FieldContract,
     path: &str,
 ) -> Result<HashMap<String, String>, SchemaError> {
-    let mut metadata = HashMap::from([(KEY_LOGICAL_TYPE.to_owned(), ty.name())]);
+    let mut metadata = HashMap::from([(KEY_LOGICAL_TYPE.to_owned(), ty.type_name()?)]);
     let Some(use_) = ty.extension() else {
         return Ok(metadata);
     };
@@ -175,15 +205,14 @@ fn semantic_metadata(
                     context: format!("field {path}"),
                     reference: format!("enum:{name}"),
                 })?;
-            metadata.insert(KEY_ENUM.to_owned(), enum_spec.id.to_hex());
-            Some(enum_spec.id)
+            return Ok(enum_metadata(name, enum_spec.id));
         }
         ExtensionUse::OrdinalRef { target } => {
             let relation = reg
                 .relation(target)
                 .ok_or_else(|| SchemaError::UnknownReference {
                     context: format!("field {path}"),
-                    reference: (*target).to_owned(),
+                    reference: target.to_owned(),
                 })?;
             Some(relation.id)
         }
@@ -195,6 +224,21 @@ fn semantic_metadata(
         ext_metadata::canonical(spec.metadata, spec.metadata_version, id),
     );
     Ok(metadata)
+}
+
+/// The common metadata projection for a declared string enumeration, including
+/// enum children owned by composite extension storage.
+pub(crate) fn enum_metadata(name: &str, id: pse_ids::SemanticId) -> HashMap<String, String> {
+    let spec = ExtensionUse::Enum(name).spec();
+    HashMap::from([
+        (KEY_LOGICAL_TYPE.to_owned(), format!("enum:{name}")),
+        (KEY_ENUM.to_owned(), id.to_hex()),
+        (KEY_EXTENSION_NAME.to_owned(), spec.name.to_owned()),
+        (
+            KEY_EXTENSION_METADATA.to_owned(),
+            ext_metadata::canonical(spec.metadata, spec.metadata_version, Some(id)),
+        ),
+    ])
 }
 
 #[cfg(test)]
@@ -270,7 +314,7 @@ mod tests {
             .expect("declared in §4.1");
         let schema = relation_schema(reg, spec).expect("the schema builds");
         let field = schema.field_with_name("primary_key").expect("declared");
-        let arrow_schema::DataType::List(child) = field.data_type() else {
+        let DataType::List(child) = field.data_type() else {
             panic!("primary_key is declared as a list");
         };
         assert_eq!(

@@ -15,6 +15,8 @@ pub mod r#kernel_evaluation_outcomes;
 ///Generated relation contract.
 pub mod r#kernel_evaluations;
 ///Generated relation contract.
+pub mod r#publications;
+///Generated relation contract.
 pub mod r#residuals;
 ///Generated relation contract.
 pub mod r#runs;

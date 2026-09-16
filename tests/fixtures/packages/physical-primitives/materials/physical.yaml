@@ -1,0 +1,583 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "units": [
+    {
+      "unit_id": "01010101010101010101010101010101",
+      "symbol": "m",
+      "name": "length",
+      "dimension": [
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "02020202020202020202020202020202",
+      "symbol": "kg",
+      "name": "mass",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "03030303030303030303030303030303",
+      "symbol": "s",
+      "name": "time",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "04040404040404040404040404040404",
+      "symbol": "K",
+      "name": "temperature",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "05050505050505050505050505050505",
+      "symbol": "mol",
+      "name": "amount",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "06060606060606060606060606060606",
+      "symbol": "A",
+      "name": "current",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "07070707070707070707070707070707",
+      "symbol": "cd",
+      "name": "luminosity",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "08080808080808080808080808080808",
+      "symbol": "USD_test",
+      "name": "currency",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Explicit test primitive."
+    },
+    {
+      "unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "symbol": "dimensionless",
+      "name": "one",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "component",
+      "doc": "Dimensionless unit."
+    }
+  ],
+  "unit_sets": [
+    {
+      "unit_set_id": "09090909090909090909090909090909",
+      "name": "component",
+      "time_unit_id": "03030303030303030303030303030303",
+      "length_unit_id": "01010101010101010101010101010101",
+      "mass_unit_id": "02020202020202020202020202020202",
+      "amount_unit_id": "05050505050505050505050505050505",
+      "temperature_unit_id": "04040404040404040404040404040404",
+      "current_unit_id": "06060606060606060606060606060606",
+      "luminous_intensity_unit_id": "07070707070707070707070707070707",
+      "currency_unit_id": "08080808080808080808080808080808"
+    }
+  ],
+  "quantity_kinds": [
+    {
+      "quantity_kind_id": "14141414141414141414141414141414",
+      "name": "length",
+      "dimension": [
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    },
+    {
+      "quantity_kind_id": "15151515151515151515151515151515",
+      "name": "neutral",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    },
+    {
+      "quantity_kind_id": "16161616161616161616161616161616",
+      "name": "boolean",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Explicit test kind."
+    }
+  ],
+  "quantity_types": [
+    {
+      "quantity_type_id": "1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e",
+      "quantity_kind_id": "14141414141414141414141414141414",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "01010101010101010101010101010101",
+      "nominal_magnitude": null,
+      "doc": "Explicit scalar test type."
+    },
+    {
+      "quantity_type_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+      "quantity_kind_id": "15151515151515151515151515151515",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+      "nominal_magnitude": null,
+      "doc": "Explicit scalar test type."
+    }
+  ],
+  "math_context": [
+    {
+      "package_id": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+      "neutral_quantity_type_id": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+      "boolean_kind_id": "16161616161616161616161616161616"
+    }
+  ]
+}

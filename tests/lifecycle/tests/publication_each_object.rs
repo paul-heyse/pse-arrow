@@ -16,9 +16,7 @@ use pse_catalog::store::membership::AdmissionContext;
 use pse_catalog::store::publish::{BundleDraft, RelationDraft};
 use pse_catalog::{Catalog, EncodingPolicy, RefName, RelationContract};
 use pse_ids::{CancellationToken, FixedBudget, SnapshotKind};
-use pse_schema::model::{
-    Authority, Cell, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass,
-};
+use pse_schema::model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass};
 use pse_schema::{Registry, RegistryBuilder};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -37,8 +35,16 @@ fn registry() -> Arc<Registry> {
             )
             .pk(&["id"])
             .columns(vec![
-                ColumnSpec::key("id", LogicalType::U64, "Key"),
-                ColumnSpec::payload("value", LogicalType::U64, "Value"),
+                FieldContract::key(
+                    "id",
+                    FieldContract::native(arrow::datatypes::DataType::UInt64),
+                    "Key",
+                ),
+                FieldContract::payload(
+                    "value",
+                    FieldContract::native(arrow::datatypes::DataType::UInt64),
+                    "Value",
+                ),
             ]),
         );
     }
@@ -123,6 +129,10 @@ async fn successful_trace() -> Vec<String> {
         1
     );
     assert_eq!(trace.iter().filter(|p| p.starts_with("refs/")).count(), 1);
+    assert_eq!(
+        trace.iter().filter(|p| p.starts_with("contexts/")).count(),
+        1
+    );
     drop((old, next, observed, catalog, store));
     assert_eq!(budget.reserved(), 0);
     trace

@@ -2,19 +2,182 @@
 
 # provenance relations
 
+## `algorithm_source_occurrences`
+
+Transient occurrences in retained generated algorithm output batches. The ordinal is construction bookkeeping, never a semantic key. The port selects one exact immutable source role; a relation identity alone cannot distinguish two roles using that declaration. Native plans calculate output keys from actual output columns and join source keys to exact bound sources before producing support. This declaration does not require publication of the transient batch.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `output_relation_id, constructed_row_ordinal, source_port, source_relation_id, source_key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `output_relation_id` | `semantic_id` | false | `key` | `reference.schema_relations.relation_id` | — |
+| `constructed_row_ordinal` | `UInt64` | false | `key` | — | — |
+| `source_port` | `Utf8` | false | `key` | — | — |
+| `source_relation_id` | `semantic_id` | false | `key` | `reference.schema_relations.relation_id` | — |
+| `source_key` | `Utf8` | false | `key` | — | — |
+
 ## `assertions`
 
 blueprint §6.13 authored expected evidence; excluded from semantic membership.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `assertion_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `assertion_id` | `semantic_id` | false | `key` | — |
-| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` |
-| `expected` | `text` | false | `payload` | — |
-| `status` | `enum:AssertionStatus` | false | `payload` | — |
-| `reason` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `package_id` | `semantic_id` | false | `payload` | `authored.packages.package_id` | — |
+| `expected` | `Utf8` | false | `payload` | — | — |
+| `status` | `enum:AssertionStatus` | false | `payload` | — | — |
+| `reason` | `Utf8` | false | `payload` | — | — |
+
+## `boundary_crossing_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `connection_id` | `semantic_id` | false | `payload` | — | — |
+| `classification` | `enum:Crossing` | false | `payload` | — | — |
+
+## `connection_violation_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `connection_id` | `semantic_id` | false | `payload` | — | — |
+| `reason` | `Utf8` | false | `payload` | — | — |
+
+## `constructed_supports`
+
+Actual constructor witnesses. A null output key names the complete input binding scope; Delta selections name exact table versions and revision slices, while transient facts have no invented durable identity.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `mapping_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `mapping_id` | `semantic_id` | false | `key` | — | — |
+| `output_relation_id` | `semantic_id` | false | `payload` | — | — |
+| `output_key` | `Utf8` | true | `payload` | — | — |
+| `input_port` | `Utf8` | false | `payload` | — | — |
+| `input_relation_id` | `semantic_id` | false | `payload` | — | — |
+| `input_selection` | `Struct` | true | `payload` | — | — |
+| `input_selection.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `input_selection.schema_name` | `Utf8` | false | `payload` | — | — |
+| `input_selection.table_name` | `Utf8` | false | `payload` | — | — |
+| `input_selection.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `input_selection.relation_version` | `UInt32` | false | `payload` | — | — |
+| `input_selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `input_selection.table_uri` | `Utf8` | false | `payload` | — | — |
+| `input_selection.delta_version` | `UInt64` | false | `payload` | — | — |
+| `input_selection.revision_column` | `Utf8` | true | `payload` | — | — |
+| `input_selection.revision_id` | `semantic_id` | true | `payload` | — | — |
+| `support_kind` | `enum:RuleSupportKind` | false | `payload` | — | — |
+| `input_key` | `Utf8` | true | `payload` | — | — |
+
+## `demand_active_read_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `read_id` | `semantic_id` | false | `payload` | — | — |
+| `seed_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
+| `guard_source_id` | `semantic_id` | true | `payload` | — | — |
+| `guard_node_id` | `UInt64` | true | `payload` | — | — |
+| `guard_index` | `index_tuple` | false | `payload` | — | — |
+| `outer_guard_source_id` | `semantic_id` | true | `payload` | — | — |
+| `outer_guard_node_id` | `UInt64` | true | `payload` | — | — |
+
+## `demand_obligation_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `read_id` | `semantic_id` | false | `payload` | — | — |
+| `seed_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
+
+## `demand_request_key_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `seed_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_id` | `semantic_id` | false | `payload` | — | — |
+
+## `demand_scope_request_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `read_id` | `semantic_id` | false | `payload` | — | — |
+| `seed_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
+
+## `demand_seed_binding_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `read_id` | `semantic_id` | false | `payload` | — | — |
+| `seed_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `state_scope_id` | `semantic_id` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
 
 ## `derivations`
 
@@ -22,39 +185,637 @@ blueprint §6.13 derivation evidence.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `derivation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `derivation_id` | `semantic_id` | false | `key` | — |
-| `relation_id` | `semantic_id` | false | `payload` | — |
-| `row_key` | `text` | false | `payload` | — |
-| `rule_id` | `semantic_id` | true | `payload` | — |
-| `pass_id` | `semantic_id` | true | `payload` | — |
-| `supporting` | `list<struct{relation_id:semantic_id,row_key:text}>` | false | `payload` | — |
-| `snapshot_id` | `content_hash` | true | `payload` | — |
-| `fingerprint` | `content_hash` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `derivation_id` | `semantic_id` | false | `key` | — | — |
+| `relation_id` | `semantic_id` | false | `payload` | — | — |
+| `row_key` | `Utf8` | false | `payload` | — | — |
+| `rule_id` | `semantic_id` | true | `payload` | — | — |
+| `pass_id` | `semantic_id` | true | `payload` | — | — |
+| `supporting` | `List` | false | `payload` | — | — |
+| `supporting.item` | `Struct` | false | `payload` | — | — |
+| `supporting.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `supporting.item.row_key` | `Utf8` | false | `payload` | — | — |
+| `snapshot_id` | `content_hash` | true | `payload` | — | — |
+| `fingerprint` | `content_hash` | true | `payload` | — | — |
+
+## `domain_member_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | — | — |
+| `member_id` | `semantic_id` | false | `payload` | — | — |
+
+## `feature_candidate_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `source_owner_id` | `semantic_id` | false | `payload` | — | — |
+| `source_name` | `Utf8` | false | `payload` | — | — |
+| `value` | `Struct` | false | `payload` | — | — |
+| `value.kind` | `enum:ConfigValueKind` | false | `payload` | — | — |
+| `value.boolean` | `Boolean` | true | `payload` | — | — |
+| `value.signed` | `Int64` | true | `payload` | — | — |
+| `value.unsigned` | `UInt64` | true | `payload` | — | — |
+| `value.real` | `Float64` | true | `payload` | — | — |
+| `value.text` | `Utf8` | true | `payload` | — | — |
+| `value.semantic_id` | `semantic_id` | true | `payload` | — | — |
+| `value.enum_id` | `semantic_id` | true | `payload` | — | — |
+| `value.index` | `index_tuple` | true | `payload` | — | — |
+| `value.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `value.unit_id` | `semantic_id` | true | `payload` | — | — |
+
+## `feature_check_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `rule` | `enum:FeatureRuleKind` | false | `payload` | — | — |
+| `antecedent` | `Utf8` | false | `payload` | — | — |
+| `consequent` | `Utf8` | false | `payload` | — | — |
+
+## `feature_requirement_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+
+## `instance_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `parent_instance_id` | `semantic_id` | true | `payload` | — | — |
+| `template_id` | `semantic_id` | false | `payload` | — | — |
+| `path` | `Utf8` | false | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
+
+## `instance_feature_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `value` | `Struct` | false | `payload` | — | — |
+| `value.kind` | `enum:ConfigValueKind` | false | `payload` | — | — |
+| `value.boolean` | `Boolean` | true | `payload` | — | — |
+| `value.signed` | `Int64` | true | `payload` | — | — |
+| `value.unsigned` | `UInt64` | true | `payload` | — | — |
+| `value.real` | `Float64` | true | `payload` | — | — |
+| `value.text` | `Utf8` | true | `payload` | — | — |
+| `value.semantic_id` | `semantic_id` | true | `payload` | — | — |
+| `value.enum_id` | `semantic_id` | true | `payload` | — | — |
+| `value.index` | `index_tuple` | true | `payload` | — | — |
+| `value.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `value.unit_id` | `semantic_id` | true | `payload` | — | — |
+
+## `instance_guard_violation_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `reason` | `Utf8` | false | `payload` | — | — |
+
+## `instance_reachability_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `ancestor_id` | `semantic_id` | false | `payload` | — | — |
+| `descendant_id` | `semantic_id` | false | `payload` | — | — |
+
+## `instance_tree_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `ancestor_id` | `semantic_id` | false | `payload` | — | — |
+| `descendant_id` | `semantic_id` | false | `payload` | — | — |
+| `depth` | `UInt16` | false | `payload` | — | — |
+
+## `invalid_index_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+| `tuple` | `index_tuple` | false | `payload` | — | — |
+
+## `law_application_assertions`
+
+Typed conservation rule assertion.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+| `law_instance_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `law_template_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+| `law_family` | `enum:LawFamily` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `basis_id` | `semantic_id` | true | `payload` | — | — |
+| `subject_kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
+| `subject_id` | `semantic_id` | true | `payload` | — | — |
+| `subject_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_id` | `semantic_id` | true | `payload` | — | — |
+| `source_family` | `enum:LawFamily` | false | `payload` | — | — |
+| `subject_projection` | `enum:LawSubjectProjection` | false | `payload` | — | — |
+| `expansion` | `enum:LawExpansion` | false | `payload` | — | — |
+
+## `law_candidate_assertions`
+
+Typed conservation rule assertion.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+| `contribution_id` | `semantic_id` | false | `payload` | — | — |
+
+## `law_empty_application_assertions`
+
+Typed conservation rule assertion.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+
+## `law_internal_transfer_assertions`
+
+Typed conservation rule assertion.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+| `contribution_id` | `semantic_id` | false | `payload` | — | — |
+
+## `law_ordered_term_assertions`
+
+Typed conservation rule assertion.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+| `contribution_ids` | `List` | false | `payload` | — | — |
+| `contribution_ids.item` | `semantic_id` | false | `payload` | — | — |
+
+## `law_participation_assertions`
+
+Typed conservation rule assertion.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+| `contribution_id` | `semantic_id` | false | `payload` | — | — |
+| `decision` | `enum:ParticipationDecision` | false | `payload` | — | — |
+| `reason` | `enum:ParticipationReason` | false | `payload` | — | — |
+| `sign` | `Int32` | false | `payload` | — | — |
+
+## `law_subject_match_assertions`
+
+Typed conservation rule assertion.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+| `contribution_id` | `semantic_id` | false | `payload` | — | — |
+
+## `material_check_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `material_system_id` | `semantic_id` | false | `payload` | — | — |
+| `phase_count` | `UInt64` | false | `payload` | — | — |
+| `species_count` | `UInt64` | false | `payload` | — | — |
+
+## `material_count_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `material_system_id` | `semantic_id` | false | `payload` | — | — |
+| `kind` | `enum:DomainKind` | false | `payload` | — | — |
+| `count` | `UInt64` | false | `payload` | — | — |
+
+## `method_candidate_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `selection_id` | `semantic_id` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
+| `applicable` | `Boolean` | false | `payload` | — | — |
+| `rank` | `UInt16` | true | `payload` | — | — |
+| `reason` | `enum:MethodCandidateReason` | false | `payload` | — | — |
+
+## `method_compatibility_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `selection_id` | `semantic_id` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
+| `compatible` | `Boolean` | false | `payload` | — | — |
+| `reason` | `enum:MethodCandidateReason` | false | `payload` | — | — |
+
+## `method_resolution_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | true | `payload` | — | — |
+| `realization` | `enum:MethodRealization` | true | `payload` | — | — |
+| `template_id` | `semantic_id` | true | `payload` | — | — |
+| `status` | `enum:ResolutionStatus` | false | `payload` | — | — |
+
+## `node_rewrites`
+
+Transient actual MathIR graph-import mapping, scoped to one exact graph/family argument role. Native joins apply this mapping to carrier columns. It cannot replace root-environment-specific canonicalization correspondence.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `input_node_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `input_node_id` | `UInt64` | false | `key` | — | — |
+| `output_node_id` | `UInt64` | false | `payload` | — | — |
 
 ## `pass_records`
 
 blueprint §6.13 noncanonical execution evidence.
 
-Version: 1. Snapshot class: `sidecar`. Primary key: `pass_run_id`.
+Version: 2. Snapshot class: `sidecar`. Primary key: `pass_run_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `pass_run_id` | `semantic_id` | false | `key` | — |
-| `pass_id` | `semantic_id` | false | `payload` | — |
-| `version` | `text` | false | `payload` | — |
-| `snapshot_in` | `content_hash` | true | `payload` | — |
-| `snapshot_out` | `content_hash` | true | `payload` | — |
-| `engine_profile_hash` | `content_hash` | true | `payload` | — |
-| `plan_evidence` | `list<struct{encoding_checksum:content_hash,encoding:text,codec_version:text}>` | false | `payload` | — |
-| `plan_explain` | `list<text>` | false | `payload` | — |
-| `rules_fired` | `list<struct{plan_ordinal:u16,rule_name:text,ordinal:u16}>` | false | `payload` | — |
-| `duration_ms` | `f64` | false | `payload` | — |
-| `finding_count` | `u64` | false | `payload` | — |
-| `status` | `enum:PassStatus` | false | `payload` | — |
-| `findings` | `list<struct{finding_id:semantic_id,subject_snapshot:content_hash?,run_id:semantic_id?,check_id:semantic_id?,severity:enum:FindingSeverity,subjects:list<semantic_id>,values:text,message:text,next_steps:list<text>}>` | false | `payload` | — |
-| `failure_class` | `enum:FailureClass` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `pass_run_id` | `semantic_id` | false | `key` | — | — |
+| `pass_id` | `semantic_id` | false | `payload` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `snapshot_in` | `content_hash` | true | `payload` | — | — |
+| `snapshot_out` | `content_hash` | true | `payload` | — | — |
+| `engine_profile_hash` | `content_hash` | true | `payload` | — | — |
+| `plan_evidence` | `List` | false | `payload` | — | — |
+| `plan_evidence.item` | `Struct` | false | `payload` | — | — |
+| `plan_evidence.item.encoding_checksum` | `content_hash` | false | `payload` | — | — |
+| `plan_evidence.item.encoding` | `Utf8` | false | `payload` | — | — |
+| `plan_evidence.item.codec_version` | `Utf8` | false | `payload` | — | — |
+| `plan_explain` | `List` | false | `payload` | — | — |
+| `plan_explain.item` | `Utf8` | false | `payload` | — | — |
+| `rules_fired` | `List` | false | `payload` | — | — |
+| `rules_fired.item` | `Struct` | false | `payload` | — | — |
+| `rules_fired.item.plan_ordinal` | `UInt16` | false | `payload` | — | — |
+| `rules_fired.item.rule_name` | `Utf8` | false | `payload` | — | — |
+| `rules_fired.item.ordinal` | `UInt16` | false | `payload` | — | — |
+| `duration_ms` | `Float64` | false | `payload` | — | — |
+| `finding_count` | `UInt64` | false | `payload` | — | — |
+| `status` | `enum:PassStatus` | false | `payload` | — | — |
+| `findings` | `List` | false | `payload` | — | — |
+| `findings.item` | `Struct` | false | `payload` | — | — |
+| `findings.item.finding_id` | `semantic_id` | false | `payload` | — | — |
+| `findings.item.subject_snapshot` | `content_hash` | true | `payload` | — | — |
+| `findings.item.run_id` | `semantic_id` | true | `payload` | — | — |
+| `findings.item.check_id` | `semantic_id` | true | `payload` | — | — |
+| `findings.item.severity` | `enum:FindingSeverity` | false | `payload` | — | — |
+| `findings.item.subjects` | `List` | false | `payload` | — | — |
+| `findings.item.subjects.item` | `semantic_id` | false | `payload` | — | — |
+| `findings.item.values` | `Utf8` | false | `payload` | — | — |
+| `findings.item.message` | `Utf8` | false | `payload` | — | — |
+| `findings.item.next_steps` | `List` | false | `payload` | — | — |
+| `findings.item.next_steps.item` | `Utf8` | false | `payload` | — | — |
+| `failure_class` | `enum:FailureClass` | true | `payload` | — | — |
+| `derivations` | `List` | false | `payload` | — | — |
+| `derivations.item` | `Struct` | false | `payload` | — | — |
+| `derivations.item.derivation_id` | `semantic_id` | false | `key` | — | — |
+| `derivations.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `derivations.item.row_key` | `Utf8` | false | `payload` | — | — |
+| `derivations.item.rule_id` | `semantic_id` | true | `payload` | — | — |
+| `derivations.item.pass_id` | `semantic_id` | true | `payload` | — | — |
+| `derivations.item.supporting` | `List` | false | `payload` | — | — |
+| `derivations.item.supporting.item` | `Struct` | false | `payload` | — | — |
+| `derivations.item.supporting.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `derivations.item.supporting.item.row_key` | `Utf8` | false | `payload` | — | — |
+| `derivations.item.snapshot_id` | `content_hash` | true | `payload` | — | — |
+| `derivations.item.fingerprint` | `content_hash` | true | `payload` | — | — |
+
+## `phase_species_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `material_system_id` | `semantic_id` | false | `payload` | — | — |
+| `phase_id` | `semantic_id` | false | `payload` | — | — |
+| `species_id` | `semantic_id` | false | `payload` | — | — |
+| `henry` | `Boolean` | false | `payload` | — | — |
+
+## `port_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `kind` | `enum:PortKind` | false | `payload` | — | — |
+| `direction` | `enum:Direction` | false | `payload` | — | — |
+| `state_instance_id` | `semantic_id` | true | `payload` | — | — |
+
+## `port_member_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `symbol_group` | `Utf8` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+
+## `port_member_domain_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `domain_ids` | `List` | false | `payload` | — | — |
+| `domain_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+
+## `port_state_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `state_index` | `index_tuple` | false | `payload` | — | — |
+| `state_instance_id` | `semantic_id` | false | `payload` | — | — |
+
+## `port_state_domain_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `domain_ids` | `List` | false | `payload` | — | — |
+| `domain_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+
+## `potential_method_candidate_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `selection_id` | `semantic_id` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
+| `applicable` | `Boolean` | false | `payload` | — | — |
+| `rank` | `UInt16` | true | `payload` | — | — |
+| `reason` | `enum:MethodCandidateReason` | false | `payload` | — | — |
+
+## `potential_method_resolution_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | true | `payload` | — | — |
+| `realization` | `enum:MethodRealization` | true | `payload` | — | — |
+| `template_id` | `semantic_id` | true | `payload` | — | — |
+| `status` | `enum:ResolutionStatus` | false | `payload` | — | — |
+
+## `potential_method_winner_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `selection_id` | `semantic_id` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
+| `rank` | `UInt16` | false | `payload` | — | — |
+
+## `property_read_occurrences`
+
+Transient typed syntax reads and their exact branch guards. Native joins select actual property mappings; this is not an assertion that a read denotes a property.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `read_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `read_id` | `semantic_id` | false | `key` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `read_node_id` | `UInt64` | false | `payload` | — | — |
+| `guard_predicate_id` | `UInt64` | true | `payload` | — | — |
+
+## `property_requirement_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `state_scope_id` | `semantic_id` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
 
 ## `refs`
 
@@ -62,9 +823,350 @@ blueprint §6.13 mutable refs.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `name` | `text` | false | `key` | — |
-| `snapshot_id` | `content_hash` | false | `payload` | — |
-| `manifest_checksum` | `content_hash` | false | `payload` | — |
-| `updated_at` | `ts` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `name` | `Utf8` | false | `key` | — | — |
+| `snapshot_id` | `content_hash` | false | `payload` | — | — |
+| `manifest_checksum` | `content_hash` | false | `payload` | — | — |
+| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+
+## `requirement_support_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `requester_id` | `semantic_id` | false | `payload` | — | — |
+| `source_kind` | `enum:RequirementSource` | false | `payload` | — | — |
+
+## `requirement_universe_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `requirement_id` | `semantic_id` | false | `payload` | — | — |
+| `state_scope_id` | `semantic_id` | false | `payload` | — | — |
+| `state_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `property_package_id` | `semantic_id` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | false | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
+
+## `rule_support_edges`
+
+Exact assertion-to-input support; absence names an entire completed binding.
+
+Version: 1. Snapshot class: `derived`. Primary key: `edge_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `edge_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `payload` | `reference.rule_specs.rule_id` | — |
+| `assertion_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
+| `assertion_id` | `semantic_id` | false | `payload` | — | — |
+| `head_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
+| `head_key` | `Utf8` | false | `payload` | — | — |
+| `input_port` | `Utf8` | false | `payload` | — | — |
+| `input_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
+| `input_selection` | `Struct` | true | `payload` | — | — |
+| `input_selection.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `input_selection.schema_name` | `Utf8` | false | `payload` | — | — |
+| `input_selection.table_name` | `Utf8` | false | `payload` | — | — |
+| `input_selection.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `input_selection.relation_version` | `UInt32` | false | `payload` | — | — |
+| `input_selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `input_selection.table_uri` | `Utf8` | false | `payload` | — | — |
+| `input_selection.delta_version` | `UInt64` | false | `payload` | — | — |
+| `input_selection.revision_column` | `Utf8` | true | `payload` | — | — |
+| `input_selection.revision_id` | `semantic_id` | true | `payload` | — | — |
+| `support_kind` | `enum:RuleSupportKind` | false | `payload` | — | — |
+| `input_key` | `Utf8` | true | `payload` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+
+## `scope_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | true | `payload` | — | — |
+
+## `scope_binding_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_decl_id` | `semantic_id` | false | `payload` | `authored.scopes.scope_id` | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+
+## `scope_candidate_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | true | `payload` | — | — |
+
+## `scope_entity_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `entity_id` | `semantic_id` | false | `payload` | — | — |
+| `kind` | `enum:EntityKind` | false | `payload` | — | — |
+
+## `scope_member_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `entity_id` | `semantic_id` | false | `payload` | — | — |
+
+## `scope_port_decision_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `state_index` | `index_tuple` | false | `payload` | — | — |
+| `included` | `Boolean` | false | `payload` | — | — |
+
+## `scope_port_state_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `state_index` | `index_tuple` | false | `payload` | — | — |
+
+## `scope_reachability_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `ancestor_id` | `semantic_id` | false | `payload` | — | — |
+| `entity_id` | `semantic_id` | false | `payload` | — | — |
+
+## `selection_inventory_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `selection_id` | `semantic_id` | false | `payload` | — | — |
+| `is_default` | `Boolean` | false | `payload` | — | — |
+| `property_package_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_kind` | `enum:ScopeKind` | false | `payload` | — | — |
+| `scope_ids` | `index_tuple` | false | `payload` | — | — |
+| `property_kind_id` | `semantic_id` | true | `payload` | — | — |
+| `family` | `enum:MethodFamily` | false | `payload` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
+| `source_kind` | `Utf8` | false | `payload` | — | — |
+
+## `selector_context_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `node_id` | `semantic_id` | false | `payload` | — | — |
+| `op` | `enum:SelectorNodeOp` | false | `payload` | — | — |
+| `left_node_id` | `semantic_id` | true | `payload` | — | — |
+| `right_node_id` | `semantic_id` | true | `payload` | — | — |
+| `target_entity_id` | `semantic_id` | true | `payload` | — | — |
+| `target_kind` | `enum:EntityKind` | true | `payload` | — | — |
+| `constant` | `Boolean` | true | `payload` | — | — |
+
+## `selector_decision_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `node_id` | `semantic_id` | false | `payload` | — | — |
+| `entity_id` | `semantic_id` | false | `payload` | — | — |
+| `included` | `Boolean` | false | `payload` | — | — |
+
+## `selector_parameter_target_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `node_id` | `semantic_id` | false | `payload` | — | — |
+| `target_entity_id` | `semantic_id` | false | `payload` | — | — |
+
+## `state_method_selection_key_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `property_package_id` | `semantic_id` | false | `payload` | — | — |
+| `selection_id` | `semantic_id` | false | `payload` | — | — |
+
+## `state_scope_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `state_scope_id` | `semantic_id` | false | `payload` | — | — |
+| `state_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `property_package_id` | `semantic_id` | false | `payload` | — | — |
+
+## `state_scope_key_assertions`
+
+Mechanically projected P6 rule assertions.
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `state_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `state_scope_id` | `semantic_id` | false | `payload` | — | — |
+
+## `topology_edge_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `from_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `to_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `connection_id` | `semantic_id` | false | `payload` | — | — |
+
+## `unbound_port_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `state_index` | `index_tuple` | false | `payload` | — | — |
+| `state_instance_id` | `semantic_id` | false | `payload` | — | — |
+
+## `valid_index_assertions`
+
+Mechanically projected typed rule assertions
+
+Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `assertion_id` | `semantic_id` | false | `key` | — | — |
+| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `truth` | `enum:TruthValue` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | `normalized.domain_products.product_id` | — |
+| `tuple` | `index_tuple` | false | `payload` | — | — |

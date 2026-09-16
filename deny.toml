@@ -1,9 +1,18 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-# Dependency policy for the pse-arrow workspace (blueprint §3.1 "Supply chain").
-# Run with `just policy` (cargo deny check + cargo audit). Every `ignore`, `skip` and
-# `exception` entry carries a reason and a `# owner, review YYYY-MM-DD` comment; an entry
-# with no expiry is a permanent silent exception and is not allowed.
+# Dependency REPORT for the pse-arrow workspace (blueprint §3.1 "Supply chain", §3.3.2).
+#
+# This file is no longer an admission gate. During phases 0-1 no library and no licence
+# is refused: `rust / deny` runs but does not block, and `just ci-pr` does not call it.
+# What this configuration still does is TELL YOU what is in the graph, so the licensing
+# and supply-chain review that has to happen before the first published release costs a
+# command rather than a rebuild (ADR-0066, register row R-31).
+#
+# Run it with `just deps-report` (advisory, always exits 0) or `just policy` (strict,
+# exits non-zero on a finding -- the deliberate pre-release audit).
+#
+# Every `ignore` and `exception` entry still carries a reason and a `# owner, review
+# YYYY-MM-DD` comment. An entry with no expiry is a permanent silent exception.
 
 [graph]
 targets = [
@@ -16,16 +25,31 @@ targets = [
 all-features = true
 
 [advisories]
-yanked = "deny"
+# Reported, never blocking. A known advisory is worth seeing on the pull request; it is
+# not worth stopping a phase-0 branch that is trying to make the platform work.
+yanked = "warn"
 # A deprecation encoded only in semver build metadata (serde_yaml's) is invisible to
-# cargo audit; this is the check that sees it.
-unmaintained = "workspace"
-ignore = []
+# cargo audit; this is the check that sees it. `all` widens it past direct dependencies.
+unmaintained = "all"
+ignore = [
+  # paste 1.0.15 (proc-macro; unmaintained, no vulnerability). Transitive via the
+  # arrow/datafusion families; leaves the graph when upstream drops it. The same dated
+  # acceptance is in `.cargo/audit.toml` for cargo-audit.
+  "RUSTSEC-2024-0436", # paul-heyse, review 2027-03-01
+]
 
 [licenses]
-# Our own code is MIT OR Apache-2.0. Copyleft is absent by omission: anything not
-# listed fails. Weak-copyleft MPL-2.0 is allowed for leaf crates only.
+# NOT an allowlist. This records the licences a future licensing review has already
+# looked at, so the report can say "here is one nobody has considered yet" instead of
+# drowning in the ordinary. An unlisted licence is a prompt to look, never a refusal --
+# nothing here blocks a merge.
+#
+# Our own code stays MIT OR Apache-2.0. Note for the pre-release audit: a copyleft
+# dependency linked into a distributed artifact can affect what that dual licence means
+# for what we ship. That is the question R-31 exists to ask, at a point where the answer
+# can be acted on.
 allow = [
+  # Permissive.
   "MIT",
   "MIT-0",
   "Apache-2.0",
@@ -36,13 +60,28 @@ allow = [
   "Zlib",
   "0BSD",
   "BSL-1.0",
+  "NCSA",
+  "Unlicense",
+  "WTFPL",
+  "OpenSSL",
   "Unicode-3.0",
   "Unicode-DFS-2016",
   "CC0-1.0",
   "CDLA-Permissive-2.0",
+  # Weak copyleft.
   "MPL-2.0",
+  "EPL-2.0",
+  "CDDL-1.0",
+  "LGPL-2.1",
+  "LGPL-3.0",
+  # Strong copyleft. Eligible like everything else; the linking question is R-31's.
+  "GPL-2.0",
+  "GPL-3.0",
+  "AGPL-3.0",
 ]
-confidence-threshold = 0.93
+# cargo-deny's default. The old 0.93 was tuned for a gate; a report would rather read a
+# slightly unusual expression than refuse to name it.
+confidence-threshold = 0.8
 unused-allowed-license = "allow"
 # libbz2-rs-sys declares the (permissive, BSD-like) bzip2 licence under a non-SPDX id. It
 # reaches the graph only through DataFusion's default `compression` feature and is a leaf.
@@ -54,72 +93,56 @@ exceptions = [
 private = { ignore = true }
 
 [bans]
-# The mechanical form of the one-type-universe rule: two majors of arrow/parquet/
-# object_store in the graph make `downcast_ref` return None with no compile error.
-# `cargo xtask family-check` checks the same thing with a clearer message.
-multiple-versions = "deny"
+# `multiple-versions` is deliberately NOT "deny". The rule it was standing in for is the
+# one type universe -- exactly one resolved arrow / parquet / object_store / datafusion /
+# pyo3 -- and `cargo xtask family-check` asserts that directly, by family, with a clearer
+# message, and is still a required check. Denying every duplicate meant a hand-maintained
+# `skip` list of hashers, allocators and proc-macro plumbing that blocked ordinary library
+# additions while saying nothing about the hazard it was named for.
+multiple-versions = "allow"
 wildcards = "deny"
 allow-wildcard-paths = true
 highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
-deny = [
-  { crate = "serde_yaml", reason = "unmaintained; serde-saphyr replaces it (blueprint §3.1)" },
-  { crate = "uom", reason = "dropped: no kernel needs compile-time unit typing (blueprint §3.3)" },
-  { crate = "arrow-flight", reason = "no consumer (blueprint §3.1)" },
-  { crate = "arrow-avro", reason = "no consumer (blueprint §3.1)" },
-  { crate = "datafusion-spark", reason = "silently different arithmetic (blueprint §3.3)" },
-  { crate = "arrow-pyarrow", reason = "needs a Python interpreter at build time (blueprint §3.1)" },
-  { crate = "parquet-variant", reason = "a typed hole in decision D1 (blueprint §3.3)" },
-  { crate = "parquet_derive", reason = "inverts the registry -> Rust direction (blueprint §3.3)" },
-  { crate = "salsa", reason = "deferred with a trigger (blueprint §14.3, ADR-0020)" },
-  { crate = "openssl-sys", reason = "no TLS stack in the engine; object_store is local-only in phases 0-1" },
-]
-# Seeded from the first `cargo deny check bans` run; see `git log -- deny.toml` for the
-# provenance of each entry. Prune entries that no longer match (cargo deny warns).
+
+# Known hazards, not prohibitions (ADR-0066; blueprint §3.3.2).
 #
-# Every entry names the OLDER member of a pair and says who holds it back, so the fix is
-# always legible: when the named upstream moves, the line is deleted, not renewed. None of
-# these crates is on an identity, canonicalization or numeric path where two generations
-# could disagree about a VALUE -- they are hashers, allocators, backtrace plumbing and
-# proc-macro support. `multiple-versions = "deny"` stays: a second arrow/datafusion/
-# object_store/pyo3 generation would make `downcast_ref` return None with no compile error,
-# which is what the policy is actually protecting.
-skip = [
-  { crate = "block-buffer@0.10.4", reason = "digest 0.10 generation, held by blake2 under datafusion's crypto expressions; digest 0.11 arrives with sha2 0.11 in the same graph" },          # paul-heyse, review 2027-03-01
-  { crate = "crypto-common@0.1.7", reason = "same digest 0.10 generation as block-buffer@0.10.4" },                                                                                          # paul-heyse, review 2027-03-01
-  { crate = "digest@0.10.7", reason = "same digest 0.10 generation as block-buffer@0.10.4" },                                                                                                # paul-heyse, review 2027-03-01
-  { crate = "equator@0.2.2", reason = "faer 0.24's own nano-gemm dependency is one generation behind faer's assert crate" },                                                                 # paul-heyse, review 2027-03-01
-  { crate = "equator-macro@0.2.1", reason = "proc-macro half of equator@0.2.2" },                                                                                                            # paul-heyse, review 2027-03-01
-  { crate = "foldhash@0.1.5", reason = "hashbrown 0.15 (datafusion 55) and hashbrown 0.17 (arrow 59) carry different foldhash generations; neither hash reaches an identity" },              # paul-heyse, review 2027-03-01
-  { crate = "getrandom@0.3.4", reason = "ahash 0.8 pins getrandom 0.3; blake3 and the 2024-vintage crates take 0.4" },                                                                       # paul-heyse, review 2027-03-01
-  { crate = "hashbrown@0.14.5", reason = "dashmap (via datafusion 55) has not moved off the 0.14 line" },                                                                                    # paul-heyse, review 2027-03-01
-  { crate = "hashbrown@0.15.5", reason = "datafusion 55 is on 0.15 while arrow 59 is on 0.17; both stay until the families' next minor" },                                                   # paul-heyse, review 2027-03-01
-  { crate = "itertools@0.14.0", reason = "datafusion 55's own subcrates mix 0.14 and 0.15" },                                                                                                # paul-heyse, review 2027-03-01
-  { crate = "miniz_oxide@0.8.9", reason = "backtrace, reached through miette's reporter chain, lags async-compression's 0.9" },                                                              # paul-heyse, review 2027-03-01
-  { crate = "num-bigint@0.4.8", reason = "bigdecimal (datafusion-sql) is on 0.4; arrow 59's decimal support is on 0.5" },                                                                    # paul-heyse, review 2027-03-01
-  { crate = "object@0.37.3", reason = "backtrace's object reader vs ar_archive_writer's; neither is on a data path" },                                                                       # paul-heyse, review 2027-03-01
-  { crate = "syn@2.0.119", reason = "the ecosystem's derive macros are on syn 2; pse-schema deliberately uses syn 3 (blueprint §3.1). Expected to be permanent until the ecosystem moves" }, # paul-heyse, review 2027-03-01
-  { crate = "thiserror@1.0.69", reason = "pyo3-arrow 0.19 depends on thiserror 1.x beside the platform's 2.x; no type crosses that boundary (blueprint §3.1)" },                             # paul-heyse, review 2027-03-01
-  { crate = "thiserror-impl@1.0.69", reason = "proc-macro half of thiserror@1.0.69" },                                                                                                       # paul-heyse, review 2027-03-01
-  { crate = "unicode-width@0.1.14", reason = "miette 7 is on 0.1; comfy-table and annotate-snippets under arrow are on 0.2" },                                                               # paul-heyse, review 2027-03-01
-  { crate = "zstd@0.13.3", reason = "arrow-ipc's zstd vs async-compression's; canonical IPC is never compressed, so the two cannot disagree about bytes we hash (blueprint §5.3)" },         # paul-heyse, review 2027-03-01
-  { crate = "zstd-safe@7.3.0", reason = "sys half of zstd@0.13.3" },                                                                                                                         # paul-heyse, review 2027-03-01
-]
-skip-tree = [
-  { crate = "windows-sys", reason = "foundational; every dependent pins a different minor" }, # paul-heyse, review 2027-03-01
-]
+# These crates were banned outright. None is banned now -- use one if it gets the platform
+# working. Three of them encode a SEMANTIC trap rather than hygiene, so read the reason
+# before reaching for them:
+#
+#   datafusion-spark   arithmetic that differs silently from ours (blueprint §3.3)
+#   parquet-variant    a typed hole in decision D1 (blueprint §3.3)
+#   parquet_derive     inverts the registry -> Rust generation direction (blueprint §3.3)
+#
+# The remaining seven were hygiene or scope calls that no longer bind:
+#
+#   serde_yaml         unmaintained; serde-saphyr replaces it (ADR-0021)
+#   uom                no kernel needs compile-time unit typing; its SI system cannot
+#                      express the currency dimension (ADR-0026)
+#   arrow-flight       had no consumer (ADR-0026; revised by ADR-0065)
+#   arrow-avro         had no consumer (ADR-0065)
+#   arrow-pyarrow      needs a Python interpreter at build time, which breaks the offline
+#                      build; pyo3-arrow is the chosen boundary (ADR-0024)
+#   salsa              deferred with a trigger, register R-01 (ADR-0042)
+#   openssl-sys        no TLS stack in the engine; object_store is local-only in phases 0-1
+deny = []
 
 [[bans.features]]
 # cargo-deny 0.20 takes the version in the `crate` spec, not a separate `version` key
 # (a bare `version = ` here is rejected as an unexpected key and the whole config fails
 # to load). The spec form is equivalent and keeps the ban pinned to the §3.1 version.
+# This is feature/pin discipline, not admission: it keeps the resolved DataFusion equal
+# to the one the capability maps were extracted against.
 crate = "datafusion@=55.1.0"
 deny = ["serde", "avro", "parquet_encryption", "backtrace"]
 reason = "blueprint §3.1: default features only"
 
 [sources]
 unknown-registry = "deny"
-unknown-git = "deny"
+# A crate that only exists on GitHub is usable. The lockfile still pins the exact revision,
+# so reproducibility is unaffected.
+unknown-git = "allow"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []

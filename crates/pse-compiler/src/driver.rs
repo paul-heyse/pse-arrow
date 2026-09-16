@@ -15,27 +15,16 @@ pub use commit::{CommitBase, CommitReport, CommitRequest, CommitRevisionIds};
 pub use inputs::BaseReader;
 
 use crate::{
-    CompilerError, ExternalInputs, PolicySet,
+    CompilerError, PolicySet,
     memo::Memo,
-    passes::{
-        PassOutput, PassStatus, StageKey,
-        dag::{StageDag, invalid},
-        registry::PassRegistry,
-    },
+    passes::{PassStatus, StageKey, dag::StageDag},
 };
-use pse_catalog::{
-    Catalog, Snapshot,
-    session::SessionFactory,
-    store::{
-        membership::AdmissionContext,
-        publish::{BundleDraft, RelationDraft},
-    },
-};
-use pse_ids::{CancellationToken, SnapshotKind};
-use pse_schema::{Registry, model::PassSpec};
+use pse_catalog::{Catalog, Snapshot, session::SessionFactory};
+use pse_ids::CancellationToken;
+use pse_schema::Registry;
 use std::{collections::BTreeMap, sync::Arc};
 
-/// An explicit immutable pipeline request. P10 requires a complete fixture registry.
+/// An explicit immutable pipeline request over the registered production graph.
 #[derive(Clone, Debug)]
 pub struct PipelineRequest {
     /// Last requested available stage.
@@ -44,11 +33,7 @@ pub struct PipelineRequest {
     pub snapshot: Arc<Snapshot>,
     /// Actual selected policy rows.
     pub policies: PolicySet,
-    /// Explicit external inputs; used only when `fixture_mode` is enabled.
-    pub external_bindings: ExternalInputs,
-    /// Enable complete externally supplied predecessor fixtures.
-    pub fixture_mode: bool,
-    /// Bypass memo lookup for clean-execution comparisons.
+    /// Reuse admitted results when their actual dependencies match.
     pub reuse: bool,
 }
 /// One completed stage and its actual outcome.
@@ -77,35 +62,20 @@ pub struct PipelineReport {
 pub struct Driver {
     catalog: Arc<Catalog>,
     sessions: Arc<SessionFactory>,
-    passes: PassRegistry,
     memo: Memo,
 }
 impl Driver {
     /// Construct the controller over one existing catalog and shared engine factory.
     /// # Errors
     /// The registry's declared stage graph is not closed and acyclic.
-    pub fn new(
-        catalog: Arc<Catalog>,
-        sessions: Arc<SessionFactory>,
-    ) -> Result<Self, CompilerError> {
+    pub fn new(catalog: Arc<Catalog>) -> Result<Self, CompilerError> {
         StageDag::build(catalog.registry())?;
-        let mut passes = PassRegistry::new();
-        passes.register(
-            Arc::new(crate::passes::p3::P3::new(catalog.registry())?),
-            catalog.registry(),
-        )?;
+        let sessions = Arc::clone(catalog.session_factory());
         Ok(Self {
             catalog,
             sessions,
-            passes,
             memo: Memo::new(64),
         })
-    }
-    /// Register a bounded implementation against its complete declaration.
-    /// # Errors
-    /// Unknown, mismatched or duplicate pass implementation.
-    pub fn register(&mut self, pass: Arc<dyn crate::Pass>) -> Result<(), CompilerError> {
-        self.passes.register(pass, self.catalog.registry())
     }
     /// Exact store registry authority.
     pub fn registry(&self) -> &Arc<Registry> {
@@ -119,23 +89,31 @@ impl Driver {
         request: PipelineRequest,
         cancel: &CancellationToken,
     ) -> Result<PipelineReport, CompilerError> {
-        if !request.fixture_mode && !request.external_bindings.bindings.is_empty() {
-            return Err(invalid(
-                "external predecessor bindings require explicit fixture mode",
-            ));
-        }
-        if request.through == "P10" && !request.fixture_mode {
-            return Err(invalid(
-                "P10 requires a complete predecessor fixture in Wave 1",
-            ));
-        }
         let registry = Arc::clone(self.catalog.registry());
         let dag = StageDag::build(&registry)?;
+        let mut documents = None;
         let mut stages = BTreeMap::new();
+        let mut state = execution::InvocationState::default();
         let mut report = PipelineReport::default();
         for spec in dag.through(&request.through)? {
             let attempt = crate::records::Attempt::new(spec);
-            let work = match self.execute_stage(spec, &request, &stages, cancel).await {
+            let execution = async {
+                if documents.is_none() {
+                    let source_inputs = inputs::inventory(&request.snapshot, &registry)?;
+                    documents = Some(inputs::documents(
+                        &self.catalog,
+                        &inputs::row_inventory(&source_inputs),
+                        cancel,
+                    )?);
+                }
+                let documents = documents.as_ref().ok_or_else(|| {
+                    crate::passes::dag::invalid("pipeline source preparation omitted its owner")
+                })?;
+                self.execute_stage(spec, &request, &stages, documents, &mut state, cancel)
+                    .await
+            }
+            .await;
+            let work = match execution {
                 Ok(work) => work,
                 Err(error) => {
                     return Err(attempt
@@ -152,19 +130,19 @@ impl Driver {
                         output: Some(work.output.snapshot_id()),
                         engine: work.engine,
                         findings: &work.findings,
-                        plans: &[],
+                        derivations: &work.derivations,
+                        plans: &work.plans,
                     },
                     cancel,
                 )
                 .await?;
-            if work.status == PassStatus::Ok {
+            if work.status == PassStatus::Ok && work.dependencies.reusable()? {
                 self.catalog
-                    .write_stage_hint_with_context(
+                    .write_stage_hint(
                         work.key.content_hash(),
                         &work.inputs,
                         &work.output,
                         &record,
-                        Some(&work.context.value),
                         cancel,
                     )
                     .await
@@ -186,60 +164,5 @@ impl Driver {
             });
         }
         Ok(report)
-    }
-    async fn publish_output(
-        &self,
-        spec: &PassSpec,
-        inputs: &crate::InputBundle,
-        output: &PassOutput,
-        cancel: &CancellationToken,
-    ) -> Result<Arc<Snapshot>, CompilerError> {
-        let context = AdmissionContext {
-            parents: inputs
-                .ports
-                .iter()
-                .filter_map(|(port, input)| {
-                    input
-                        .as_ref()
-                        .map(|input| (port.to_string(), Arc::clone(input.snapshot())))
-                })
-                .collect(),
-            stage_pass: Some(spec.id),
-        };
-        let manifest = self
-            .catalog
-            .manifest_template(SnapshotKind::Stage, &context)?;
-        let relations = spec
-            .outputs
-            .iter()
-            .map(|port| {
-                let relation = self
-                    .registry()
-                    .relation(&port.relation)
-                    .ok_or_else(|| invalid("output relation absent"))?;
-                Ok((
-                    port.port.to_owned(),
-                    RelationDraft {
-                        contract: Arc::new(pse_catalog::RelationContract::from_spec(
-                            self.registry(),
-                            relation,
-                            pse_catalog::EncodingPolicy::IpcFile,
-                        )?),
-                        batches: output.ports[port.port].clone(),
-                    },
-                ))
-            })
-            .collect::<Result<_, CompilerError>>()?;
-        Ok(self
-            .catalog
-            .publish_bundle(
-                BundleDraft {
-                    manifest,
-                    relations,
-                    context,
-                },
-                cancel,
-            )
-            .await?)
     }
 }

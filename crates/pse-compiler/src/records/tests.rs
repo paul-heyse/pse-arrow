@@ -93,6 +93,7 @@ fn mixed_aggregate_preserves_every_actual_finding_and_first_non_cancel_class() {
         Cell::Enum(report.status.as_str()),
         Cell::List(report.findings),
         Cell::Enum(report.failure_class.expect("failed class")),
+        Cell::List(vec![]),
     ];
     let spec = registry
         .relation("provenance.pass_records")
@@ -120,4 +121,38 @@ fn all_actual_cancellation_leaves_remain_cancelled() {
     assert_eq!(report.status, PassStatus::Cancelled);
     assert_eq!(report.failure_class, Some("runtime.cancelled"));
     assert_eq!(report.findings.len(), 2);
+}
+
+#[test]
+fn native_failures_preserve_cancellation_and_kernel_identity() {
+    let registry = pse_schema::catalog::assemble().expect("complete registry");
+    let method = SemanticId::from_bytes([61; 16]);
+    let kernel = SemanticId::from_bytes([62; 16]);
+    for (error, expected_status, expected_class) in [
+        (
+            CompilerError::Canon(pse_ids::CanonError::Cancelled),
+            PassStatus::Cancelled,
+            "runtime.cancelled",
+        ),
+        (
+            CompilerError::KernelUnbound {
+                method_id: method,
+                kernel_id: Some(kernel),
+                detail: "actual descriptor lacks executable binding".to_owned(),
+            },
+            PassStatus::Failed,
+            "kernel.unbound_parameter",
+        ),
+    ] {
+        let report = collect_findings(&registry, &Observation::success(None), Some(&error))
+            .expect("exact native diagnostic");
+        assert_eq!(report.status, expected_status);
+        assert_eq!(report.failure_class, Some(expected_class));
+        assert_eq!(report.findings.len(), 1);
+        if expected_class == "kernel.unbound_parameter" {
+            let text = report.findings[0].literal_spec();
+            assert!(text.contains(&method.to_string()));
+            assert!(text.contains(&kernel.to_string()));
+        }
+    }
 }

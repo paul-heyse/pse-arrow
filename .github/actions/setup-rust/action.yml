@@ -10,13 +10,13 @@
 # no rustup, so the first step installs one with `--default-toolchain none` and lets the
 # toolchain file decide.
 #
-# Tool versions are passed in by the caller from workflow-level env vars, so a version
-# appears exactly once per workflow and Dependabot/`pinact` have one thing to move.
+# Tool names are passed in by the caller. No release is named: taiki-e/install-action
+# fetches the current prebuilt binary of each tool, as `just bootstrap` does locally.
 
 name: Set up Rust
 description: >-
   Install rustup if absent, materialise the toolchain pinned in rust-toolchain.toml,
-  restore the cargo/target cache, and install the requested cargo tools at exact versions.
+  restore the cargo/target cache, and install the requested cargo tools.
 
 inputs:
   shared-key:
@@ -36,9 +36,10 @@ inputs:
     default: "false"
   tools:
     description: >-
-      Cargo tools with exact versions, one per line (a comma-separated single line also
-      works), e.g. `cargo-nextest@0.9.143`. Forwarded verbatim to taiki-e/install-action,
-      which fetches prebuilt binaries. Leave empty for jobs that need no tools.
+      Cargo tools, one per line (a comma-separated single line also works), e.g.
+      `cargo-nextest`. Forwarded verbatim to taiki-e/install-action, which fetches the
+      current prebuilt binary; an `@version` suffix is accepted but not expected. Leave
+      empty for jobs that need no tools.
     required: false
     default: ""
   cache:

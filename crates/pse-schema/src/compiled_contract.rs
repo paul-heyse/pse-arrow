@@ -5,8 +5,8 @@
 //! not digests: equality compares every contract fact that generated code compiled.
 
 use crate::model::{
-    Cell, ColumnSpec, EnumMember, EnumSpec, ExtensionTypeSpec, ExtensionUse, ForeignKey,
-    LogicalType, QuantityContract, RelationKey, RelationSpec,
+    Cell, EnumMember, EnumSpec, ExtensionTypeSpec, ExtensionUse, FieldContract, RelationKey,
+    RelationSpec,
 };
 use crate::{Registry, SchemaError};
 use arrow_schema::{DataType, Field};
@@ -76,83 +76,71 @@ fn target(reg: &Registry, name: &str) -> Result<Cell, SchemaError> {
     ]))
 }
 
-fn column(reg: &Registry, column: &ColumnSpec) -> Result<Cell, SchemaError> {
-    let ColumnSpec {
-        name,
-        logical_type,
-        nullable,
-        quantity,
-        fk,
-        role,
-        doc,
-    } = column;
-    let quantity = match quantity {
-        QuantityContract::None => Cell::Struct(vec![Cell::text("none")]),
-        QuantityContract::Column(name) => {
-            Cell::Struct(vec![Cell::text("column"), Cell::text(*name)])
-        }
-        QuantityContract::PerRow => Cell::Struct(vec![Cell::text("per_row")]),
-    };
-    let fk = match fk {
-        None => Cell::Null,
-        Some(ForeignKey { relation, column }) => Cell::Struct(vec![
-            Cell::text(*relation),
-            Cell::text(*column),
-            target(reg, relation)?,
-        ]),
-    };
+fn column(reg: &Registry, column: &FieldContract) -> Result<Cell, SchemaError> {
     Ok(Cell::Struct(vec![
-        Cell::text(*name),
-        logical(reg, logical_type)?,
-        Cell::Bool(*nullable),
-        quantity,
-        fk,
-        Cell::text(role.as_str()),
-        Cell::text(*doc),
+        field_value(column.field())?,
         field_value(&crate::arrow::field_for(reg, column)?)?,
+        logical(reg, column)?,
+        column
+            .fk()
+            .map(|fk| target(reg, fk.relation))
+            .transpose()?
+            .unwrap_or(Cell::Null),
     ]))
 }
 
-fn logical(reg: &Registry, ty: &LogicalType) -> Result<Cell, SchemaError> {
-    Ok(match ty {
-        LogicalType::List(child) => Cell::Struct(vec![Cell::text("list"), logical(reg, child)?]),
-        LogicalType::FixedList(child, width) => Cell::Struct(vec![
-            Cell::text("fixed_list"),
-            Cell::I64(i64::from(*width)),
-            logical(reg, child)?,
-        ]),
-        LogicalType::Struct(fields) => Cell::Struct(vec![
-            Cell::text("struct"),
-            Cell::List(
-                fields
-                    .iter()
-                    .map(|(name, ty, nullable)| {
-                        Ok(Cell::Struct(vec![
-                            Cell::text(*name),
-                            logical(reg, ty)?,
-                            Cell::Bool(*nullable),
-                        ]))
-                    })
-                    .collect::<Result<_, SchemaError>>()?,
-            ),
-        ]),
-        LogicalType::Ext(use_) => extension(reg, use_)?,
-        LogicalType::F64
-        | LogicalType::I64
-        | LogicalType::I32
-        | LogicalType::U8
-        | LogicalType::U16
-        | LogicalType::U32
-        | LogicalType::U64
-        | LogicalType::Bool
-        | LogicalType::Text
-        | LogicalType::Timestamp => {
-            Cell::Struct(vec![Cell::text(ty.name()), storage(&ty.data_type())?])
-        }
-    })
+fn logical(reg: &Registry, ty: &FieldContract) -> Result<Cell, SchemaError> {
+    Ok(Cell::Struct(vec![
+        ty.extension()
+            .map(|use_| extension(reg, &use_))
+            .transpose()?
+            .unwrap_or(Cell::Null),
+        Cell::List(
+            ty.children()
+                .iter()
+                .map(|child| {
+                    if ty.extension().is_some() {
+                        storage_field(reg, child)
+                    } else {
+                        column(reg, child)
+                    }
+                })
+                .collect::<Result<_, _>>()?,
+        ),
+    ]))
 }
 
-fn extension(reg: &Registry, use_: &ExtensionUse) -> Result<Cell, SchemaError> {
+// Composite extensions already own exact physical child fields. Do not rebind them
+// as independent unbound declarations. Include referenced member domains as well as
+// the stored native fields so a domain change invalidates the compiled contract.
+fn storage_field(reg: &Registry, field: &FieldContract) -> Result<Cell, SchemaError> {
+    let domain = field
+        .field()
+        .metadata()
+        .get(crate::arrow::KEY_ENUM)
+        .map(|id| {
+            reg.enums()
+                .iter()
+                .find(|spec| spec.id.to_hex() == *id)
+                .map(enumeration)
+                .ok_or_else(|| missing(id))
+        })
+        .transpose()?
+        .unwrap_or(Cell::Null);
+    Ok(Cell::Struct(vec![
+        field_value(field.field())?,
+        domain,
+        Cell::List(
+            field
+                .children()
+                .iter()
+                .map(|child| storage_field(reg, child))
+                .collect::<Result<_, _>>()?,
+        ),
+    ]))
+}
+
+fn extension(reg: &Registry, use_: &ExtensionUse<'_>) -> Result<Cell, SchemaError> {
     let ExtensionTypeSpec {
         name,
         storage: layout,
@@ -230,56 +218,7 @@ fn enumeration(spec: &EnumSpec) -> Cell {
 }
 
 fn storage(ty: &DataType) -> Result<Cell, SchemaError> {
-    Ok(match ty {
-        DataType::List(field) => Cell::Struct(vec![Cell::text("List"), field_value(field)?]),
-        DataType::FixedSizeList(field, length) => Cell::Struct(vec![
-            Cell::text("FixedSizeList"),
-            field_value(field)?,
-            Cell::I64(i64::from(*length)),
-        ]),
-        DataType::Struct(fields) => Cell::Struct(vec![
-            Cell::text("Struct"),
-            Cell::List(
-                fields
-                    .iter()
-                    .map(|field| field_value(field))
-                    .collect::<Result<_, _>>()?,
-            ),
-        ]),
-        DataType::Dictionary(key, value) => Cell::Struct(vec![
-            Cell::text("Dictionary"),
-            storage(key)?,
-            storage(value)?,
-        ]),
-        DataType::Timestamp(unit, timezone) => Cell::Struct(vec![
-            Cell::text("Timestamp"),
-            Cell::text(match unit {
-                arrow_schema::TimeUnit::Second => "second",
-                arrow_schema::TimeUnit::Millisecond => "millisecond",
-                arrow_schema::TimeUnit::Microsecond => "microsecond",
-                arrow_schema::TimeUnit::Nanosecond => "nanosecond",
-            }),
-            timezone
-                .as_ref()
-                .map_or(Cell::Null, |zone| Cell::text(zone.as_ref())),
-        ]),
-        DataType::FixedSizeBinary(length) => Cell::Struct(vec![
-            Cell::text("FixedSizeBinary"),
-            Cell::I64(i64::from(*length)),
-        ]),
-        DataType::Float64
-        | DataType::Int8
-        | DataType::Int16
-        | DataType::Int32
-        | DataType::Int64
-        | DataType::UInt8
-        | DataType::UInt16
-        | DataType::UInt32
-        | DataType::UInt64
-        | DataType::Boolean
-        | DataType::Utf8 => Cell::text(crate::model::logical_type::render_data_type(ty)?),
-        _ => return Err(missing("unsupported compiled contract Arrow storage")),
-    })
+    Ok(Cell::text(crate::model::render_data_type(ty)?))
 }
 
 fn field_value(field: &Field) -> Result<Cell, SchemaError> {

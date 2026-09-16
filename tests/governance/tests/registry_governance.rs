@@ -100,7 +100,7 @@ fn primitive_authority_has_no_compiled_fk_or_later_pass_writer() {
         }
         if matches!(spec.authority, Authority::Authored | Authority::Reference) {
             for column in &spec.columns {
-                if let Some(fk) = &column.fk {
+                if let Some(fk) = &column.fk() {
                     let target = registry
                         .relation(fk.relation)
                         .expect("admitted foreign key");
@@ -111,7 +111,7 @@ fn primitive_authority_has_no_compiled_fk_or_later_pass_writer() {
                         ),
                         "{}.{} -> {}",
                         spec.key,
-                        column.name,
+                        column.name(),
                         target.key
                     );
                 }

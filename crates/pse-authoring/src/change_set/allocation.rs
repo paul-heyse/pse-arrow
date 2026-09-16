@@ -10,7 +10,6 @@ use crate::{
 };
 use arrow_array::{ArrayRef, RecordBatch};
 use pse_ids::SemanticId;
-use pse_schema::model::Cell;
 use std::collections::BTreeMap;
 
 /// A full pinned Rust B-tree node per entry bounds partially filled nodes as well
@@ -29,29 +28,6 @@ pub(super) fn map<K, V>(count: usize) -> Result<usize, AuthoringError> {
 /// owners. A `RecordBatch` clone allocates only its vector of column Arc handles.
 fn batch_handles(batch: &RecordBatch) -> Result<usize, AuthoringError> {
     mul(batch.num_columns(), size_of::<ArrayRef>())
-}
-
-pub(super) fn cells(values: &[Cell]) -> Result<usize, AuthoringError> {
-    let mut extent = mul(values.len(), size_of::<Cell>())?;
-    for value in values {
-        extent = add(
-            extent,
-            match value {
-                Cell::Text(text) => text.len(),
-                Cell::List(children) | Cell::Struct(children) => cells(children)?,
-                _ => 0,
-            },
-        )?;
-    }
-    Ok(extent)
-}
-
-pub(super) fn rows(values: &[Vec<Cell>]) -> Result<usize, AuthoringError> {
-    values
-        .iter()
-        .try_fold(mul(values.len(), size_of::<Vec<Cell>>())?, |n, row| {
-            add(n, cells(row)?)
-        })
 }
 
 /// Compute before cloning: Vec/String clones allocate their populated lengths,
@@ -78,11 +54,11 @@ fn changes(changes: &ChangeSet) -> Result<usize, AuthoringError> {
     for (port, member) in &changes.staged {
         extent = add(extent, add(port.len(), batch_handles(&member.batch)?)?)?;
     }
-    add(extent, super::proof::clone_extent(changes)?)
+    Ok(extent)
 }
 
 /// Candidate wrapper/lease controls, exact inventory handles, and the complete
-/// deep `ChangeSet`/proof copy. Validation expansions and buffer payloads are not
+/// immutable `ChangeSet` handle inventory. Validation expansions and buffer payloads are not
 /// retained here: the former are dropped and the latter own their own leases.
 pub(super) fn candidate(
     relations: &BTreeMap<SemanticId, RecordBatch>,

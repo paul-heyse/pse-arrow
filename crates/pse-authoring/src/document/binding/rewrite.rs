@@ -59,6 +59,15 @@ impl Walker<'_> {
         if binding.segment_entities.len() != path.segments.len() {
             return Err(contract(None, "source binding path shape differs"));
         }
+        if let super::PathMeaning::InstancePath(bound) = &binding.meaning
+            && bound.member_entities.contains(&self.entity)
+            && bound.member_entities.iter().any(|id| *id != self.entity)
+        {
+            return Err(contract(
+                None,
+                "one source path binds different declarations across instance contexts; a partial rename would rebind another occurrence",
+            ));
+        }
         for (part, entity) in path.segments.iter_mut().zip(&binding.segment_entities) {
             if *entity == Some(self.entity) {
                 self.name.clone_into(&mut part.name);

@@ -1,49 +1,31 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! P0: package and schema resolution (blueprint §14.1).
-//!
-//! The pass wrapper around `pse_authoring::p0`.
-//!
+//! P0 package plans share the frozen native execution session.
 use crate::{CompilerError, passes::dag::invalid};
-use pse_ids::{CancellationToken, MemoryReserver};
-use pse_relations::{RecordBatch, generated::authored};
-use pse_schema::{Registry, model::RelationKey};
+use pse_catalog::session::SnapshotSession;
+use pse_ids::CancellationToken;
+use pse_relations::{RecordBatch, columnar::FieldCheckedBatch};
+use pse_schema::model::RelationKey;
 use std::collections::BTreeMap;
 
-/// Resolve exact package headers from actual candidate rows, before snapshot identity exists.
+/// Resolve actual package fields through native relational/dependency construction.
 /// # Errors
-/// Missing inventory, malformed headers, dependency cycles or incompatible exact versions.
-pub fn resolve(
+/// Missing headers, incompatible exact versions, cyclic dependencies or native failure.
+pub async fn resolve(
     rows: &BTreeMap<RelationKey, RecordBatch>,
-    registry: &Registry,
-    reserver: &dyn MemoryReserver,
+    session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<RecordBatch, CompilerError> {
-    cancel.checkpoint()?;
+    let registry = session.registry();
     let spec = registry
         .relation("authored.packages")
         .ok_or_else(|| invalid("P0 packages undeclared"))?;
     let batch = rows
         .get(&spec.key)
-        .ok_or_else(|| invalid("P0 packages input absent"))?;
-    let headers = pse_relations::cells::cells_from_batch(registry, spec, batch)?
-        .into_iter()
-        .map(authored::packages::Row::from_cells)
-        .collect::<Result<Vec<_>, _>>()?;
-    let graph = pse_authoring::p0::resolve_headers(&headers, registry)?;
-    let output = registry
-        .relation("normalized.package_graph")
-        .ok_or_else(|| invalid("P0 output undeclared"))?;
-    Ok(pse_relations::cells::batch_from_cells_owned(
-        registry,
-        output,
-        &graph
-            .rows
-            .into_iter()
-            .map(pse_relations::generated::normalized::package_graph::Row::into_cells)
-            .collect::<Vec<_>>(),
-        reserver,
-        cancel,
-    )?)
+        .ok_or_else(|| invalid("P0 packages absent"))?;
+    let checked = FieldCheckedBatch::admit(registry, spec, batch.clone())?;
+    Ok(pse_authoring::p0::resolve(&checked, session, cancel)
+        .await?
+        .into_batch())
 }

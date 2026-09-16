@@ -1,14 +1,26 @@
 ---
 status: evidence-map
-blueprint_revision: 5
+blueprint_revision: 36
 pins: Cargo.lock
 regenerated: null
-reviewed: 2026-09-13
+reviewed: 2026-09-14
 ---
 
 # Arrow (Rust) — capability map
 
-**Current binding:** blueprint revision 5 and ADR-0039–ADR-0048. The inventories and
+**Capability policy correction (2026-09-14):** blueprint D10 makes Arrow and
+DataFusion the default data and execution foundation; §3.3.1 makes every capability
+eligible. Historical Reject/defer/no-consumer language
+below records earlier assessments, not current prohibitions. Use the
+[full-capability deployment matrix](../design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
+for current dispositions and the [review](../design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
+for actual implementation gaps. This update did not regenerate historical rustdoc
+JSON or probe receipts. New [pinned feature and behavioral evidence](../design_review/evidence/full-arrow-datafusion-2026-09-14/README.md)
+distinguishes native availability from PSE support, including raw ALL set-builder
+counterexamples and the infallible nature of Arrow tracking pools.
+
+
+**Current binding:** blueprint revision 36 and ADR-0065, supplementing ADR-0039–ADR-0048. The inventories and
 original extraction/probe receipts below retain their historical scope and dates;
 this update did not regenerate that corpus. Historical comparisons to revision 2
 are not current acceptance claims. Corrected interpretations are recorded in place.
@@ -671,7 +683,7 @@ In the previous edition these rows lived in the DataFusion map as one combined 4
 | 19 | `arrow-ipc` sans-IO stream encoder | §10.4 | DM-48 | Would let A6's "hash the bytes actually written" happen in one pass instead of two. **New.** |
 | 20 | `parquet::ArrowPredicate` and page indexes | §10.2 | DM-36, DM-26 | Durable Parquet is already a blueprint §5.4 scan source. Evaluate under R-24 with full-result equivalence and measured decoding/total-cost improvement (ADR-0048). |
 
-### Reject, with reason
+### Historical Reject dispositions — replaced by revision 34
 
 | # | Capability | Cluster | Why rejected |
 |---|---|---|---|

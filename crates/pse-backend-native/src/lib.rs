@@ -12,4 +12,14 @@
 //! body in `catch_unwind`: an unwind through Ipopt's C frames is undefined behaviour
 //! (blueprint §18.3).
 //!
-//! Phase 0: this crate is a declared boundary with no implementation yet.
+//! Native problem execution prepares expressions once and owns the mutable callback
+//! workspace until Ipopt returns. No callback plans or rebuilds a query.
+
+#[cfg(feature = "ipopt")]
+mod driver;
+mod error;
+pub mod native;
+mod problem;
+
+pub use error::NativeError;
+pub use problem::{HessianPolicy, SolveOptions, Variable};

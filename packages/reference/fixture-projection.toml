@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# Explicit build-tool inputs. The synthetic currency package is never a production default.
+packages = [
+  "packages/reference/elements",
+  "packages/reference/physical",
+  "packages/reference/fixture-currency",
+]

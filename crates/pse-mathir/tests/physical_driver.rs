@@ -3,7 +3,9 @@
 
 //! Physical inference before typed identity, exercised through the actual P10 leaf entry.
 use pse_ids::SemanticId;
-use pse_mathir::canonicalize::{CanonicalizeInput, Policy, canonicalize};
+use pse_mathir::canonicalize::{
+    CanonicalizeInput, Policy, RootEnvironment, canonicalize, canonicalize_with_environments,
+};
 use pse_mathir::infer::SymbolTypeSource;
 use pse_mathir::{ExprGraph, MathIrError, NodeId, Opcode, Payload};
 use pse_quantity::standard::{StandardInvariantChecker, ids, standard_registry};
@@ -146,6 +148,172 @@ fn one_source_literal_resolves_by_occurrence_before_sharing() {
         );
     }
 }
+#[test]
+fn registered_division_supplies_the_unique_literal_operand_contract() {
+    let registry = standard_registry().unwrap();
+    let mut graph = ExprGraph::new();
+    let mut source = Source::default();
+    let temperature = symbol(&mut graph, &mut source, 1, "temperature.point");
+    let scale = graph.float_const(1000., ids::unit("K")).unwrap();
+    let ratio = graph.div(temperature, scale).unwrap();
+    let two = graph.int_const(2).unwrap();
+    let squared = graph.pow(ratio, two).unwrap();
+    let result = canonicalize(
+        CanonicalizeInput::new(&graph, &[ratio, squared], &source, &registry),
+        Policy::Strict,
+    )
+    .unwrap();
+    let root = result.node(result.roots()[0]).unwrap();
+    assert_eq!(root.quantity_type, ids::quantity("neutral"));
+    let denominator = result.node(root.children[1]).unwrap();
+    assert_eq!(
+        denominator.quantity_type,
+        ids::quantity("temperature_scale")
+    );
+    assert!(matches!(
+        denominator.payload,
+        Payload::FloatConst { value: 1000., .. }
+    ));
+    let squared = result.node(result.roots()[1]).unwrap();
+    assert_eq!(squared.opcode, Opcode::Pow);
+    assert_eq!(squared.quantity_type, ids::quantity("neutral"));
+    // The same untyped node remains ambiguous without that operation context.
+    assert!(matches!(
+        canonicalize(
+            CanonicalizeInput::new(&graph, &[scale], &source, &registry),
+            Policy::Strict
+        ),
+        Err(MathIrError::Quantity {
+            source: pse_quantity::QuantityError::AmbiguousLiteral { .. },
+            ..
+        })
+    ));
+}
+
+#[test]
+fn multiplication_keeps_ambiguous_literals_and_explicit_contracts() {
+    let registry = standard_registry().unwrap();
+    let mut graph = ExprGraph::new();
+    let mut source = Source::default();
+    let neutral = symbol(&mut graph, &mut source, 1, "neutral");
+    let ambiguous = graph.float_const(20., ids::unit("K")).unwrap();
+    // Neutral scaling admits several Kelvin types; neither operand position may pick one.
+    for operands in [[neutral, ambiguous], [ambiguous, neutral]] {
+        let product = graph.mul(operands[0], operands[1]).unwrap();
+        assert!(matches!(
+            canonicalize(
+                CanonicalizeInput::new(&graph, &[product], &source, &registry),
+                Policy::Strict
+            ),
+            Err(MathIrError::Quantity {
+                source: pse_quantity::QuantityError::AmbiguousLiteral { .. },
+                ..
+            })
+        ));
+    }
+    let explicit = graph
+        .insert_typed(
+            Opcode::Const,
+            Payload::FloatConst {
+                value: 20.,
+                unit: ids::unit("K"),
+            },
+            &[],
+            ids::quantity("temperature.difference"),
+            None,
+        )
+        .unwrap();
+    let product = graph.mul(explicit, neutral).unwrap();
+    let result = canonicalize(
+        CanonicalizeInput::new(&graph, &[product], &source, &registry),
+        Policy::Strict,
+    )
+    .unwrap();
+    assert_eq!(
+        result.node(result.roots()[0]).unwrap().quantity_type,
+        ids::quantity("temperature.difference")
+    );
+    let temperature = symbol(&mut graph, &mut source, 2, "temperature.point");
+    let invalid_ratio = graph.div(temperature, explicit).unwrap();
+    assert!(
+        canonicalize(
+            CanonicalizeInput::new(&graph, &[invalid_ratio], &source, &registry),
+            Policy::Strict,
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn declared_result_constrains_a_literal_product_with_a_constant_sibling() {
+    let registry = standard_registry().unwrap();
+    let mut graph = ExprGraph::new();
+    let source = Source::default();
+    let kelvin = graph.float_const(20., ids::unit("K")).unwrap();
+    let two = graph.int_const(2).unwrap();
+    let product = graph.mul(kelvin, two).unwrap();
+    let result = canonicalize_with_environments(
+        CanonicalizeInput::new(&graph, &[product], &source, &registry),
+        &[RootEnvironment {
+            expected: Some(ids::quantity("temperature.difference")),
+            ..RootEnvironment::default()
+        }],
+        Policy::Strict,
+    )
+    .unwrap();
+    let root = result.node(result.roots()[0]).unwrap();
+    assert_eq!(root.quantity_type, ids::quantity("temperature.difference"));
+    assert!(matches!(
+        root.payload,
+        Payload::FloatConst { value: 40., .. }
+    ));
+}
+
+#[test]
+fn reference_points_require_difference_corrections_in_composed_expressions() {
+    let registry = standard_registry().unwrap();
+    let mut graph = ExprGraph::new();
+    let mut source = Source::default();
+    let reference = symbol(&mut graph, &mut source, 1, "molar_enthalpy.point");
+    let correction = symbol(&mut graph, &mut source, 2, "neutral");
+    let unit = graph.float_const(1., ids::unit("J/mol")).unwrap();
+    let increment = graph.mul(correction, unit).unwrap();
+    let added = graph.add(reference, increment).unwrap();
+    let subtracted = graph.sub(reference, increment).unwrap();
+    let environment = RootEnvironment {
+        expected: Some(ids::quantity("molar_enthalpy.point")),
+        ..RootEnvironment::default()
+    };
+    let result = canonicalize_with_environments(
+        CanonicalizeInput::new(&graph, &[added, subtracted], &source, &registry),
+        &[environment.clone(), environment],
+        Policy::Strict,
+    )
+    .unwrap();
+    for root in result.roots() {
+        let root = result.node(*root).unwrap();
+        assert_eq!(root.quantity_type, ids::quantity("molar_enthalpy.point"));
+        assert_eq!(
+            result.node(root.children[1]).unwrap().quantity_type,
+            ids::quantity("molar_enthalpy.difference")
+        );
+    }
+    let invalid = graph.add(reference, reference).unwrap();
+    assert!(matches!(
+        canonicalize(
+            CanonicalizeInput::new(&graph, &[invalid], &source, &registry),
+            Policy::Strict
+        ),
+        Err(MathIrError::Quantity {
+            source: pse_quantity::QuantityError::Incompatible {
+                reason: pse_quantity::IncompatibilityReason::PointPlusPoint,
+                ..
+            },
+            ..
+        })
+    ));
+}
+
 #[test]
 fn complete_type_claims_and_missing_compositions_are_rechecked() {
     let registry = standard_registry().unwrap();

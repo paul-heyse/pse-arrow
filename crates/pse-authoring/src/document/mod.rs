@@ -17,14 +17,16 @@ mod value;
 
 pub use spans::{DocPath, SpanIndex};
 
-pub use load::{Document, DocumentBundle, Rows, load_package, load_package_texts};
+pub use load::{
+    Batches, BundleData, Document, DocumentBundle, Rows, load_package, load_package_texts,
+};
 pub use owned::{
     OwnedDocumentBundle, OwnedDocumentSet, load_package_sources_owned, load_package_texts_owned,
 };
 
 pub use edit::{DocumentEdit, apply_edits, assign_ids};
 
-pub use rename::{amend_rename_sources, amend_rename_sources_owned, rename, rename_owned};
+pub use rename::{amend_rename_sources_owned, rename_owned};
 
 mod owned_reparse;
 pub use owned_reparse::{load_bundles_owned, workspace_extent};

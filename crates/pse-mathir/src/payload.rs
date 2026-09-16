@@ -133,6 +133,16 @@ pub enum Payload {
         indices: Vec<NodeId>,
     },
 
+    /// Normalized source occurrence retaining its complete instance-relative path.
+    PendingPath {
+        /// Exact source declaration identity.
+        source_id: SemanticId,
+        /// Source-local path ordinal; its ordered segment rows remain authoritative.
+        path_id: u64,
+        /// Flattened index expressions in segment order, partitioned by the path declaration.
+        indices: Vec<NodeId>,
+    },
+
     /// An explicit broadcast over a domain (`math_broadcasts`).
     Broadcast {
         /// The domain broadcast over.
@@ -220,6 +230,9 @@ pub enum Payload {
 }
 
 impl Payload {
+    /// Normalized reference discriminator for an unresolved instance path.
+    pub const PENDING_PATH_KIND: &'static str = "path";
+
     /// Optional predicate dependency, preserving normalized predicate identity.
     pub fn guard(&self) -> Option<GuardRef> {
         match self {
@@ -249,7 +262,7 @@ impl Payload {
     pub const fn relation_name(&self) -> Option<&'static str> {
         match self {
             Self::None => None,
-            Self::SymbolRef { .. } => Some("math_symbol_refs"),
+            Self::SymbolRef { .. } | Self::PendingPath { .. } => Some("math_symbol_refs"),
             Self::FloatConst { .. } => Some("math_float_constants"),
             Self::IntConst { .. } => Some("math_int_constants"),
             Self::Affine { .. } => Some("math_affine"),
@@ -277,7 +290,7 @@ impl Payload {
         mut map: impl FnMut(NodeId) -> Result<NodeId, crate::MathIrError>,
     ) -> Result<(), crate::MathIrError> {
         match self {
-            Self::PendingGather { indices, .. } => {
+            Self::PendingGather { indices, .. } | Self::PendingPath { indices, .. } => {
                 for index in indices {
                     *index = map(*index)?;
                 }
@@ -332,7 +345,9 @@ impl Payload {
     /// [`ExprGraph::insert`]: crate::ExprGraph::insert
     pub fn referenced_nodes(&self) -> Vec<NodeId> {
         match self {
-            Self::PendingGather { indices, .. } => indices.clone(),
+            Self::PendingGather { indices, .. } | Self::PendingPath { indices, .. } => {
+                indices.clone()
+            }
             Self::Affine { terms, .. } => terms.iter().map(|term| term.child).collect(),
             Self::WeightedMean { pairs, .. } => pairs
                 .iter()

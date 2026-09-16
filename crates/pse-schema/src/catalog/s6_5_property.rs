@@ -3,9 +3,9 @@
 
 //! §6.5 property.
 
-use super::declarations::{column, relation, structure};
+use super::declarations::{column, relation, relation_version, structure};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.5 property contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -47,38 +47,39 @@ fn declare_reference_property_kinds(builder: &mut RegistryBuilder) {
         &["property_kind_id"],
         vec![
             column("property_kind_id", T::id()),
-            column("idaes_name", T::Text),
+            column("idaes_name", T::native(arrow_schema::DataType::Utf8)),
             column("quantity_kind_id", T::id()),
             column("basis_id", T::id()).optional(),
             column("shape", T::list(T::enumeration("DomainKind"))),
             column("category", T::enumeration("PropertyCategory")),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.5 property: property_kinds.",
     );
 }
 
 fn declare_reference_method_specs(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Reference,
         "method_specs",
+        2,
         S::Model,
         &["method_id"],
         vec![
             column("method_id", T::id()),
             column("family", T::enumeration("MethodFamily")),
-            column("name", T::Text),
-            column("version", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("version", T::native(arrow_schema::DataType::Utf8)),
             column("provides", T::list(T::id())),
             column("requires", T::list(T::id())),
             column(
                 "parameter_kinds",
                 T::list(structure(vec![
-                    ("name", T::Text),
+                    ("name", T::native(arrow_schema::DataType::Utf8)),
                     ("quantity_kind_id", T::id()),
                     ("indexed_by", T::list(T::enumeration("DomainKind"))),
-                    ("required", T::Bool),
+                    ("required", T::native(arrow_schema::DataType::Boolean)),
                 ])),
             ),
             column("realization", T::enumeration("MethodRealization")),
@@ -87,35 +88,43 @@ fn declare_reference_method_specs(builder: &mut RegistryBuilder) {
             column(
                 "validity",
                 T::list(structure(vec![
-                    ("input", T::Text),
-                    ("lower", T::Ext(crate::model::ExtensionUse::Bound)),
-                    ("upper", T::Ext(crate::model::ExtensionUse::Bound)),
+                    ("input", T::native(arrow_schema::DataType::Utf8)),
+                    ("lower", T::extended(crate::model::ExtensionUse::Bound)),
+                    ("upper", T::extended(crate::model::ExtensionUse::Bound)),
                 ])),
             ),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.5 property: method_specs.",
     );
 }
 
 fn declare_authored_property_packages(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Authored,
         "property_packages",
+        2,
         S::Model,
         &["property_package_id"],
         vec![
             column("property_package_id", T::id()),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
             column("material_system_id", T::id()),
             column("unit_set_id", T::id()),
             column("state_definition_method_id", T::id()),
-            column("temperature_ref", T::F64),
-            column("pressure_ref", T::F64),
-            column("include_enthalpy_of_formation", T::Bool),
+            column(
+                "temperature_ref",
+                T::native(arrow_schema::DataType::Float64),
+            ),
+            column("pressure_ref", T::native(arrow_schema::DataType::Float64)),
+            column(
+                "include_enthalpy_of_formation",
+                T::native(arrow_schema::DataType::Boolean),
+            ),
             column("bubble_dew_method_id", T::id()).optional(),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.5 property: property_packages.",
     );
@@ -130,10 +139,10 @@ fn declare_authored_state_bounds(builder: &mut RegistryBuilder) {
         &["property_package_id", "state_symbol"],
         vec![
             column("property_package_id", T::id()),
-            column("state_symbol", T::Text),
-            column("lower", T::Ext(crate::model::ExtensionUse::Bound)),
-            column("initial", T::F64),
-            column("upper", T::Ext(crate::model::ExtensionUse::Bound)),
+            column("state_symbol", T::native(arrow_schema::DataType::Utf8)),
+            column("lower", T::extended(crate::model::ExtensionUse::Bound)),
+            column("initial", T::native(arrow_schema::DataType::Float64)),
+            column("upper", T::extended(crate::model::ExtensionUse::Bound)),
             column("unit_id", T::id()),
         ],
         "blueprint §6.5 property: state_bounds.",
@@ -159,28 +168,31 @@ fn declare_authored_phase_equilibrium_pairs(builder: &mut RegistryBuilder) {
 }
 
 fn declare_authored_method_selections(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Authored,
         "method_selections",
+        2,
         S::Model,
-        &[
-            "property_package_id",
-            "scope_kind",
-            "scope_ids",
-            "family",
-            "method_id",
-        ],
+        &["selection_id"],
         vec![
+            column("selection_id", T::id()),
+            column("is_default", T::native(arrow_schema::DataType::Boolean)),
             column("property_package_id", T::id()),
             column("scope_kind", T::enumeration("ScopeKind")),
-            column("scope_ids", T::Ext(crate::model::ExtensionUse::IndexTuple)),
+            column(
+                "scope_ids",
+                T::extended(crate::model::ExtensionUse::IndexTuple),
+            ),
             column("property_kind_id", T::id()).optional(),
             column("family", T::enumeration("MethodFamily")),
             column("method_id", T::id()),
             column(
                 "options",
-                T::list(structure(vec![("key", T::Text), ("value", T::Text)])),
+                T::list(structure(vec![
+                    ("key", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             ),
         ],
         "blueprint §6.5 property: method_selections.",
@@ -197,47 +209,55 @@ fn declare_authored_default_scaling(builder: &mut RegistryBuilder) {
         vec![
             column("property_package_id", T::id()),
             column("property_kind_id", T::id()),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)),
-            column("scaling_factor", T::F64),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)),
+            column("scaling_factor", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.5 property: default_scaling.",
     );
 }
 
 fn declare_inferred_property_requirements(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Inferred,
         "property_requirements",
+        2,
         S::Derived,
         &["requirement_id"],
         vec![
             column("requirement_id", T::id()),
             column("state_scope_id", T::id()),
             column("property_kind_id", T::id()),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)),
-            column("requested_by", T::id()),
-            column("derivation_id", T::id()),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)),
+            crate::model::FieldContract::provenance(
+                "derivation_id",
+                T::id(),
+                "Exact source derivation.",
+            ),
         ],
         "blueprint §6.5 property: property_requirements.",
     );
 }
 
 fn declare_inferred_method_resolutions(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Inferred,
         "method_resolutions",
+        2,
         S::Derived,
         &["requirement_id"],
         vec![
             column("requirement_id", T::id()),
-            column("method_id", T::id()),
-            column("realization", T::enumeration("MethodRealization")),
+            column("method_id", T::id()).optional(),
+            column("realization", T::enumeration("MethodRealization")).optional(),
             column("template_id", T::id()).optional(),
-            column("kernel_binding_id", T::id()).optional(),
             column("status", T::enumeration("ResolutionStatus")),
-            column("derivation_id", T::id()),
+            crate::model::FieldContract::provenance(
+                "derivation_id",
+                T::id(),
+                "Exact source derivation.",
+            ),
         ],
         "blueprint §6.5 property: method_resolutions.",
     );

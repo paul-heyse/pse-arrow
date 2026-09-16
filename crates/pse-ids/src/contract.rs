@@ -156,11 +156,11 @@ pub enum Layout {
     Binary,
     /// `FixedSizeBinary(n)`: `pse.semantic_id` at 16, `pse.content_hash` at 32.
     FixedSizeBinary(i32),
-    /// A dictionary-encoded enum with a declared member domain; codes carry no identity,
-    /// so canonicalization decodes to values after checking bounds and membership.
+    /// A string enumeration with a declared member domain. External dictionary inputs
+    /// decode to values after checking bounds and membership; codes carry no identity.
     Enum {
-        /// The key width.
-        key: DictKey,
+        /// The optional dictionary key width; `None` is canonical `Utf8` storage.
+        key: Option<DictKey>,
         /// The declared members, in declared order.
         members: Arc<[String]>,
     },
@@ -276,7 +276,12 @@ fn layout_of(
         DataType::UInt64 => Layout::UInt64,
         DataType::Float32 => Layout::Float32,
         DataType::Float64 => Layout::Float64,
-        DataType::Utf8 => Layout::Utf8,
+        DataType::Utf8 => enum_domains
+            .get(path)
+            .map_or(Layout::Utf8, |members| Layout::Enum {
+                key: None,
+                members: Arc::clone(members),
+            }),
         DataType::Binary => Layout::Binary,
         DataType::FixedSizeBinary(width) => Layout::FixedSizeBinary(*width),
         DataType::Timestamp(TimeUnit::Nanosecond, Some(zone)) if zone.as_ref() == UTC => {
@@ -299,7 +304,7 @@ fn layout_of(
                 });
             };
             Layout::Enum {
-                key,
+                key: Some(key),
                 members: Arc::clone(members),
             }
         }
@@ -316,7 +321,7 @@ fn layout_of(
             let mut members = Vec::with_capacity(children.len());
             for (ordinal, child) in children.iter().enumerate() {
                 members.push((
-                    child.name().clone(),
+                    child.name().to_owned(),
                     layout_of(&path.child(ordinal), child.as_ref(), enum_domains)?,
                 ));
             }
@@ -327,7 +332,7 @@ fn layout_of(
     Ok(layout)
 }
 
-/// The supported-size envelope of a canonicalization (blueprint §5.3 step 8).
+/// The selected resource envelope of a canonicalization (blueprint §5.3 step 8).
 ///
 /// A stated bound rather than an implicit one: preflight uses checked arithmetic against
 /// these numbers and reserves before allocating, so exceeding one is
@@ -336,11 +341,10 @@ fn layout_of(
 /// ```
 /// use pse_ids::Envelope;
 ///
-/// assert_eq!(Envelope::PHASE1.max_rows, 1_000_000);
-/// // A deployment may tighten a bound …
-/// assert!(Envelope::lowered(1_000, 1 << 20).is_ok());
-/// // … and may not raise one; that needs the R-23 measurement decision.
-/// assert!(Envelope::lowered(2_000_000, 1 << 20).is_err());
+/// assert_eq!(Envelope::DEFAULT.max_rows, 100_000_000);
+/// assert!(Envelope::new(1_000, 1 << 20).is_ok());
+/// // Deployment settings do not change canonical framing or identity.
+/// assert!(Envelope::new(200_000_000, 1 << 30).is_ok());
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Envelope {
@@ -351,30 +355,38 @@ pub struct Envelope {
 }
 
 impl Envelope {
-    /// The phase-1 envelope: 1,000,000 rows and 256 MiB of normalized buffers.
-    pub const PHASE1: Self = Self {
-        max_rows: 1_000_000,
-        max_normalized_bytes: 256 << 20,
+    /// Selected default: 100 million rows and 32 GiB of normalized buffers on 64-bit
+    /// hosts. This is a configurable resource policy, not a measured workload promise.
+    pub const DEFAULT: Self = Self {
+        max_rows: 100_000_000,
+        max_normalized_bytes: if isize::BITS >= 64 {
+            32 << 30
+        } else {
+            isize::MAX as u64
+        },
     };
 
-    /// A deployment envelope, which may only tighten [`Self::PHASE1`].
+    /// Select a deployment envelope within actual row-index and addressability limits.
+    /// Zero admits only empty data. Variable-width offsets retain their own checked
+    /// representation limits; selecting a larger policy never widens an Arrow offset.
     ///
     /// # Errors
     ///
-    /// [`CanonError::Envelope`] naming the bound that was raised. Raising the supported
-    /// envelope is a measurement and format decision (register R-23), not a parameter.
-    pub fn lowered(max_rows: u64, max_normalized_bytes: u64) -> Result<Self, CanonError> {
-        if max_rows > Self::PHASE1.max_rows {
+    /// [`CanonError::Envelope`] when a policy exceeds canonical `u32` row indices or
+    /// addressable buffer sizes. No allocation is performed by this constructor.
+    pub fn new(max_rows: u64, max_normalized_bytes: u64) -> Result<Self, CanonError> {
+        let row_limit = u64::from(u32::MAX).min(isize::MAX as u64);
+        if max_rows > row_limit {
             return Err(CanonError::Envelope {
                 what: crate::error::EnvelopeBound::Rows,
-                limit: Self::PHASE1.max_rows,
+                limit: row_limit,
                 actual: max_rows,
             });
         }
-        if max_normalized_bytes > Self::PHASE1.max_normalized_bytes {
+        if max_normalized_bytes > isize::MAX as u64 {
             return Err(CanonError::Envelope {
                 what: crate::error::EnvelopeBound::Bytes,
-                limit: Self::PHASE1.max_normalized_bytes,
+                limit: isize::MAX as u64,
                 actual: max_normalized_bytes,
             });
         }
@@ -387,7 +399,7 @@ impl Envelope {
 
 impl Default for Envelope {
     fn default() -> Self {
-        Self::PHASE1
+        Self::DEFAULT
     }
 }
 
@@ -752,7 +764,7 @@ mod tests {
                 .as_deref()
                 .and_then(|l| l.get(1)),
             Some(&Layout::Enum {
-                key: DictKey::Int8,
+                key: Some(DictKey::Int8),
                 members
             })
         );
@@ -830,7 +842,7 @@ mod tests {
             ),
         ];
         for field in refusals {
-            let name = field.name().clone();
+            let name = field.name().to_owned();
             let refused = contract_of(vec![key_field(), field], &["id"], &no_domains());
             assert!(
                 matches!(refused, Err(CanonError::UnsupportedLayout { .. })),
@@ -1074,29 +1086,30 @@ mod tests {
     }
 
     #[test]
-    fn the_envelope_may_only_tighten() {
-        assert_eq!(Envelope::default(), Envelope::PHASE1);
-        assert_eq!(Envelope::PHASE1.max_normalized_bytes, 268_435_456);
+    fn envelope_policy_is_configurable_with_checked_representation_limits() {
+        assert_eq!(Envelope::default(), Envelope::DEFAULT);
         assert_eq!(
-            Envelope::lowered(1_000, 1 << 20).ok(),
+            Envelope::new(1_000, 1 << 20).ok(),
             Some(Envelope {
                 max_rows: 1_000,
                 max_normalized_bytes: 1 << 20
             })
         );
         assert!(matches!(
-            Envelope::lowered(Envelope::PHASE1.max_rows + 1, 0),
+            Envelope::new(u64::from(u32::MAX) + 1, 0),
             Err(CanonError::Envelope {
                 what: crate::error::EnvelopeBound::Rows,
                 ..
             })
         ));
         assert!(matches!(
-            Envelope::lowered(0, Envelope::PHASE1.max_normalized_bytes + 1),
+            Envelope::new(0, isize::MAX as u64 + 1),
             Err(CanonError::Envelope {
                 what: crate::error::EnvelopeBound::Bytes,
                 ..
             })
         ));
+        assert!(Envelope::new(200_000_000, 1 << 30).is_ok());
+        assert!(Envelope::new(0, 0).is_ok());
     }
 }

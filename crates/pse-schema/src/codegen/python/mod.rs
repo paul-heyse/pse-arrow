@@ -52,14 +52,14 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             .iter()
             .map(|column| {
                 Ok((
-                    column.name.to_owned(),
+                    column.name().to_owned(),
                     types::optional(
                         types::logical(
-                            &column.logical_type,
-                            &format!("{stem}Field{}", pascal(column.name)),
+                            &column.value_type(),
+                            &format!("{stem}Field{}", pascal(column.name())),
                             &mut declarations,
                         )?,
-                        column.nullable,
+                        column.nullable(),
                     ),
                 ))
             })
@@ -100,14 +100,14 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
 
 fn enumerations(reg: &Registry) -> String {
     let mut source = String::from(
-        "\"\"\"Closed dictionaries; ordinal codes are presentation only.\"\"\"\n\nfrom enum import StrEnum\n",
+        "\"\"\"Declared string enumerations; ordinal codes are presentation only.\"\"\"\n\nfrom enum import StrEnum\n",
     );
     let mut mappings = Vec::new();
     for spec in reg.enums() {
         let name = pascal(spec.name);
         let _ = writeln!(
             source,
-            "\n\nclass {name}(StrEnum):\n    \"\"\"The declared {} dictionary.\"\"\"\n",
+            "\n\nclass {name}(StrEnum):\n    \"\"\"The declared {} enumeration.\"\"\"\n",
             spec.name
         );
         for member in &spec.members {

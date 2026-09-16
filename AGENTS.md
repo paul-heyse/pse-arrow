@@ -6,9 +6,12 @@ file directly).
 
 ## What this repository is
 
-`pse-arrow` is an Arrow-native process systems engineering core in Rust: typed
-relations as the only model authority, a relational math IR, DataFusion-based
-inference, native NLP solving, and a generated Pyomo backend.
+`pse-arrow` is an Arrow-native process systems engineering core in Rust. Arrow is the
+default for typed data and columnar operations; DataFusion is the default for data
+transformation, planning and execution across the system. Other libraries are
+acceptable when they offer a distinctive advantage (blueprint D10). Typed relations are the
+model authority, with a relational math IR, native NLP solving and a generated
+Pyomo backend.
 
 It is a **clean-room re-implementation** of core IDAES-PSE capabilities, parity-tested
 against `idaes-pse==2.12.0`. **Not affiliated with IDAES.** Read `external/idaes-pse`
@@ -18,6 +21,18 @@ blueprint (§6.14). See `docs/relationship-to-idaes.md`.
 
 Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and lives in
 `python/pse`; the PyPI distribution is `pse-arrow`.
+
+## Current implementation direction
+
+[Plan 08](docs/plans/08-schema-first-native-data-pivot.md) is the current execution
+sequence under proposed ADR-0069 and blueprint revision 40. Pivot the existing
+codebase to recursive native Arrow contracts, DataFusion providers/plans and Delta
+persistence. Preserve existing functional outcomes; new simulator functionality is
+outside this plan. Replace callers and delete predecessor code/data objects together.
+No compatibility path, historical-object migration, dual authority or transition
+period is required. Earlier plans and receipts are historical inputs. Full library
+eligibility remains in force. The maintainer works through Codex in one implementation
+stream. See [STATUS.md](STATUS.md).
 
 ## Start here, every session
 
@@ -60,8 +75,10 @@ parity or distribution builds. GitHub runs the required suites before merging.
    labels are mandatory in PR descriptions, ADR `evidence:` fields and plan Verification
    sections. `Tested` and `Measured` must name the test or benchmark and its conditions.
 5. **An ADR comes before the change**, not after, when the change alters a D1–D14
-   decision, adds or removes a crate, or adds, drops or majors a dependency family. See
-   "When an ADR is required" below.
+   decision, adds or removes a crate, or majors one of the four pinned families. See
+   "When an ADR is required" below. **Adding a third-party dependency needs none of it** —
+   no library and no licence is refused during phases 0–1
+   ([dependency policy](docs/dev/dependency-policy.md), ADR-0066).
 6. **Use the tool from `.venv` and the pinned toolchain, never `$PATH`.** A stale global
    `ruff` or a nightly `cargo` silently produces a different result than CI.
 7. **Report a failure count with its baseline and the command.** Never report that tests
@@ -73,7 +90,7 @@ parity or distribution builds. GitHub runs the required suites before merging.
 |---|---|---|
 | `crates/` | The 23 `pse-*` crates plus `pse-ipopt-sys`, `pse-buildinfo` | Ours; see `.claude/rules/rust.md` |
 | `xtask/` | Everything that needs Rust APIs, JSON or cross-platform behaviour | Logic lives here, the justfile is the surface |
-| `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/golden/` is data, not a crate |
+| `tests/` | Workspace test crates: `governance`, `engine`, `conformance`, `lifecycle`, `structural` | `tests/fixtures/` contains source inputs, not a crate |
 | `benches/` | Criterion benchmarks (`pse-benches`) | No timing gate in CI; `just bench-smoke` only runs them |
 | `python/pse/` | The Python package (import name `pse`) | `python/pse/contracts/` is GENERATED |
 | `docs/authoritative_design/` | **The blueprint.** Off-limits to edits | Read constantly, write never |
@@ -98,10 +115,14 @@ Do not restate these; cite them.
   review date. `just register-check` runs the ones that are due.
 - **`Cargo.toml` header comment** — why the arrow/datafusion/object_store/pyo3 pins are
   what they are, and why `=` pins alone are not sufficient.
-- **`pyproject.toml`** — every Python library `==`-pinned; tool versions under
-  `[dependency-groups]`, never installed ad hoc.
+- **`pyproject.toml`** — every runtime Python library `==`-pinned; tools that only
+  execute (ruff, pyrefly, pytest, …) carry floors under `[dependency-groups]` and run
+  at whatever `uv.lock` resolved, never installed ad hoc. No release of `uv` itself is
+  required.
 - **`docs/capability-maps/`** — what the pinned libraries actually expose, with evidence.
   `just lib-outline docs/capability-maps/arrow-rust.md` before reading one.
+- **`docs/dev/dependency-policy.md`** — what you may depend on and under what licence.
+  Short answer: anything. Read it before assuming a library is off-limits.
 
 ## Invariants
 
@@ -118,6 +139,8 @@ Do not restate these; cite them.
   blueprint §23.2 code. No `anyhow` in `crates/*`.
 - **`typing.Any` is banned in Python**, as is `from __future__ import annotations` under
   `python/pse` (PEP 563 breaks the import-time `Any` check in `pse.governance`).
+- **No library or licence is refused** through phases 0–1. Admission is advisory; pinning,
+  the one type universe and the import boundaries are not (§3.3.2, ADR-0066).
 - **Exactly one of `unit`/`component`/`integration`/`performance`** per Python test;
   `conftest.py` hard-fails at collection otherwise.
 - **The parity suite fails, it never skips.** A missing solver or a wrong IDAES version
@@ -162,7 +185,8 @@ Each of these is a real incident, not a hypothetical.
 | `just family-check` | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
 | `just governance` | the workspace-level invariants hold (pins, crates registered, MSRV, unsafe allowlist, error taxonomy) | nothing about runtime behaviour |
 | `just quality` | Python format/lint/types/import boundaries and repo config are clean | that the code works |
-| `just policy` | no known advisory, no banned or duplicate crate, no disallowed licence | nothing about code you wrote |
+| `just deps-report` | what is in the dependency graph and under what licences; **advisory, always exits 0** | nothing — it refuses nothing and blocks nothing |
+| `just policy` | the same checks, strictly: no known advisory, no disallowed licence. Opt-in, not in `ci-pr` | nothing about code you wrote, and nothing you are obliged to act on yet (register R-31) |
 | `just parity` | the exercised parity checks pass against `idaes-pse==2.12.0` | nothing about cases not exercised, or other IDAES versions |
 | `just docs` | the book builds and its internal links resolve | nothing about whether the prose is true |
 | `just adr-lint` | ADR front matter, numbering, supersession and register rows are well-formed | nothing about whether the decisions are good |
@@ -176,9 +200,9 @@ Each of these is a real incident, not a hypothetical.
 
 | Change | Needs |
 |---|---|
-| Alters D1–D14; adds or removes a crate; adds, drops or majors a dependency family; changes the hashing contract, the Python boundary contract, metadata conventions or the commit contract; any SHOULD deviation; governance changes | ADR **and** a design review (`needs-review`; verdict Accept or Accept-scoped before `status: accepted`) |
+| Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions or the commit contract; any SHOULD deviation; governance changes | ADR **and** a design review (`needs-review`; verdict Accept or Accept-scoped before `status: accepted`) |
 | New relation family, pass, kernel contract or backend binding *within* an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | ADR (short); review at maintainer discretion |
-| Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, tooling | Neither. An ordinary PR with the evidence field filled |
+| Bug fixes, refactors within contracts, tests, docs wording, patch bumps inside a pinned family, adding, removing or upgrading a third-party dependency, tooling | Neither. An ordinary PR with the evidence field filled |
 
 An ADR enters or changes status only in a PR labeled `adr` and titled `adr: ADR-NNNN
 <title>`; the same PR (or a named follow-up `design:` PR) amends the blueprint with a

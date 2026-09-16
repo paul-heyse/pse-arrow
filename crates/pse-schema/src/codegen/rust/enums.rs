@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Typed closed dictionaries, retaining the authoritative member spellings.
+//! Typed string enumerations, retaining the authoritative member spellings.
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -18,7 +18,7 @@ pub(super) fn render(reg: &Registry) -> TokenStream {
         let ordinals = (0..variants.len()).collect::<Vec<_>>();
         let length = variants.len();
         quote! {
-            /// A closed dictionary projected from the registry.
+            /// A string enumeration projected from the registry.
             #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
             #[allow(clippy::enum_variant_names, reason = "closed enum spellings preserve registry and sanctioned parity names")]
             pub enum #name { #(#[doc = #docs] #[serde(rename = #members)] #variants,)* }
@@ -45,6 +45,17 @@ pub(super) fn render(reg: &Registry) -> TokenStream {
                 fn into_cell(self) -> pse_schema::model::Cell { pse_schema::model::Cell::Enum(self.as_str()) }
                 fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
                     match cell { pse_schema::model::Cell::Enum(value) => value.parse(), _ => Err(crate::typed::mismatch(stringify!(#name))) }
+                }
+            }
+            impl crate::columnar::ArrowValue for #name {
+                fn append(&self, output: &mut dyn arrow_array::builder::ArrayBuilder) -> Result<(), crate::RelationError> {
+                    crate::columnar::append_string(output, Some(self.as_str()))
+                }
+                fn append_null(output: &mut dyn arrow_array::builder::ArrayBuilder) -> Result<(), crate::RelationError> {
+                    crate::columnar::append_string(output, None)
+                }
+                fn read(input: &dyn arrow_array::Array, index: usize) -> Result<Self, crate::RelationError> {
+                    crate::columnar::read_string(input, index)?.parse()
                 }
             }
         }

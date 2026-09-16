@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Output bundles: complete, immutable, with every declared port (blueprint §14.1).
+//! Bind actual immutable producer outputs by their declared input roles (blueprint §14.1).
 //!
-//! A bundle contains all declared output ports, including explicit empty relations. Each
-//! stage publishes a complete replacement rather than overwriting another stage's artifact.
-//!
-use super::{BoundInput, InputBundle, PassOutput, dag::invalid};
+use super::{BoundInput, InputBundle, dag::invalid};
 use crate::CompilerError;
-use pse_catalog::{EncodingPolicy, RelationContract, Snapshot};
-use pse_relations::RecordBatch;
+use pse_catalog::Snapshot;
 use pse_schema::{
     Registry,
     model::{PassSpec, PortSource, RelationKey},
@@ -77,6 +73,43 @@ impl BoundInput {
     }
 }
 impl InputBundle {
+    /// Retain each actual input by role, including distinct owners of the same schema.
+    /// Optional absent ports have no provider; present empty relations retain theirs.
+    pub fn checked_ports(&self) -> BTreeMap<String, pse_relations::columnar::FieldCheckedBatch> {
+        self.ports
+            .iter()
+            .filter_map(|(role, input)| {
+                input
+                    .as_ref()
+                    .map(|input| ((*role).to_owned(), input.relation.checked().clone()))
+            })
+            .collect()
+    }
+    /// Select a relation-keyed inventory for algorithms requiring one input per schema.
+    /// General native execution binds [`Self::checked_ports`] instead.
+    /// # Errors
+    /// One declaration is bound ambiguously or absent from the registry.
+    pub fn checked_rows(
+        &self,
+        registry: &Registry,
+    ) -> Result<BTreeMap<RelationKey, pse_relations::columnar::FieldCheckedBatch>, CompilerError>
+    {
+        let mut rows = BTreeMap::new();
+        for input in self.ports.values().flatten() {
+            let spec = registry
+                .relation_by_id(input.relation_id())
+                .ok_or_else(|| invalid("input relation absent"))?;
+            if rows
+                .insert(spec.key, input.relation.checked().clone())
+                .is_some()
+            {
+                return Err(invalid(
+                    "one relation is bound through multiple input ports",
+                ));
+            }
+        }
+        Ok(rows)
+    }
     /// Check the complete port set, actual relation fields and producer ownership.
     /// # Errors
     /// Missing/extra ports, required absence, foreign schema or a mismatched producer.
@@ -103,8 +136,8 @@ impl InputBundle {
                 .relation
                 .contract()
                 .validate_against_registry(registry, relation)?;
-            pse_relations::validate::validate_batch(registry, relation, input.relation.batch())
-                .map_err(|errors| pse_relations::RelationError::Validation { errors })?;
+            // The immutable snapshot already owns admitted values. Binding proves
+            // exact declaration and producer role without repeating value admission.
             if let PortSource::Derived { pass, port: source } = port.source {
                 let producer = registry
                     .pass(pass)
@@ -120,55 +153,4 @@ impl InputBundle {
         }
         Ok(())
     }
-    /// Actual rows exposed to a pass, with ambiguity refused.
-    /// # Errors
-    /// Conflicting bindings for the same declared relation.
-    pub fn rows(
-        &self,
-        registry: &Registry,
-    ) -> Result<BTreeMap<RelationKey, RecordBatch>, CompilerError> {
-        let mut rows = BTreeMap::new();
-        for input in self.ports.values().flatten() {
-            let spec = registry
-                .relation_by_id(input.relation_id())
-                .ok_or_else(|| invalid("input relation missing"))?;
-            if rows
-                .insert(spec.key, input.relation.batch().clone())
-                .is_some()
-            {
-                return Err(invalid(
-                    "one relation is bound through multiple input ports",
-                ));
-            }
-        }
-        Ok(rows)
-    }
-}
-/// Admit the full output port inventory and every actual batch before publication.
-/// # Errors
-/// Omitted/extra ports, changed pass attribution, malformed schema or row values.
-pub fn validate_output(
-    output: &PassOutput,
-    spec: &PassSpec,
-    registry: &Registry,
-) -> Result<(), CompilerError> {
-    if output.record.pass_id != spec.id || output.record.version != spec.version {
-        return Err(invalid("output pass attribution differs"));
-    }
-    if output.ports.keys().copied().collect::<BTreeSet<_>>()
-        != spec.outputs.iter().map(|port| port.port).collect()
-    {
-        return Err(invalid("output port inventory differs"));
-    }
-    for port in &spec.outputs {
-        let relation = registry
-            .relation(&port.relation)
-            .ok_or_else(|| invalid("output relation missing"))?;
-        RelationContract::from_spec(registry, relation, EncodingPolicy::IpcFile)?;
-        for batch in &output.ports[port.port] {
-            pse_relations::validate::validate_batch(registry, relation, batch)
-                .map_err(|errors| pse_relations::RelationError::Validation { errors })?;
-        }
-    }
-    Ok(())
 }

@@ -1,7 +1,7 @@
 ---
 id: ADR-0048
 title: Use standard relational operators and explicit-schema readers
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§5.4, §6.10, §6.11, §14.2, §21.1, §24.1, §26]
 review: docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md#6-acceptance-gates
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0067
 revisit: A representative supported scan/import needs an operation outside the bounded algebra or measured optimization triggers in R-24/R-25 fire.
 verification: just adr-lint; just docs; docs/plans/02-blueprint-revision-5-contracts.md Verification; bash docs/design_review/evidence/blueprint-rev4-2026-09-13/run.sh
 ---
@@ -61,3 +61,4 @@ See the governed blueprint sections, the [revision-4 review](../design_review/re
 
 - 2026-09-13 — proposed before the revision-5 blueprint amendment; user requested reconciliation of all review findings and library opportunities.
 - 2026-09-13 — accepted (revision-5 review, Accept for bounded proposed scope; evidence remains Proposed until the wave-1 implementation review).
+- 2026-09-14 — superseded by ADR-0067.

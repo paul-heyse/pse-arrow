@@ -17,6 +17,9 @@ use super::verify::admission;
 use crate::snapshot::ManifestRef;
 use crate::{CatalogError, RefName, Snapshot};
 
+/// Exact observed alias paired with its fully admitted immutable snapshot.
+pub type PinnedRef = (RefState, Arc<Snapshot>);
+
 /// A ref retaining exact observed bytes and native conditional tokens under ownership.
 #[derive(Clone, Debug)]
 pub struct RefState {
@@ -24,7 +27,7 @@ pub struct RefState {
     manifest: ManifestRef,
     revision: Option<Arc<RevisionRef>>,
     observed: ObservedControl,
-    pub(super) admission: Arc<()>,
+    pub(super) admission: Arc<crate::store::open::CatalogContext>,
     _metadata: Arc<pse_ids::ReservationLease>,
 }
 impl RefState {
@@ -77,6 +80,44 @@ impl Catalog {
     /// # Errors
     /// Backend failures, malformed refs or unsupported object extents.
     pub async fn read_ref(
+        &self,
+        name: &RefName,
+        cancel: &CancellationToken,
+    ) -> Result<Option<RefState>, CatalogError> {
+        Ok(self
+            .prepare_ref_read(name, cancel)?
+            .execute(cancel)
+            .await?
+            .into_value())
+    }
+
+    /// Capture a ref lookup and its scoped read policy before backend access.
+    /// # Errors
+    /// Native preparation, policy or resource refusal.
+    pub fn prepare_ref_read(
+        &self,
+        name: &RefName,
+        cancel: &CancellationToken,
+    ) -> Result<super::operation::PreparedStoreOperation<Option<RefState>>, CatalogError> {
+        use pse_schema::model::provider::{OperationPurpose, ProviderScope};
+        let name = name.clone();
+        self.prepare_store_operation(
+            "store.read_ref",
+            ProviderScope::Table("store".into(), "refs".into(), name.as_str().into()),
+            OperationPurpose::Resolve,
+            vec![datafusion::logical_expr::lit(name.as_str())],
+            Box::new(move |catalog, _session, cancel| {
+                Box::pin(async move {
+                    let state = catalog.read_ref_inner(&name, &cancel).await?;
+                    let count = u64::from(state.is_some());
+                    Ok((state, count))
+                })
+            }),
+            cancel,
+        )
+    }
+
+    async fn read_ref_inner(
         &self,
         name: &RefName,
         cancel: &CancellationToken,
@@ -191,7 +232,10 @@ impl Catalog {
         target: &Snapshot,
         cancel: &CancellationToken,
     ) -> Result<(), CatalogError> {
-        self.write_ref(name, expected, target, None, cancel).await
+        self.prepare_ref_update(name, expected, target, None, cancel)?
+            .execute(cancel)
+            .await
+            .map(|_| ())
     }
 
     /// Atomically publish a snapshot alias and its exact admitted authored revision row.
@@ -200,6 +244,84 @@ impl Catalog {
     /// # Errors
     /// Revision/target mismatch, invalid artifacts, stale tokens or backend failures.
     pub async fn compare_and_swap_revision_ref(
+        &self,
+        name: &RefName,
+        expected: Option<&RefState>,
+        target: &Snapshot,
+        revision: &RevisionReceipt,
+        cancel: &CancellationToken,
+    ) -> Result<(), CatalogError> {
+        self.prepare_ref_update(name, expected, target, Some(revision), cancel)?
+            .execute(cancel)
+            .await
+            .map(|_| ())
+    }
+
+    /// Prepare the exact conditional target and optional authored revision before any write.
+    /// The returned native plan binds the target's admitted providers and scoped ref policy.
+    /// # Errors
+    /// A foreign target, invalid native binding or incompatible policy/effect.
+    pub fn prepare_ref_update(
+        &self,
+        name: &RefName,
+        expected: Option<&RefState>,
+        target: &Snapshot,
+        revision: Option<&RevisionReceipt>,
+        cancel: &CancellationToken,
+    ) -> Result<super::operation::PreparedStoreOperation<()>, CatalogError> {
+        use pse_schema::model::provider::{OperationPurpose, ProviderScope};
+        if !Arc::ptr_eq(&self.admission, &target.admission) {
+            return Err(admission(
+                "ref target",
+                "foreign snapshots must be reopened before publication",
+            ));
+        }
+        let target = Arc::new(target.clone());
+        let mut session = self.validation_session(cancel)?;
+        self.bind_snapshot(&mut session, "publication", "target", &target, cancel)?;
+        let arguments = vec![
+            datafusion::logical_expr::lit(name.as_str()),
+            datafusion::logical_expr::lit(target.manifest_ref().manifest_checksum.to_string()),
+            datafusion::logical_expr::lit(datafusion::common::ScalarValue::Utf8(
+                expected.map(|state| state.manifest.manifest_checksum.to_string()),
+            )),
+        ];
+        let name = name.clone();
+        let expected = expected.cloned();
+        let revision = revision.cloned();
+        self.prepare_store_operation_in(
+            &session,
+            crate::store::operation::StoreCommand {
+                name: "store.compare_and_swap_ref",
+                scope: ProviderScope::Table("store".into(), "refs".into(), name.as_str().into()),
+                purpose: OperationPurpose::Publish,
+                arguments,
+            },
+            Box::new(move |catalog, _session, cancel| {
+                Box::pin(async move {
+                    if let Some(revision) = revision {
+                        catalog
+                            .write_revision_ref(
+                                &name,
+                                expected.as_ref(),
+                                &target,
+                                &revision,
+                                &cancel,
+                            )
+                            .await?;
+                    } else {
+                        catalog
+                            .write_ref(&name, expected.as_ref(), &target, None, &cancel)
+                            .await?;
+                    }
+                    Ok(((), 1))
+                })
+            }),
+            cancel,
+        )
+    }
+
+    async fn write_revision_ref(
         &self,
         name: &RefName,
         expected: Option<&RefState>,
@@ -300,12 +422,47 @@ impl Catalog {
         &self,
         cancel: &CancellationToken,
     ) -> Result<Vec<RefName>, CatalogError> {
+        Ok(self
+            .prepare_ref_listing(cancel)?
+            .execute(cancel)
+            .await?
+            .into_value())
+    }
+
+    /// Prepare complete ref discovery through the same namespace policy and native route.
+    /// # Errors
+    /// Native preparation, policy or resource refusal.
+    pub fn prepare_ref_listing(
+        &self,
+        cancel: &CancellationToken,
+    ) -> Result<super::operation::PreparedStoreOperation<Vec<RefName>>, CatalogError> {
+        use pse_schema::model::provider::{OperationPurpose, ProviderScope};
+        self.prepare_store_operation(
+            "store.list_refs",
+            ProviderScope::Schema("store".into(), "refs".into()),
+            OperationPurpose::Resolve,
+            vec![],
+            Box::new(move |catalog, _session, cancel| {
+                Box::pin(async move {
+                    let names = catalog.list_refs_inner(&cancel).await?;
+                    let count =
+                        u64::try_from(names.len()).map_err(|_| super::encode::overflow())?;
+                    Ok((names, count))
+                })
+            }),
+            cancel,
+        )
+    }
+
+    async fn list_refs_inner(
+        &self,
+        cancel: &CancellationToken,
+    ) -> Result<Vec<RefName>, CatalogError> {
         cancel.checkpoint()?;
         let prefix = object_store::path::Path::from("refs");
-        let listing = self
-            .store
-            .list_with_delimiter(Some(&prefix))
-            .await
+        let listing = cancel
+            .until_cancelled(self.store.list_with_delimiter(Some(&prefix)))
+            .await?
             .map_err(|source| infrastructure("list refs", source))?;
         let mut names = Vec::new();
         for object in listing.objects {

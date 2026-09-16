@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    219u8, 152u8, 73u8, 133u8, 151u8, 224u8, 244u8, 28u8, 160u8, 72u8, 168u8, 36u8, 37u8,
-    62u8, 52u8, 68u8, 245u8, 151u8, 104u8, 206u8, 46u8, 93u8, 191u8, 133u8, 70u8, 59u8,
-    125u8, 209u8, 243u8, 217u8, 43u8, 92u8,
+    174u8, 223u8, 240u8, 254u8, 60u8, 142u8, 33u8, 196u8, 127u8, 101u8, 195u8, 249u8,
+    3u8, 245u8, 111u8, 251u8, 181u8, 82u8, 146u8, 47u8, 209u8, 243u8, 170u8, 238u8,
+    250u8, 22u8, 70u8, 60u8, 68u8, 72u8, 80u8, 37u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -60,20 +60,20 @@ impl crate::typed::CellCodec for ReferenceRuleExprNodesRow {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#expr_id), crate
-                ::typed::CellCodec::into_cell(self.r#rule_id), crate
-                ::typed::CellCodec::into_cell(self.r#op), crate
-                ::typed::CellCodec::into_cell(self.r#column_name), crate
-                ::typed::CellCodec::into_cell(self.r#comparison_op), crate
-                ::typed::CellCodec::into_cell(self.r#field_name), crate
-                ::typed::CellCodec::into_cell(self.r#literal_kind), crate
-                ::typed::CellCodec::into_cell(self.r#bool_value), crate
-                ::typed::CellCodec::into_cell(self.r#i64_value), crate
-                ::typed::CellCodec::into_cell(self.r#u64_value), crate
-                ::typed::CellCodec::into_cell(self.r#f64_bits), crate
-                ::typed::CellCodec::into_cell(self.r#text_value), crate
-                ::typed::CellCodec::into_cell(self.r#id_value), crate
-                ::typed::CellCodec::into_cell(self.r#hash_value)
+                crate::typed::CellCodec::into_cell(self.r#expr_id),
+                crate::typed::CellCodec::into_cell(self.r#rule_id),
+                crate::typed::CellCodec::into_cell(self.r#op),
+                crate::typed::CellCodec::into_cell(self.r#column_name),
+                crate::typed::CellCodec::into_cell(self.r#comparison_op),
+                crate::typed::CellCodec::into_cell(self.r#field_name),
+                crate::typed::CellCodec::into_cell(self.r#literal_kind),
+                crate::typed::CellCodec::into_cell(self.r#bool_value),
+                crate::typed::CellCodec::into_cell(self.r#i64_value),
+                crate::typed::CellCodec::into_cell(self.r#u64_value),
+                crate::typed::CellCodec::into_cell(self.r#f64_bits),
+                crate::typed::CellCodec::into_cell(self.r#text_value),
+                crate::typed::CellCodec::into_cell(self.r#id_value),
+                crate::typed::CellCodec::into_cell(self.r#hash_value),
             ],
         )
     }
@@ -209,6 +209,205 @@ impl crate::typed::CellCodec for ReferenceRuleExprNodesRow {
         })
     }
 }
+impl crate::columnar::ArrowValue for ReferenceRuleExprNodesRow {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#expr_id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#rule_id, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#op, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#column_name,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#comparison_op,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#field_name,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#literal_kind,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#bool_value,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#i64_value,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#u64_value,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#f64_bits,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#text_value,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#id_value,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#hash_value,
+            children[13usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <crate::generated::enums::RuleExprOp as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            crate::generated::enums::RuleCmpOp,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            crate::generated::enums::RuleLiteralKind,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#expr_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#rule_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#op: <crate::generated::enums::RuleExprOp as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#column_name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#comparison_op: <Option<
+                crate::generated::enums::RuleCmpOp,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#field_name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#literal_kind: <Option<
+                crate::generated::enums::RuleLiteralKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#bool_value: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#i64_value: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#u64_value: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#f64_bits: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#text_value: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#id_value: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#hash_value: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 /// The concrete generated relation row.
 pub type Row = ReferenceRuleExprNodesRow;
 /// The concrete generated relation view.
@@ -219,20 +418,20 @@ impl ReferenceRuleExprNodesRow {
     /// Values in exact declared column order.
     pub fn into_cells(self) -> Vec<pse_schema::model::Cell> {
         vec![
-            crate ::typed::CellCodec::into_cell(self.r#expr_id), crate
-            ::typed::CellCodec::into_cell(self.r#rule_id), crate
-            ::typed::CellCodec::into_cell(self.r#op), crate
-            ::typed::CellCodec::into_cell(self.r#column_name), crate
-            ::typed::CellCodec::into_cell(self.r#comparison_op), crate
-            ::typed::CellCodec::into_cell(self.r#field_name), crate
-            ::typed::CellCodec::into_cell(self.r#literal_kind), crate
-            ::typed::CellCodec::into_cell(self.r#bool_value), crate
-            ::typed::CellCodec::into_cell(self.r#i64_value), crate
-            ::typed::CellCodec::into_cell(self.r#u64_value), crate
-            ::typed::CellCodec::into_cell(self.r#f64_bits), crate
-            ::typed::CellCodec::into_cell(self.r#text_value), crate
-            ::typed::CellCodec::into_cell(self.r#id_value), crate
-            ::typed::CellCodec::into_cell(self.r#hash_value)
+            crate::typed::CellCodec::into_cell(self.r#expr_id),
+            crate::typed::CellCodec::into_cell(self.r#rule_id),
+            crate::typed::CellCodec::into_cell(self.r#op),
+            crate::typed::CellCodec::into_cell(self.r#column_name),
+            crate::typed::CellCodec::into_cell(self.r#comparison_op),
+            crate::typed::CellCodec::into_cell(self.r#field_name),
+            crate::typed::CellCodec::into_cell(self.r#literal_kind),
+            crate::typed::CellCodec::into_cell(self.r#bool_value),
+            crate::typed::CellCodec::into_cell(self.r#i64_value),
+            crate::typed::CellCodec::into_cell(self.r#u64_value),
+            crate::typed::CellCodec::into_cell(self.r#f64_bits),
+            crate::typed::CellCodec::into_cell(self.r#text_value),
+            crate::typed::CellCodec::into_cell(self.r#id_value),
+            crate::typed::CellCodec::into_cell(self.r#hash_value),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -246,7 +445,7 @@ impl ReferenceRuleExprNodesRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"10ed5819f7a3b40e315638014bf38ba5\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"rule_expr_nodes\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"expr_id\"]]],[\"list\",[[\"struct\",[[\"text\",\"expr_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"key\"],[\"text\",\"expr_id\"],[\"struct\",[[\"text\",\"expr_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]]]],[\"struct\",[[\"text\",\"rule_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"rule_id\"],[\"struct\",[[\"text\",\"rule_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"op\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:RuleExprOp\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"737b82b4a14b5dd5870ec6bc9069aba6\\\"}\"],[\"struct\",[[\"id\",\"737b82b4a14b5dd5870ec6bc9069aba6\"],[\"text\",\"RuleExprOp\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"col\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"lit\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"and\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"or\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"not\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"cmp\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_null\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_not_null\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_distinct_from\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_not_distinct_from\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"in_list\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"field\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"list_len\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_true\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_false\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"op\"],[\"struct\",[[\"text\",\"op\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"737b82b4a14b5dd5870ec6bc9069aba6\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"737b82b4a14b5dd5870ec6bc9069aba6\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:RuleExprOp\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"column_name\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"column_name\"],[\"struct\",[[\"text\",\"column_name\"],[\"text\",\"Utf8\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"comparison_op\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:RuleCmpOp\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e60f454cec74a5e9e2e3d92bcfd61b0a\\\"}\"],[\"struct\",[[\"id\",\"e60f454cec74a5e9e2e3d92bcfd61b0a\"],[\"text\",\"RuleCmpOp\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"not_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"lt\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"lt_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"gt\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"gt_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"comparison_op\"],[\"struct\",[[\"text\",\"comparison_op\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e60f454cec74a5e9e2e3d92bcfd61b0a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"e60f454cec74a5e9e2e3d92bcfd61b0a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:RuleCmpOp\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"field_name\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"field_name\"],[\"struct\",[[\"text\",\"field_name\"],[\"text\",\"Utf8\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"literal_kind\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:RuleLiteralKind\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0640350d1fbe76a7dbe023d5808a04d4\\\"}\"],[\"struct\",[[\"id\",\"0640350d1fbe76a7dbe023d5808a04d4\"],[\"text\",\"RuleLiteralKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"null\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"bool\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"i64\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"u64\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"f64\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"text\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"id\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"hash\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"enum\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"list\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"struct\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"literal_kind\"],[\"struct\",[[\"text\",\"literal_kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0640350d1fbe76a7dbe023d5808a04d4\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"0640350d1fbe76a7dbe023d5808a04d4\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:RuleLiteralKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"bool_value\"],[\"struct\",[[\"text\",\"bool\"],[\"text\",\"Boolean\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"bool_value\"],[\"struct\",[[\"text\",\"bool_value\"],[\"text\",\"Boolean\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"i64_value\"],[\"struct\",[[\"text\",\"i64\"],[\"text\",\"Int64\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"i64_value\"],[\"struct\",[[\"text\",\"i64_value\"],[\"text\",\"Int64\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"u64_value\"],[\"struct\",[[\"text\",\"u64\"],[\"text\",\"UInt64\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"u64_value\"],[\"struct\",[[\"text\",\"u64_value\"],[\"text\",\"UInt64\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"f64_bits\"],[\"struct\",[[\"text\",\"u64\"],[\"text\",\"UInt64\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"f64_bits\"],[\"struct\",[[\"text\",\"f64_bits\"],[\"text\",\"UInt64\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"text_value\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"text_value\"],[\"struct\",[[\"text\",\"text_value\"],[\"text\",\"Utf8\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"id_value\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"id_value\"],[\"struct\",[[\"text\",\"id_value\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"hash_value\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"content_hash\"],[\"text\",\"pse.content_hash\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",32]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"A BLAKE3 digest identifying an immutable version (blueprint §5.3).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"hash_value\"],[\"struct\",[[\"text\",\"hash_value\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",32]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.content_hash\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"content_hash\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]]]],[\"text\",\"blueprint §6.11 numerical and rule: rule_expr_nodes.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"10ed5819f7a3b40e315638014bf38ba5\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"10ed5819f7a3b40e315638014bf38ba5\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"rule_expr_nodes\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"expr_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"expr_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"expr_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"expr_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"rule_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"op\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"RuleExprOp\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"737b82b4a14b5dd5870ec6bc9069aba6\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"737b82b4a14b5dd5870ec6bc9069aba6\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:RuleExprOp\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:RuleExprOp\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"737b82b4a14b5dd5870ec6bc9069aba6\\\"}\"],[\"struct\",[[\"id\",\"737b82b4a14b5dd5870ec6bc9069aba6\"],[\"text\",\"RuleExprOp\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"col\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"lit\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"call\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"and\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"or\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"not\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"cmp\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_null\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_not_null\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_distinct_from\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_not_distinct_from\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"in_list\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"field\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"list_len\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_true\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_false\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"is_unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"column_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"column_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"column_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"comparison_op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"comparison_op\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"RuleCmpOp\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"comparison_op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e60f454cec74a5e9e2e3d92bcfd61b0a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"e60f454cec74a5e9e2e3d92bcfd61b0a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:RuleCmpOp\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:RuleCmpOp\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e60f454cec74a5e9e2e3d92bcfd61b0a\\\"}\"],[\"struct\",[[\"id\",\"e60f454cec74a5e9e2e3d92bcfd61b0a\"],[\"text\",\"RuleCmpOp\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"not_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"lt\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"lt_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"gt\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"gt_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"field_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"field_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"field_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"literal_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"literal_kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"RuleLiteralKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"literal_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0640350d1fbe76a7dbe023d5808a04d4\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"0640350d1fbe76a7dbe023d5808a04d4\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:RuleLiteralKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:RuleLiteralKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0640350d1fbe76a7dbe023d5808a04d4\\\"}\"],[\"struct\",[[\"id\",\"0640350d1fbe76a7dbe023d5808a04d4\"],[\"text\",\"RuleLiteralKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"null\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"bool\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"i64\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"u64\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"f64\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"text\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"id\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"hash\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"enum\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"list\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]],[\"struct\",[[\"text\",\"struct\"],[\"null\",null],[\"bool\",false],[\"text\",\"Declared rule semantic value.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"bool_value\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"bool_value\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"bool_value\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"i64_value\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"i64_value\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"i64_value\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"u64_value\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"u64_value\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"u64_value\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"f64_bits\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"f64_bits\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"f64_bits\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"text_value\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"text_value\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"text_value\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"id_value\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"id_value\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"id_value\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"hash_value\"],[\"text\",\"{\\\"FixedSizeBinary\\\":32}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"hash_value\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.content_hash\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"hash_value\"],[\"text\",\"{\\\"FixedSizeBinary\\\":32}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.content_hash\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"content_hash\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"content_hash\"],[\"text\",\"pse.content_hash\"],[\"text\",\"{\\\"FixedSizeBinary\\\":32}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"A BLAKE3 digest identifying an immutable version (blueprint §5.3).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.11 numerical and rule: rule_expr_nodes.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"10ed5819f7a3b40e315638014bf38ba5\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -272,9 +471,7 @@ fn check_declaration(
             actual: spec.fingerprint,
         });
     }
-    if pse_schema::compiled_contract::relation(reg, spec)?.literal_spec()
-        != COMPILED_DECLARATION
-    {
+    if reg.compiled_declaration(spec)? != COMPILED_DECLARATION {
         return Err(crate::RelationError::Contract {
             relation: "reference.rule_expr_nodes".to_owned(),
             reason: "runtime declaration differs from the complete generated contract"
@@ -297,94 +494,729 @@ pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationErr
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
     crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
 }
-/// A borrowed batch admitted against the complete generated contract.
+impl crate::columnar::RelationRow for ReferenceRuleExprNodesRow {
+    type Builder = ReferenceRuleExprNodesBuilder;
+    fn relation(
+        registry: &pse_schema::Registry,
+    ) -> Result<&pse_schema::model::RelationSpec, crate::RelationError> {
+        spec(registry)
+    }
+    fn builder(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self::Builder, crate::RelationError> {
+        ReferenceRuleExprNodesBuilder::with_registry(registry, capacity)
+    }
+    fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
+        builder.push(row)
+    }
+    fn finish(
+        builder: Self::Builder,
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        builder.finish()
+    }
+    fn rows(
+        batch: &crate::columnar::FieldCheckedBatch,
+    ) -> Result<Vec<Self>, crate::RelationError> {
+        ReferenceRuleExprNodesView::from_checked(batch)?.rows()
+    }
+    fn builder_allocation_size() -> usize {
+        153_472_usize + size_of::<Self::Builder>()
+    }
+    fn minimum_row_allocation_size() -> usize {
+        272usize
+    }
+    fn allocation_size(&self) -> Result<usize, crate::RelationError> {
+        let mut bytes = 0usize;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#op).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#column_name).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#comparison_op).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#field_name).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#literal_kind).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#bool_value).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#i64_value).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#u64_value).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#f64_bits).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#text_value).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#id_value).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#hash_value).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(32usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        Ok(bytes)
+    }
+}
+/// The complete declared relation key.
+pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::RelationKey {
+    namespace: NAMESPACE,
+    name: NAME,
+    version: VERSION,
+};
+/// Stable field references projected from the declared column order.
+pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "expr_id",
+        position: 0usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "rule_id",
+        position: 1usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "op",
+        position: 2usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "column_name",
+        position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "comparison_op",
+        position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "field_name",
+        position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "literal_kind",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "bool_value",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "i64_value",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "u64_value",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "f64_bits",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "text_value",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "id_value",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "hash_value",
+        position: 13usize,
+    },
+];
+/// Borrowed Arrow columns with checked layout and local values.
+/// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct ReferenceRuleExprNodesView<'a> {
     batch: &'a crate::RecordBatch,
-    registry: &'a pse_schema::Registry,
+    expr_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    rule_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    op_column: &'a arrow_array::StringArray,
+    column_name_column: &'a arrow_array::StringArray,
+    comparison_op_column: &'a arrow_array::StringArray,
+    field_name_column: &'a arrow_array::StringArray,
+    literal_kind_column: &'a arrow_array::StringArray,
+    bool_value_column: &'a arrow_array::BooleanArray,
+    i64_value_column: &'a arrow_array::Int64Array,
+    u64_value_column: &'a arrow_array::UInt64Array,
+    f64_bits_column: &'a arrow_array::UInt64Array,
+    text_value_column: &'a arrow_array::StringArray,
+    id_value_column: &'a arrow_array::FixedSizeBinaryArray,
+    hash_value_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> ReferenceRuleExprNodesView<'a> {
-    /// Admits the actual schema and visible values, including extension metadata.
+    /// Admits a raw candidate's actual schema and visible local values.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
     }
-    /// Admits a batch with an explicitly bound registry.
+    /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch_with_registry(
-        registry: &'a pse_schema::Registry,
+        registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         crate::validate::validate_batch(registry, spec(registry)?, batch)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Ok(Self { batch, registry })
+        Self::borrow_columns(batch)
     }
-    /// The admitted batch, preserving its owners and reservations.
+    /// Borrows a checked owner without rescanning visible values.
+    /// The private owner must carry this exact relation and complete declaration.
+    /// # Errors
+    /// A different generated declaration or an incompatible Arrow layout.
+    pub fn from_checked(
+        owner: &'a crate::columnar::FieldCheckedBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Self::borrow_columns(owner.for_declaration(RELATION_ID, COMPILED_DECLARATION)?)
+    }
+    fn borrow_columns(
+        batch: &'a crate::RecordBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Ok(Self {
+            batch,
+            expr_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(0usize).as_ref())?,
+            rule_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(1usize).as_ref())?,
+            op_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(2usize).as_ref())?,
+            column_name_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(3usize).as_ref())?,
+            comparison_op_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            field_name_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(5usize).as_ref())?,
+            literal_kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            bool_value_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(7usize).as_ref())?,
+            i64_value_column: crate::columnar::array::<
+                arrow_array::Int64Array,
+            >(batch.column(8usize).as_ref())?,
+            u64_value_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(9usize).as_ref())?,
+            f64_bits_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(10usize).as_ref())?,
+            text_value_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(11usize).as_ref())?,
+            id_value_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(12usize).as_ref())?,
+            hash_value_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(13usize).as_ref())?,
+        })
+    }
+    /// The immutable batch, preserving its buffer owners and reservations.
     pub const fn batch(&self) -> &'a crate::RecordBatch {
         self.batch
     }
-    /// Decode dictionary values and nested fields into generated typed rows.
+    /// The number of visible relation rows.
+    pub fn len(&self) -> usize {
+        self.batch.num_rows()
+    }
+    /// Whether this view has no relation rows.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "expr_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn expr_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.expr_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "expr_id", "`.")]
+    pub fn expr_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[0usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "rule_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn rule_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.rule_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "rule_id", "`.")]
+    pub fn rule_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "op",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn op_column(&self) -> &'a arrow_array::StringArray {
+        self.op_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "op", "`.")]
+    pub fn op_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "column_name",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn column_name_column(&self) -> &'a arrow_array::StringArray {
+        self.column_name_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "column_name", "`.")]
+    pub fn column_name_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "comparison_op",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn comparison_op_column(&self) -> &'a arrow_array::StringArray {
+        self.comparison_op_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "comparison_op", "`.")]
+    pub fn comparison_op_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "field_name",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn field_name_column(&self) -> &'a arrow_array::StringArray {
+        self.field_name_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "field_name", "`.")]
+    pub fn field_name_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "literal_kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn literal_kind_column(&self) -> &'a arrow_array::StringArray {
+        self.literal_kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "literal_kind", "`.")]
+    pub fn literal_kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "bool_value",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn bool_value_column(&self) -> &'a arrow_array::BooleanArray {
+        self.bool_value_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "bool_value", "`.")]
+    pub fn bool_value_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "i64_value",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn i64_value_column(&self) -> &'a arrow_array::Int64Array {
+        self.i64_value_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "i64_value", "`.")]
+    pub fn i64_value_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "u64_value",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn u64_value_column(&self) -> &'a arrow_array::UInt64Array {
+        self.u64_value_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "u64_value", "`.")]
+    pub fn u64_value_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "f64_bits",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn f64_bits_column(&self) -> &'a arrow_array::UInt64Array {
+        self.f64_bits_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "f64_bits", "`.")]
+    pub fn f64_bits_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "text_value",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn text_value_column(&self) -> &'a arrow_array::StringArray {
+        self.text_value_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "text_value", "`.")]
+    pub fn text_value_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "id_value",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn id_value_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.id_value_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "id_value", "`.")]
+    pub fn id_value_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "hash_value",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn hash_value_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.hash_value_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "hash_value", "`.")]
+    pub fn hash_value_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
+    /// Decodes one row for an explicit scalar algorithm boundary.
+    /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
-    /// A typed decoding error.
+    /// The row is out of range or its physical value cannot be decoded.
+    pub fn row(
+        &self,
+        index: usize,
+    ) -> Result<ReferenceRuleExprNodesRow, crate::RelationError> {
+        if index >= self.len() {
+            return Err(crate::columnar::mismatch("a row within the generated view"));
+        }
+        Ok(ReferenceRuleExprNodesRow {
+            r#expr_id: crate::columnar::ArrowValue::read(self.expr_id_column, index)?,
+            r#rule_id: crate::columnar::ArrowValue::read(self.rule_id_column, index)?,
+            r#op: crate::columnar::ArrowValue::read(self.op_column, index)?,
+            r#column_name: crate::columnar::ArrowValue::read(
+                self.column_name_column,
+                index,
+            )?,
+            r#comparison_op: crate::columnar::ArrowValue::read(
+                self.comparison_op_column,
+                index,
+            )?,
+            r#field_name: crate::columnar::ArrowValue::read(
+                self.field_name_column,
+                index,
+            )?,
+            r#literal_kind: crate::columnar::ArrowValue::read(
+                self.literal_kind_column,
+                index,
+            )?,
+            r#bool_value: crate::columnar::ArrowValue::read(
+                self.bool_value_column,
+                index,
+            )?,
+            r#i64_value: crate::columnar::ArrowValue::read(
+                self.i64_value_column,
+                index,
+            )?,
+            r#u64_value: crate::columnar::ArrowValue::read(
+                self.u64_value_column,
+                index,
+            )?,
+            r#f64_bits: crate::columnar::ArrowValue::read(self.f64_bits_column, index)?,
+            r#text_value: crate::columnar::ArrowValue::read(
+                self.text_value_column,
+                index,
+            )?,
+            r#id_value: crate::columnar::ArrowValue::read(self.id_value_column, index)?,
+            r#hash_value: crate::columnar::ArrowValue::read(
+                self.hash_value_column,
+                index,
+            )?,
+        })
+    }
+    /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
+    /// This performs no schema/value admission and creates no `Cell` intermediates.
+    /// # Errors
+    /// A physical value cannot be decoded.
     pub fn rows(&self) -> Result<Vec<ReferenceRuleExprNodesRow>, crate::RelationError> {
-        crate::cells::cells_from_batch(self.registry, spec(self.registry)?, self.batch)?
-            .into_iter()
-            .map(ReferenceRuleExprNodesRow::from_cells)
-            .collect()
+        (0..self.len()).map(|index| self.row(index)).collect()
     }
 }
-/// Builds a batch under the declared schema, with admission before return.
-#[derive(Debug, Default)]
+/// Appends typed values directly into the declared Arrow column builders.
+/// Finish establishes layout and local value contracts, not relational validity.
+#[derive(Debug)]
 pub struct ReferenceRuleExprNodesBuilder {
-    rows: Vec<ReferenceRuleExprNodesRow>,
+    columns: crate::columnar::BatchBuilder,
 }
 impl ReferenceRuleExprNodesBuilder {
-    /// An empty builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-    /// Reserves row capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            rows: Vec::with_capacity(capacity),
-        }
-    }
-    /// Checks one candidate row before adding it. Bundle constraints run at P2.
+    /// Opens empty Arrow builders under the generated declaration.
     /// # Errors
-    /// An extension value or field contract violation.
+    /// The runtime registry or declared storage is incompatible.
+    pub fn new() -> Result<Self, crate::RelationError> {
+        Self::with_capacity(0)
+    }
+    /// Reserves initial Arrow column capacity.
+    /// # Errors
+    /// The runtime registry or declared storage is incompatible.
+    pub fn with_capacity(capacity: usize) -> Result<Self, crate::RelationError> {
+        Self::with_registry(pse_schema::registry()?, capacity)
+    }
+    /// Opens Arrow builders after checking the exact runtime declaration once.
+    /// # Errors
+    /// A generated declaration mismatch or unrepresentable storage capacity.
+    pub fn with_registry(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let schema = std::sync::Arc::new(
+            pse_schema::arrow::relation_schema(registry, spec(registry)?)?,
+        );
+        Ok(Self {
+            columns: crate::columnar::BatchBuilder::new(
+                RELATION_ID,
+                COMPILED_DECLARATION,
+                schema,
+                capacity,
+            )?,
+        })
+    }
+    /// Number of appended rows, including retained bulk column chunks.
+    pub const fn len(&self) -> usize {
+        self.columns.len()
+    }
+    /// Whether the builder contains no rows.
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Checks local logical values before appending directly to Arrow buffers.
+    /// Local refusal does not modify the builder; storage failure closes it.
+    /// # Errors
+    /// An extension value, quantity sibling or Arrow storage violation.
     pub fn push(
         &mut self,
         row: ReferenceRuleExprNodesRow,
     ) -> Result<(), crate::RelationError> {
-        let reg = pse_schema::registry()?;
-        crate::cells::batch_from_cells(reg, spec(reg)?, &[row.clone().into_cells()])?;
-        self.rows.push(row);
-        Ok(())
+        self.columns
+            .append(move |columns| {
+                let row = &row;
+                crate::columnar::ArrowValue::append(
+                    &row.r#expr_id,
+                    columns[0usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#rule_id,
+                    columns[1usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#op,
+                    columns[2usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#column_name,
+                    columns[3usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#comparison_op,
+                    columns[4usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#field_name,
+                    columns[5usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#literal_kind,
+                    columns[6usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#bool_value,
+                    columns[7usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#i64_value,
+                    columns[8usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#u64_value,
+                    columns[9usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#f64_bits,
+                    columns[10usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#text_value,
+                    columns[11usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#id_value,
+                    columns[12usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#hash_value,
+                    columns[13usize].as_mut(),
+                )?;
+                Ok(())
+            })
     }
-    /// Builds and admits the complete batch.
+    /// Appends an admitted view's actual Arrow arrays without decoding rows.
     /// # Errors
-    /// A schema, value or Arrow layout failure.
-    pub fn finish(self) -> Result<crate::RecordBatch, crate::RelationError> {
-        self.finish_with_registry(pse_schema::registry()?)
+    /// A different field contract, Arrow failure or row-count overflow.
+    pub fn append_view(
+        &mut self,
+        view: &ReferenceRuleExprNodesView<'_>,
+    ) -> Result<(), crate::RelationError> {
+        self.columns.append_batch(view.batch())
     }
-    /// Builds under an explicitly bound runtime registry.
+    /// Finishes Arrow buffers and retains private local field evidence.
     /// # Errors
-    /// A contract mismatch or batch admission failure.
-    pub fn finish_with_registry(
+    /// Arrow rejected the physical layout or a previous append failed.
+    pub fn finish(
         self,
-        reg: &pse_schema::Registry,
-    ) -> Result<crate::RecordBatch, crate::RelationError> {
-        let cells = self
-            .rows
-            .into_iter()
-            .map(ReferenceRuleExprNodesRow::into_cells)
-            .collect::<Vec<_>>();
-        crate::cells::batch_from_cells(reg, spec(reg)?, &cells)
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        self.columns.finish()
     }
 }

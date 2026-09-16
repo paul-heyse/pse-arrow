@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Finite UNION ALL recursion retains a depth witness and refuses unfinished closure.
+//! Native recursive queries; explicit depth contracts retain an exhaustion witness.
 use super::{Compiler, Planned, expr, lower::compatible};
 use crate::{
     RuleError,
@@ -22,12 +22,13 @@ impl Compiler<'_> {
         distinct: bool,
         bound: DepthBound,
     ) -> Result<Planned, RuleError> {
-        if distinct || bound == DepthBound::FixedPoint {
-            return Err(internal(
-                "phase-0 recursion requires UNION ALL and a finite depth bound",
-            ));
+        if bound == DepthBound::FixedPoint {
+            return self.fixed_point(name, seed, step, distinct);
         }
-        let seed = self.lower(seed)?;
+        let mut seed = self.lower(seed)?;
+        seed.plan = self
+            .session
+            .derive_plan_fields(seed.plan, &pse_ids::CancellationToken::new())?;
         if !seed.hidden.is_empty() {
             return Err(internal(
                 "nested recursive seeds may not capture an outer work table",
@@ -51,6 +52,7 @@ impl Compiler<'_> {
             .map(|column| {
                 let mut column = column.clone();
                 column.qualifier = None;
+                column.physical = None;
                 column
             })
             .collect();
@@ -78,7 +80,7 @@ impl Compiler<'_> {
             .build()
             .map_err(engine)?;
         let recursive = LogicalPlanBuilder::from(seeded)
-            .to_recursive_query(work_name, step, false)
+            .to_recursive_query(work_name, step, distinct)
             .map_err(engine)?
             .build()
             .map_err(engine)?;
@@ -92,10 +94,14 @@ impl Compiler<'_> {
             format!("recursive rule {name} has pending rows beyond its declared depth bound"),
         ));
         let projected = LogicalPlanBuilder::from(recursive)
-            .project(seed.columns.iter().map(|column| col(column.spec.name)))
-            .map_err(engine)?
-            .build()
+            .project(seed.columns.iter().map(|column| col(column.name.as_ref())))
             .map_err(engine)?;
+        let projected = if distinct {
+            projected.distinct().map_err(engine)?
+        } else {
+            projected
+        };
+        let projected = projected.build().map_err(engine)?;
         Ok(Planned {
             plan: projected,
             columns: seed
@@ -103,10 +109,54 @@ impl Compiler<'_> {
                 .into_iter()
                 .map(|mut column| {
                     column.qualifier = None;
+                    column.physical = None;
                     column
                 })
                 .collect(),
             hidden: vec![],
+        })
+    }
+
+    fn fixed_point(
+        &mut self,
+        name: &str,
+        seed: &RulePlan,
+        step: &RulePlan,
+        distinct: bool,
+    ) -> Result<Planned, RuleError> {
+        let mut seed = self.lower(seed)?;
+        seed.plan = self
+            .session
+            .derive_plan_fields(seed.plan, &pse_ids::CancellationToken::new())?;
+        let ordinal = self.recursive_counter;
+        self.recursive_counter += 1;
+        let work_name = format!("pse_recursive_{ordinal}_{name}");
+        let source = provider_as_source(Arc::new(CteWorkTable::new(
+            &work_name,
+            Arc::new(seed.plan.schema().as_arrow().clone()),
+        )));
+        let work = LogicalPlanBuilder::scan(work_name.clone(), source, None)
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(engine)?;
+        let mut bound = seed.clone();
+        bound.plan = work;
+        for column in &mut bound.columns {
+            column.qualifier = None;
+            column.physical = None;
+        }
+        self.binders.push((name.to_owned(), bound));
+        let step = self.lower(step);
+        self.binders.pop();
+        let step = step?;
+        compatible(&seed, &step)?;
+        let plan = LogicalPlanBuilder::from(seed.plan)
+            .to_recursive_query(work_name, step.plan, distinct)
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(engine)?;
+        Ok(Planned {
+            plan,
+            columns: seed.columns,
+            hidden: seed.hidden,
         })
     }
 }

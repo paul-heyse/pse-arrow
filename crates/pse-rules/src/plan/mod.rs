@@ -2,10 +2,16 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Rule algebra lowered through DataFusion while retaining semantic typing derivations.
+mod aggregate;
+pub(crate) mod closure;
+pub(crate) mod delta;
 mod expr;
 mod head;
+mod identity;
 mod lower;
+pub(crate) mod outcomes;
 mod recursive;
+pub(crate) mod trace;
 
 use crate::RuleError;
 use crate::errmap::{engine, internal};
@@ -14,7 +20,7 @@ use datafusion_expr::{LogicalPlan, LogicalPlanBuilder};
 use pse_catalog::session::SnapshotSession;
 use pse_ids::SemanticId;
 use pse_schema::Registry;
-use pse_schema::model::{Cell, ColumnSpec, RelationKey, RuleHead, RulePlan, RuleSpec};
+use pse_schema::model::{Cell, FieldContract, RelationKey, RuleHead, RulePlan, RuleSpec};
 use std::collections::BTreeMap;
 
 /// Explicit relation chosen for each declared input port. The sealed session owns rows.
@@ -35,20 +41,22 @@ pub struct CompiledRule {
     pub plan: LogicalPlan,
     /// Unknown candidates remain visible as their declared keys.
     pub undecided: Option<LogicalPlan>,
-    /// Exact destination schema; attached only after output validation.
+    /// Exact destination schema declared in the native projection before preparation.
     pub head_schema: SchemaRef,
     /// Declared deterministic output ordering.
     pub key_columns: Vec<String>,
     /// Head declaration retained for invariant admission.
     pub head: RuleHead,
     pub(crate) checks: Vec<(LogicalPlan, String)>,
-    pub(crate) contracts: Vec<Column>,
 }
 
 #[derive(Clone, Debug)]
 pub(crate) struct Column {
-    pub(crate) spec: ColumnSpec,
+    name: std::borrow::Cow<'static, str>,
+    pub(crate) spec: FieldContract,
     qualifier: Option<String>,
+    /// Native address after join scoping; logical rule names remain unchanged.
+    physical: Option<datafusion_common::Column>,
     literal: Option<Cell>,
 }
 #[derive(Clone)]
@@ -58,14 +66,29 @@ struct Planned {
     hidden: Vec<String>,
 }
 
+#[derive(Clone, Default)]
+pub(crate) struct NativeBindings {
+    results: Vec<(RulePlan, Planned)>,
+    traces: Vec<(RulePlan, Vec<trace::Trace>)>,
+}
+
+impl NativeBindings {
+    pub(crate) fn has_results(&self) -> bool {
+        !self.results.is_empty()
+    }
+}
+
 struct Compiler<'a> {
     rule: &'a RuleSpec,
     binding: &'a PortBinding,
     session: &'a SnapshotSession,
     registry: &'a Registry,
     binders: Vec<(String, Planned)>,
+    trace_binders: Vec<(String, Vec<trace::Trace>)>,
+    native: &'a NativeBindings,
     checks: Vec<(LogicalPlan, String)>,
     recursive_counter: usize,
+    binding_counter: usize,
 }
 
 /// Compile an admitted declaration against explicit candidate or pinned input bindings.
@@ -78,16 +101,33 @@ pub fn compile(
     session: &SnapshotSession,
     registry: &Registry,
 ) -> Result<CompiledRule, RuleError> {
+    compile_bound(rule, binding, session, registry, &NativeBindings::default())
+}
+
+pub(crate) fn compile_bound(
+    rule: &RuleSpec,
+    binding: &PortBinding,
+    session: &SnapshotSession,
+    registry: &Registry,
+    native: &NativeBindings,
+) -> Result<CompiledRule, RuleError> {
     let mut compiler = Compiler {
         rule,
         binding,
         session,
         registry,
         binders: vec![],
+        trace_binders: vec![],
+        native,
         checks: vec![],
         recursive_counter: 0,
+        binding_counter: 0,
     };
-    let (decided, unknown) = split_root_predicate(&rule.plan);
+    let mut candidates = outcomes::candidates(&rule.plan).into_iter();
+    let (_, decided) = candidates
+        .next()
+        .ok_or_else(|| internal("rule lacks a decided truth query"))?;
+    let unknown = candidates.find_map(|(truth, plan)| (truth == "unknown").then_some(plan));
     let output = compiler.lower(&decided)?;
     let target = registry
         .relation(rule.head.relation())
@@ -108,7 +148,7 @@ pub fn compile(
             })
             .collect::<Result<Vec<_>, _>>()?,
     };
-    let (plan, contracts, head_schema) = head::prepare(rule, output, columns, registry)?;
+    let (plan, _, head_schema) = head::prepare(rule, output, columns, registry, false, session)?;
     let plan = sort(plan, &keys)?;
     let undecided = unknown
         .map(|source| {
@@ -122,7 +162,20 @@ pub fn compile(
                 .map_err(engine)?
                 .build()
                 .map_err(engine)?;
-            sort(plan, &keys)
+            let schema = datafusion::arrow::datatypes::Schema::new(
+                keys.iter()
+                    .map(|key| {
+                        head_schema
+                            .field_with_name(key)
+                            .cloned()
+                            .map_err(|error| internal(error.to_string()))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?,
+            );
+            sort(
+                head::declare_schema(plan, &std::sync::Arc::new(schema), session)?,
+                &keys,
+            )
         })
         .transpose()?;
     Ok(CompiledRule {
@@ -134,7 +187,6 @@ pub fn compile(
         key_columns: keys.iter().map(|key| (*key).to_owned()).collect(),
         head: rule.head.clone(),
         checks: compiler.checks,
-        contracts,
     })
 }
 
@@ -147,35 +199,4 @@ fn sort(plan: LogicalPlan, keys: &[&str]) -> Result<LogicalPlan, RuleError> {
         .map_err(engine)?
         .build()
         .map_err(engine)
-}
-
-// A root predicate can sit below output projections, never below membership-changing
-// joins or aggregates. Internal filters retain their explicit SQL/Kleene semantics.
-fn split_root_predicate(plan: &RulePlan) -> (RulePlan, Option<RulePlan>) {
-    match plan {
-        RulePlan::Filter { input, predicate } => (
-            RulePlan::Filter {
-                input: input.clone(),
-                predicate: pse_schema::model::RuleExpr::IsTrue(Box::new(predicate.clone())),
-            },
-            Some(RulePlan::Filter {
-                input: input.clone(),
-                predicate: pse_schema::model::RuleExpr::IsUnknown(Box::new(predicate.clone())),
-            }),
-        ),
-        RulePlan::Project { input, columns } => {
-            let (yes, unknown) = split_root_predicate(input);
-            (
-                RulePlan::Project {
-                    input: Box::new(yes),
-                    columns: columns.clone(),
-                },
-                unknown.map(|plan| RulePlan::Project {
-                    input: Box::new(plan),
-                    columns: columns.clone(),
-                }),
-            )
-        }
-        _ => (plan.clone(), None),
-    }
 }

@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "method_precedence": [
+    {
+      "is_default": false,
+      "property_specific": false,
+      "scope_kind": "package",
+      "rank": 100
+    },
+    {
+      "is_default": false,
+      "property_specific": false,
+      "scope_kind": "phase",
+      "rank": 101
+    },
+    {
+      "is_default": false,
+      "property_specific": false,
+      "scope_kind": "species",
+      "rank": 101
+    },
+    {
+      "is_default": false,
+      "property_specific": false,
+      "scope_kind": "reaction",
+      "rank": 101
+    },
+    {
+      "is_default": false,
+      "property_specific": false,
+      "scope_kind": "phase_species",
+      "rank": 102
+    },
+    {
+      "is_default": false,
+      "property_specific": true,
+      "scope_kind": "package",
+      "rank": 110
+    },
+    {
+      "is_default": false,
+      "property_specific": true,
+      "scope_kind": "phase",
+      "rank": 111
+    },
+    {
+      "is_default": false,
+      "property_specific": true,
+      "scope_kind": "species",
+      "rank": 111
+    },
+    {
+      "is_default": false,
+      "property_specific": true,
+      "scope_kind": "reaction",
+      "rank": 111
+    },
+    {
+      "is_default": false,
+      "property_specific": true,
+      "scope_kind": "phase_species",
+      "rank": 112
+    },
+    {
+      "is_default": true,
+      "property_specific": false,
+      "scope_kind": "package",
+      "rank": 0
+    },
+    {
+      "is_default": true,
+      "property_specific": false,
+      "scope_kind": "phase",
+      "rank": 1
+    },
+    {
+      "is_default": true,
+      "property_specific": false,
+      "scope_kind": "species",
+      "rank": 1
+    },
+    {
+      "is_default": true,
+      "property_specific": false,
+      "scope_kind": "reaction",
+      "rank": 1
+    },
+    {
+      "is_default": true,
+      "property_specific": false,
+      "scope_kind": "phase_species",
+      "rank": 2
+    },
+    {
+      "is_default": true,
+      "property_specific": true,
+      "scope_kind": "package",
+      "rank": 10
+    },
+    {
+      "is_default": true,
+      "property_specific": true,
+      "scope_kind": "phase",
+      "rank": 11
+    },
+    {
+      "is_default": true,
+      "property_specific": true,
+      "scope_kind": "species",
+      "rank": 11
+    },
+    {
+      "is_default": true,
+      "property_specific": true,
+      "scope_kind": "reaction",
+      "rank": 11
+    },
+    {
+      "is_default": true,
+      "property_specific": true,
+      "scope_kind": "phase_species",
+      "rank": 12
+    }
+  ]
+}

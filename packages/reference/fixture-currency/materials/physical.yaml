@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "unit_sets": [
+    {
+      "unit_set_id": "01c7dc7208f8d535097f413ec4b56961",
+      "name": "si_fixture_currency",
+      "time_unit_id": "8603b85ce543b8a618530ae4e9153091",
+      "length_unit_id": "ca0a3e88d1228d3c1ea21d0b2e86b2d6",
+      "mass_unit_id": "595bee9ed96fca9198f9cfbda2bd4e2a",
+      "amount_unit_id": "251f95b98b987a2bc752342c7d386fea",
+      "temperature_unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+      "current_unit_id": "e2d8c8348ecf9f014790b4801a32c2db",
+      "luminous_intensity_unit_id": "886453ffbfd13e2fd10d6e1d1828395d",
+      "currency_unit_id": "390c3451e52c94f706832e51fdbf151d"
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "390c3451e52c94f706832e51fdbf151d",
+      "symbol": "USD_2000",
+      "name": "USD_2000",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 1.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "synthetic fixture",
+      "doc": "Invented test indices 500 and 1000; not historical currency values. See sources.md."
+    },
+    {
+      "unit_id": "7f1978b5b9051a5ae98459608117a72b",
+      "symbol": "USD_2001",
+      "name": "USD_2001",
+      "dimension": [
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "scale_to_canonical": 2.0,
+      "offset_to_canonical": 0.0,
+      "is_affine": false,
+      "reference_state_id": null,
+      "system": "synthetic fixture",
+      "doc": "Invented test indices 500 and 1000; not historical currency values. See sources.md."
+    }
+  ]
+}

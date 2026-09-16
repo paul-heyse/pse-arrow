@@ -7,11 +7,11 @@ use crate::{CompilerError, passes::dag::invalid};
 use pse_authoring::change_set::ChangeSet;
 use pse_catalog::{
     Snapshot,
-    store::{membership::AdmissionContext, publish::RelationDraft, sidecar::RevisionReceipt},
+    store::{publish::RelationDraft, sidecar::RevisionReceipt},
 };
-use pse_ids::{CancellationToken, SemanticId, SnapshotKind};
-use pse_relations::{RecordBatch, generated::authored};
-use pse_schema::model::{Cell, RelationKey};
+use pse_ids::{CancellationToken, SemanticId};
+use pse_relations::generated::authored;
+use pse_schema::model::Cell;
 use std::{collections::BTreeMap, sync::Arc};
 
 pub(super) struct Published {
@@ -23,20 +23,13 @@ pub(super) struct Published {
 impl Driver {
     pub(super) async fn publish_revisions(
         &self,
-        rows: &BTreeMap<RelationKey, RecordBatch>,
+        completed: pse_catalog::source_production::CompletedSources,
         request: &CommitRequest,
         ids: CommitRevisionIds,
         parent_model: Option<SemanticId>,
         cancel: &CancellationToken,
     ) -> Result<Published, CompilerError> {
-        let model = self
-            .publish_primitive(
-                rows,
-                SnapshotKind::Model,
-                AdmissionContext::default(),
-                cancel,
-            )
-            .await?;
+        let (model, tip) = self.catalog.publish_sources(completed, cancel).await?;
         let model_revision = ids.model;
         let revision = ids.case;
         let model_record = crate::records::publish_rows(
@@ -56,13 +49,6 @@ impl Driver {
         let model_receipt = self
             .catalog
             .revision_receipt(&model_record, model_revision, &model)?;
-        let context = AdmissionContext {
-            parents: BTreeMap::from([("model".to_owned(), Arc::clone(&model))]),
-            stage_pass: None,
-        };
-        let tip = self
-            .publish_primitive(rows, SnapshotKind::Case, context, cancel)
-            .await?;
         let record = crate::records::publish_rows(
             &self.catalog,
             "authored.case_revisions",
@@ -123,7 +109,7 @@ impl Driver {
                 .ok_or_else(|| invalid("staged relation is undeclared"))?;
             let artifact = self
                 .catalog
-                .publish_staged_row(
+                .publish_staged_batch(
                     RelationDraft {
                         contract: Arc::new(pse_catalog::RelationContract::from_spec(
                             registry,

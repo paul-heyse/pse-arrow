@@ -251,7 +251,7 @@ class AuthoredDocumentsRow:
     document_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    source_text: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -322,6 +322,24 @@ class AuthoredInstanceDomainBindingsRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredInstanceEquationsRow:
+    """Declared relation row or nested value."""
+
+    instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    equation_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    indexed_by: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    filter: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    sense: e.Sense = attrs.field(validator=attrs.validators.instance_of(e.Sense))
+    family_hint: e.EquationFamily | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.EquationFamily)))
+    role_hint: e.EquationRole | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.EquationRole)))
+    guard_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    idaes_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredInstancesFieldParamValuesItem:
     """Declared relation row or nested value."""
 
@@ -376,6 +394,8 @@ class AuthoredMethodSelectionsFieldOptionsItem:
 class AuthoredMethodSelectionsRow:
     """Declared relation row or nested value."""
 
+    selection_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    is_default: b.bool = attrs.field(validator=v.exact_type(b.bool))
     property_package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     scope_kind: e.ScopeKind = attrs.field(validator=attrs.validators.instance_of(e.ScopeKind))
     scope_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -507,6 +527,7 @@ class AuthoredPropertyPackagesRow:
     """Declared relation row or nested value."""
 
     property_package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     material_system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     unit_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -543,6 +564,7 @@ class AuthoredReactionPackagesRow:
     """Declared relation row or nested value."""
 
     reaction_package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     property_package_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     reaction_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -595,6 +617,7 @@ class AuthoredSelectorTermsRow:
     entity_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     entity_kind: e.EntityKind | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.EntityKind)))
     tag: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    parameter_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)
@@ -675,6 +698,22 @@ class AuthoredStoichiometryRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsRow:
+    """Declared relation row or nested value."""
+
+    contribution_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indexed_by: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    subject_kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
+    subject_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    phase_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    transfer_port_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    transfer_member_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredTemplateContributionsRow:
     """Declared relation row or nested value."""
 
@@ -682,12 +721,19 @@ class AuthoredTemplateContributionsRow:
     contribution_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     law_family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
-    subject: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     orientation: e.Orientation = attrs.field(validator=attrs.validators.instance_of(e.Orientation))
     scope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     guard_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateDerivativesRow:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    order: b.int = attrs.field(validator=v.integer_range(0, 255))
 
 
 @attrs.frozen(kw_only=True)
@@ -700,6 +746,27 @@ class AuthoredTemplateDisplayRow:
     expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     display_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     format: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateDisplayIndicesRow:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: e.DisplayKind = attrs.field(validator=attrs.validators.instance_of(e.DisplayKind))
+    label: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    indexed_by: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateDomainBindingsRow:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source: e.DomainBindingSource = attrs.field(validator=attrs.validators.instance_of(e.DomainBindingSource))
+    domain_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    parameter_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
 
 @attrs.frozen(kw_only=True)
@@ -775,6 +842,22 @@ class AuthoredTemplateGuardsRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsRow:
+    """Declared relation row or nested value."""
+
+    law_instance_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indexed_by: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    balance_enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    default_state_child: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    default_feature_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    subject_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    phase_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredTemplateLawInstancesFieldOptionsItem:
     """Declared relation row or nested value."""
 
@@ -790,9 +873,19 @@ class AuthoredTemplateLawInstancesRow:
     law_instance_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     law_template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     scope: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    subject_selector: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     options: b.tuple[AuthoredTemplateLawInstancesFieldOptionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredTemplateLawInstancesFieldOptionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     guard_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateMaterialConstraintsRow:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    min_phases: b.int = attrs.field(validator=v.integer_range(0, 65535))
+    max_phases: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    min_species: b.int = attrs.field(validator=v.integer_range(0, 65535))
+    max_species: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
 
 
 @attrs.frozen(kw_only=True)
@@ -807,6 +900,16 @@ class AuthoredTemplateParamsRow:
     required: b.bool = attrs.field(validator=v.exact_type(b.bool))
     domain_spec: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplatePortMembersRow:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    symbol_group: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -853,6 +956,15 @@ class AuthoredTemplateRequirementsRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredTemplateScopesRow:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    scope_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredTemplateSubmodelsFieldBindingsItem:
     """Declared relation row or nested value."""
 
@@ -871,6 +983,24 @@ class AuthoredTemplateSubmodelsRow:
     multiplicity_domain: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     bindings: b.tuple[AuthoredTemplateSubmodelsFieldBindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredTemplateSubmodelsFieldBindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     guard_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateSymbolContractsRow:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    solver_type: e.SolverVariableType = attrs.field(validator=attrs.validators.instance_of(e.SolverVariableType))
+    semantic_role: e.VariableSemanticRole = attrs.field(validator=attrs.validators.instance_of(e.VariableSemanticRole))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateSymbolExpressionsRow:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    expression: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)

@@ -18,13 +18,13 @@
 //! - [`derivations`] — `provenance.derivations` rows.
 //! - [`errmap`] — `DataFusionError` into the taxonomy, at one place.
 
-mod allocation;
 pub mod derivations;
 pub mod errmap;
 pub mod error;
 pub mod exec;
 pub mod invariants;
 pub mod plan;
+pub mod strata;
 pub mod validator;
 
 pub use crate::error::RuleError;

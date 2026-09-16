@@ -101,7 +101,10 @@ fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
     let owned =
         load_package_texts_owned(&texts, registry, ParseBudget::default(), &budget, &cancel)
             .unwrap();
-    assert_eq!(owned.bundle().rows, ordinary.rows);
+    assert_eq!(
+        owned.bundle().decode_rows(registry).unwrap(),
+        ordinary.decode_rows(registry).unwrap()
+    );
     assert_eq!(owned.bundle().package, ordinary.package);
     for (actual, expected) in owned.bundle().documents.iter().zip(&ordinary.documents) {
         assert_eq!(actual.text, expected.text);
@@ -118,7 +121,9 @@ fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
     let shared = owned.clone();
     assert!(std::ptr::eq(owned.bundle(), shared.bundle()));
     assert_eq!(budget.inner.reserved(), retained);
-    assert!(OwnedDocumentSet::try_from_bundles(vec![shared], &budget, &cancel).is_err());
+    let second = OwnedDocumentSet::try_from_bundles(vec![shared], &budget, &cancel).unwrap();
+    second.validate_registry(registry).unwrap();
+    drop(second);
     assert_eq!(budget.inner.reserved(), retained);
     let set = OwnedDocumentSet::try_from_bundles(vec![owned], &budget, &cancel).unwrap();
     set.validate_registry(registry).unwrap();
@@ -193,12 +198,30 @@ fn parser_aliases_are_preserved_and_their_expanded_rows_are_validated() {
         &CancellationToken::new(),
     )
     .unwrap();
-    assert_eq!(owned.bundle().rows, expected.rows);
-    assert!(
-        budget.inner.reserved() < 2 * 1024 * 1024,
-        "retained {}",
-        budget.inner.reserved()
+    assert_eq!(
+        owned.bundle().decode_rows(registry).unwrap(),
+        expected.decode_rows(registry).unwrap()
     );
+    // Alias handling may reserve the parser node ceiling temporarily. Compare
+    // retained storage with the same documents without aliases, including the
+    // same native registry, so this measures alias overhead rather than registry size.
+    let plain_budget = ObservedBudget::new(512 * 1024 * 1024);
+    let plain = load_package_texts_owned(
+        &sources(),
+        registry,
+        ParseBudget::default(),
+        &plain_budget,
+        &CancellationToken::new(),
+    )
+    .unwrap();
+    assert!(
+        budget.inner.reserved() < plain_budget.inner.reserved() + 64 * 1024,
+        "alias retained {}, plain retained {}",
+        budget.inner.reserved(),
+        plain_budget.inner.reserved()
+    );
+    drop(plain);
+    assert_eq!(plain_budget.inner.reserved(), 0);
     drop(owned);
     assert_eq!(budget.inner.reserved(), 0);
 }
@@ -311,7 +334,8 @@ fn long_qualified_names_reserve_expansion_before_identity_hydration() {
         &CancellationToken::new(),
     )
     .unwrap();
-    let entities = &owned.bundle().rows[&pse_relations::generated::authored::entities::RELATION_ID];
+    let rows = owned.bundle().decode_rows(registry).unwrap();
+    let entities = &rows[&pse_relations::generated::authored::entities::RELATION_ID];
     assert_eq!(entities.len(), 24);
     for row in entities {
         let entity =

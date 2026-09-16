@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Complete durable operation/source receipts; C2 owns operation application semantics.
+//! Durable operation receipts; C2 owns operation application semantics.
 
 mod metadata;
-mod sources;
+mod operation;
 mod validate;
 
 use std::collections::BTreeMap;
@@ -13,7 +13,6 @@ use std::sync::Arc;
 use pse_ids::{CancellationToken, ContentHash, EncodingChecksum, SemanticId};
 use serde::{Deserialize, Serialize};
 
-use super::documents::DocumentArtifact;
 use super::open::Catalog;
 use super::refs::RefState;
 use super::sidecar::{
@@ -23,6 +22,8 @@ use super::verify::admission;
 use crate::snapshot::ManifestRef;
 use crate::{CatalogError, Snapshot};
 
+const WIRE_VERSION: u32 = 2;
+
 /// Exact immutable receipt pointer; checksums only identify transport bytes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -31,26 +32,6 @@ pub struct ChangeSetRef {
     pub change_set_id: SemanticId,
     /// Exact complete encoded receipt.
     pub encoding_checksum: ContentHash,
-}
-/// One actual authored source version and its package-relative path.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DocumentVersion {
-    /// Source path from the admitted document relation.
-    pub path: String,
-    /// Exact complete bytes, checked when the receipt is written or reopened.
-    pub document: DocumentArtifact,
-}
-/// Complete source change, including first creation and deletion.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct SourceChange {
-    /// Stable source identity, common to both present versions.
-    pub document_id: SemanticId,
-    /// Exact base version, absent for a new source.
-    pub before: Option<DocumentVersion>,
-    /// Exact output version, absent for a deleted source.
-    pub after: Option<DocumentVersion>,
 }
 /// Actual already stored typed header, operations and every referenced operation-role row.
 #[derive(Clone, Debug)]
@@ -79,20 +60,19 @@ struct ChangeSetWire {
     operations: SidecarRef,
     #[serde(deserialize_with = "super::verify::unique_map")]
     staged: BTreeMap<String, StagedRef>,
-    sources: Vec<SourceChange>,
     supporting_revisions: Vec<RevisionRef>,
     base: Option<RevisionBinding>,
     output: RevisionBinding,
 }
 /// Physically and structurally admitted receipt retaining every actual referenced row.
-/// It proves completeness of the staged references and source bytes. C2 replays the
+/// It proves completeness of the staged references. C2 replays the
 /// operation semantics against the exact base; P2 admits the resulting snapshot.
 #[derive(Clone, Debug)]
 pub struct ChangeSetReceipt {
     reference: ChangeSetRef,
     wire: Arc<ChangeSetWire>,
     draft: Arc<ChangeSetDraft>,
-    admission: Arc<()>,
+    admission: Arc<crate::store::open::CatalogContext>,
     _metadata: Arc<pse_ids::ReservationLease>,
 }
 impl ChangeSetReceipt {
@@ -103,10 +83,6 @@ impl ChangeSetReceipt {
     /// Actual typed control and operation-role artifacts, suitable for C2 replay.
     pub fn artifacts(&self) -> &ChangeSetDraft {
         &self.draft
-    }
-    /// Exact before/after source versions, including insertions and deletions.
-    pub fn source_changes(&self) -> &[SourceChange] {
-        &self.wire.sources
     }
     /// Exact immutable base revision and snapshot, absent for first creation.
     pub fn base(&self) -> Option<(&RevisionRef, ManifestRef)> {
@@ -123,12 +99,12 @@ impl ChangeSetReceipt {
 
 impl Catalog {
     /// Persist the complete control envelope after direct typed-reference checks.
-    /// Source changes are derived from actual base/output inventories and complete bytes.
+    /// Exact source text lives in the typed base/output document relations.
     ///
     /// # Errors
     /// Missing/foreign base, staged rows or source objects; typed receipt mismatches;
     /// resource, cancellation or immutable creation failures.
-    pub async fn publish_change_set(
+    async fn publish_change_set_inner(
         &self,
         draft: ChangeSetDraft,
         base: Option<(&RefState, &Snapshot)>,
@@ -170,15 +146,8 @@ impl Catalog {
             .map_or(SemanticId::NIL, |base| base.revision.revision_id);
         let change_set_id = validate::envelope(self, &draft, base_id)?;
         validate::supporting(self, &draft.supporting_revisions, output, cancel).await?;
-        let sources = sources::changes(
-            self,
-            base.map(|(_, snapshot)| snapshot),
-            &output.snapshot,
-            cancel,
-        )
-        .await?;
         let wire = ChangeSetWire {
-            version: 1,
+            version: WIRE_VERSION,
             change_set_id,
             header: draft.header.reference().clone(),
             operations: draft.operations.reference().clone(),
@@ -187,7 +156,6 @@ impl Catalog {
                 .iter()
                 .map(|(port, artifact)| (port.clone(), artifact.reference().clone()))
                 .collect(),
-            sources,
             supporting_revisions: draft.supporting_revisions.clone(),
             base: base_binding,
             output: RevisionBinding {
@@ -221,12 +189,12 @@ impl Catalog {
         })
     }
 
-    /// Reopen every exact staged/control/source object before exposing a receipt.
+    /// Reopen every exact staged/control object before exposing a receipt.
     /// Full snapshot contexts and operation replay remain explicit separate admissions.
     ///
     /// # Errors
     /// Corrupt objects, unknown encoding, incomplete or mismatched references and budgets.
-    pub async fn read_change_set(
+    async fn read_change_set_inner(
         &self,
         reference: &ChangeSetRef,
         cancel: &CancellationToken,
@@ -249,7 +217,7 @@ impl Catalog {
         )?;
         let wire: ChangeSetWire = serde_json::from_slice(&bytes)
             .map_err(|error| admission("change set", &error.to_string()))?;
-        if wire.version != 1
+        if wire.version != WIRE_VERSION
             || wire.change_set_id != reference.change_set_id
             || wire.output.revision.change_set.is_some()
         {
@@ -260,7 +228,10 @@ impl Catalog {
         }
         let mut staged = BTreeMap::new();
         for (port, reference) in &wire.staged {
-            staged.insert(port.clone(), self.read_staged_row(reference, cancel).await?);
+            staged.insert(
+                port.clone(),
+                self.read_staged_batch(reference, cancel).await?,
+            );
         }
         let draft = ChangeSetDraft {
             header: self.read_sidecar(&wire.header, cancel).await?,
@@ -287,7 +258,6 @@ impl Catalog {
         for revision in &wire.supporting_revisions {
             self.read_sidecar(&revision.artifact, cancel).await?;
         }
-        sources::verify(self, &wire.sources, cancel).await?;
         let retained = super::control::add(
             metadata::wire_extent(&wire)?,
             metadata::draft_extent(&draft)?,
@@ -314,6 +284,21 @@ impl Catalog {
         let mut result = revision.clone();
         result.reference.change_set = Some(changes.reference.clone());
         Ok(result)
+    }
+    pub(super) async fn check_reopened_change_context(
+        &self,
+        changes: &ChangeSetReceipt,
+        revision: &RevisionReceipt,
+        cancel: &CancellationToken,
+    ) -> Result<(), CatalogError> {
+        self.check_change_target(changes, revision.reference(), revision.target)?;
+        validate::supporting(
+            self,
+            &changes.artifacts().supporting_revisions,
+            revision,
+            cancel,
+        )
+        .await
     }
     pub(super) fn check_change_target(
         &self,
@@ -364,11 +349,11 @@ impl Catalog {
     }
 
     /// Verify receipt completeness against explicitly reopened actual snapshot contexts.
-    /// This compares all source changes and required supporting revision rows; C2 still
+    /// This checks required supporting revision rows; C2 still
     /// owns application/rename replay over the returned operation artifacts.
     /// # Errors
     /// Different/foreign contexts, omitted or changed source edits and revision mismatches.
-    pub async fn validate_change_context(
+    async fn validate_change_context_inner(
         &self,
         changes: &ChangeSetReceipt,
         base: Option<&Snapshot>,
@@ -385,13 +370,6 @@ impl Catalog {
             return Err(admission(
                 "change set",
                 "explicit snapshot contexts differ from durable exact references",
-            ));
-        }
-        let expected = sources::changes(self, base, output, cancel).await?;
-        if expected != changes.wire.sources {
-            return Err(admission(
-                "change set",
-                "source edits differ from complete actual base/output byte inventories",
             ));
         }
         let artifact = self

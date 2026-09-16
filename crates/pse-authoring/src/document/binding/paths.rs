@@ -36,6 +36,9 @@ pub(super) fn bind(
             segment_entities: vec![None; names.len()],
         });
     }
+    if let Some(bound) = super::instance_path::bind(path, span, owner, context, at)? {
+        return Ok(bound);
+    }
     let mut segments = vec![None; names.len()];
     let meaning = if names.len() == 1 {
         match local(owner, first, context, at)? {
@@ -60,81 +63,21 @@ pub(super) fn bind(
     })
 }
 
-fn local(
+pub(super) fn local(
     owner: SemanticId,
     name: &str,
     context: &Context,
     at: SourceSpan,
 ) -> Result<Option<PathMeaning>, AuthoringError> {
-    let mut choices = Vec::new();
-    choices.extend(
-        context
-            .targets
-            .symbols
-            .iter()
-            .filter(|row| row.template_id == owner && row.name == name)
-            .map(|row| PathMeaning::Symbol {
-                template_id: owner,
-                symbol_id: row.symbol_decl_id,
-            }),
-    );
-    choices.extend(
-        context
-            .targets
-            .equations
-            .iter()
-            .filter(|row| row.template_id == owner && row.name == name)
-            .map(|row| PathMeaning::Equation {
-                template_id: owner,
-                equation_id: row.equation_decl_id,
-            }),
-    );
-    choices.extend(
-        context
-            .targets
-            .ports
-            .iter()
-            .filter(|row| row.template_id == owner && row.name == name)
-            .map(|row| PathMeaning::Port {
-                template_id: owner,
-                name: row.name.clone(),
-            }),
-    );
-    choices.extend(
-        context
-            .targets
-            .template_domains
-            .iter()
-            .filter(|row| row.template_id == owner && row.name == name)
-            .map(|row| PathMeaning::Domain {
-                template_id: owner,
-                name: row.name.clone(),
-            }),
-    );
-    choices.extend(
-        context
-            .params
-            .iter()
-            .filter(|row| row.template_id == owner && row.name == name)
-            .map(|row| PathMeaning::Parameter {
-                template_id: owner,
-                name: row.name.clone(),
-            }),
-    );
-    choices.extend(
-        context
-            .features
-            .iter()
-            .filter(|row| row.template_id == owner && row.name == name)
-            .map(|row| PathMeaning::Feature {
-                template_id: owner,
-                name: row.name.clone(),
-            }),
-    );
+    let choices = context
+        .lookup
+        .local
+        .get(&(owner, name.to_owned()))
+        .map_or(&[][..], Vec::as_slice);
     if choices.is_empty() {
         return Ok(None);
     }
-    let [meaning] = choices.as_slice() else {
+    let [meaning] = choices else {
         return Err(contract(
             Some(at),
             &format!("unbound or ambiguous template path `{name}`"),
@@ -153,9 +96,7 @@ pub(super) fn unbound_bare(
     if locals.contains(name) || local(owner, name, context, at)?.is_some() {
         return Ok(false);
     }
-    Ok(!context.targets.entities.iter().any(|entity| {
-        entity.qualified_name == name || entity.qualified_name.ends_with(&format!(".{name}"))
-    }))
+    Ok(context.lookup.global.get(name).is_none_or(Vec::is_empty))
 }
 
 fn qualified(
@@ -196,7 +137,6 @@ fn qualified(
     }
     let prefix = names[..names.len() - 1].join(".");
     let owners = context
-        .targets
         .entities
         .iter()
         .filter(|row| {
@@ -204,7 +144,6 @@ fn qualified(
         })
         .flat_map(|entity| {
             context
-                .targets
                 .instances
                 .iter()
                 .filter(move |row| row.instance_id == entity.entity_id)
@@ -219,7 +158,6 @@ fn qualified(
     for index in 0..names.len() - 1 {
         let prefix = names[..=index].join(".");
         let entities = context
-            .targets
             .entities
             .iter()
             .filter(|row| {
@@ -241,21 +179,23 @@ fn global(
     at: SourceSpan,
 ) -> Result<PathMeaning, AuthoringError> {
     let name = names.join(".");
-    let entities = context
-        .targets
-        .entities
-        .iter()
-        .filter(|entity| {
-            entity.qualified_name == name || entity.qualified_name.ends_with(&format!(".{name}"))
-        })
-        .collect::<Vec<_>>();
-    let [entity] = entities.as_slice() else {
+    let choices = context
+        .lookup
+        .global
+        .get(&name)
+        .map_or(&[][..], Vec::as_slice);
+    let [identity] = choices else {
         return Err(contract(
             Some(at),
             &format!("unbound or ambiguous global path `{name}`"),
         ));
     };
-    let mut current = Some(*entity);
+    let entity = context
+        .entities
+        .iter()
+        .find(|entity| entity.entity_id == *identity)
+        .ok_or_else(|| contract(Some(at), "native global entity absent"))?;
+    let mut current = Some(entity);
     for index in (0..names.len()).rev() {
         if let Some(entity) = current {
             if entity.name != names[index] {
@@ -264,7 +204,6 @@ fn global(
             segments[index] = Some(entity.entity_id);
             current = entity.parent_entity_id.and_then(|id| {
                 context
-                    .targets
                     .entities
                     .iter()
                     .find(|entity| entity.entity_id == id)

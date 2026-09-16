@@ -152,7 +152,7 @@ fn array_values(
 
 pub(super) fn enum_value(
     array: &dyn Array,
-    key: DictKey,
+    key: Option<DictKey>,
     index: usize,
 ) -> Result<Option<&str>, CanonError> {
     macro_rules! decode {
@@ -175,8 +175,12 @@ pub(super) fn enum_value(
         }};
     }
     Ok(match key {
-        DictKey::Int8 => decode!(Int8Type),
-        DictKey::Int32 => decode!(Int32Type),
+        Some(DictKey::Int8) => decode!(Int8Type),
+        Some(DictKey::Int32) => decode!(Int32Type),
+        None => {
+            let values = cast::<StringArray>(array)?;
+            (!values.is_null(index)).then(|| values.value(index))
+        }
     })
 }
 fn text(

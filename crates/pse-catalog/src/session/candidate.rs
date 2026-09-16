@@ -4,23 +4,21 @@
 //! Private unpublished rule inputs. No key constraints or semantic admission claims.
 
 use crate::provider::BoxFut;
-use datafusion::arrow::{array::RecordBatch, datatypes::SchemaRef};
+use datafusion::arrow::datatypes::SchemaRef;
 use datafusion::catalog::{Session, TableProvider};
 use datafusion::common::Result;
 use datafusion::datasource::memory::MemorySourceConfig;
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::physical_plan::ExecutionPlan;
-use pse_schema::model::RelationKey;
 use std::sync::Arc;
 
 #[derive(Debug)]
 pub(crate) struct CandidateTable {
-    pub key: RelationKey,
-    pub batch: RecordBatch,
+    pub input: pse_relations::columnar::FieldCheckedBatch,
 }
 impl TableProvider for CandidateTable {
     fn schema(&self) -> SchemaRef {
-        self.batch.schema()
+        super::query_schema::schema(self.input.batch().schema().as_ref())
     }
     fn table_type(&self) -> TableType {
         TableType::Base
@@ -41,11 +39,15 @@ impl TableProvider for CandidateTable {
     {
         Box::pin(async move {
             let batch = limit.map_or_else(
-                || self.batch.clone(),
-                |limit| self.batch.slice(0, limit.min(self.batch.num_rows())),
+                || self.input.batch().clone(),
+                |limit| {
+                    self.input
+                        .batch()
+                        .slice(0, limit.min(self.input.batch().num_rows()))
+                },
             );
             let plan: Arc<dyn ExecutionPlan> = MemorySourceConfig::try_new_exec(
-                &[vec![batch]],
+                &[vec![super::query_schema::batch(&batch)?]],
                 self.schema(),
                 projection.cloned(),
             )?;

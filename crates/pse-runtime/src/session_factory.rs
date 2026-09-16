@@ -17,6 +17,7 @@ impl SharedRuntime {
             self.budget().execution.clone(),
             self.budget().threads,
             profile,
-        )?)
+        )?
+        .with_query_planner(pse_compiler::query_planner()))
     }
 }

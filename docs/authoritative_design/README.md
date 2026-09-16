@@ -41,11 +41,13 @@ The blueprint changes only through a pull request that:
 5. keeps every existing section number exactly where it was.
 
 An ADR may merge with `status: proposed` only if the PR is also labelled
-`needs-review`. Changes that alter D1–D14, add or remove a crate, add, drop or
-major-bump a dependency family, change the hashing contract, the Python boundary
-contract, the metadata conventions or the commit contract, or that deviate from
-a SHOULD, need an ADR **and** a design review with an Accept or Accept-scoped
-verdict before the record becomes `accepted`. The full table is in
+`needs-review`. Changes that alter D1–D14, add or remove a crate, major-bump one of
+the four pinned families (arrow, datafusion, object_store, pyo3), change the
+hashing contract, the Python boundary contract, the metadata conventions or the
+commit contract, or that deviate from a SHOULD, need an ADR **and** a design
+review with an Accept or Accept-scoped verdict before the record becomes
+`accepted`. Adding a third-party dependency needs none of it (§3.3.2,
+ADR-0066). The full table is in
 [`../plans/01-repository-configuration.md`](../plans/01-repository-configuration.md)
 §7 and in `.codex/skills/adr/SKILL.md`.
 

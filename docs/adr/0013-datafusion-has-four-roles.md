@@ -1,7 +1,7 @@
 ---
 id: ADR-0013
 title: Adopt D10: DataFusion has four roles and never runs inside a Newton iteration
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D10, §5.4, §14.2]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0067
 revisit: A fifth role is proposed for DataFusion, or `Exact` pushdown stops holding for the key shapes §5.4 depends on
 verification: `tests/conformance` wrapper-provider test (re-applies every `Exact` filter and fails on a survivor); the §24.3 benchmarks
 
@@ -61,3 +61,4 @@ Blueprint §D10, §5.4 (snapshot catalog), §14.2 (rule compiler); review findin
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-14 — superseded by ADR-0067.

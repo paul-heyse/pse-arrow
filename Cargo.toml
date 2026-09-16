@@ -8,7 +8,10 @@
 # families must resolve to ONE version each: `=` pins bind direct dependencies only and
 # `cargo tree -d` cannot flag a mixed family, so `cargo xtask family-check` asserts the
 # resolved graph against [workspace.metadata.pse.families]. Pin changes are
-# `kind/library-upgrade` PRs (ADR-0018); families move as a unit.
+# `kind/library-upgrade` PRs (ADR-0018); families move as a unit. ADDING a dependency needs
+# none of that ceremony: no library and no licence is refused through phases 0-1
+# (blueprint §3.3.2, ADR-0066, docs/dev/dependency-policy.md). Pin it exactly here, commit
+# the lockfile, and keep `just family-check` green.
 
 [workspace]
 # A virtual manifest has no `edition`, so cargo would otherwise fall back to resolver 1.
@@ -90,6 +93,7 @@ arrow-data = { version = "=59.3.0", default-features = false, features = [
 arrow-schema = { version = "=59.3.0", default-features = false, features = [
   "ffi",
   "canonical_extension_types",
+  "serde",
 ] }
 arrow-ipc = { version = "=59.3.0", default-features = false }
 arrow-select = "=59.3.0"
@@ -102,8 +106,8 @@ parquet = { version = "=59.3.0", default-features = false, features = [
   "object_store",
 ] }
 
-# ---- datafusion family @ =55.1.0: default features only (blueprint §3.1) ----
-# `serde`, `avro`, `parquet_encryption`, `backtrace` are denied in deny.toml [bans.features].
+# ---- datafusion family @ =55.1.0 (blueprint §3.1) ----
+# Default features are enabled; all optional capabilities remain eligible (ADR-0066).
 datafusion = "=55.1.0"
 datafusion-common = "=55.1.0"
 datafusion-expr = "=55.1.0"
@@ -114,12 +118,22 @@ datafusion-physical-expr = "=55.1.0"
 datafusion-optimizer = "=55.1.0"
 datafusion-proto = "=55.1.0"
 
+# Delta's development API matches the DataFusion/Arrow family above (ADR-0068).
+# Its kernel branch is locked separately and checked against metadata.pse below.
+deltalake = { package = "deltalake-core", git = "https://github.com/delta-io/delta-rs", rev = "58f07cd62bfbce3649a7e1c87c696288068ae184", default-features = false, features = [
+  "datafusion",
+  "rustls",
+  "nanosecond-timestamps",
+] }
+url = "=2.5.8"
+
 # Required by DataFusion 55 (^0.13.2); 0.14.x exists on crates.io and must not be taken.
 object_store = "=0.13.2"
 
 # ---- Python boundary (pse-py only; features added in that crate) ----
 pyo3 = "=0.29.2"
 pyo3-arrow = "=0.19.0"
+pyo3-introspection = "=0.29.2"
 
 # ---- runtime ----
 tokio = { version = "=1.53.1", default-features = false, features = [
@@ -127,6 +141,9 @@ tokio = { version = "=1.53.1", default-features = false, features = [
   "sync",
   "macros",
   "time",
+] }
+tokio-util = { version = "=0.7.19", default-features = false, features = [
+  "rt",
 ] }
 rayon = "=1.12.0"
 tracing = "=0.1.44"
@@ -162,7 +179,9 @@ syn = { version = "=3.0.5", features = [
 ] }
 quote = "=1.0.47"
 proc-macro2 = { version = "=1.0.107", features = ["span-locations"] }
-prettyplease = "=0.3.0"
+# Keep macro formatting identical in standalone schema tests and bindgen-enabled xtask.
+# Cargo unifies bindgen's `verbatim` feature into the latter graph.
+prettyplease = { version = "=0.3.0", features = ["verbatim"] }
 
 # ---- graphs, numerics, identity ----
 petgraph = { version = "=0.8.3", default-features = false, features = [
@@ -177,9 +196,9 @@ blake3 = { version = "=1.8.7", features = ["rayon"] }
 # mints one (blueprint §5.1, ADR-0049).
 uuid = { version = "=1.26.1", features = ["v7"] }
 
-# ---- phase-2+ optional providers enter here WITH their consumer crate (blueprint §9.8,
-# §13.6, §7.4): feos-core / feos =0.10.1 (conditional on num-dual 0.15), diffsol =0.16.2,
-# egglog =3.0.0. Not before.
+# ---- optional providers enter here WITH their consumer crate (blueprint §9.8, §13.6,
+# §7.4): feos-core / feos =0.10.1 (conditional on num-dual 0.15), diffsol =0.16.2,
+# egglog =3.0.0. Nothing holds them back but a consumer (blueprint §3.3.2, ADR-0066).
 
 # ---- dev and tooling (exempt from the §3.1 check via tests/governance/tooling_deps.toml) ----
 proptest = "=1.11.0"
@@ -200,6 +219,7 @@ sha2 = "=0.11.0"
 # dev-dependency of pse-tests-lifecycle: the fault-injecting ObjectStore wrapper
 # implements an async trait (blueprint §24.1 "Lifecycle").
 futures-core = "=0.3.34"
+futures-util = "=0.3.34"
 async-trait = "=0.1.92"
 anyhow = "=1.0.104"
 
@@ -291,6 +311,8 @@ codegen-units = 1
 
 [workspace.metadata.pse]
 blueprint = "docs/authoritative_design/blueprint.md"
+# delta-rs tracks this repository by branch; its resolved revision is a PSE contract.
+delta-kernel-revision = "8ba063f8f84fec222000f66d40d70911d7c79675"
 # Passed to every test invocation by the justfile and CI; never a default feature.
 validate-features = ["pse-relations/force-validate"]
 unsafe-allowlist = [
@@ -317,4 +339,5 @@ pyo3 = { version = "0.29", match = "minor", crates = [
   "pyo3-macros",
   "pyo3-macros-backend",
   "pyo3-build-config",
+  "pyo3-introspection",
 ] }

@@ -3,223 +3,20 @@
 
 //! Full rename binds actual sources, stages coherent bytes/rows, and retains exact evidence.
 
+mod native;
 mod owned;
 pub use owned::{amend_rename_sources_owned, rename_owned};
 
-use super::{DocumentBundle, DocumentEdit, Rows, binding, load::contract, value::Value};
-use crate::{
-    AuthoringError, ParseBudget, SourceSpan,
-    change_set::{AuthoredReader, ChangeSet},
-};
+use super::{DocumentBundle, DocumentEdit, binding, load::contract, value::Value};
+use crate::{AuthoringError, SourceSpan, change_set::ChangeSet};
 use pse_ids::SemanticId;
-use pse_relations::generated::{
-    authored,
-    enums::{ChangeOpKind, IdPolicy},
-};
+use pse_relations::generated::{authored, enums::ChangeOpKind};
 use pse_schema::{
     Registry,
-    model::{Cell, ExtensionUse, LogicalType},
+    model::{Cell, ExtensionUse, FieldContract},
 };
 use std::collections::BTreeMap;
 
-/// Stage an explicit-policy entity rename with all retained expression/target references,
-/// original document replacements, regenerated spans and complete exact-input evidence.
-///
-/// # Errors
-/// Refuses incomplete/stale source inventories, named-policy renames, invalid new names,
-/// unresolved/ambiguous bindings, changed reference identities and invalid post-edit rows.
-pub fn rename(
-    bundles: &[DocumentBundle],
-    base: &dyn AuthoredReader,
-    header: authored::change_sets::Row,
-    entity_id: SemanticId,
-    new_name: &str,
-    registry: &Registry,
-) -> Result<ChangeSet, AuthoringError> {
-    valid_name(new_name)?;
-    let originals = bundles
-        .iter()
-        .flat_map(|bundle| bundle.documents.iter())
-        .map(|document| (document.id, document.text.clone()))
-        .collect::<BTreeMap<_, _>>();
-    if originals != base.source_documents()? {
-        return Err(contract(
-            None,
-            "rename requires the complete exact original source-byte inventory",
-        ));
-    }
-    if !crate::p1::stage(bundles, base, header.clone(), registry)?
-        .ops
-        .is_empty()
-    {
-        return Err(contract(
-            None,
-            "original documents do not reproduce the exact complete authored base",
-        ));
-    }
-    let rows = crate::change_set::proof::rows(base, registry)?;
-    let entity = entity(&rows, entity_id)?;
-    let package = bundles
-        .iter()
-        .find(|bundle| bundle.package.package_id == entity.package_id)
-        .ok_or_else(|| {
-            contract(
-                None,
-                "rename package is absent from complete source inventory",
-            )
-        })?;
-    if package.package.id_policy == IdPolicy::Named {
-        return Err(AuthoringError::RenameNamed {
-            entity_id,
-            qualified_name: entity.qualified_name,
-        });
-    }
-    if entity.name == new_name {
-        return Ok(ChangeSet::new(header));
-    }
-    let bindings = binding::bind_sources(bundles, &rows, registry)?;
-    let context = crate::targets::TargetContext::from_rows(&rows)?;
-    let mut replacements = BTreeMap::<SemanticId, Vec<(SourceSpan, String)>>::new();
-    name_replacement(bundles, entity_id, new_name, &mut replacements)?;
-    for expression in bindings.expressions() {
-        if let Some(text) = binding::rename_expression(expression, entity_id, new_name)? {
-            replacements
-                .entry(expression.document_id)
-                .or_default()
-                .push((expression.source_span, yaml_scalar(&text)?));
-        }
-    }
-    target_replacements(
-        bundles,
-        &context,
-        entity_id,
-        new_name,
-        registry,
-        &mut replacements,
-    )?;
-    let edits = edits(bundles, replacements)?;
-    let updated = updated_bundles(bundles, &edits, registry)?;
-    let mut changes = crate::p1::stage(&updated, base, header, registry)?;
-    let candidate = crate::change_set::apply(base, &changes, registry)?;
-    let candidate_rows = candidate
-        .relations
-        .iter()
-        .map(|(id, batch)| {
-            let relation = registry
-                .relations()
-                .iter()
-                .find(|relation| relation.id == *id)
-                .ok_or_else(|| contract(None, "unregistered candidate relation"))?;
-            Ok((
-                *id,
-                pse_relations::cells::cells_from_batch(registry, relation, batch)
-                    .map_err(|error| contract(None, &error.to_string()))?,
-            ))
-        })
-        .collect::<Result<Rows, AuthoringError>>()?;
-    preserve_targets(&rows, &candidate_rows)?;
-    let after = binding::bind_sources(&updated, &candidate_rows, registry)?;
-    preserve_bindings(&bindings, &after)?;
-    mark_rename(&mut changes, entity_id, registry)?;
-    crate::change_set::proof::capture(&mut changes, base, registry, edits)?;
-    Ok(changes)
-}
-
-/// Compose explicit additional source edits with a previously verified complete rename.
-/// Each extra preimage is the already renamed document text. The final sources are
-/// reparsed and restaged against the original base; identities and reference bindings
-/// remain fixed. An explicit case revision update can therefore share the atomic commit.
-/// # Errors
-/// A stale rename/base, missing or duplicate source, wrong additional preimage, changed
-/// entity naming or reference binding, or any final parse/staging error is refused.
-pub fn amend_rename_sources(
-    changes: &ChangeSet,
-    bundles: &[DocumentBundle],
-    base: &dyn AuthoredReader,
-    additional: &[DocumentEdit],
-    registry: &Registry,
-) -> Result<ChangeSet, AuthoringError> {
-    if !crate::change_set::proof::verify(changes, base, registry)? {
-        return Err(contract(
-            None,
-            "source composition requires a verified rename",
-        ));
-    }
-    let originals = bundles
-        .iter()
-        .flat_map(|bundle| &bundle.documents)
-        .map(|document| (document.id, document.text.clone()))
-        .collect::<BTreeMap<_, _>>();
-    if originals != base.source_documents()?
-        || !crate::p1::stage(bundles, base, changes.header.clone(), registry)?
-            .ops
-            .is_empty()
-    {
-        return Err(contract(
-            None,
-            "composition requires the complete exact original source inventory",
-        ));
-    }
-    let previous = updated_bundles(bundles, changes.document_edits(), registry)?;
-    let edits = compose_edits(bundles, &previous, changes.document_edits(), additional)?;
-    let updated = updated_bundles(bundles, &edits, registry)?;
-    let mut amended = crate::p1::stage(&updated, base, changes.header.clone(), registry)?;
-    let before = crate::change_set::proof::rows(base, registry)?;
-    let after = candidate_rows(base, &amended, registry)?;
-    preserve_targets(&before, &after)?;
-    preserve_bindings(
-        &binding::bind_sources(bundles, &before, registry)?,
-        &binding::bind_sources(&updated, &after, registry)?,
-    )?;
-    preserve_entity_names(&candidate_rows(base, changes, registry)?, &after)?;
-    let entities = registry
-        .relation("authored.entities")
-        .ok_or_else(|| contract(None, "entity relation missing"))?;
-    for operation in changes
-        .ops
-        .iter()
-        .filter(|operation| operation.op == ChangeOpKind::Rename)
-    {
-        if operation.relation_id != entities.id {
-            return Err(contract(None, "rename proof has a non-entity rename"));
-        }
-        let staged = changes
-            .staged
-            .get(&operation.row_key.staged_port)
-            .ok_or_else(|| contract(None, "rename preimage absent"))?;
-        let rows = pse_relations::cells::cells_from_batch(registry, entities, &staged.batch)
-            .map_err(|error| contract(None, &error.to_string()))?;
-        let [row] = rows.as_slice() else {
-            return Err(contract(None, "rename preimage is not one entity"));
-        };
-        let entity = authored::entities::Row::from_cells(row.clone())
-            .map_err(|error| contract(None, &error.to_string()))?;
-        mark_rename(&mut amended, entity.entity_id, registry)?;
-    }
-    crate::change_set::proof::capture(&mut amended, base, registry, edits)?;
-    Ok(amended)
-}
-
-fn candidate_rows(
-    base: &dyn AuthoredReader,
-    changes: &ChangeSet,
-    registry: &Registry,
-) -> Result<Rows, AuthoringError> {
-    crate::change_set::apply(base, changes, registry)?
-        .relations
-        .iter()
-        .map(|(id, batch)| {
-            let spec = registry
-                .relation_by_id(*id)
-                .ok_or_else(|| contract(None, "candidate declaration absent"))?;
-            Ok((
-                *id,
-                pse_relations::cells::cells_from_batch(registry, spec, batch)
-                    .map_err(|error| contract(None, &error.to_string()))?,
-            ))
-        })
-        .collect()
-}
 fn compose_edits(
     originals: &[DocumentBundle],
     previous: &[DocumentBundle],
@@ -269,29 +66,6 @@ fn compose_edits(
     }
     Ok(edits.into_values().collect())
 }
-fn preserve_entity_names(before: &Rows, after: &Rows) -> Result<(), AuthoringError> {
-    let names = |rows: &Rows| -> Result<BTreeMap<SemanticId, Vec<Cell>>, AuthoringError> {
-        rows.get(&authored::entities::RELATION_ID)
-            .into_iter()
-            .flatten()
-            .cloned()
-            .map(|row| {
-                let mut entity = authored::entities::Row::from_cells(row)
-                    .map_err(|error| contract(None, &error.to_string()))?;
-                entity.source_span = None;
-                Ok((entity.entity_id, entity.into_cells()))
-            })
-            .collect()
-    };
-    if names(before)? != names(after)? {
-        return Err(contract(
-            None,
-            "additional edits changed already validated entity naming",
-        ));
-    }
-    Ok(())
-}
-
 fn valid_name(name: &str) -> Result<(), AuthoringError> {
     let expression =
         crate::dsl::parse_expr(name).map_err(|error| contract(None, &error.to_string()))?;
@@ -304,23 +78,24 @@ fn valid_name(name: &str) -> Result<(), AuthoringError> {
     }
     Ok(())
 }
-fn entity(rows: &Rows, id: SemanticId) -> Result<authored::entities::Row, AuthoringError> {
-    let entities = rows
+fn entity(
+    batches: &super::Batches,
+    id: SemanticId,
+) -> Result<authored::entities::Row, AuthoringError> {
+    let batch = batches
         .get(&authored::entities::RELATION_ID)
+        .ok_or_else(|| contract(None, "rename entity inventory absent"))?;
+    let mut matches = authored::entities::View::from_checked(batch)?
+        .rows()?
         .into_iter()
-        .flatten()
-        .cloned()
-        .map(authored::entities::Row::from_cells)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| contract(None, &error.to_string()))?;
-    let mut matches = entities.into_iter().filter(|entity| entity.entity_id == id);
-    let entity = matches
+        .filter(|row| row.entity_id == id);
+    let row = matches
         .next()
-        .ok_or_else(|| contract(None, "rename identity is not registered"))?;
+        .ok_or_else(|| contract(None, "rename identity absent"))?;
     if matches.next().is_some() {
-        return Err(contract(None, "rename identity is duplicated"));
+        return Err(contract(None, "rename identity duplicated"));
     }
-    Ok(entity)
+    Ok(row)
 }
 fn name_replacement(
     bundles: &[DocumentBundle],
@@ -368,14 +143,34 @@ fn yaml_scalar(text: &str) -> Result<String, AuthoringError> {
         .map_err(|error| contract(None, &error.to_string()))
 }
 
-fn target_replacements(
+struct TargetResolution<'a> {
+    batches: &'a super::Batches,
+    session: &'a pse_catalog::session::SnapshotSession,
+    work: &'a mut dyn pse_ids::Reservation,
+    completed: &'a mut crate::change_set::plans::Completions,
+    cancel: &'a pse_ids::CancellationToken,
+}
+
+async fn target_replacements(
     bundles: &[DocumentBundle],
-    context: &crate::targets::TargetContext,
     id: SemanticId,
     name: &str,
-    registry: &Registry,
     replacements: &mut BTreeMap<SemanticId, Vec<(SourceSpan, String)>>,
+    execution: &mut TargetResolution<'_>,
 ) -> Result<(), AuthoringError> {
+    let TargetResolution {
+        batches,
+        session,
+        work,
+        completed,
+        cancel,
+    } = execution;
+    let registry = session.registry();
+    let entities = batches
+        .get(&authored::entities::RELATION_ID)
+        .map(|batch| authored::entities::View::from_checked(batch)?.rows())
+        .transpose()?
+        .unwrap_or_default();
     for document in bundles.iter().flat_map(|bundle| &bundle.documents) {
         for section in &document.declaration.sections {
             let relation = registry
@@ -384,7 +179,9 @@ fn target_replacements(
             let columns = relation
                 .columns
                 .iter()
-                .filter(|column| column.logical_type == LogicalType::Ext(ExtensionUse::TargetPath))
+                .filter(|column| {
+                    column.value_type() == FieldContract::extended(ExtensionUse::TargetPath)
+                })
                 .collect::<Vec<_>>();
             if columns.is_empty() {
                 continue;
@@ -394,16 +191,25 @@ fn target_replacements(
             };
             for (ordinal, row) in rows.iter().enumerate() {
                 for column in &columns {
-                    let Some(text) = row.value.get(column.name).and_then(Value::text) else {
+                    let Some(text) = row.value.get(column.name()).and_then(Value::text) else {
                         continue;
                     };
                     let span = document
                         .spans
-                        .span(&format!("/{}/{ordinal}/{}", section.key, column.name))
+                        .span(&format!("/{}/{ordinal}/{}", section.key, column.name()))
                         .ok_or_else(|| contract(None, "missing original target field span"))?;
                     let mut path = crate::targets::parse(text, span)?;
-                    let bound = crate::targets::resolve(&path, context, SemanticId::NIL)?;
-                    if rewrite_target(&mut path, &bound, context, id, name) {
+                    let bound = crate::targets::resolve_native(
+                        &path,
+                        batches,
+                        session,
+                        SemanticId::NIL,
+                        *work,
+                        completed,
+                        cancel,
+                    )
+                    .await?;
+                    if rewrite_target(&mut path, &bound, &entities, id, name) {
                         replacements
                             .entry(document.id)
                             .or_default()
@@ -418,7 +224,7 @@ fn target_replacements(
 fn rewrite_target(
     path: &mut crate::targets::TargetPath,
     bound: &[crate::targets::TargetRow],
-    context: &crate::targets::TargetContext,
+    entities: &[authored::entities::Row],
     id: SemanticId,
     name: &str,
 ) -> bool {
@@ -427,8 +233,7 @@ fn rewrite_target(
     };
     let mut changed = false;
     let prefix = path.names.len() - usize::from(!path.instance_wildcard);
-    let mut current = context
-        .entities
+    let mut current = entities
         .iter()
         .find(|entity| entity.entity_id == target.instance_id);
     for index in (0..prefix).rev() {
@@ -442,12 +247,9 @@ fn rewrite_target(
             name.clone_into(&mut path.names[index]);
             changed = true;
         }
-        current = entity.parent_entity_id.and_then(|id| {
-            context
-                .entities
-                .iter()
-                .find(|entity| entity.entity_id == id)
-        });
+        current = entity
+            .parent_entity_id
+            .and_then(|id| entities.iter().find(|entity| entity.entity_id == id));
     }
     if (target.symbol_decl_id == Some(id) || target.equation_decl_id == Some(id))
         && let Some(last) = path.names.last_mut()
@@ -521,59 +323,7 @@ fn edits(
         })
         .collect()
 }
-fn updated_bundles(
-    bundles: &[DocumentBundle],
-    edits: &[DocumentEdit],
-    registry: &Registry,
-) -> Result<Vec<DocumentBundle>, AuthoringError> {
-    bundles
-        .iter()
-        .map(|bundle| {
-            let texts = bundle
-                .documents
-                .iter()
-                .map(|document| {
-                    (
-                        document.path.clone(),
-                        edits
-                            .iter()
-                            .find(|edit| edit.document_id == document.id)
-                            .map_or_else(|| document.text.clone(), |edit| edit.after.clone()),
-                    )
-                })
-                .collect();
-            super::load_package_texts(texts, registry, ParseBudget::default())
-        })
-        .collect()
-}
-fn preserve_targets(before: &Rows, after: &Rows) -> Result<(), AuthoringError> {
-    for id in [
-        authored::case_spec_targets::RELATION_ID,
-        authored::case_activation_targets::RELATION_ID,
-        authored::observation_targets::RELATION_ID,
-    ] {
-        let first = before.get(&id).map_or(&[][..], Vec::as_slice);
-        let second = after.get(&id).map_or(&[][..], Vec::as_slice);
-        if first.len() != second.len()
-            || !first
-                .iter()
-                .zip(second)
-                .all(|(first, second)| equal(first, second))
-        {
-            return Err(contract(
-                None,
-                "rename changed actual bound target identities",
-            ));
-        }
-    }
-    Ok(())
-}
-fn preserve_bindings(
-    before: &binding::SourceBindings,
-    after: &binding::SourceBindings,
-) -> Result<(), AuthoringError> {
-    preserve_expression_bindings(before.expressions(), after.expressions())
-}
+
 fn preserve_expression_bindings(
     before: &[binding::SourceExpression],
     after: &[binding::SourceExpression],
@@ -618,17 +368,25 @@ fn mark_rename(
     let spec = registry
         .relation("authored.entities")
         .ok_or_else(|| contract(None, "missing entity relation"))?;
-    for operation in &mut changes.ops {
+    let data = changes.data_mut();
+    for operation in &mut data.ops {
         if operation.relation_id != spec.id || operation.op != ChangeOpKind::Update {
             continue;
         }
-        let staged = changes
+        let staged = data
             .staged
             .get(&operation.row_key.staged_port)
             .ok_or_else(|| contract(None, "missing entity preimage"))?;
         let rows = pse_relations::cells::cells_from_batch(registry, spec, &staged.batch)
             .map_err(|error| contract(None, &error.to_string()))?;
-        if rows.first().and_then(|row| row.first()) == Some(&Cell::Id(id)) {
+        if rows
+            .get(
+                usize::try_from(operation.row_key.staged_ordinal)
+                    .map_err(|_| contract(None, "rename ordinal overflow"))?,
+            )
+            .and_then(|row| row.first())
+            == Some(&Cell::Id(id))
+        {
             operation.op = ChangeOpKind::Rename;
             return Ok(());
         }

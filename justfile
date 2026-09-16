@@ -43,7 +43,7 @@ default:
 # ---------------------------------------------------------------------- env --
 
 [group('env')]
-[doc('Full environment from nothing: venv, pinned tools, cargo tools, linters, hooks')]
+[doc('Full environment from nothing: venv, quality tools, cargo tools, linters, hooks')]
 bootstrap:
     ./scripts/bootstrap.sh
 
@@ -53,12 +53,12 @@ bootstrap-venv:
     ./scripts/bootstrap.sh --venv-only
 
 [group('env')]
-[doc('Pinned ruff/pyrefly/import-linter/reuse/taplo/typos from [dependency-groups].quality')]
+[doc('ruff/pyrefly/import-linter/reuse/taplo/typos from [dependency-groups].quality')]
 bootstrap-quality:
     ./scripts/bootstrap.sh --quality-only
 
 [group('env')]
-[doc('Pinned cargo development tools via cargo-binstall')]
+[doc('Cargo development tools via cargo-binstall (current releases)')]
 bootstrap-rust-tools:
     ./scripts/bootstrap.sh --rust-only
 
@@ -115,6 +115,11 @@ check:
     cargo check --workspace --all-targets --locked
 
 [group('local')]
+[doc('Compile one library during a bounded architectural replacement; no tests or dev dependencies')]
+check-library pkg:
+    cargo check -p {{ pkg }} --lib --locked
+
+[group('local')]
 [doc('clippy with -D warnings, workspace, all targets (default and --no-default-features)')]
 clippy:
     cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -137,6 +142,11 @@ test-package pkg *args:
     cargo nextest run -p {{ pkg }} --locked {{ validate }} {{ args }}
 
 [group('local')]
+[doc('Native Ipopt tests with force_validate, executed in the pinned solver container')]
+native-solver-test *args:
+    bash scripts/native-solver-test.sh {{ args }}
+
+[group('local')]
 [doc('Doctests (nextest does not run them)')]
 doctest:
     # Cargo cannot run doctests for the pse-py cdylib target.
@@ -148,7 +158,7 @@ docs-rust:
     RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
 
 [group('local')]
-[doc('Regenerate schema targets in scratch space and compare both ways; bindgen remains hygiene-only')]
+[doc('Regenerate schema targets and pinned Ipopt bindings in scratch space and compare both ways')]
 codegen-check:
     cargo xtask codegen --check
 
@@ -170,6 +180,12 @@ ci-fast: fmt-check check clippy test doctest
 [doc('Sync locked dependencies and rebuild the editable native extension with the dev profile')]
 py-sync:
     uv sync --locked --extra pyomo
+    cargo xtask python-stubs
+
+[group('codegen')]
+[doc('Generate or --check the actual compiled native Python API stub; run py-sync after Rust edits')]
+python-stubs *args:
+    cargo xtask python-stubs {{ args }}
 
 [group('local')]
 [doc('ruff format in check mode')]
@@ -192,9 +208,24 @@ lint-imports:
     "{{ lint_imports }}"
 
 [group('local')]
-[doc('Python tests (unit + component by default; pass -m to override)')]
+[doc('Publish and reopen a fresh native store for inspection; destination must be new')]
+inspection-fixture output:
+    cargo run --quiet --package xtask --locked {{ validate }} -- inspection-fixture {{ quote(output) }}
+
+[group('local')]
+[doc('Compile fresh heater/mixer P10 stores, reopen in Rust/Python and record target measurements')]
+engineering-inspection output *args:
+    cargo run --quiet --package xtask --locked {{ validate }} -- engineering-inspection {{ quote(output) }} {{ args }}
+
+[group('local')]
+[doc('Qualify fresh source-to-solve models, Delta publication and cold Rust/Python results')]
+simulator-acceptance output:
+    cargo run --quiet --package xtask --locked {{ validate }} -- simulator-acceptance {{ quote(output) }}
+
+[group('local')]
+[doc('Python tests against a fresh native store (unit + component; pass -m to override)')]
 py-test *args:
-    uv run --no-sync pytest -m "unit or component" -n auto {{ args }}
+    cargo run --quiet --package xtask --locked {{ validate }} -- python-tests {{ args }}
 
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
@@ -219,8 +250,19 @@ quality: fmt-py-check lint-py typecheck lint-imports lint-repo lint-agents setup
 
 # ----------------------------------------------------------------------- pr --
 
+[group('local')]
+[doc('Dependency and licence REPORT: advisory, always exits 0, nothing here blocks a merge')]
+deps-report:
+    # No library and no licence is refused during phases 0-1 (ADR-0066,
+    # docs/dev/dependency-policy.md). This prints what is in the graph so the
+    # pre-release review is a command, not a rebuild.
+    cargo deny --all-features --locked check || true
+    cargo audit || true
+    cargo shear || true
+    cargo machete || true
+
 [group('pr')]
-[doc('cargo deny (advisories, bans, licenses, sources) + cargo audit')]
+[doc('Opt-in strict audit: cargo deny (advisories, bans, licenses, sources) + cargo audit. Not in ci-pr')]
 policy:
     cargo deny --all-features --locked check
     cargo audit --deny warnings
@@ -266,7 +308,7 @@ parity *args:
 
 [group('pr')]
 [doc('Local Rust, Python, quality and documentation gates; container parity is separate')]
-ci-pr: ci-fast governance policy docs-rust bench-smoke quality adr-lint docs py-test
+ci-pr: ci-fast governance docs-rust bench-smoke quality adr-lint docs py-test
 
 # ---------------------------------------------------------------- scheduled --
 
@@ -280,12 +322,6 @@ features-powerset:
 [doc('Tests under the release profile (catches optimisation-dependent paths)')]
 test-release:
     cargo nextest run --workspace --locked --cargo-profile release {{ validate }}
-
-[group('scheduled')]
-[doc('Unused dependencies (informational in phase 0: the skeleton declares its blueprint dependencies before using them)')]
-deps-unused:
-    cargo shear || true
-    cargo machete || true
 
 [group('scheduled')]
 [doc('cargo udeps on the pinned nightly')]
@@ -355,6 +391,12 @@ fmt:
 [group('mutating')]
 [doc('Regenerate relations, Python contracts, docs/generated and the Ipopt bindings')]
 codegen *args:
+    cargo xtask codegen {{ args }}
+
+[group('mutating')]
+[doc('Generate Rust contracts, rebuild their package loader, then regenerate complete outputs')]
+codegen-bootstrap *args:
+    cargo run -p xtask --no-default-features -- codegen --only rust-contracts
     cargo xtask codegen {{ args }}
 
 [group('mutating')]

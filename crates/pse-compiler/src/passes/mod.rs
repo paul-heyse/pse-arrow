@@ -5,8 +5,8 @@
 //!
 //! A pass is a `reference.pass_specs` row first and a Rust type second. [`Pass::spec`]
 //! returns the declaration, so the implementation cannot quietly read or write a port the
-//! registry does not know about — the ports are the compiler's only dependency edges, and
-//! a read without a declared input binding is invalid.
+//! registry does not know about. Ports bind relational dependencies; [`PassContext`]
+//! carries explicitly selected document, policy and engine inputs.
 //!
 //! # Why absence is a value
 //!
@@ -18,21 +18,33 @@
 pub mod bundle;
 pub mod dag;
 pub mod key;
+pub(crate) mod native_construction;
+mod native_graph;
+pub(crate) mod native_outputs;
+pub(crate) mod native_rows;
+pub(crate) mod native_sources;
+#[cfg(test)]
+mod native_test;
 pub mod p0;
 pub mod p1;
 pub mod p10;
 pub mod p2;
 pub mod p3;
+pub mod p4;
+pub mod p5;
+pub mod p6;
+pub mod p7;
+pub mod p8;
+pub mod p9;
+pub(crate) mod parameter_indices;
 pub mod registry;
 
 use std::collections::BTreeMap;
-use std::time::Duration;
 
 use pse_catalog::{LoadedRelation, Snapshot};
 use pse_ids::{
     CancellationToken, ContentHash, LogicalHash, MemoryReserver, SchemaVersion, SemanticId,
 };
-use pse_relations::RecordBatch;
 use pse_schema::Registry;
 use pse_schema::model::PassSpec;
 use std::sync::Arc;
@@ -44,7 +56,9 @@ pub trait Pass: Send + Sync {
     /// The declaration this pass implements.
     fn spec(&self) -> &PassSpec;
 
-    /// Runs the pass over its bound inputs.
+    /// Run over actual bound inputs and return the catalog's producer result.
+    /// The catalog executor checks complete output obligations before creating a
+    /// publication completion. Attempt identity and status belong to the Driver.
     ///
     /// # Errors
     ///
@@ -54,7 +68,10 @@ pub trait Pass: Send + Sync {
         &'a self,
         ctx: &'a PassContext<'a>,
         inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<PassOutput, CompilerError>>;
+    ) -> pse_catalog::provider::BoxFut<
+        'a,
+        Result<pse_catalog::computation::ProducedStage, CompilerError>,
+    >;
 }
 
 /// Everything a pass may read that is not one of its input ports (blueprint §14.3).
@@ -64,20 +81,31 @@ pub trait Pass: Send + Sync {
 /// stage key would be a lie.
 #[derive(Debug)]
 pub struct PassContext<'a> {
+    /// Shared physical algorithm inventory for this exact bound input set.
+    /// Absent only in control-only contexts that do not run a physical pass.
+    pub physical: Option<&'a Arc<crate::quantity_relations::PhysicalInventory>>,
     /// The registry every contract is read from.
     pub registry: &'a Arc<Registry>,
     /// Original documents reopened from the exact bound snapshot source artifacts.
     pub documents: &'a pse_authoring::document::OwnedDocumentSet,
     /// Policies resolved to actual admitted rows.
     pub policies: &'a PolicySet,
-    /// Inputs supplied from outside the snapshot, explicitly for fixtures.
-    pub external: &'a ExternalInputs,
     /// Cooperative cancellation at every bounded work boundary.
     pub cancel: &'a CancellationToken,
     /// The reservation provider used by store and session.
     pub reserver: &'a dyn MemoryReserver,
-    /// Sealed rule session, present for declared rule-executing passes.
-    pub session: Option<&'a pse_catalog::session::SnapshotSession>,
+    /// Bound native environment required by every operation.
+    pub session: &'a pse_catalog::session::SnapshotSession,
+}
+impl PassContext<'_> {
+    /// Actual shared physical inventory established from this invocation's Arrow inputs.
+    /// # Errors
+    /// A physical pass was invoked without preparing its actual input inventory.
+    pub fn physical(&self) -> Result<&crate::quantity_relations::PhysicalInventory, CompilerError> {
+        self.physical
+            .map(AsRef::as_ref)
+            .ok_or_else(|| dag::invalid("physical inventory absent from prepared pass context"))
+    }
 }
 
 /// Policies selected from actual admitted rows.
@@ -101,13 +129,6 @@ impl PolicySet {
     pub fn get(&self, name: &str) -> Option<&PolicyBinding> {
         self.0.get(name)
     }
-}
-
-/// Explicit complete fixture input handles; production requests keep this empty.
-#[derive(Clone, Debug, Default)]
-pub struct ExternalInputs {
-    /// Qualified pass/port to the actual admitted input.
-    pub bindings: BTreeMap<String, BoundInput>,
 }
 
 /// One exact immutable relation handle, minted only from an admitted snapshot.
@@ -159,37 +180,6 @@ impl InputBundle {
     pub fn port(&self, port: &str) -> Option<&Option<BoundInput>> {
         self.ports.get(port)
     }
-}
-
-/// What a pass produced (blueprint §14.1).
-///
-/// Every declared output port appears, empties explicit: an output bundle that omitted an
-/// empty relation would be indistinguishable from one that forgot it.
-#[derive(Clone, Debug)]
-pub struct PassOutput {
-    /// Port name to the batches written to it.
-    pub ports: BTreeMap<&'static str, Vec<RecordBatch>>,
-    /// Findings, as relation rows. A rendered diagnostic is a projection of a finding,
-    /// never its storage (blueprint §23.2).
-    pub findings: Vec<RecordBatch>,
-    /// The sidecar record of this attempt.
-    pub record: PassRecordDraft,
-}
-
-/// The sidecar record of one pass attempt (blueprint §6.13).
-///
-/// A draft: the driver fills the identity, the snapshot and the attempt number, because a
-/// pass does not know how many times it has been retried.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PassRecordDraft {
-    /// The pass.
-    pub pass_id: SemanticId,
-    /// Its version.
-    pub version: &'static str,
-    /// How long the attempt took.
-    pub duration: Duration,
-    /// How it ended.
-    pub status: PassStatus,
 }
 
 pub use pse_schema::model::PassStatus;

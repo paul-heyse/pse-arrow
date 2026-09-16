@@ -207,13 +207,17 @@ fn storage_array_from_cells(field: &Field, values: &[Cell]) -> Result<ArrayRef, 
                 None
             }
         })?)),
-        DataType::Utf8 => Arc::new(StringArray::from(scalar(field, values, |cell| {
-            if let Cell::Text(value) = cell {
-                Some(value.as_str())
-            } else {
-                None
-            }
-        })?)),
+        DataType::Utf8 => Arc::new(StringArray::from(scalar(
+            field,
+            values,
+            |cell| match cell {
+                Cell::Text(value) => Some(value.as_str()),
+                Cell::Enum(value) if field.metadata().contains_key(pse_schema::arrow::KEY_ENUM) => {
+                    Some(*value)
+                }
+                _ => None,
+            },
+        )?)),
         DataType::Timestamp(TimeUnit::Nanosecond, zone) if zone.as_deref() == Some("UTC") => {
             Arc::new(
                 TimestampNanosecondArray::from(scalar(field, values, |cell| {
@@ -475,7 +479,10 @@ pub(crate) fn cell_at(
         DataType::UInt32 => get!(UInt32Array, U64, u64::from),
         DataType::UInt64 => get!(UInt64Array, U64, core::convert::identity),
         DataType::Float64 => get!(Float64Array, F64, core::convert::identity),
-        DataType::Utf8 => get!(StringArray, Text, str::to_owned),
+        DataType::Utf8 => {
+            let text = downcast::<StringArray>(array, field)?.value(row);
+            decode_text(reg, field, text)?
+        }
         DataType::Timestamp(TimeUnit::Nanosecond, zone) if zone.as_deref() == Some("UTC") => {
             get!(TimestampNanosecondArray, I64, core::convert::identity)
         }
@@ -557,11 +564,18 @@ fn decode_dictionary(
         DataType::Int32 => value!(Int32Type),
         _ => return Err(value_error(field.name(), row, "unsupported dictionary key")),
     };
+    decode_text(reg, field, text)
+}
+
+fn decode_text(reg: &Registry, field: &Field, text: &str) -> Result<Cell, RelationError> {
     if let Some(id) = field.metadata().get(pse_schema::arrow::KEY_ENUM) {
+        let enum_id = SemanticId::parse_hex(id).map_err(|_| RelationError::UnknownRegistry {
+            relation: format!("enum:{id}"),
+        })?;
         let enumeration = reg
             .enums()
             .iter()
-            .find(|spec| spec.id.to_hex() == *id)
+            .find(|spec| spec.id == enum_id)
             .ok_or_else(|| RelationError::UnknownRegistry {
                 relation: format!("enum:{id}"),
             })?;
@@ -571,20 +585,10 @@ fn decode_dictionary(
             .find(|member| member.name == text)
             .map(|member| Cell::Enum(member.name))
             .ok_or_else(|| RelationError::EnumMember {
-                field: field.name().clone(),
+                field: field.name().to_owned(),
                 enumeration: enumeration.name.to_owned(),
                 value: text.to_owned(),
             });
     }
-    // Int8 dictionaries occur only inside the declared bound storage; the enclosing
-    // extension validates their closed meaning. Bare dictionary fields are not admitted.
-    match text {
-        "finite" => Ok(Cell::Enum("finite")),
-        "unbounded" => Ok(Cell::Enum("unbounded")),
-        _ => Err(RelationError::EnumMember {
-            field: field.name().clone(),
-            enumeration: "BoundKind".to_owned(),
-            value: text.to_owned(),
-        }),
-    }
+    Ok(Cell::Text(text.to_owned()))
 }

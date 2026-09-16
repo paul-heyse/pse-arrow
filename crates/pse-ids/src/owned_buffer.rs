@@ -6,9 +6,11 @@
 //! These helpers establish allocation ownership and Arrow representation validity;
 //! they do not establish schema-registry, key, reference or domain validity. A producer
 //! reserves before allocating and attaches that reservation before releasing a batch.
-//! Query results use the separately reserved copy path, so source/output coexistence
-//! remains accounted without inferring allocation identity from pointer equality.
+//! Query export retains native allocations and attaches an explicit result claim without
+//! copying values. This cannot retroactively account native allocations before export.
 
+use std::collections::BTreeMap;
+use std::ptr::NonNull;
 use std::sync::Arc;
 
 use arrow::array::{ArrayData, make_array};
@@ -17,9 +19,72 @@ use arrow_buffer::{BooleanBuffer, Buffer, NullBuffer};
 use bytes::Bytes;
 
 use crate::{
-    CancellationToken, CanonError, Envelope, EnvelopeBound, MemoryReserver, Reservation,
-    ReservationLease, ReserveError,
+    CancellationToken, CanonError, Envelope, EnvelopeBound, MemoryReserver, ReservationLease,
+    ReserveError,
 };
+
+/// Immutable Arrow storage with an attached result reservation. Construction is
+/// operation-backed; this owner carries no schema or semantic validity claim.
+#[derive(Clone, Debug)]
+pub struct OwnedRecordBatch(RecordBatch);
+
+impl OwnedRecordBatch {
+    /// Retain one native result and attach its allocation claim without copying.
+    /// # Errors
+    /// Allocation accounting, reservation, cancellation or Arrow representation failure.
+    pub fn export(
+        batch: RecordBatch,
+        reserver: &dyn MemoryReserver,
+        cancel: &CancellationToken,
+    ) -> Result<Self, CanonError> {
+        Ok(Self(export_query_batch(batch, reserver, cancel)?))
+    }
+
+    /// Project existing immutable columns, preserving all their allocation owners.
+    /// # Errors
+    /// A requested column position is absent.
+    pub fn project(&self, positions: &[usize]) -> Result<Self, CanonError> {
+        Ok(Self(self.0.project(positions)?))
+    }
+
+    /// Replace schema-level metadata while retaining every exact field and buffer.
+    /// This operation supplies no semantic admission; field declarations must match.
+    /// # Errors
+    /// A field changes, or Arrow rejects the new schema.
+    pub fn with_schema_metadata(
+        self,
+        metadata: std::collections::HashMap<String, String>,
+    ) -> Result<Self, CanonError> {
+        let schema = Arc::new(arrow_schema::Schema::new_with_metadata(
+            self.0.schema().fields().clone(),
+            metadata,
+        ));
+        Ok(Self(self.0.with_schema(schema)?))
+    }
+
+    /// The exact Arrow storage; its cloned buffers keep the reservation alive.
+    pub const fn batch(&self) -> &RecordBatch {
+        &self.0
+    }
+
+    /// Transfer the Arrow storage to a consumer. Its buffers retain the same owners.
+    pub fn into_batch(self) -> RecordBatch {
+        self.0
+    }
+}
+
+impl std::ops::Deref for OwnedRecordBatch {
+    type Target = RecordBatch;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl std::borrow::Borrow<RecordBatch> for OwnedRecordBatch {
+    fn borrow(&self) -> &RecordBatch {
+        &self.0
+    }
+}
 
 /// The original allocation is dropped before the lease, in declaration order.
 struct LeasedBuffer {
@@ -33,16 +98,20 @@ impl AsRef<[u8]> for LeasedBuffer {
     }
 }
 
-/// Counts the conservatively retained extent of every value, offset, validity and
-/// dictionary buffer. Shared buffers may be counted more than once; external backing
-/// extents that are not exposed by Arrow remain the external owner's responsibility.
+/// Counts the retained extent of value, offset, validity and dictionary allocations.
+/// Shared allocations are counted once using Arrow's actual allocation base pointer,
+/// with the maximum exposed extent across their slices. This is allocation accounting,
+/// not value equality or semantic validation. Hidden external backing extents remain
+/// the external owner's responsibility.
 ///
 /// # Errors
 /// [`CanonError::Envelope`] if checked addressable-size arithmetic overflows.
 pub fn retained_buffer_bytes(batch: &RecordBatch) -> Result<usize, CanonError> {
-    batch.columns().iter().try_fold(0_usize, |total, array| {
-        checked_sum(total, retained_size(&array.to_data())?)
-    })
+    let mut allocations = BTreeMap::new();
+    for array in batch.columns() {
+        retained_allocations(&array.to_data(), &mut allocations)?;
+    }
+    allocations.into_values().try_fold(0, checked_sum)
 }
 
 struct LeasedBytes {
@@ -89,9 +158,7 @@ pub fn attach_reservation(
     batch: RecordBatch,
     lease: Arc<ReservationLease>,
 ) -> Result<RecordBatch, CanonError> {
-    let required = batch.columns().iter().try_fold(0_usize, |total, array| {
-        checked_sum(total, retained_size(&array.to_data())?)
-    })?;
+    let required = retained_buffer_bytes(&batch)?;
     if lease.size() < required {
         return Err(ReserveError::Exhausted {
             owner: "owned-buffer:attach".to_owned(),
@@ -140,13 +207,6 @@ pub fn copy_aligned_buffer(
 ) -> Result<Buffer, CanonError> {
     cancel.checkpoint()?;
     let needed = rounded_capacity(bytes.len())?;
-    if needed as u64 > Envelope::PHASE1.max_normalized_bytes {
-        return Err(CanonError::Envelope {
-            what: EnvelopeBound::Bytes,
-            limit: Envelope::PHASE1.max_normalized_bytes,
-            actual: needed as u64,
-        });
-    }
     let mut reservation = reserver.open(owner);
     reservation.try_grow(needed)?;
     cancel.checkpoint()?;
@@ -158,52 +218,36 @@ pub fn copy_aligned_buffer(
     })))
 }
 
-/// Temporary input ownership: release the batch before its coexistence claim.
-struct EmittedBatch {
-    batch: RecordBatch,
-    _reservation: Box<dyn Reservation>,
-}
-
-/// Exports an emitted query batch while claiming source/result coexistence explicitly.
+/// Retains a native query batch with an explicit result reservation, without copying.
 ///
-/// The source claim sums retained capacities (visible extent for external owners), even
-/// when the engine may still account those buffers. External buffers must already retain
-/// their backing allocation's ownership contract. This cannot retroactively cover an
-/// unregistered allocation. The source batch and its temporary claim drop together;
-/// the returned copy retains only the result reservation.
+/// Each actual allocation within the batch is charged once, including shared columns,
+/// dictionaries and nested slices. Original buffer owners remain retained, including any
+/// existing engine reservation. The result claim does not replace or infer those owners;
+/// it conservatively coexists with their claims. External hidden backing extents remain
+/// governed by their original ownership contract. Native allocation before export is
+/// outside this boundary's fallible allocation guarantee.
 ///
 /// # Errors
-/// The failures of [`copy_batch`], plus rejection of the temporary source claim.
+/// [`CanonError::Reservation`], [`CanonError::Envelope`], [`CanonError::Cancelled`] or
+/// [`CanonError::Arrow`]. Failed attachment releases the newly acquired claim.
 pub fn export_query_batch(
     batch: RecordBatch,
     reserver: &dyn MemoryReserver,
     cancel: &CancellationToken,
 ) -> Result<RecordBatch, CanonError> {
     cancel.checkpoint()?;
-    let source_size = batch.columns().iter().try_fold(0_usize, |total, array| {
-        checked_sum(total, retained_size(&array.to_data())?)
-    })?;
-    if source_size as u64 > Envelope::PHASE1.max_normalized_bytes {
-        return Err(CanonError::Envelope {
-            what: EnvelopeBound::Bytes,
-            limit: Envelope::PHASE1.max_normalized_bytes,
-            actual: source_size as u64,
-        });
-    }
-    let mut reservation = reserver.open("result:emitted-source");
+    let source_size = retained_buffer_bytes(&batch)?;
+    let mut reservation = reserver.open("result:retained-native");
     reservation.try_grow(source_size)?;
-    let source = EmittedBatch {
-        batch,
-        _reservation: reservation,
-    };
-    let result = copy_batch(&source.batch, reserver, cancel)?;
-    drop(source);
+    cancel.checkpoint()?;
+    let result = attach_reservation(batch, ReservationLease::new(reservation))?;
+    cancel.checkpoint()?;
     Ok(result)
 }
 
 /// Copies a result into newly reserved, aligned, immutable Arrow buffers.
 ///
-/// Uses the phase-1 envelope and the `result:owned-copy` consumer. Sources remain live
+/// Uses the default envelope and the `result:owned-copy` consumer. Sources remain live
 /// during copying; their existing engine reservations are not transferred or guessed.
 ///
 /// # Errors
@@ -220,15 +264,15 @@ pub fn copy_batch(
         "result:owned-copy",
         reserver,
         cancel,
-        Envelope::PHASE1,
+        Envelope::DEFAULT,
     )
 }
 
-/// The configurable form of [`copy_batch`], with explicit owner and tightened bounds.
+/// The configurable form of [`copy_batch`], with explicit owner and selected bounds.
 ///
 /// # Errors
 ///
-/// The same failures as [`copy_batch`]. An envelope cannot raise the supported limits.
+/// The same failures as [`copy_batch`]. Representation limits remain checked.
 pub fn copy_batch_with_envelope(
     batch: &RecordBatch,
     owner: &str,
@@ -237,7 +281,7 @@ pub fn copy_batch_with_envelope(
     envelope: Envelope,
 ) -> Result<RecordBatch, CanonError> {
     cancel.checkpoint()?;
-    let envelope = Envelope::lowered(envelope.max_rows, envelope.max_normalized_bytes)?;
+    let envelope = Envelope::new(envelope.max_rows, envelope.max_normalized_bytes)?;
     if batch.num_rows() as u64 > envelope.max_rows {
         return Err(CanonError::Envelope {
             what: EnvelopeBound::Rows,
@@ -311,8 +355,27 @@ fn transform_data(
         .build()?)
 }
 
-fn retained_size(data: &ArrayData) -> Result<usize, CanonError> {
-    data_size(data, &|buffer| Ok(buffer.capacity().max(buffer.len())))
+fn retained_allocations(
+    data: &ArrayData,
+    allocations: &mut BTreeMap<NonNull<u8>, usize>,
+) -> Result<(), CanonError> {
+    for buffer in data
+        .buffers()
+        .iter()
+        .chain(data.nulls().map(NullBuffer::buffer))
+    {
+        let extent = buffer
+            .capacity()
+            .max(checked_sum(buffer.ptr_offset(), buffer.len())?);
+        allocations
+            .entry(buffer.data_ptr())
+            .and_modify(|current| *current = (*current).max(extent))
+            .or_insert(extent);
+    }
+    for child in data.child_data() {
+        retained_allocations(child, allocations)?;
+    }
+    Ok(())
 }
 
 fn copied_size(data: &ArrayData) -> Result<usize, CanonError> {
@@ -352,7 +415,7 @@ fn checked_sum(left: usize, right: usize) -> Result<usize, CanonError> {
 fn size_overflow() -> CanonError {
     CanonError::Envelope {
         what: EnvelopeBound::Bytes,
-        limit: Envelope::PHASE1.max_normalized_bytes,
+        limit: isize::MAX as u64,
         actual: u64::MAX,
     }
 }
@@ -515,19 +578,11 @@ mod tests {
     }
 
     #[test]
-    fn query_export_requires_both_source_and_result_capacity() {
+    fn query_export_retains_native_buffers_without_copying_values() {
         let source = fixture();
-        let required = source
-            .columns()
-            .iter()
-            .map(|array| copied_size(&array.to_data()).expect("bounded"))
-            .sum::<usize>();
-        let source_required = source
-            .columns()
-            .iter()
-            .map(|array| retained_size(&array.to_data()).expect("bounded source"))
-            .sum::<usize>();
-        let too_small = FixedBudget::new(source_required + required - 1);
+        let required = retained_buffer_bytes(&source).expect("bounded source");
+        let original_buffers = batch_buffers(&source);
+        let too_small = FixedBudget::new(required - 1);
         assert!(
             export_query_batch(
                 source.clone(),
@@ -537,20 +592,50 @@ mod tests {
             .is_err()
         );
         assert_eq!(too_small.reserved(), 0);
-        let enough = FixedBudget::new(source_required + required);
+        let enough = FixedBudget::new(required);
         let exported = export_query_batch(source, enough.as_ref(), &CancellationToken::new())
-            .expect("coexistence fits");
-        assert_eq!(enough.reserved(), required, "only the output claim remains");
+            .expect("native retained buffers fit without a second copy");
+        for (original, exported) in original_buffers.iter().zip(batch_buffers(&exported)) {
+            assert_eq!(
+                original.as_ptr(),
+                exported.as_ptr(),
+                "native allocation retained"
+            );
+            assert_eq!(original.len(), exported.len());
+        }
+        assert_eq!(enough.reserved(), required);
         drop(exported);
         assert_eq!(enough.reserved(), 0);
+    }
+
+    #[test]
+    fn shared_columns_and_sliced_buffers_charge_each_actual_allocation_once() {
+        let original: ArrayRef = Arc::new(Int32Array::from(vec![1, 2, 3, 4]));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("left", DataType::Int32, false),
+            Field::new("right", DataType::Int32, false),
+        ]));
+        let batch = RecordBatch::try_new(schema, vec![original.slice(0, 2), original.slice(1, 2)])
+            .expect("shared sliced columns");
+        let required = original.to_data().buffers()[0].capacity();
+        assert_eq!(retained_buffer_bytes(&batch).expect("bounded"), required);
+        let budget = FixedBudget::new(required);
+        let exported = export_query_batch(batch, budget.as_ref(), &CancellationToken::new())
+            .expect("one allocation claim fits");
+        assert_eq!(budget.reserved(), required);
+        let retained = Arc::clone(exported.column(1));
+        drop(exported);
+        assert_eq!(budget.reserved(), required);
+        drop(retained);
+        assert_eq!(budget.reserved(), 0);
     }
 
     #[test]
     fn copy_bounds_are_checked_before_reservation() {
         let budget = FixedBudget::new(1 << 20);
         for envelope in [
-            Envelope::lowered(1, 1 << 20).expect("lower bound"),
-            Envelope::lowered(10, 1).expect("lower bound"),
+            Envelope::new(1, 1 << 20).expect("lower bound"),
+            Envelope::new(10, 1).expect("lower bound"),
         ] {
             assert!(matches!(
                 copy_batch_with_envelope(
@@ -645,6 +730,21 @@ mod tests {
         };
         assert!(matches!(
             copy_batch(&fixture(), &reserver, &cancel),
+            Err(CanonError::Cancelled)
+        ));
+        assert_eq!(budget.reserved(), 0);
+    }
+
+    #[test]
+    fn cancellation_after_acquiring_export_claim_releases_native_result() {
+        let budget = FixedBudget::new(1 << 20);
+        let cancel = CancellationToken::new();
+        let reserver = CancellingReserver {
+            budget: Arc::clone(&budget),
+            cancel: cancel.clone(),
+        };
+        assert!(matches!(
+            export_query_batch(fixture(), &reserver, &cancel),
             Err(CanonError::Cancelled)
         ));
         assert_eq!(budget.reserved(), 0);

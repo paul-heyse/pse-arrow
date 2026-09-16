@@ -16,9 +16,7 @@
 //! excluded from the membership it produced (§5.3 step 7).
 
 use crate::builder::RegistryBuilder;
-use crate::model::{
-    Authority, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass, Stability,
-};
+use crate::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass, Stability};
 
 /// Declares the §22.2 change-set relations.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -41,22 +39,30 @@ fn declare_change_sets(builder: &mut RegistryBuilder) {
         .stability(Stability::Stable)
         .pk(&["change_set_id"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "change_set_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The change set identity.",
             ),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "base_revision_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The revision the change set was written against. Two change sets on one base \
                  conflict explicitly rather than merging.",
             ),
-            ColumnSpec::label("author", LogicalType::Text, "Who proposed it."),
-            ColumnSpec::label("message", LogicalType::Text, "Why."),
-            ColumnSpec::payload(
+            FieldContract::label(
+                "author",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Who proposed it.",
+            ),
+            FieldContract::label(
+                "message",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Why.",
+            ),
+            FieldContract::payload(
                 "created_at",
-                LogicalType::Timestamp,
+                FieldContract::native(crate::model::extension::timestamp_storage()),
                 "When it was proposed.",
             ),
         ]),
@@ -77,40 +83,40 @@ fn declare_change_ops(builder: &mut RegistryBuilder) {
         .stability(Stability::Stable)
         .pk(&["change_set_id", "ordinal"])
         .columns(vec![
-            ColumnSpec::key("change_set_id", LogicalType::id(), "The owning change set.")
+            FieldContract::key("change_set_id", FieldContract::id(), "The owning change set.")
                 .with_fk("authored.change_sets", "change_set_id"),
-            ColumnSpec::key(
+            FieldContract::key(
                 "ordinal",
-                LogicalType::U32,
+                FieldContract::native(arrow_schema::DataType::UInt32),
                 "The operation's position in the change set.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "op",
-                LogicalType::enumeration("ChangeOpKind"),
+                FieldContract::enumeration("ChangeOpKind"),
                 "What the operation does.",
             ),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "relation_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The relation the operation writes. A derived relation is rejected: an \"expected\" \
                  derived fact goes to `provenance.assertions`.",
             )
             .with_fk("reference.schema_relations", "relation_id"),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "row_key",
                 staged_row_type(),
                 "A typed staged row whose primary key identifies the affected base row (ADR-0053).",
             ),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "row",
                 staged_row_type(),
                 "A pointer into the change set's per-relation staged members, never JSON text \
                  (decision D1). For a rename the staged row carries the entity identity and the \
                  new name and qualified name. Absent for delete.",
             ).optional(),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "precondition",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "An optional expectation about the base row, checked before the operation applies.",
             )
             .optional(),
@@ -119,9 +125,13 @@ fn declare_change_ops(builder: &mut RegistryBuilder) {
 }
 
 /// The durable staged-row reference, shared by both operation roles.
-fn staged_row_type() -> LogicalType {
-    LogicalType::Struct(vec![
-        ("staged_port", LogicalType::Text, false),
-        ("staged_ordinal", LogicalType::U64, false),
+fn staged_row_type() -> FieldContract {
+    FieldContract::structure(vec![
+        FieldContract::native(arrow_schema::DataType::Utf8)
+            .with_name("staged_port")
+            .with_nullable(false),
+        FieldContract::native(arrow_schema::DataType::UInt64)
+            .with_name("staged_ordinal")
+            .with_nullable(false),
     ])
 }

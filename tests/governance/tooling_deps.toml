@@ -3,13 +3,17 @@
 
 # Entries in `[workspace.dependencies]` that are deliberately absent from blueprint §3.1.
 #
+# This is NOT an admission allowlist any more: since ADR-0066 a dependency the blueprint
+# does not mention is reported and allowed, exempt or not. The list stays because its
+# reasons explain why these particular crates are not platform commitments.
+#
 # §3.1 pins what the PLATFORM is built out of; these are what the repository is TESTED and
 # DRIVEN with. They never appear in a shipped dependency graph (dev-dependencies, the
 # `xtask` driver, or build-dependencies of the -sys crate), so listing them in the
 # blueprint would imply a runtime commitment that does not exist. They are still `=`-pinned
 # in the workspace manifest and still moved by a `kind/library-upgrade` PR.
 #
-# `pins_match_blueprint` exempts exactly these names and nothing else.
+# `pins_match_blueprint` skips these names when reporting undescribed dependencies.
 
 [[dep]]
 name = "proptest"

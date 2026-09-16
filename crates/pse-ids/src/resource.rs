@@ -19,7 +19,7 @@
 //! unregistered allocation. Arrow's own tracking pools have infallible reserve and cannot
 //! reject; the guarantee here covers accounted consumers only.
 
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::error::{CanonError, ReserveError};
@@ -236,7 +236,7 @@ impl Drop for FixedReservation {
     }
 }
 
-/// Cooperative cancellation for the long loops of canonicalization and compilation.
+/// Shared cancellation for asynchronous work and synchronous compilation loops.
 ///
 /// Cloning shares the flag, so a driver holds one token and hands clones to the work it
 /// started. `Default` is an uncancelled token.
@@ -254,7 +254,7 @@ impl Drop for FixedReservation {
 /// ```
 #[derive(Clone, Debug, Default)]
 pub struct CancellationToken {
-    cancelled: Arc<AtomicBool>,
+    inner: tokio_util::sync::CancellationToken,
 }
 
 impl CancellationToken {
@@ -263,14 +263,43 @@ impl CancellationToken {
         Self::default()
     }
 
+    /// A child receives parent cancellation without cancelling its parent when
+    /// an individual native stream is dropped.
+    #[must_use]
+    pub fn child_token(&self) -> Self {
+        Self {
+            inner: self.inner.child_token(),
+        }
+    }
+
     /// Cancels this token and every clone of it. Cancellation is one-way.
     pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::Release);
+        self.inner.cancel();
     }
 
     /// Whether the token has been cancelled.
     pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::Acquire)
+        self.inner.is_cancelled()
+    }
+
+    /// Wait for cancellation, including cancellation before the first poll.
+    ///
+    /// Every token clone wakes every registered waiter. Dropping this future does not
+    /// cancel the work, and another waiter can safely be registered later.
+    pub async fn cancelled(&self) {
+        self.inner.cancelled().await;
+    }
+
+    /// Await cancellation-safe work with a wakeable native cancellation race.
+    /// Cancellation drops the pending future. Do not use this to infer that an
+    /// externally visible write was rolled back; publication must reconcile that state.
+    /// # Errors
+    /// [`CanonError::Cancelled`] if cancellation wins the native race.
+    pub async fn until_cancelled<F: Future>(&self, future: F) -> Result<F::Output, CanonError> {
+        self.inner
+            .run_until_cancelled(future)
+            .await
+            .ok_or(CanonError::Cancelled)
     }
 
     /// The check a loop body performs between units of work.

@@ -114,8 +114,19 @@ fn unbounded_pools_and_invalid_execution_settings_are_refused() {
     settings.execution.batch_size = 0;
     assert!(SharedRuntime::build(settings).is_err());
     let mut settings = budget(&directory, 64);
-    settings.execution.time_zone = "local".to_owned();
+    settings.execution.spill_compression = "not-a-compression-codec".to_owned();
     assert!(SharedRuntime::build(settings).is_err());
+}
+
+#[test]
+fn selected_timezone_compression_and_partition_policy_are_supported() {
+    let directory = Scratch::new();
+    let mut settings = budget(&directory, 64);
+    settings.execution.time_zone = "+05:30".to_owned();
+    settings.execution.spill_compression = "zstd".to_owned();
+    settings.threads.target_partitions = NonZeroUsize::new(8).expect("nonzero");
+    settings.hashing_may_use_pool = true;
+    assert!(SharedRuntime::build(settings).is_ok());
 }
 
 #[tokio::test]
@@ -136,6 +147,80 @@ async fn cancellation_wakes_current_and_late_waiters_and_cpu_tokens() {
     source.cancelled().await;
     assert!(source.checkpoint().is_err());
     assert!(token.checkpoint().is_err());
+}
+
+#[test]
+fn cancelling_a_token_wakes_source_and_token_waiters_without_polling() {
+    use std::future::Future;
+    use std::task::{Context, Poll, Wake, Waker};
+
+    struct WakeCount(AtomicUsize);
+    impl Wake for WakeCount {
+        fn wake(self: Arc<Self>) {
+            self.0.fetch_add(1, Ordering::Relaxed);
+        }
+    }
+    let source = CancelSource::new();
+    let token = source.token();
+    let wake_count = Arc::new(WakeCount(AtomicUsize::new(0)));
+    let waker = Waker::from(Arc::clone(&wake_count));
+    let mut context = Context::from_waker(&waker);
+    let mut source_wait = std::pin::pin!(source.cancelled());
+    let mut token_wait = std::pin::pin!(token.cancelled());
+    assert_eq!(source_wait.as_mut().poll(&mut context), Poll::Pending);
+    assert_eq!(token_wait.as_mut().poll(&mut context), Poll::Pending);
+    // Removing one waiter must not detach the cancellation source or other waiters.
+    let mut abandoned = Box::pin(token.cancelled());
+    assert_eq!(abandoned.as_mut().poll(&mut context), Poll::Pending);
+    drop(abandoned);
+    token.cancel();
+    assert!(wake_count.0.load(Ordering::Relaxed) >= 2);
+    assert_eq!(source_wait.as_mut().poll(&mut context), Poll::Ready(()));
+    assert_eq!(token_wait.as_mut().poll(&mut context), Poll::Ready(()));
+    assert!(source.checkpoint().is_err());
+}
+
+#[tokio::test]
+async fn pending_work_is_dropped_and_releases_its_budget_on_token_cancellation() {
+    let directory = Scratch::new();
+    let runtime = SharedRuntime::build(budget(&directory, 64)).expect("runtime builds");
+    let source = CancelSource::new();
+    let token = source.token();
+    let waiting_token = token.clone();
+    let reserver = runtime.reserver();
+    let (ready, started) = tokio::sync::oneshot::channel();
+    let task = tokio::spawn(async move {
+        let work = async move {
+            let mut reservation = reserver.open("pending:operator");
+            reservation.try_grow(64).expect("fits");
+            let mut ready = Some(ready);
+            std::future::poll_fn(|_cx| {
+                if let Some(ready) = ready.take() {
+                    ready.send(()).expect("observer is waiting");
+                }
+                std::task::Poll::<()>::Pending
+            })
+            .await;
+            drop(reservation);
+        };
+        tokio::select! {
+            biased;
+            () = waiting_token.cancelled() => waiting_token.checkpoint(),
+            () = work => panic!("pending work cannot complete on its own"),
+        }
+    });
+    started.await.expect("work has been polled to pending");
+    assert_eq!(runtime.reserver().reserved(), 64);
+    token.cancel();
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_secs(1), task)
+            .await
+            .expect("pending work wakes")
+            .expect("task completes")
+            .is_err()
+    );
+    assert_eq!(runtime.reserver().reserved(), 0);
+    source.cancelled().await;
 }
 
 #[test]

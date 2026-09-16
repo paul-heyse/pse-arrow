@@ -18,16 +18,32 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+default = ["package-fixtures"]
+# The bootstrap registry generator must compile without its generated DTO consumers.
+package-fixtures = [
+  "dep:pse-authoring",
+  "dep:pse-catalog",
+  "dep:pse-compiler",
+  "dep:pse-material",
+  "dep:pse-relations",
+  "dep:pse-runtime",
+  "dep:pse-rules",
+]
+
 [dependencies]
-# The registry and the passes the generators and the golden-store driver run.
+bindgen.workspace = true
+# The registry and the passes the generators and the inspection-fixture driver run.
 pse-schema.workspace = true
-pse-authoring.workspace = true
-pse-catalog.workspace = true
-pse-compiler.workspace = true
+pse-authoring = { workspace = true, optional = true }
+pse-catalog = { workspace = true, optional = true }
+pse-compiler = { workspace = true, optional = true }
 pse-ids.workspace = true
-pse-relations.workspace = true
-pse-runtime.workspace = true
-pse-rules.workspace = true
+pse-material = { workspace = true, optional = true }
+pse-quantity.workspace = true
+pse-relations = { workspace = true, optional = true }
+pse-runtime = { workspace = true, optional = true }
+pse-rules = { workspace = true, optional = true }
 serde_json.workspace = true
 clap.workspace = true
 cargo_metadata.workspace = true
@@ -45,3 +61,10 @@ tokio.workspace = true
 tempfile.workspace = true
 # python/pse/contracts/GENERATED.sha256 only; identity hashing is blake3 in pse-ids.
 sha2.workspace = true
+# Introspect the actual compiled PyO3 boundary; no handwritten API replica.
+pyo3-introspection.workspace = true
+syn.workspace = true
+
+[dev-dependencies]
+pse-quantity = { workspace = true, features = ["fixtures"] }
+pse-material = { workspace = true, features = ["fixtures"] }

@@ -1,0 +1,685 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "species": [
+    {
+      "species_id": "ee04a69e365d4e4bbfe4878ba2acaac2",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "benzene",
+      "formula": "C6H6",
+      "mw": null,
+      "component_type": "Component",
+      "charge": 0,
+      "dissociation_species": null,
+      "valid_phase_types": [
+        "liquidPhase",
+        "vaporPhase"
+      ],
+      "doc": "Stoichiometry is the molecular-weight authority; see sources.md for property data."
+    },
+    {
+      "species_id": "32057995e4524babaa503509b3a72242",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "toluene",
+      "formula": "C7H8",
+      "mw": null,
+      "component_type": "Component",
+      "charge": 0,
+      "dissociation_species": null,
+      "valid_phase_types": [
+        "liquidPhase",
+        "vaporPhase"
+      ],
+      "doc": "Stoichiometry is the molecular-weight authority; see sources.md for property data."
+    },
+    {
+      "species_id": "4578f9c197334d6a96955114fe9ccd4d",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "nitrogen",
+      "formula": "N2",
+      "mw": null,
+      "component_type": "Component",
+      "charge": 0,
+      "dissociation_species": null,
+      "valid_phase_types": [
+        "vaporPhase"
+      ],
+      "doc": "Stoichiometry is the molecular-weight authority; see sources.md for property data."
+    }
+  ],
+  "species_elements": [
+    {
+      "species_id": "ee04a69e365d4e4bbfe4878ba2acaac2",
+      "element_id": "c22602340a78b85ec4a0da4fc418a6af",
+      "count": 6.0
+    },
+    {
+      "species_id": "ee04a69e365d4e4bbfe4878ba2acaac2",
+      "element_id": "2fb5ca65384a2466d41fc32d22a0c40d",
+      "count": 6.0
+    },
+    {
+      "species_id": "32057995e4524babaa503509b3a72242",
+      "element_id": "c22602340a78b85ec4a0da4fc418a6af",
+      "count": 7.0
+    },
+    {
+      "species_id": "32057995e4524babaa503509b3a72242",
+      "element_id": "2fb5ca65384a2466d41fc32d22a0c40d",
+      "count": 8.0
+    },
+    {
+      "species_id": "4578f9c197334d6a96955114fe9ccd4d",
+      "element_id": "fc9744e59f95042db7f36df279602748",
+      "count": 2.0
+    }
+  ],
+  "phases": [
+    {
+      "phase_id": "687dc6f7c4de444c9727c8652bd4a744",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "BT_liquid.phase",
+      "phase_type": "liquidPhase",
+      "is_solvent_phase": false,
+      "doc": "Single-phase ideal demonstration, not an equilibrium/flash model."
+    },
+    {
+      "phase_id": "baa89dadc2e04ff1b7fe7fb7e0f604da",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "BT_vapor.phase",
+      "phase_type": "vaporPhase",
+      "is_solvent_phase": false,
+      "doc": "Single-phase ideal demonstration, not an equilibrium/flash model."
+    },
+    {
+      "phase_id": "436ec3e1a25947f6924123e50715927e",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "N2_vapor.phase",
+      "phase_type": "vaporPhase",
+      "is_solvent_phase": false,
+      "doc": "Single-phase ideal demonstration, not an equilibrium/flash model."
+    }
+  ],
+  "phase_species": [
+    {
+      "phase_id": "687dc6f7c4de444c9727c8652bd4a744",
+      "species_id": "ee04a69e365d4e4bbfe4878ba2acaac2"
+    },
+    {
+      "phase_id": "687dc6f7c4de444c9727c8652bd4a744",
+      "species_id": "32057995e4524babaa503509b3a72242"
+    },
+    {
+      "phase_id": "baa89dadc2e04ff1b7fe7fb7e0f604da",
+      "species_id": "ee04a69e365d4e4bbfe4878ba2acaac2"
+    },
+    {
+      "phase_id": "baa89dadc2e04ff1b7fe7fb7e0f604da",
+      "species_id": "32057995e4524babaa503509b3a72242"
+    },
+    {
+      "phase_id": "436ec3e1a25947f6924123e50715927e",
+      "species_id": "4578f9c197334d6a96955114fe9ccd4d"
+    }
+  ],
+  "material_systems": [
+    {
+      "material_system_id": "963639cbd9de44cb90112404ec02b24d",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "BT_liquid_system",
+      "species_ids": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2",
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "phase_ids": [
+        "687dc6f7c4de444c9727c8652bd4a744"
+      ],
+      "doc": "Explicit selected species and exactly one phase."
+    },
+    {
+      "material_system_id": "b7b9fd4a76474c72834d48b7da521384",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "BT_vapor_system",
+      "species_ids": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2",
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "phase_ids": [
+        "baa89dadc2e04ff1b7fe7fb7e0f604da"
+      ],
+      "doc": "Explicit selected species and exactly one phase."
+    },
+    {
+      "material_system_id": "30a37480208b4591b2126f24e5b6bd3d",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "name": "N2_vapor_system",
+      "species_ids": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "phase_ids": [
+        "436ec3e1a25947f6924123e50715927e"
+      ],
+      "doc": "Explicit selected species and exactly one phase."
+    }
+  ],
+  "parameter_values": [
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "thermo_T_ref",
+      "index": [],
+      "value": 298.15,
+      "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+      "source": "Chosen exact reference-state coordinate, declared by the property package and quantity datum.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "thermo_T_ref",
+      "index": [],
+      "value": 298.15,
+      "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+      "source": "Chosen exact reference-state coordinate, declared by the property package and quantity datum.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "gas_constant",
+      "index": [],
+      "value": 8.31446261815324,
+      "unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "source": "Exact SI molar gas constant: N_A k_B from the defining constants in the BIPM SI Brochure.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "thermo_T_ref",
+      "index": [],
+      "value": 298.15,
+      "unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
+      "source": "Chosen exact reference-state coordinate, declared by the property package and quantity datum.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "gas_constant",
+      "index": [],
+      "value": 8.31446261815324,
+      "unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "source": "Exact SI molar gas constant: N_A k_B from the defining constants in the BIPM SI Brochure.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_A",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 129440.0,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_B",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": -169.5,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_C",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 0.64781,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_D",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 0.0,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_E",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 0.0,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_A",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 1.0162,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_B",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 0.2655,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_C",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 562.16,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_D",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 0.28212,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "liquid_h_ref",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": -33890.0,
+      "unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "source": "NIST WebBook, Prosen/Gilmont 1945: liquid formation enthalpy minus gas formation enthalpy at 298.15 K. No formation term included; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "liquid_s_ref",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 173.26,
+      "unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "source": "NIST WebBook condensed-phase standard entropy at 298.15 K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_A",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 140140.0,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_B",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": -152.3,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_C",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.695,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_D",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.0,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryCp_E",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.0,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry, Green and Maloney, Chemical Engineers Handbook 7th ed., Table 2-196, equation 1; actual coefficients J/(kmol K), temperature K. See sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_A",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.8488,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_B",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.26655,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_C",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 591.8,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "PerryRho_D",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.2878,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "Perry 7th ed. Table 2-30: A/B^(1+(1-T/C)^D), kmol/m3, temperature K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "liquid_h_ref",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": -38000.0,
+      "unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "source": "NIST WebBook, Prosen/Gilmont 1945: liquid formation enthalpy minus gas formation enthalpy at 298.15 K. No formation term included; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "72ffd50cb6cc493bacfbea751311e974",
+      "parameter_kind": "liquid_s_ref",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 220.96,
+      "unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "source": "NIST WebBook condensed-phase standard entropy at 298.15 K; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_A",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": -31.8052629178267,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_B",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 0.43249912132659796,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_C",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": -0.00014331578647283372,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_D",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": -7.412280901811085e-08,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "gas_h_ref",
+      "index": [
+        "ee04a69e365d4e4bbfe4878ba2acaac2"
+      ],
+      "value": 0.0,
+      "unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "source": "Definition of the declared species ideal-gas enthalpy reference at 298.15 K; formation excluded.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_A",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": -20.808633948836405,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_B",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.44616990935115786,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_C",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": -5.1357924360455065e-05,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "RPP4_D",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": -1.4909471709302995e-07,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "PSE derived cubic interpolation of NIST WebBook Cp gas anchors at 298.15,400,500,600 K; domain [298.15,600] K. Not published RPP4 coefficients; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "f87348826732461c87bfd6008047e39a",
+      "parameter_kind": "gas_h_ref",
+      "index": [
+        "32057995e4524babaa503509b3a72242"
+      ],
+      "value": 0.0,
+      "unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "source": "Definition of the declared species ideal-gas enthalpy reference at 298.15 K; formation excluded.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "NIST_A",
+      "index": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "value": 28.98641,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "NIST WebBook nitrogen Shomate 100-500 K, Chase 1998, January 2009 fit; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "NIST_B",
+      "index": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "value": 1.853978,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "NIST WebBook nitrogen Shomate 100-500 K, Chase 1998, January 2009 fit; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "NIST_C",
+      "index": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "value": -9.647459,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "NIST WebBook nitrogen Shomate 100-500 K, Chase 1998, January 2009 fit; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "NIST_D",
+      "index": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "value": 16.63537,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "NIST WebBook nitrogen Shomate 100-500 K, Chase 1998, January 2009 fit; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "NIST_E",
+      "index": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "value": 0.000117,
+      "unit_id": "d7483bb7477194fcc2faed155b6eeb01",
+      "source": "NIST WebBook nitrogen Shomate 100-500 K, Chase 1998, January 2009 fit; see sources.md.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "gas_h_ref",
+      "index": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "value": 0.0,
+      "unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
+      "source": "Declared ideal-gas enthalpy datum at 298.15 K; formation excluded.",
+      "std_dev": null,
+      "estimable": false
+    },
+    {
+      "owner_entity_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "parameter_kind": "gas_s_ref",
+      "index": [
+        "4578f9c197334d6a96955114fe9ccd4d"
+      ],
+      "value": 191.609,
+      "unit_id": "83bdd275debcdc2abe9438f72b864d8d",
+      "source": "NIST WebBook nitrogen, gas entropy at 1 bar, CODATA review 1984.",
+      "std_dev": 0.004,
+      "estimable": false
+    }
+  ]
+}

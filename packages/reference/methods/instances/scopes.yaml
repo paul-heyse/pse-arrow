@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "scopes": [
+    {
+      "scope_id": "623cf9145879450ca74639495c09b75f",
+      "root_term_id": "bf1c6b007c2d45acaa988e88dbf16e6b"
+    },
+    {
+      "scope_id": "acd327d17f354cc0b32a5e2e191ec286",
+      "root_term_id": "37e969712645405f8cb219caaee57e8d"
+    },
+    {
+      "scope_id": "2876e2c2a4a94ff5ac3c8c1a21994e11",
+      "root_term_id": "1749948553a847578c7f0a6d2f678312"
+    }
+  ],
+  "selector_terms": [
+    {
+      "term_id": "bf1c6b007c2d45acaa988e88dbf16e6b",
+      "scope_id": "623cf9145879450ca74639495c09b75f",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "instance_parameter",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": "state"
+    },
+    {
+      "term_id": "37e969712645405f8cb219caaee57e8d",
+      "scope_id": "acd327d17f354cc0b32a5e2e191ec286",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "instance_parameter",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": "state"
+    },
+    {
+      "term_id": "1749948553a847578c7f0a6d2f678312",
+      "scope_id": "2876e2c2a4a94ff5ac3c8c1a21994e11",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "instance_parameter",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": "state"
+    }
+  ]
+}

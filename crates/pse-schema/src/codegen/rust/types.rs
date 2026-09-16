@@ -8,7 +8,7 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
 use crate::SchemaError;
-use crate::model::{ExtensionUse, LogicalType};
+use crate::model::{ExtensionUse, FieldContract};
 
 pub(super) fn ident(name: &str) -> Ident {
     // Registry declaration admission restricts names to identifiers. Raw identifiers
@@ -61,6 +61,7 @@ pub(super) fn structure(name: &str, fields: &[(String, TokenStream, String)]) ->
     let types = fields.iter().map(|(_, ty, _)| ty).collect::<Vec<_>>();
     let docs = fields.iter().map(|(_, _, doc)| doc).collect::<Vec<_>>();
     let count = names.len();
+    let positions = (0..count).collect::<Vec<_>>();
     quote! {
         /// A row or nested value projected from the registry declaration.
         #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -86,45 +87,79 @@ pub(super) fn structure(name: &str, fields: &[(String, TokenStream, String)]) ->
                 )?,)* })
             }
         }
+        impl crate::columnar::ArrowValue for #name {
+            fn append(&self, output: &mut dyn arrow_array::builder::ArrayBuilder) -> Result<(), crate::RelationError> {
+                let output = crate::columnar::builder::<arrow_array::builder::StructBuilder>(output)?;
+                let children = output.field_builders_mut();
+                #(crate::columnar::ArrowValue::append(&self.#names, children[#positions].as_mut())?;)*
+                output.append(true);
+                Ok(())
+            }
+            fn append_null(output: &mut dyn arrow_array::builder::ArrayBuilder) -> Result<(), crate::RelationError> {
+                let output = crate::columnar::builder::<arrow_array::builder::StructBuilder>(output)?;
+                let children = output.field_builders_mut();
+                #(<#types as crate::columnar::ArrowValue>::append_null(children[#positions].as_mut())?;)*
+                output.append(false);
+                Ok(())
+            }
+            fn read(input: &dyn arrow_array::Array, index: usize) -> Result<Self, crate::RelationError> {
+                crate::columnar::visible(input, index)?;
+                let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+                Ok(Self { #(#names: <#types as crate::columnar::ArrowValue>::read(input.column(#positions).as_ref(), index)?,)* })
+            }
+        }
     }
 }
 
 pub(super) fn logical(
-    ty: &LogicalType,
+    ty: &FieldContract,
     stem: &str,
     declarations: &mut Vec<TokenStream>,
 ) -> Result<TokenStream, SchemaError> {
-    Ok(match ty {
-        LogicalType::List(child) => {
-            let child = logical(child, &format!("{stem}Item"), declarations)?;
+    Ok(match (ty.extension(), ty.data_type()) {
+        (None, DataType::List(child)) => {
+            let child = optional(
+                logical(
+                    &FieldContract::from_field((*child).clone()),
+                    &format!("{stem}Item"),
+                    declarations,
+                )?,
+                child.is_nullable(),
+            );
             quote!(Vec<#child>)
         }
-        LogicalType::FixedList(child, width) => {
-            let child = logical(child, &format!("{stem}Item"), declarations)?;
-            let width = usize::try_from(*width).map_err(|error| super::error(error.to_string()))?;
+        (None, DataType::FixedSizeList(child, width)) => {
+            let child = optional(
+                logical(
+                    &FieldContract::from_field((*child).clone()),
+                    &format!("{stem}Item"),
+                    declarations,
+                )?,
+                child.is_nullable(),
+            );
+            let width = usize::try_from(width).map_err(|error| super::error(error.to_string()))?;
             quote!([#child; #width])
         }
-        LogicalType::Struct(children) => {
+        (None, DataType::Struct(children)) => {
             let fields = children
                 .iter()
-                .map(|(name, ty, nullable)| {
-                    let ty = logical(ty, &format!("{stem}{}", pascal(name)), declarations)?;
-                    Ok((
-                        (*name).to_owned(),
-                        optional(ty, *nullable),
-                        (*name).to_owned(),
-                    ))
+                .map(|field| {
+                    let name = field.name();
+                    let ty = FieldContract::from_field((**field).clone());
+                    let nullable = field.is_nullable();
+                    let ty = logical(&ty, &format!("{stem}{}", pascal(name)), declarations)?;
+                    Ok((name.to_owned(), optional(ty, nullable), name.to_owned()))
                 })
                 .collect::<Result<Vec<_>, SchemaError>>()?;
             declarations.push(structure(stem, &fields));
             let name = format_ident!("{}", stem);
             quote!(#name)
         }
-        LogicalType::Ext(ExtensionUse::Enum(name)) => {
+        (Some(ExtensionUse::Enum(name)), _) => {
             let name = format_ident!("{}", pascal(name));
             quote!(crate::generated::enums::#name)
         }
-        LogicalType::Ext(use_)
+        (Some(use_), _)
             if matches!(
                 use_,
                 ExtensionUse::DimensionVector
@@ -135,6 +170,12 @@ pub(super) fn logical(
         {
             let name = format_ident!("{}", pascal(&use_.name()));
             quote!(crate::generated::extension_values::#name)
+        }
+        (None, DataType::FixedSizeBinary(_) | DataType::Dictionary(..)) => {
+            return Err(super::error(format!(
+                "no native language codec for {}; domain meaning requires an explicit declaration",
+                ty.data_type()
+            )));
         }
         _ => storage(&ty.data_type(), stem, declarations)?,
     })
@@ -162,7 +203,6 @@ pub(super) fn storage(
         DataType::Utf8 => quote!(String),
         DataType::FixedSizeBinary(16) => quote!(pse_ids::SemanticId),
         DataType::FixedSizeBinary(32) => quote!(pse_ids::ContentHash),
-        DataType::Dictionary(..) => quote!(crate::generated::enums::BoundKind),
         DataType::List(child) => {
             let child = storage(child.data_type(), &format!("{stem}Item"), declarations)?;
             quote!(Vec<#child>)
@@ -176,15 +216,20 @@ pub(super) fn storage(
             let fields = children
                 .iter()
                 .map(|field| {
-                    let ty = storage(
-                        field.data_type(),
-                        &format!("{stem}{}", pascal(field.name())),
-                        declarations,
-                    )?;
+                    let ty = if let Some(name) = super::super::enum_name(field) {
+                        let name = format_ident!("{}", pascal(name));
+                        quote!(crate::generated::enums::#name)
+                    } else {
+                        storage(
+                            field.data_type(),
+                            &format!("{stem}{}", pascal(field.name())),
+                            declarations,
+                        )?
+                    };
                     Ok((
-                        field.name().clone(),
+                        field.name().to_owned(),
                         optional(ty, field.is_nullable()),
-                        field.name().clone(),
+                        field.name().to_owned(),
                     ))
                 })
                 .collect::<Result<Vec<_>, SchemaError>>()?;

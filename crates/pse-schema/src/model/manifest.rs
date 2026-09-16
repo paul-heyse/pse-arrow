@@ -7,9 +7,9 @@
 //! own checksum is held by the ref, never embedded in itself, because a document cannot
 //! contain its own digest.
 //!
-//! This declaration is the authority for the generated Python `msgspec` struct and for
-//! `docs/generated/`. The Rust `Manifest` struct in `pse-catalog` is hand-written in phase
-//! 0 and guarded by a parity test against this spec; generating it is register row R-27.
+//! This declaration controls generated Rust/Python wire structs and documentation.
+//! Checked native bindings preserve Rust role types without repeating wire fields
+//! (ADR-0060); catalog admission remains separate from the generated envelope.
 
 use core::fmt;
 
@@ -36,6 +36,50 @@ pub enum ManifestType {
     Struct(Vec<ManifestField>),
     /// A member that may be absent or null.
     Optional(Box<ManifestType>),
+}
+
+/// An existing Rust representation of a declared manifest wire value (ADR-0060).
+/// These bindings select codecs; they never change the underlying wire shape.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ManifestRustBinding {
+    /// `pse_ids::SnapshotKind`, encoded as a declared lowercase kind string.
+    SnapshotKind,
+    /// `pse_ids::SnapshotId`, encoded as the ordinary prefixed hash string.
+    SnapshotId,
+    /// `pse_ids::LogicalHash`, encoded as the ordinary prefixed hash string.
+    LogicalHash,
+    /// `pse_ids::EncodingChecksum`, encoded as the ordinary prefixed hash string.
+    EncodingChecksum,
+    /// `pse_ids::SchemaVersion`, encoded as an unsigned 32-bit number.
+    SchemaVersion,
+    /// The catalog's `EncodingFormat`, encoded as its declared string.
+    EncodingFormat,
+    /// `Vec<pse_ids::SnapshotParent>`, using the generated nested wire object.
+    SnapshotParents,
+}
+impl ManifestRustBinding {
+    /// Whether the declared wire shape is exactly supported by this native codec.
+    pub(crate) fn accepts(self, ty: &ManifestType) -> bool {
+        match self {
+            Self::SnapshotKind | Self::EncodingFormat => matches!(ty, ManifestType::Text),
+            Self::SnapshotId | Self::LogicalHash | Self::EncodingChecksum => {
+                matches!(ty, ManifestType::Hash)
+            }
+            Self::SchemaVersion => matches!(ty, ManifestType::U32),
+            Self::SnapshotParents => {
+                let ManifestType::List(child) = ty else {
+                    return false;
+                };
+                let ManifestType::Struct(fields) = child.as_ref() else {
+                    return false;
+                };
+                matches!(fields.as_slice(), [role, id]
+                    if role.name == "role" && role.ty == ManifestType::Text && role.rust.is_none()
+                    && id.name == "snapshot_id" && id.ty == ManifestType::Hash
+                    && id.rust == Some(Self::SnapshotId))
+            }
+        }
+    }
 }
 
 impl ManifestType {
@@ -87,12 +131,26 @@ pub struct ManifestField {
     pub ty: ManifestType,
     /// What the field records.
     pub doc: &'static str,
+    /// Optional checked native representation; the wire type remains authoritative.
+    pub rust: Option<ManifestRustBinding>,
 }
 
 impl ManifestField {
     /// A field with the given type.
     pub const fn new(name: &'static str, ty: ManifestType, doc: &'static str) -> Self {
-        Self { name, ty, doc }
+        Self {
+            name,
+            ty,
+            doc,
+            rust: None,
+        }
+    }
+
+    /// Preserve an existing Rust role type through a codec compatible with `ty`.
+    #[must_use]
+    pub const fn with_rust(mut self, binding: ManifestRustBinding) -> Self {
+        self.rust = Some(binding);
+        self
     }
 }
 

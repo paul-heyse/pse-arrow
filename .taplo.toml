@@ -9,6 +9,9 @@ exclude = [
   "build/**",
   "docs/book/**",
   "docs/capability-maps/evidence/**",
+  # Captured upstream manifests and reference examples are evidence, not project TOML.
+  ".*/skills/*/content/**",
+  ".*/skills/*/build/acquired/**",
   "tooling/dfarrow-apiex/target/**",
   "tooling/dfarrow-apiex/verify/target/**",
 ]

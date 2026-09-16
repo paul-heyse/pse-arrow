@@ -3,9 +3,9 @@
 
 //! §6.3 domain.
 
-use super::declarations::{column, relation};
+use super::declarations::{column, relation, relation_version};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.3 domain contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -32,14 +32,14 @@ fn declare_authored_domains(builder: &mut RegistryBuilder) {
             column("domain_id", T::id()),
             column("owner_entity_id", T::id()).with_fk("authored.entities", "entity_id"),
             column("kind", T::enumeration("DomainKind")),
-            column("continuous", T::Bool),
+            column("continuous", T::native(arrow_schema::DataType::Boolean)),
             column("unit_id", T::id())
                 .optional()
                 .with_fk("reference.units", "unit_id"),
             column("parent_domain_id", T::id())
                 .optional()
                 .with_fk("authored.domains", "domain_id"),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.3 domain: domains.",
     );
@@ -55,9 +55,9 @@ fn declare_authored_domain_members(builder: &mut RegistryBuilder) {
         vec![
             column("domain_id", T::id()).with_fk("authored.domains", "domain_id"),
             column("member_id", T::id()),
-            column("ordinal", T::U32),
-            column("label", T::Text),
-            column("coordinate", T::F64).optional(),
+            column("ordinal", T::native(arrow_schema::DataType::UInt32)),
+            column("label", T::native(arrow_schema::DataType::Utf8)),
+            column("coordinate", T::native(arrow_schema::DataType::Float64)).optional(),
             column("ref_entity_id", T::id())
                 .optional()
                 .with_fk("authored.entities", "entity_id"),
@@ -75,10 +75,13 @@ fn declare_authored_continuous_domains(builder: &mut RegistryBuilder) {
         &["domain_id"],
         vec![
             column("domain_id", T::id()).with_fk("authored.domains", "domain_id"),
-            column("lower", T::F64),
-            column("upper", T::F64),
+            column("lower", T::native(arrow_schema::DataType::Float64)),
+            column("upper", T::native(arrow_schema::DataType::Float64)),
             column("unit_id", T::id()).with_fk("reference.units", "unit_id"),
-            column("initial_points", T::list(T::F64)),
+            column(
+                "initial_points",
+                T::list(T::native(arrow_schema::DataType::Float64)),
+            ),
             column("discretization_policy_id", T::id()).optional(),
         ],
         "blueprint §6.3 domain: continuous_domains.",
@@ -101,16 +104,21 @@ fn declare_normalized_domain_products(builder: &mut RegistryBuilder) {
 }
 
 fn declare_inferred_valid_index_tuples(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Inferred,
         "valid_index_tuples",
+        2,
         S::Derived,
         &["product_id", "tuple"],
         vec![
             column("product_id", T::id()).with_fk("normalized.domain_products", "product_id"),
-            column("tuple", T::Ext(crate::model::ExtensionUse::IndexTuple)),
-            column("derivation_id", T::id()),
+            column("tuple", T::extended(crate::model::ExtensionUse::IndexTuple)),
+            crate::model::FieldContract::provenance(
+                "derivation_id",
+                T::id(),
+                "Exact source derivation.",
+            ),
         ],
         "blueprint §6.3 domain: valid_index_tuples.",
     );
@@ -127,8 +135,8 @@ fn declare_compiled_meshes(builder: &mut RegistryBuilder) {
             column("mesh_id", T::id()),
             column("domain_id", T::id()),
             column("policy_id", T::id()),
-            column("node_count", T::U32),
-            column("nodes", T::list(T::F64)),
+            column("node_count", T::native(arrow_schema::DataType::UInt32)),
+            column("nodes", T::list(T::native(arrow_schema::DataType::Float64))),
         ],
         "blueprint §6.3 domain: meshes.",
     );
@@ -144,8 +152,8 @@ fn declare_compiled_mesh_nodes(builder: &mut RegistryBuilder) {
         vec![
             column("node_id", T::id()),
             column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
-            column("ordinal", T::U32),
-            column("coordinate", T::F64),
+            column("ordinal", T::native(arrow_schema::DataType::UInt32)),
+            column("coordinate", T::native(arrow_schema::DataType::Float64)),
             column("kind", T::enumeration("NodeKind")),
         ],
         "blueprint §6.3 domain: mesh_nodes.",
@@ -162,11 +170,11 @@ fn declare_compiled_stencils(builder: &mut RegistryBuilder) {
         vec![
             column("stencil_id", T::id()),
             column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
-            column("derivative_order", T::U8),
+            column("derivative_order", T::native(arrow_schema::DataType::UInt8)),
             column("scheme", T::enumeration("DiscretizationScheme")),
             column("node_id", T::id()),
             column("neighbor_node_id", T::id()),
-            column("weight", T::F64),
+            column("weight", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.3 domain: stencils.",
     );
@@ -183,7 +191,7 @@ fn declare_compiled_quadrature_rules(builder: &mut RegistryBuilder) {
             column("rule_id", T::id()),
             column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
             column("node_id", T::id()),
-            column("weight", T::F64),
+            column("weight", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.3 domain: quadrature_rules.",
     );

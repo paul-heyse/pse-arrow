@@ -8,13 +8,14 @@ blueprint §6.12 derived structure: backend_bindings.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, backend`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `backend` | `enum:Backend` | false | `key` | — |
-| `status` | `enum:BindingStatus` | false | `payload` | — |
-| `unsupported_opcodes` | `list<text>` | false | `payload` | — |
-| `artifact_hash` | `content_hash` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `backend` | `enum:Backend` | false | `key` | — | — |
+| `status` | `enum:BindingStatus` | false | `payload` | — | — |
+| `unsupported_opcodes` | `List` | false | `payload` | — | — |
+| `unsupported_opcodes.item` | `Utf8` | false | `payload` | — | — |
+| `artifact_hash` | `content_hash` | true | `payload` | — | — |
 
 ## `block_members`
 
@@ -22,11 +23,11 @@ blueprint §6.12 derived structure: block_members.
 
 Version: 1. Snapshot class: `derived`. Primary key: `block_id, kind, id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `block_id` | `semantic_id` | false | `key` | — |
-| `kind` | `enum:DMKind` | false | `key` | — |
-| `id` | `semantic_id` | false | `key` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `block_id` | `semantic_id` | false | `key` | — | — |
+| `kind` | `enum:DMKind` | false | `key` | — | — |
+| `id` | `semantic_id` | false | `key` | — | — |
 
 ## `blocks`
 
@@ -34,13 +35,13 @@ blueprint §6.12 derived structure: blocks.
 
 Version: 1. Snapshot class: `derived`. Primary key: `block_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `payload` | — |
-| `block_id` | `semantic_id` | false | `key` | — |
-| `kind` | `enum:BlockKind` | false | `payload` | — |
-| `order` | `u32` | false | `payload` | — |
-| `size` | `u32` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `payload` | — | — |
+| `block_id` | `semantic_id` | false | `key` | — | — |
+| `kind` | `enum:BlockKind` | false | `payload` | — | — |
+| `order` | `UInt32` | false | `payload` | — | — |
+| `size` | `UInt32` | false | `payload` | — | — |
 
 ## `bound_values`
 
@@ -48,15 +49,15 @@ blueprint §6.12 derived structure: bound_values.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `symbol_id` | `semantic_id` | false | `key` | — |
-| `treatment` | `enum:Treatment` | false | `payload` | — |
-| `value` | `f64` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
-| `value_hash` | `content_hash` | false | `payload` | — |
-| `source_spec_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `treatment` | `enum:Treatment` | false | `payload` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `value_hash` | `content_hash` | false | `payload` | — | — |
+| `source_spec_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `case_bound_substitutions`
 
@@ -64,14 +65,41 @@ blueprint §6.12 derived structure: case_bound_substitutions.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `symbol_id` | `semantic_id` | false | `key` | — |
-| `value` | `f64` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
-| `value_hash` | `content_hash` | false | `payload` | — |
-| `source` | `enum:ValueSource` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `value_hash` | `content_hash` | false | `payload` | — | — |
+| `source` | `enum:ValueSource` | false | `payload` | — | — |
+
+## `contributions`
+
+Instantiated contribution with complete physical subject and domain contract.
+
+Version: 1. Snapshot class: `derived`. Primary key: `contribution_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `contribution_id` | `semantic_id` | false | `key` | — | — |
+| `contribution_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | — | — |
+| `expression_root` | `UInt64` | false | `payload` | — | — |
+| `law_family` | `enum:LawFamily` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `basis_id` | `semantic_id` | true | `payload` | — | — |
+| `orientation` | `enum:Orientation` | false | `payload` | — | — |
+| `transfer_connection_id` | `semantic_id` | true | `payload` | — | — |
+| `subject_kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
+| `subject_id` | `semantic_id` | true | `payload` | — | — |
+| `subject_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_id` | `semantic_id` | true | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `dm_partition`
 
@@ -79,13 +107,75 @@ blueprint §6.12 derived structure: dm_partition.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, kind, id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `kind` | `enum:DMKind` | false | `key` | — |
-| `id` | `semantic_id` | false | `key` | — |
-| `block` | `enum:DMBlock` | false | `payload` | — |
-| `matched_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `kind` | `enum:DMKind` | false | `key` | — | — |
+| `id` | `semantic_id` | false | `key` | — | — |
+| `block` | `enum:DMBlock` | false | `payload` | — | — |
+| `matched_id` | `semantic_id` | true | `payload` | — | — |
+
+## `element_projection_coefficients`
+
+Immutable generated coefficient from exact actual species composition and optional kg/mol molecular weight, never an initial guess.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id, index`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | `compiled.element_projection_groups.group_id` | — |
+| `index` | `index_tuple` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `node_id` | `UInt64` | false | `payload` | — | — |
+| `element_id` | `semantic_id` | false | `payload` | — | — |
+| `species_id` | `semantic_id` | false | `payload` | — | — |
+| `count` | `Float64` | false | `payload` | — | — |
+| `molecular_weight` | `Float64` | true | `payload` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `element_projection_groups`
+
+Generated ordered Element/Species product tied to actual law and contribution axes; P10 rechecks correspondence.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+| `application_id` | `semantic_id` | false | `payload` | — | — |
+| `contribution_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `law_template_id` | `semantic_id` | false | `payload` | — | — |
+| `source_basis_id` | `semantic_id` | false | `payload` | — | — |
+| `element_domain_id` | `semantic_id` | false | `payload` | — | — |
+| `species_domain_id` | `semantic_id` | false | `payload` | — | — |
+| `domain_ids` | `List` | false | `payload` | — | — |
+| `domain_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `equation_branches`
+
+Exact conditional-equation leaf correspondence with complete complementary actual predicate guards; indexed equations retain their declared senses.
+
+Version: 1. Snapshot class: `derived`. Primary key: `indexed_equation_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `indexed_equation_id` | `semantic_id` | false | `key` | — | — |
+| `parent_indexed_equation_id` | `semantic_id` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `equation_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | — | — |
+| `equation_node_id` | `UInt64` | false | `payload` | — | — |
+| `branch_guards` | `List` | false | `payload` | — | — |
+| `branch_guards.item` | `Struct` | false | `payload` | — | — |
+| `branch_guards.item.source_id` | `semantic_id` | false | `payload` | — | — |
+| `branch_guards.item.predicate_id` | `UInt64` | false | `payload` | — | — |
+| `branch_guards.item.expected` | `Boolean` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `equation_order`
 
@@ -93,14 +183,14 @@ blueprint §6.12 derived structure: equation_order.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, equation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `equation_id` | `semantic_id` | false | `key` | — |
-| `position` | `u64` | true | `payload` | — |
-| `active` | `bool` | false | `payload` | — |
-| `scale` | `f64` | false | `payload` | — |
-| `kind` | `enum:RowKind` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `equation_id` | `semantic_id` | false | `key` | — | — |
+| `position` | `UInt64` | true | `payload` | — | — |
+| `active` | `Boolean` | false | `payload` | — | — |
+| `scale` | `Float64` | false | `payload` | — | — |
+| `kind` | `enum:RowKind` | false | `payload` | — | — |
 
 ## `equation_scales`
 
@@ -108,12 +198,12 @@ blueprint §6.11 numerical and rule: equation_scales.
 
 Version: 1. Snapshot class: `derived`. Primary key: `equation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `equation_id` | `semantic_id` | false | `key` | — |
-| `scale` | `f64` | false | `payload` | — |
-| `scheme` | `enum:ConstraintScalingScheme` | false | `payload` | — |
-| `derivation_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `equation_id` | `semantic_id` | false | `key` | — | — |
+| `scale` | `Float64` | false | `payload` | — | — |
+| `scheme` | `enum:ConstraintScalingScheme` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `evaluation_programs`
 
@@ -121,13 +211,128 @@ blueprint §6.12 derived structure: evaluation_programs.
 
 Version: 1. Snapshot class: `derived`. Primary key: `program_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `payload` | — |
-| `program_id` | `semantic_id` | false | `key` | — |
-| `artifact_hash` | `content_hash` | false | `payload` | — |
-| `instruction_count` | `u64` | false | `payload` | — |
-| `workspace_size` | `u64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `payload` | — | — |
+| `program_id` | `semantic_id` | false | `key` | — | — |
+| `artifact_hash` | `content_hash` | false | `payload` | — | — |
+| `instruction_count` | `UInt64` | false | `payload` | — | — |
+| `workspace_size` | `UInt64` | false | `payload` | — | — |
+
+## `expression_root_indices`
+
+Complete source-ordered actual free-index environment for one expression root; scalar roots have no index rows.
+
+Version: 1. Snapshot class: `derived`. Primary key: `owner_id, role, ordinal, position`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `owner_id` | `semantic_id` | false | `key` | — | — |
+| `role` | `enum:ExpressionRootRole` | false | `key` | — | — |
+| `ordinal` | `UInt16` | false | `key` | — | — |
+| `position` | `UInt16` | false | `key` | — | — |
+| `bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | `normalized.domains.domain_id` | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `expression_roots`
+
+Explicit non-equation expression occurrence roots preserved through P10.
+
+Version: 1. Snapshot class: `derived`. Primary key: `owner_id, role, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `owner_id` | `semantic_id` | false | `key` | — | — |
+| `role` | `enum:ExpressionRootRole` | false | `key` | — | — |
+| `ordinal` | `UInt16` | false | `key` | — | — |
+| `node_id` | `UInt64` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `group_collection_members`
+
+Complete reversible collected tuple to actual owner/declaration/member correspondence; hashes and matching labels cannot prove this mapping.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id, index`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | `compiled.group_collections.group_id` | — |
+| `index` | `index_tuple` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `payload` | `compiled.symbols.symbol_id` | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `source_index` | `index_tuple` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `group_collections`
+
+Finite group collected through one actual instance path. Ordered factors and every scalar member's complete physical type are checked against actual providers.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | `compiled.symbol_groups.group_id` | — |
+| `root_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | `normalized.expression_sources.source_id` | — |
+| `path_id` | `UInt64` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | `normalized.domain_products.product_id` | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `group_projections`
+
+Exact source-group restriction on ordered fixed members; remaining factors and complete projected tuples must agree with actual group rows.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | `compiled.symbol_groups.group_id` | — |
+| `source_group_id` | `semantic_id` | false | `payload` | `compiled.symbol_groups.group_id` | — |
+| `fixed_coordinates` | `List` | false | `payload` | — | — |
+| `fixed_coordinates.item` | `Struct` | false | `payload` | — | — |
+| `fixed_coordinates.item.axis` | `UInt16` | false | `payload` | — | — |
+| `fixed_coordinates.item.member_id` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | `normalized.domain_products.product_id` | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `group_reindexing_members`
+
+Complete P5-valid free tuple to evaluated source tuple and actual provider correspondence.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id, index`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | `compiled.group_reindexings.group_id` | — |
+| `index` | `index_tuple` | false | `key` | — | — |
+| `source_index` | `index_tuple` | false | `payload` | — | — |
+| `symbol_id` | `semantic_id` | false | `payload` | `compiled.symbols.symbol_id` | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `group_reindexings`
+
+Actual source arithmetic subscripts under an explicit free/fixed binder environment.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | `compiled.symbol_groups.group_id` | — |
+| `source_group_id` | `semantic_id` | false | `payload` | `compiled.symbol_groups.group_id` | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | `normalized.expression_sources.source_id` | — |
+| `source_node_id` | `UInt64` | false | `payload` | — | — |
+| `bound_indices` | `List` | false | `payload` | — | — |
+| `bound_indices.item` | `semantic_id` | false | `payload` | — | — |
+| `fixed_indices` | `List` | false | `payload` | — | — |
+| `fixed_indices.item` | `Struct` | false | `payload` | — | — |
+| `fixed_indices.item.bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `fixed_indices.item.member_id` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | `normalized.domain_products.product_id` | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `incidence`
 
@@ -135,13 +340,13 @@ blueprint §6.12 derived structure: incidence.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, equation_id, symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `equation_id` | `semantic_id` | false | `key` | — |
-| `symbol_id` | `semantic_id` | false | `key` | — |
-| `linear` | `bool` | false | `payload` | — |
-| `coefficient` | `f64` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `equation_id` | `semantic_id` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `linear` | `Boolean` | false | `payload` | — | — |
+| `coefficient` | `Float64` | true | `payload` | — | — |
 
 ## `init_stages`
 
@@ -149,19 +354,20 @@ blueprint §6.11 numerical and rule: init_stages.
 
 Version: 1. Snapshot class: `derived`. Primary key: `stage_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `stage_id` | `semantic_id` | false | `key` | — |
-| `plan_id` | `semantic_id` | false | `payload` | — |
-| `ordinal` | `u16` | false | `payload` | — |
-| `kind` | `enum:StageKind` | false | `payload` | — |
-| `target_kind` | `enum:StageTargetKind` | false | `payload` | — |
-| `target_ids` | `list<semantic_id>` | false | `payload` | — |
-| `overlay_case_id` | `semantic_id` | true | `payload` | — |
-| `solver_profile_id` | `semantic_id` | true | `payload` | — |
-| `tolerance` | `f64` | true | `payload` | — |
-| `failure_policy` | `enum:FailurePolicy` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `stage_id` | `semantic_id` | false | `key` | — | — |
+| `plan_id` | `semantic_id` | false | `payload` | — | — |
+| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `kind` | `enum:StageKind` | false | `payload` | — | — |
+| `target_kind` | `enum:StageTargetKind` | false | `payload` | — | — |
+| `target_ids` | `List` | false | `payload` | — | — |
+| `target_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `overlay_case_id` | `semantic_id` | true | `payload` | — | — |
+| `solver_profile_id` | `semantic_id` | true | `payload` | — | — |
+| `tolerance` | `Float64` | true | `payload` | — | — |
+| `failure_policy` | `enum:FailurePolicy` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `initialization_plans`
 
@@ -169,12 +375,12 @@ blueprint §6.11 numerical and rule: initialization_plans.
 
 Version: 1. Snapshot class: `derived`. Primary key: `plan_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `plan_id` | `semantic_id` | false | `key` | — |
-| `case_id` | `semantic_id` | false | `payload` | — |
-| `template_id` | `semantic_id` | false | `payload` | — |
-| `doc` | `text` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `plan_id` | `semantic_id` | false | `key` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `template_id` | `semantic_id` | false | `payload` | — | — |
+| `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `kernel_bindings`
 
@@ -182,13 +388,82 @@ blueprint §6.11 numerical and rule: kernel_bindings.
 
 Version: 1. Snapshot class: `derived`. Primary key: `binding_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `binding_id` | `semantic_id` | false | `key` | — |
-| `kernel_id` | `semantic_id` | false | `payload` | — |
-| `scope_instance_id` | `semantic_id` | false | `payload` | — |
-| `parameter_bindings` | `list<struct{name:text,symbol_id:semantic_id?,value:f64?,unit_id:semantic_id?}>` | false | `payload` | — |
-| `input_bindings` | `list<struct{name:text,node_id:u64}>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `binding_id` | `semantic_id` | false | `key` | — | — |
+| `kernel_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `parameter_bindings` | `List` | false | `payload` | — | — |
+| `parameter_bindings.item` | `Struct` | false | `payload` | — | — |
+| `parameter_bindings.item.name` | `Utf8` | false | `payload` | — | — |
+| `parameter_bindings.item.symbol_id` | `semantic_id` | true | `payload` | — | — |
+| `parameter_bindings.item.value` | `Float64` | true | `payload` | — | — |
+| `parameter_bindings.item.unit_id` | `semantic_id` | true | `payload` | — | — |
+| `input_bindings` | `List` | false | `payload` | — | — |
+| `input_bindings.item` | `Struct` | false | `payload` | — | — |
+| `input_bindings.item.name` | `Utf8` | false | `payload` | — | — |
+| `input_bindings.item.node_id` | `UInt64` | false | `payload` | — | — |
+
+## `kernel_output_symbols`
+
+Actual kernel output symbol correspondence; generated identity never certifies descriptor, body or execution availability.
+
+Version: 1. Snapshot class: `derived`. Primary key: `requirement_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_id` | `semantic_id` | false | `payload` | `compiled.symbols.symbol_id` | — |
+| `requirement_id` | `semantic_id` | false | `key` | `inferred.property_requirements.requirement_id` | — |
+| `state_scope_id` | `semantic_id` | false | `payload` | `inferred.state_scopes.state_scope_id` | — |
+| `method_id` | `semantic_id` | false | `payload` | `reference.method_specs.method_id` | — |
+| `kernel_binding_id` | `semantic_id` | false | `payload` | — | — |
+| `output_ordinal` | `UInt16` | false | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
+| `derivation_id` | `semantic_id` | false | `payload` | — | — |
+
+## `law_applications`
+
+Bound conservation law, preserving its scope, subject, basis and indexed shape.
+
+Version: 1. Snapshot class: `derived`. Primary key: `application_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `application_id` | `semantic_id` | false | `key` | — | — |
+| `law_instance_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `law_template_id` | `semantic_id` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `scope_id` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+| `law_family` | `enum:LawFamily` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `basis_id` | `semantic_id` | true | `payload` | — | — |
+| `subject_kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
+| `subject_id` | `semantic_id` | true | `payload` | — | — |
+| `subject_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_axis` | `UInt16` | true | `payload` | — | — |
+| `phase_id` | `semantic_id` | true | `payload` | — | — |
+| `source_family` | `enum:LawFamily` | false | `payload` | — | — |
+| `subject_projection` | `enum:LawSubjectProjection` | false | `payload` | — | — |
+| `expansion` | `enum:LawExpansion` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `law_participation`
+
+Disjoint exhaustive candidate partition; conversions and exclusions are actual witnesses.
+
+Version: 1. Snapshot class: `derived`. Primary key: `application_id, contribution_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `application_id` | `semantic_id` | false | `key` | — | — |
+| `contribution_id` | `semantic_id` | false | `key` | — | — |
+| `decision` | `enum:ParticipationDecision` | false | `payload` | — | — |
+| `reason` | `enum:ParticipationReason` | false | `payload` | — | — |
+| `sign` | `Int32` | false | `payload` | — | — |
+| `conversion_id` | `semantic_id` | true | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `math_affine`
 
@@ -196,13 +471,16 @@ blueprint §6.9 math: math_affine.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `constant` | `f64` | false | `payload` | — |
-| `constant_quantity_type_id` | `semantic_id` | true | `payload` | — |
-| `constant_unit_id` | `semantic_id` | true | `payload` | — |
-| `terms` | `list<struct{coefficient:f64,child_node_id:u64}>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `constant` | `Float64` | false | `payload` | — | — |
+| `constant_quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `constant_unit_id` | `semantic_id` | true | `payload` | — | — |
+| `terms` | `List` | false | `payload` | — | — |
+| `terms.item` | `Struct` | false | `payload` | — | — |
+| `terms.item.coefficient` | `Float64` | false | `payload` | — | — |
+| `terms.item.child_node_id` | `UInt64` | false | `payload` | — | — |
 
 ## `math_broadcasts`
 
@@ -210,11 +488,11 @@ blueprint §6.9 math: math_broadcasts.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `domain_id` | `semantic_id` | false | `payload` | — |
-| `bound_index_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | — | — |
+| `bound_index_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_complementarity`
 
@@ -222,12 +500,12 @@ blueprint §6.9 math: math_complementarity.
 
 Version: 1. Snapshot class: `derived`. Primary key: `pair_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `pair_id` | `semantic_id` | false | `key` | — |
-| `expr_a_node_id` | `u64` | false | `payload` | — |
-| `expr_b_node_id` | `u64` | false | `payload` | — |
-| `formulation` | `enum:ComplementarityForm` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `pair_id` | `semantic_id` | false | `key` | — | — |
+| `expr_a_node_id` | `UInt64` | false | `payload` | — | — |
+| `expr_b_node_id` | `UInt64` | false | `payload` | — | — |
+| `formulation` | `enum:ComplementarityForm` | false | `payload` | — | — |
 
 ## `math_conditionals`
 
@@ -235,22 +513,23 @@ blueprint §6.9 math: math_conditionals.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `guard_node_id` | `u64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `guard_node_id` | `UInt64` | false | `payload` | — | — |
 
 ## `math_dae_links`
 
-blueprint §6.9 math: math_dae_links.
+blueprint §6.9 math: explicit actual state/derivative/domain and positive derivative order.
 
-Version: 1. Snapshot class: `derived`. Primary key: `derivative_symbol_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `derivative_symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `derivative_symbol_id` | `semantic_id` | false | `key` | — |
-| `state_symbol_id` | `semantic_id` | false | `payload` | — |
-| `wrt_domain_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `derivative_symbol_id` | `semantic_id` | false | `key` | — | — |
+| `state_symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `wrt_domain_id` | `semantic_id` | false | `payload` | — | — |
+| `derivative_order` | `UInt8` | false | `payload` | — | — |
 
 ## `math_derivatives`
 
@@ -258,11 +537,11 @@ blueprint §6.9 math: math_derivatives.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `wrt_domain_id` | `semantic_id` | false | `payload` | — |
-| `order` | `u8` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `wrt_domain_id` | `semantic_id` | false | `payload` | — | — |
+| `order` | `UInt8` | false | `payload` | — | — |
 
 ## `math_equations`
 
@@ -270,29 +549,29 @@ blueprint §6.9 math: math_equations.
 
 Version: 1. Snapshot class: `derived`. Primary key: `equation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `equation_id` | `semantic_id` | false | `key` | — |
-| `ordinal` | `u64` | false | `payload` | — |
-| `owner_instance_id` | `semantic_id` | false | `payload` | — |
-| `equation_decl_id` | `semantic_id` | true | `payload` | — |
-| `parent_indexed_equation_id` | `semantic_id` | true | `payload` | — |
-| `qualified_name` | `text` | false | `payload` | — |
-| `index` | `index_tuple` | false | `payload` | — |
-| `body_node_id` | `u64` | false | `payload` | — |
-| `sense` | `enum:Sense` | false | `payload` | — |
-| `lower_node_id` | `u64` | true | `payload` | — |
-| `upper_node_id` | `u64` | true | `payload` | — |
-| `residual_quantity_type_id` | `semantic_id` | false | `payload` | — |
-| `family` | `enum:EquationFamily` | false | `payload` | — |
-| `role` | `enum:EquationRole` | false | `payload` | — |
-| `differentiability` | `enum:Differentiability` | false | `payload` | — |
-| `convexity` | `enum:Convexity` | false | `payload` | — |
-| `monotonicity` | `enum:Monotonicity` | false | `payload` | — |
-| `default_active` | `bool` | false | `payload` | — |
-| `group_id` | `semantic_id` | true | `payload` | — |
-| `law_instance_id` | `semantic_id` | true | `payload` | — |
-| `derivation_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `equation_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `equation_decl_id` | `semantic_id` | true | `payload` | — | — |
+| `parent_indexed_equation_id` | `semantic_id` | true | `payload` | — | — |
+| `qualified_name` | `Utf8` | false | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
+| `body_node_id` | `UInt64` | false | `payload` | — | — |
+| `sense` | `enum:Sense` | false | `payload` | — | — |
+| `lower_node_id` | `UInt64` | true | `payload` | — | — |
+| `upper_node_id` | `UInt64` | true | `payload` | — | — |
+| `residual_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `family` | `enum:EquationFamily` | false | `payload` | — | — |
+| `role` | `enum:EquationRole` | false | `payload` | — | — |
+| `differentiability` | `enum:Differentiability` | false | `payload` | — | — |
+| `convexity` | `enum:Convexity` | false | `payload` | — | — |
+| `monotonicity` | `enum:Monotonicity` | false | `payload` | — | — |
+| `default_active` | `Boolean` | false | `payload` | — | — |
+| `group_id` | `semantic_id` | true | `payload` | — | — |
+| `law_instance_id` | `semantic_id` | true | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_expr_args`
 
@@ -300,11 +579,11 @@ blueprint §6.9 math: math_expr_args.
 
 Version: 1. Snapshot class: `derived`. Primary key: `parent_node_id, argument_ordinal`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `parent_node_id` | `u64` | false | `key` | — |
-| `argument_ordinal` | `u16` | false | `key` | — |
-| `child_node_id` | `u64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `parent_node_id` | `UInt64` | false | `key` | — | — |
+| `argument_ordinal` | `UInt16` | false | `key` | — | — |
+| `child_node_id` | `UInt64` | false | `payload` | — | — |
 
 ## `math_expr_nodes`
 
@@ -312,13 +591,13 @@ blueprint §6.9 math: math_expr_nodes.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `opcode` | `enum:Opcode` | false | `payload` | — |
-| `quantity_type_id` | `semantic_id` | true | `payload` | — |
-| `scope_instance_id` | `semantic_id` | true | `payload` | — |
-| `subtree_hash` | `content_hash` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `opcode` | `enum:Opcode` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `scope_instance_id` | `semantic_id` | true | `payload` | — | — |
+| `subtree_hash` | `content_hash` | false | `payload` | — | — |
 
 ## `math_float_constants`
 
@@ -326,11 +605,11 @@ blueprint §6.9 math: math_float_constants.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `value` | `f64` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_free_indices`
 
@@ -338,12 +617,12 @@ blueprint §6.9 math: math_free_indices.
 
 Version: 1. Snapshot class: `derived`. Primary key: `indexed_equation_id, bound_index_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `indexed_equation_id` | `semantic_id` | false | `key` | — |
-| `bound_index_id` | `semantic_id` | false | `key` | — |
-| `domain_id` | `semantic_id` | false | `payload` | — |
-| `position` | `u16` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `indexed_equation_id` | `semantic_id` | false | `key` | — | — |
+| `bound_index_id` | `semantic_id` | false | `key` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | — | — |
+| `position` | `UInt16` | false | `payload` | — | — |
 
 ## `math_gathers`
 
@@ -351,11 +630,14 @@ blueprint §6.9 math: math_gathers.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `group_id` | `semantic_id` | false | `payload` | — |
-| `coordinate_map` | `list<struct{bound_index_id:semantic_id,position:u16}>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `group_id` | `semantic_id` | false | `payload` | — | — |
+| `coordinate_map` | `List` | false | `payload` | — | — |
+| `coordinate_map.item` | `Struct` | false | `payload` | — | — |
+| `coordinate_map.item.bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `coordinate_map.item.position` | `UInt16` | false | `payload` | — | — |
 
 ## `math_implicit_refs`
 
@@ -363,11 +645,11 @@ blueprint §6.9 math: math_implicit_refs.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `implicit_system_id` | `semantic_id` | false | `payload` | — |
-| `unknown_ordinal` | `u16` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `implicit_system_id` | `semantic_id` | false | `payload` | — | — |
+| `unknown_ordinal` | `UInt16` | false | `payload` | — | — |
 
 ## `math_implicit_systems`
 
@@ -375,13 +657,15 @@ blueprint §6.9 math: math_implicit_systems.
 
 Version: 1. Snapshot class: `derived`. Primary key: `implicit_system_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `implicit_system_id` | `semantic_id` | false | `key` | — |
-| `unknown_symbol_ids` | `list<semantic_id>` | false | `payload` | — |
-| `equation_ids` | `list<semantic_id>` | false | `payload` | — |
-| `branch_policy` | `text` | false | `payload` | — |
-| `kernel_binding_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `implicit_system_id` | `semantic_id` | false | `key` | — | — |
+| `unknown_symbol_ids` | `List` | false | `payload` | — | — |
+| `unknown_symbol_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `equation_ids` | `List` | false | `payload` | — | — |
+| `equation_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `branch_policy` | `Utf8` | false | `payload` | — | — |
+| `kernel_binding_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `math_indexed_equations`
 
@@ -389,21 +673,21 @@ blueprint §6.9 math: math_indexed_equations.
 
 Version: 1. Snapshot class: `derived`. Primary key: `indexed_equation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `indexed_equation_id` | `semantic_id` | false | `key` | — |
-| `owner_instance_id` | `semantic_id` | false | `payload` | — |
-| `equation_decl_id` | `semantic_id` | true | `payload` | — |
-| `qualified_name` | `text` | false | `payload` | — |
-| `product_id` | `semantic_id` | true | `payload` | — |
-| `filter_node_id` | `u64` | true | `payload` | — |
-| `body_node_id` | `u64` | false | `payload` | — |
-| `sense` | `enum:Sense` | false | `payload` | — |
-| `lower_node_id` | `u64` | true | `payload` | — |
-| `upper_node_id` | `u64` | true | `payload` | — |
-| `residual_quantity_type_id` | `semantic_id` | true | `payload` | — |
-| `law_instance_id` | `semantic_id` | true | `payload` | — |
-| `derivation_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `indexed_equation_id` | `semantic_id` | false | `key` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `equation_decl_id` | `semantic_id` | true | `payload` | — | — |
+| `qualified_name` | `Utf8` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | true | `payload` | — | — |
+| `filter_node_id` | `UInt64` | true | `payload` | — | — |
+| `body_node_id` | `UInt64` | false | `payload` | — | — |
+| `sense` | `enum:Sense` | false | `payload` | — | — |
+| `lower_node_id` | `UInt64` | true | `payload` | — | — |
+| `upper_node_id` | `UInt64` | true | `payload` | — | — |
+| `residual_quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `law_instance_id` | `semantic_id` | true | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_int_constants`
 
@@ -411,10 +695,10 @@ blueprint §6.9 math: math_int_constants.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `value` | `i64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `value` | `Int64` | false | `payload` | — | — |
 
 ## `math_integrals`
 
@@ -422,13 +706,13 @@ blueprint §6.9 math: math_integrals.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `domain_id` | `semantic_id` | false | `payload` | — |
-| `quadrature_policy_id` | `semantic_id` | true | `payload` | — |
-| `bound_index_id` | `semantic_id` | false | `payload` | — |
-| `filter_node_id` | `u64` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | — | — |
+| `quadrature_policy_id` | `semantic_id` | true | `payload` | — | — |
+| `bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `filter_node_id` | `UInt64` | true | `payload` | — | — |
 
 ## `math_kernel_calls`
 
@@ -436,11 +720,11 @@ blueprint §6.9 math: math_kernel_calls.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `kernel_binding_id` | `semantic_id` | false | `payload` | — |
-| `output_ordinal` | `u16` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `kernel_binding_id` | `semantic_id` | false | `payload` | — | — |
+| `output_ordinal` | `UInt16` | false | `payload` | — | — |
 
 ## `math_objectives`
 
@@ -448,14 +732,14 @@ blueprint §6.9 math: math_objectives.
 
 Version: 1. Snapshot class: `derived`. Primary key: `objective_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `objective_id` | `semantic_id` | false | `key` | — |
-| `owner_instance_id` | `semantic_id` | false | `payload` | — |
-| `body_node_id` | `u64` | false | `payload` | — |
-| `sense` | `enum:ObjectiveSense` | false | `payload` | — |
-| `quantity_type_id` | `semantic_id` | false | `payload` | — |
-| `default_active` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `objective_id` | `semantic_id` | false | `key` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `body_node_id` | `UInt64` | false | `payload` | — | — |
+| `sense` | `enum:ObjectiveSense` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `default_active` | `Boolean` | false | `payload` | — | — |
 
 ## `math_piecewise_linear`
 
@@ -463,12 +747,15 @@ blueprint §6.9 math: math_piecewise_linear.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `breakpoints` | `list<struct{x:f64,y:f64}>` | false | `payload` | — |
-| `input_quantity_type_id` | `semantic_id` | false | `payload` | — |
-| `output_quantity_type_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `breakpoints` | `List` | false | `payload` | — | — |
+| `breakpoints.item` | `Struct` | false | `payload` | — | — |
+| `breakpoints.item.x` | `Float64` | false | `payload` | — | — |
+| `breakpoints.item.y` | `Float64` | false | `payload` | — | — |
+| `input_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `output_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_quantity_selections`
 
@@ -476,14 +763,18 @@ blueprint §6.9 math: math_quantity_selections.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `operation_id` | `semantic_id` | true | `payload` | — |
-| `builtin_rule` | `enum:BuiltinQuantityRule` | true | `payload` | — |
-| `operand_permutation` | `list<u16>` | false | `payload` | — |
-| `conversions` | `list<struct{operand:u16,conversion_id:semantic_id}>` | false | `payload` | — |
-| `deferred_static_check` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `operation_id` | `semantic_id` | true | `payload` | — | — |
+| `builtin_rule` | `enum:BuiltinQuantityRule` | true | `payload` | — | — |
+| `operand_permutation` | `List` | false | `payload` | — | — |
+| `operand_permutation.item` | `UInt16` | false | `payload` | — | — |
+| `conversions` | `List` | false | `payload` | — | — |
+| `conversions.item` | `Struct` | false | `payload` | — | — |
+| `conversions.item.operand` | `UInt16` | false | `payload` | — | — |
+| `conversions.item.conversion_id` | `semantic_id` | false | `payload` | — | — |
+| `deferred_static_check` | `Boolean` | false | `payload` | — | — |
 
 ## `math_reductions`
 
@@ -491,13 +782,13 @@ blueprint §6.9 math: math_reductions.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `kind` | `enum:ReductionKind` | false | `payload` | — |
-| `domain_id` | `semantic_id` | false | `payload` | — |
-| `bound_index_id` | `semantic_id` | false | `payload` | — |
-| `filter_node_id` | `u64` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `kind` | `enum:ReductionKind` | false | `payload` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | — | — |
+| `bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `filter_node_id` | `UInt64` | true | `payload` | — | — |
 
 ## `math_smooth_ops`
 
@@ -505,10 +796,10 @@ blueprint §6.9 math: math_smooth_ops.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `eps` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `eps` | `Float64` | false | `payload` | — | — |
 
 ## `math_symbol_refs`
 
@@ -516,10 +807,10 @@ blueprint §6.9 math: math_symbol_refs.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `symbol_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_unit_converts`
 
@@ -527,13 +818,13 @@ blueprint §6.9 math: math_unit_converts.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `scale` | `f64` | false | `payload` | — |
-| `offset` | `f64` | false | `payload` | — |
-| `from_unit_id` | `semantic_id` | false | `payload` | — |
-| `to_unit_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `scale` | `Float64` | false | `payload` | — | — |
+| `offset` | `Float64` | false | `payload` | — | — |
+| `from_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `to_unit_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_weighted_means`
 
@@ -541,12 +832,15 @@ blueprint §6.9 math: math_weighted_means.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `u64` | false | `key` | — |
-| `pairs` | `list<struct{weight_node_id:u64,value_node_id:u64}>` | false | `payload` | — |
-| `normalization` | `enum:WeightNormalization` | false | `payload` | — |
-| `unit_sum_invariant_id` | `semantic_id` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `UInt64` | false | `key` | — | — |
+| `pairs` | `List` | false | `payload` | — | — |
+| `pairs.item` | `Struct` | false | `payload` | — | — |
+| `pairs.item.weight_node_id` | `UInt64` | false | `payload` | — | — |
+| `pairs.item.value_node_id` | `UInt64` | false | `payload` | — | — |
+| `normalization` | `enum:WeightNormalization` | false | `payload` | — | — |
+| `unit_sum_invariant_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `mesh_nodes`
 
@@ -554,13 +848,13 @@ blueprint §6.3 domain: mesh_nodes.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `node_id` | `semantic_id` | false | `key` | — |
-| `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` |
-| `ordinal` | `u32` | false | `payload` | — |
-| `coordinate` | `f64` | false | `payload` | — |
-| `kind` | `enum:NodeKind` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `node_id` | `semantic_id` | false | `key` | — | — |
+| `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` | — |
+| `ordinal` | `UInt32` | false | `payload` | — | — |
+| `coordinate` | `Float64` | false | `payload` | — | — |
+| `kind` | `enum:NodeKind` | false | `payload` | — | — |
 
 ## `meshes`
 
@@ -568,13 +862,96 @@ blueprint §6.3 domain: meshes.
 
 Version: 1. Snapshot class: `derived`. Primary key: `mesh_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `mesh_id` | `semantic_id` | false | `key` | — |
-| `domain_id` | `semantic_id` | false | `payload` | — |
-| `policy_id` | `semantic_id` | false | `payload` | — |
-| `node_count` | `u32` | false | `payload` | — |
-| `nodes` | `list<f64>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `mesh_id` | `semantic_id` | false | `key` | — | — |
+| `domain_id` | `semantic_id` | false | `payload` | — | — |
+| `policy_id` | `semantic_id` | false | `payload` | — | — |
+| `node_count` | `UInt32` | false | `payload` | — | — |
+| `nodes` | `List` | false | `payload` | — | — |
+| `nodes.item` | `Float64` | false | `payload` | — | — |
+
+## `method_parameter_bindings`
+
+Exact source coefficient and physical contract for a selected method's parameter symbol; initial guesses are not parameter bindings.
+
+Version: 1. Snapshot class: `derived`. Primary key: `method_instance_id, symbol_decl_id, index`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `method_instance_id` | `semantic_id` | false | `key` | — | — |
+| `symbol_decl_id` | `semantic_id` | false | `key` | `authored.template_symbols.symbol_decl_id` | — |
+| `index` | `index_tuple` | false | `key` | — | — |
+| `source_owner` | `semantic_id` | false | `payload` | — | — |
+| `parameter_kind` | `Utf8` | false | `payload` | — | — |
+| `source_index` | `index_tuple` | false | `payload` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | `reference.units.unit_id` | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `method_realizations`
+
+P9 provision witness, distinct from P6 candidate selection.
+
+Version: 1. Snapshot class: `derived`. Primary key: `requirement_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `requirement_id` | `semantic_id` | false | `key` | — | — |
+| `method_id` | `semantic_id` | false | `payload` | — | — |
+| `template_instance_id` | `semantic_id` | true | `payload` | — | — |
+| `kernel_binding_id` | `semantic_id` | true | `payload` | — | — |
+| `output_kind` | `enum:MethodOutputKind` | false | `payload` | — | — |
+| `output_symbol_id` | `semantic_id` | true | `payload` | — | — |
+| `kernel_output_ordinal` | `UInt16` | true | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `port_member_groups`
+
+Complete ordered port-state prefix plus symbol-local member collection, proved against actual P5 targets and P7 symbol groups.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | — | — |
+| `port_id` | `semantic_id` | false | `payload` | — | — |
+| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `predicate_mask_members`
+
+Exact predicate outcome to constant-expression symbol correspondence, checked again at P10.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id, index`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | `compiled.predicate_masks.group_id` | — |
+| `index` | `index_tuple` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `node_id` | `UInt64` | false | `payload` | — | — |
+| `value` | `Boolean` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+## `predicate_masks`
+
+A Boolean expression group derived from every actual finite predicate outcome; no authored symbol is fabricated.
+
+Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | — | — |
+| `predicate_id` | `UInt64` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `problems`
 
@@ -582,18 +959,19 @@ blueprint §6.12 derived structure: problems.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `model_revision_id` | `semantic_id` | false | `payload` | — |
-| `case_id` | `semantic_id` | false | `payload` | — |
-| `discretization_policy_ids` | `list<semantic_id>` | false | `payload` | — |
-| `variable_count` | `u64` | false | `payload` | — |
-| `equation_count` | `u64` | false | `payload` | — |
-| `inequality_count` | `u64` | false | `payload` | — |
-| `objective_count` | `u64` | false | `payload` | — |
-| `degrees_of_freedom` | `i64` | false | `payload` | — |
-| `input_bundle_hash` | `content_hash` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `model_revision_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `discretization_policy_ids` | `List` | false | `payload` | — | — |
+| `discretization_policy_ids.item` | `semantic_id` | false | `payload` | — | — |
+| `variable_count` | `UInt64` | false | `payload` | — | — |
+| `equation_count` | `UInt64` | false | `payload` | — | — |
+| `inequality_count` | `UInt64` | false | `payload` | — | — |
+| `objective_count` | `UInt64` | false | `payload` | — | — |
+| `degrees_of_freedom` | `Int64` | false | `payload` | — | — |
+| `input_bundle_hash` | `content_hash` | false | `payload` | — | — |
 
 ## `quadrature_rules`
 
@@ -601,12 +979,12 @@ blueprint §6.3 domain: quadrature_rules.
 
 Version: 1. Snapshot class: `derived`. Primary key: `rule_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `rule_id` | `semantic_id` | false | `key` | — |
-| `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` |
-| `node_id` | `semantic_id` | false | `payload` | — |
-| `weight` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `rule_id` | `semantic_id` | false | `key` | — | — |
+| `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` | — |
+| `node_id` | `semantic_id` | false | `payload` | — | — |
+| `weight` | `Float64` | false | `payload` | — | — |
 
 ## `solve_plans`
 
@@ -614,13 +992,14 @@ blueprint §6.11 and §18.7: solve class selected from actual static problem att
 
 Version: 1. Snapshot class: `derived`. Primary key: `plan_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `plan_id` | `semantic_id` | false | `key` | — |
-| `problem_id` | `semantic_id` | false | `payload` | — |
-| `class` | `enum:SolvePlanClass` | false | `payload` | — |
-| `justification` | `text` | false | `payload` | — |
-| `modifiers` | `list<text>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `plan_id` | `semantic_id` | false | `key` | — | — |
+| `problem_id` | `semantic_id` | false | `payload` | — | — |
+| `class` | `enum:SolvePlanClass` | false | `payload` | — | — |
+| `justification` | `Utf8` | false | `payload` | — | — |
+| `modifiers` | `List` | false | `payload` | — | — |
+| `modifiers.item` | `Utf8` | false | `payload` | — | — |
 
 ## `sparsity_patterns`
 
@@ -628,13 +1007,15 @@ blueprint §6.12 derived structure: sparsity_patterns.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, kind`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `kind` | `enum:SparsityKind` | false | `key` | — |
-| `row_ptr` | `list<u32>` | false | `payload` | — |
-| `col_idx` | `list<u32>` | false | `payload` | — |
-| `content_hash` | `content_hash` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `kind` | `enum:SparsityKind` | false | `key` | — | — |
+| `row_ptr` | `List` | false | `payload` | — | — |
+| `row_ptr.item` | `UInt32` | false | `payload` | — | — |
+| `col_idx` | `List` | false | `payload` | — | — |
+| `col_idx.item` | `UInt32` | false | `payload` | — | — |
+| `content_hash` | `content_hash` | false | `payload` | — | — |
 
 ## `stage_bundles`
 
@@ -642,12 +1023,17 @@ blueprint §6.11 numerical and rule: stage_bundles.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `bundle_id` | `content_hash` | false | `key` | — |
-| `pass_id` | `semantic_id` | false | `payload` | — |
-| `pass_version` | `text` | false | `payload` | — |
-| `members` | `list<struct{port:text,relation_id:semantic_id,schema_version:u32,logical_hash:content_hash}>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `bundle_id` | `content_hash` | false | `key` | — | — |
+| `pass_id` | `semantic_id` | false | `payload` | — | — |
+| `pass_version` | `Utf8` | false | `payload` | — | — |
+| `members` | `List` | false | `payload` | — | — |
+| `members.item` | `Struct` | false | `payload` | — | — |
+| `members.item.port` | `Utf8` | false | `payload` | — | — |
+| `members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `members.item.schema_version` | `UInt32` | false | `payload` | — | — |
+| `members.item.logical_hash` | `content_hash` | false | `payload` | — | — |
 
 ## `stencils`
 
@@ -655,15 +1041,27 @@ blueprint §6.3 domain: stencils.
 
 Version: 1. Snapshot class: `derived`. Primary key: `stencil_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `stencil_id` | `semantic_id` | false | `key` | — |
-| `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` |
-| `derivative_order` | `u8` | false | `payload` | — |
-| `scheme` | `enum:DiscretizationScheme` | false | `payload` | — |
-| `node_id` | `semantic_id` | false | `payload` | — |
-| `neighbor_node_id` | `semantic_id` | false | `payload` | — |
-| `weight` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `stencil_id` | `semantic_id` | false | `key` | — | — |
+| `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` | — |
+| `derivative_order` | `UInt8` | false | `payload` | — | — |
+| `scheme` | `enum:DiscretizationScheme` | false | `payload` | — | — |
+| `node_id` | `semantic_id` | false | `payload` | — | — |
+| `neighbor_node_id` | `semantic_id` | false | `payload` | — | — |
+| `weight` | `Float64` | false | `payload` | — | — |
+
+## `symbol_expressions`
+
+Actual expression symbol body, rooted and physically checked at P10.
+
+Version: 1. Snapshot class: `derived`. Primary key: `symbol_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `node_id` | `UInt64` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `symbol_group_members`
 
@@ -671,11 +1069,11 @@ blueprint §6.8 symbol: symbol_group_members.
 
 Version: 1. Snapshot class: `derived`. Primary key: `group_id, tuple`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `group_id` | `semantic_id` | false | `key` | — |
-| `tuple` | `index_tuple` | false | `key` | — |
-| `symbol_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | — | — |
+| `tuple` | `index_tuple` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `symbol_groups`
 
@@ -683,12 +1081,12 @@ blueprint §6.8 symbol: symbol_groups.
 
 Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `group_id` | `semantic_id` | false | `key` | — |
-| `owner_instance_id` | `semantic_id` | false | `payload` | — |
-| `name` | `text` | false | `payload` | — |
-| `product_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `group_id` | `semantic_id` | false | `key` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `product_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `symbol_references`
 
@@ -696,11 +1094,11 @@ blueprint §6.8 symbol: symbol_references.
 
 Version: 1. Snapshot class: `derived`. Primary key: `alias_symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `alias_symbol_id` | `semantic_id` | false | `key` | — |
-| `target_symbol_id` | `semantic_id` | false | `payload` | — |
-| `kind` | `enum:AliasKind` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `alias_symbol_id` | `semantic_id` | false | `key` | — | — |
+| `target_symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `kind` | `enum:AliasKind` | false | `payload` | — | — |
 
 ## `symbols`
 
@@ -708,24 +1106,24 @@ blueprint §6.8 symbol: symbols.
 
 Version: 1. Snapshot class: `derived`. Primary key: `symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `symbol_id` | `semantic_id` | false | `key` | — |
-| `ordinal` | `u64` | false | `payload` | — |
-| `owner_instance_id` | `semantic_id` | false | `payload` | — |
-| `symbol_decl_id` | `semantic_id` | false | `payload` | — |
-| `qualified_name` | `text` | false | `payload` | — |
-| `index` | `index_tuple` | false | `payload` | — |
-| `quantity_type_id` | `semantic_id` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
-| `role` | `enum:SymbolRole` | false | `payload` | — |
-| `solver_type` | `enum:SolverVariableType` | false | `payload` | — |
-| `semantic_role` | `enum:VariableSemanticRole` | false | `payload` | — |
-| `lifecycle` | `enum:VariableLifecycle` | false | `payload` | — |
-| `default_lower` | `bound` | false | `payload` | — |
-| `default_upper` | `bound` | false | `payload` | — |
-| `default_initial` | `f64` | true | `payload` | — |
-| `derivation_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `qualified_name` | `Utf8` | false | `payload` | — | — |
+| `index` | `index_tuple` | false | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `role` | `enum:SymbolRole` | false | `payload` | — | — |
+| `solver_type` | `enum:SolverVariableType` | false | `payload` | — | — |
+| `semantic_role` | `enum:VariableSemanticRole` | false | `payload` | — | — |
+| `lifecycle` | `enum:VariableLifecycle` | false | `payload` | — | — |
+| `default_lower` | `bound` | false | `payload` | — | — |
+| `default_upper` | `bound` | false | `payload` | — | — |
+| `default_initial` | `Float64` | true | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `variable_order`
 
@@ -733,17 +1131,17 @@ blueprint §6.12 derived structure: variable_order.
 
 Version: 1. Snapshot class: `derived`. Primary key: `problem_id, symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `problem_id` | `semantic_id` | false | `key` | — |
-| `symbol_id` | `semantic_id` | false | `key` | — |
-| `position` | `u64` | true | `payload` | — |
-| `treatment` | `enum:Treatment` | false | `payload` | — |
-| `lower` | `bound` | false | `payload` | — |
-| `upper` | `bound` | false | `payload` | — |
-| `initial` | `f64` | true | `payload` | — |
-| `scale` | `f64` | false | `payload` | — |
-| `offset` | `f64` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `problem_id` | `semantic_id` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `position` | `UInt64` | true | `payload` | — | — |
+| `treatment` | `enum:Treatment` | false | `payload` | — | — |
+| `lower` | `bound` | false | `payload` | — | — |
+| `upper` | `bound` | false | `payload` | — | — |
+| `initial` | `Float64` | true | `payload` | — | — |
+| `scale` | `Float64` | false | `payload` | — | — |
+| `offset` | `Float64` | false | `payload` | — | — |
 
 ## `variable_scales`
 
@@ -751,10 +1149,10 @@ blueprint §6.11 numerical and rule: variable_scales.
 
 Version: 1. Snapshot class: `derived`. Primary key: `symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `symbol_id` | `semantic_id` | false | `key` | — |
-| `scale` | `f64` | false | `payload` | — |
-| `offset` | `f64` | false | `payload` | — |
-| `source` | `enum:ScaleSource` | false | `payload` | — |
-| `derivation_id` | `semantic_id` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `scale` | `Float64` | false | `payload` | — | — |
+| `offset` | `Float64` | false | `payload` | — | — |
+| `source` | `enum:ScaleSource` | false | `payload` | — | — |
+| `derivation_id` | `semantic_id` | false | `payload` | — | — |

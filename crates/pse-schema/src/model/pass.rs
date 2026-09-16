@@ -110,9 +110,8 @@ pub struct PassSpec {
     pub determinism: Determinism,
     /// The `FailureClass` members the pass can report.
     pub diagnostics: Vec<&'static str>,
-    /// Whether the pass executes DataFusion plans, and therefore whether the engine
-    /// profile and the function registry enter its stage key (§14.2 rule 5).
-    pub executes_plans: bool,
+    /// Effects of the native operation, composed with the invocation's scoped policy.
+    pub effects: std::collections::BTreeSet<super::provider::OperationEffect>,
 }
 
 impl PassSpec {
@@ -146,8 +145,8 @@ pub struct PassDecl {
     pub determinism: Determinism,
     /// See [`PassSpec::diagnostics`].
     pub diagnostics: Vec<&'static str>,
-    /// See [`PassSpec::executes_plans`].
-    pub executes_plans: bool,
+    /// See [`PassSpec::effects`].
+    pub effects: std::collections::BTreeSet<super::provider::OperationEffect>,
 }
 
 impl PassDecl {
@@ -162,7 +161,12 @@ impl PassDecl {
             postconditions: Vec::new(),
             determinism,
             diagnostics: Vec::new(),
-            executes_plans: false,
+            effects: [
+                super::provider::OperationEffect::Read,
+                super::provider::OperationEffect::Write,
+            ]
+            .into_iter()
+            .collect(),
         }
     }
 
@@ -180,6 +184,16 @@ impl PassDecl {
         self
     }
 
+    /// Declare the actual operation effects without restricting engine feature families.
+    #[must_use]
+    pub fn effects(
+        mut self,
+        effects: impl IntoIterator<Item = super::provider::OperationEffect>,
+    ) -> Self {
+        self.effects = effects.into_iter().collect();
+        self
+    }
+
     /// The same declaration with its pre- and postconditions set.
     #[must_use]
     pub fn conditions(mut self, preconditions: Vec<String>, postconditions: Vec<String>) -> Self {
@@ -192,13 +206,6 @@ impl PassDecl {
     #[must_use]
     pub fn diagnostics(mut self, diagnostics: Vec<&'static str>) -> Self {
         self.diagnostics = diagnostics;
-        self
-    }
-
-    /// The same declaration, marked as executing DataFusion plans.
-    #[must_use]
-    pub const fn executes_plans(mut self) -> Self {
-        self.executes_plans = true;
         self
     }
 }

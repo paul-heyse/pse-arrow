@@ -1,6 +1,7 @@
 """Passive Arrow registration and strict versioned extension metadata codecs."""
 
 import contextlib
+from types import NotImplementedType
 from typing import Never, Self
 
 import msgspec
@@ -34,10 +35,13 @@ def _identity(value: str | None) -> str:
 
 class _PseExtensionType(pa.ExtensionType):
     _extension_name = ""
-    _storage_type: pa.DataType = pa.null()
     _metadata_version = 1
     _binding_key: str | None = None
     _prototype_binding: str | None = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.null()
 
     def __init__(self, binding_id: str | None = None) -> None:
         if self._binding_key is None:
@@ -46,7 +50,24 @@ class _PseExtensionType(pa.ExtensionType):
             self.binding_id = None
         else:
             self.binding_id = _identity(binding_id)
-        super().__init__(self._storage_type, self._extension_name)
+        super().__init__(self._declared_storage(), self._extension_name)
+
+    def __eq__(self, other: object) -> bool | NotImplementedType:
+        if not isinstance(other, _PseExtensionType):
+            return NotImplemented
+        return (
+            type(self) is type(other)
+            and self.extension_name == other.extension_name
+            and self.__arrow_ext_serialize__() == other.__arrow_ext_serialize__()
+            and self.storage_type.equals(other.storage_type, check_metadata=True)
+        )
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.extension_name, self.__arrow_ext_serialize__(), self.storage_type))
+
+    def __ne__(self, other: object) -> bool | NotImplementedType:
+        equal = self.__eq__(other)
+        return NotImplemented if equal is NotImplemented else not equal
 
     def __arrow_ext_serialize__(self) -> bytes:
         if self._binding_key == "enum_id":
@@ -57,7 +78,9 @@ class _PseExtensionType(pa.ExtensionType):
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type: pa.DataType, serialized: bytes) -> Self:
-        if storage_type != cls._storage_type:
+        actual = pa.schema([pa.field("value", storage_type)])
+        expected = pa.schema([pa.field("value", cls._declared_storage())])
+        if not actual.equals(expected, check_metadata=True):
             _reject(f"{cls._extension_name} storage does not match its declared physical fields")
         try:
             if cls._binding_key == "enum_id":

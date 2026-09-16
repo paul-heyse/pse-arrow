@@ -3,9 +3,9 @@
 
 //! §6.6 template.
 
-use super::declarations::{column, relation, structure};
+use super::declarations::{column, relation, relation_version, structure};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.6 template contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -48,13 +48,13 @@ fn declare_authored_templates(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()),
             column("package_id", T::id()).with_fk("authored.packages", "package_id"),
-            column("name", T::Text),
-            column("version", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("version", T::native(arrow_schema::DataType::Utf8)),
             column("kind", T::enumeration("TemplateKind")),
             column("default_initializer_template_id", T::id()).optional(),
             column("default_scaler_template_id", T::id()).optional(),
-            column("idaes_class", T::Text).optional(),
-            column("doc", T::Text),
+            column("idaes_class", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: templates.",
     );
@@ -69,13 +69,13 @@ fn declare_authored_template_params(builder: &mut RegistryBuilder) {
         &["template_id", "name"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("logical_type_id", T::id()),
             column("enum_id", T::id()).optional(),
-            column("default", T::Text).optional(),
-            column("required", T::Bool),
-            column("domain_spec", T::Text).optional(),
-            column("doc", T::Text),
+            column("default", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("required", T::native(arrow_schema::DataType::Boolean)),
+            column("domain_spec", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_params.",
     );
@@ -90,12 +90,12 @@ fn declare_authored_template_features(builder: &mut RegistryBuilder) {
         &["template_id", "name"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("kind", T::enumeration("FeatureKind")),
             column("enum_id", T::id()).optional(),
-            column("default", T::Text).optional(),
-            column("inherit_from", T::Text).optional(),
-            column("doc", T::Text),
+            column("default", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("inherit_from", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_features.",
     );
@@ -111,8 +111,8 @@ fn declare_authored_template_feature_rules(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("rule", T::enumeration("FeatureRuleKind")),
-            column("antecedent", T::Text),
-            column("consequent", T::Text),
+            column("antecedent", T::native(arrow_schema::DataType::Utf8)),
+            column("consequent", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_feature_rules.",
     );
@@ -128,8 +128,11 @@ fn declare_authored_template_guards(builder: &mut RegistryBuilder) {
         vec![
             column("guard_id", T::id()),
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("predicate", T::Ext(crate::model::ExtensionUse::ExprDsl)),
-            column("doc", T::Text),
+            column(
+                "predicate",
+                T::extended(crate::model::ExtensionUse::ExprDsl),
+            ),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_guards.",
     );
@@ -144,13 +147,16 @@ fn declare_authored_template_domains(builder: &mut RegistryBuilder) {
         &["template_id", "name"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("kind", T::enumeration("DomainKind")),
-            column("continuous", T::Bool),
-            column("members_from", T::Text).optional(),
+            column("continuous", T::native(arrow_schema::DataType::Boolean)),
+            column("members_from", T::native(arrow_schema::DataType::Utf8)).optional(),
             column(
                 "bounds",
-                structure(vec![("lower", T::F64), ("upper", T::F64)]),
+                structure(vec![
+                    ("lower", T::native(arrow_schema::DataType::Float64)),
+                    ("upper", T::native(arrow_schema::DataType::Float64)),
+                ]),
             )
             .optional(),
             column("unit_id", T::id()).optional(),
@@ -160,27 +166,47 @@ fn declare_authored_template_domains(builder: &mut RegistryBuilder) {
 }
 
 fn declare_authored_template_symbols(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Authored,
         "template_symbols",
+        2,
         S::Model,
         &["symbol_decl_id"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("symbol_decl_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("role", T::enumeration("SymbolRole")),
             column("quantity_type_id", T::id()),
-            column("indexed_by", T::list(T::Text)),
-            column("default_lower", T::Ext(crate::model::ExtensionUse::Bound)).optional(),
-            column("default_upper", T::Ext(crate::model::ExtensionUse::Bound)).optional(),
-            column("default_initial", T::F64).optional(),
-            column("reference_to", T::Text).optional(),
-            column("wrt_domain", T::Text).optional(),
+            column(
+                "indexed_by",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
+            column(
+                "default_lower",
+                T::extended(crate::model::ExtensionUse::Bound),
+            )
+            .optional(),
+            column(
+                "default_upper",
+                T::extended(crate::model::ExtensionUse::Bound),
+            )
+            .optional(),
+            column(
+                "default_initial",
+                T::native(arrow_schema::DataType::Float64),
+            )
+            .optional(),
+            column(
+                "reference_to",
+                T::extended(crate::model::ExtensionUse::ExprDsl),
+            )
+            .optional(),
+            column("wrt_domain", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("guard_id", T::id()).optional(),
-            column("idaes_name", T::Text).optional(),
-            column("doc", T::Text),
+            column("idaes_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_symbols.",
     );
@@ -196,16 +222,22 @@ fn declare_authored_template_equations(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("equation_decl_id", T::id()),
-            column("name", T::Text),
-            column("indexed_by", T::list(T::Text)),
-            column("filter", T::Ext(crate::model::ExtensionUse::ExprDsl)).optional(),
-            column("expression", T::Ext(crate::model::ExtensionUse::ExprDsl)),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "indexed_by",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
+            column("filter", T::extended(crate::model::ExtensionUse::ExprDsl)).optional(),
+            column(
+                "expression",
+                T::extended(crate::model::ExtensionUse::ExprDsl),
+            ),
             column("sense", T::enumeration("Sense")),
             column("family_hint", T::enumeration("EquationFamily")).optional(),
             column("role_hint", T::enumeration("EquationRole")).optional(),
             column("guard_id", T::id()).optional(),
-            column("idaes_name", T::Text).optional(),
-            column("doc", T::Text),
+            column("idaes_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_equations.",
     );
@@ -220,15 +252,19 @@ fn declare_authored_template_submodels(builder: &mut RegistryBuilder) {
         &["template_id", "name"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("child_template_id", T::id()).optional(),
-            column("child_from_param", T::Text).optional(),
-            column("multiplicity_domain", T::Text).optional(),
+            column("child_from_param", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column(
+                "multiplicity_domain",
+                T::native(arrow_schema::DataType::Utf8),
+            )
+            .optional(),
             column(
                 "bindings",
                 T::list(structure(vec![
-                    ("child_param", T::Text),
-                    ("value", T::Ext(crate::model::ExtensionUse::ExprDsl)),
+                    ("child_param", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::extended(crate::model::ExtensionUse::ExprDsl)),
                 ])),
             ),
             column("guard_id", T::id()).optional(),
@@ -246,59 +282,62 @@ fn declare_authored_template_ports(builder: &mut RegistryBuilder) {
         &["template_id", "name"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("kind", T::enumeration("PortKind")),
             column("direction", T::enumeration("Direction")),
-            column("bound_to", T::Text),
+            column("bound_to", T::native(arrow_schema::DataType::Utf8)),
             column("guard_id", T::id()).optional(),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_ports.",
     );
 }
 
 fn declare_authored_template_contributions(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Authored,
         "template_contributions",
+        2,
         S::Model,
         &["contribution_decl_id"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("contribution_decl_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("law_family", T::enumeration("LawFamily")),
-            column("subject", T::Ext(crate::model::ExtensionUse::ExprDsl)).optional(),
-            column("expression", T::Ext(crate::model::ExtensionUse::ExprDsl)),
+            column(
+                "expression",
+                T::extended(crate::model::ExtensionUse::ExprDsl),
+            ),
             column("orientation", T::enumeration("Orientation")),
-            column("scope", T::Text),
+            column("scope", T::native(arrow_schema::DataType::Utf8)),
             column("guard_id", T::id()).optional(),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.6 template: template_contributions.",
     );
 }
 
 fn declare_authored_template_law_instances(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Authored,
         "template_law_instances",
+        2,
         S::Model,
         &["law_instance_decl_id"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("law_instance_decl_id", T::id()),
             column("law_template_id", T::id()),
-            column("scope", T::Text),
-            column(
-                "subject_selector",
-                T::Ext(crate::model::ExtensionUse::ExprDsl),
-            ),
+            column("scope", T::native(arrow_schema::DataType::Utf8)),
             column(
                 "options",
-                T::list(structure(vec![("key", T::Text), ("value", T::Text)])),
+                T::list(structure(vec![
+                    ("key", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             ),
             column("guard_id", T::id()).optional(),
         ],
@@ -316,7 +355,7 @@ fn declare_authored_template_requirements(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("requirement", T::enumeration("CapabilityRequirement")),
-            column("detail", T::Text).optional(),
+            column("detail", T::native(arrow_schema::DataType::Utf8)).optional(),
         ],
         "blueprint §6.6 template: template_requirements.",
     );
@@ -332,10 +371,13 @@ fn declare_authored_template_display(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("kind", T::enumeration("DisplayKind")),
-            column("label", T::Text),
-            column("expression", T::Ext(crate::model::ExtensionUse::ExprDsl)),
+            column("label", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "expression",
+                T::extended(crate::model::ExtensionUse::ExprDsl),
+            ),
             column("display_unit_id", T::id()).optional(),
-            column("format", T::Text).optional(),
+            column("format", T::native(arrow_schema::DataType::Utf8)).optional(),
         ],
         "blueprint §6.6 template: template_display.",
     );
@@ -354,11 +396,11 @@ fn declare_authored_template_property_requirements(builder: &mut RegistryBuilder
             column("operation_id", T::id()),
             column("scope_selector_id", T::id()).with_fk("authored.scopes", "scope_id"),
             column("property_kind_id", T::id()),
-            column("guard", T::Ext(crate::model::ExtensionUse::ExprDsl)).optional(),
+            column("guard", T::extended(crate::model::ExtensionUse::ExprDsl)).optional(),
             column(
                 "index_domain_bindings",
                 T::list(structure(vec![
-                    ("index_name", T::Text),
+                    ("index_name", T::native(arrow_schema::DataType::Utf8)),
                     ("domain_id", T::id()),
                 ])),
             ),
@@ -368,10 +410,11 @@ fn declare_authored_template_property_requirements(builder: &mut RegistryBuilder
 }
 
 fn declare_normalized_property_demand_seeds(builder: &mut RegistryBuilder) {
-    relation(
+    relation_version(
         builder,
         N::Normalized,
         "property_demand_seeds",
+        2,
         S::Derived,
         &["seed_id"],
         vec![
@@ -380,15 +423,20 @@ fn declare_normalized_property_demand_seeds(builder: &mut RegistryBuilder) {
             column("source_kind", T::enumeration("DemandSource")),
             column("scope_id", T::id()).with_fk("authored.scopes", "scope_id"),
             column("property_kind_id", T::id()),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("guard_node_id", T::U64).optional(),
-            column("derivation_id", T::id()),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
+            column("guard_node_id", T::native(arrow_schema::DataType::UInt64)).optional(),
+            crate::model::FieldContract::provenance(
+                "derivation_id",
+                T::id(),
+                "Exact demand seed row derivation.",
+            ),
             column("guard_source_id", T::id()).optional(),
             column("source_symbol_decl_id", T::id())
                 .optional()
                 .with_fk("authored.template_symbols", "symbol_decl_id"),
+            column("read_node_id", T::native(arrow_schema::DataType::UInt64)).optional(),
         ],
-        "blueprint §6.6 template: property_demand_seeds.",
+        "Each source-bound demand retains its exact normalized read node and guard; opaque explicit demands have no read node.",
     );
 }
 

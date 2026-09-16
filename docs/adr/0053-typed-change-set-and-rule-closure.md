@@ -24,6 +24,11 @@ The key type pse.index_tuple cannot represent integer/text composite primary key
 
 ## Scope
 
+**Current construction target:** ADR-0067 and blueprint revision 37 replace this
+record's former local replay, row-copy and phase-limited execution mechanisms.
+Plan 05 owns implementation; the domain/identity/lifetime requirements retained
+below are implemented through its single native preparation/completion route.
+
 Amends the cited blueprint sections within the approved Wave 1 boundary. It supplements existing accepted decisions; their arguments remain immutable. Implementation is authorized by the maintainer's approved execution plan; formal ADR acceptance remains the decision-PR lifecycle.
 
 ## Drivers
@@ -36,7 +41,7 @@ Retain the inconsistent scaffold: rejected because its consumers cannot preserve
 
 ## Outcome
 
-Use StagedRowRef { staged_port: text, staged_ordinal: u64 } for row_key and nullable row. Stage full schema-valid one-row members under distinct ordered operation/role ports in a durable sidecar envelope whose complete expected ports derive from the operations. Insert may share key/payload; update preserves the registry PK; delete has no replacement; key changes require delete plus insert. Staging never claims canonical model membership. Rename uses identity-bound source references from the exact base, renders all retained target/expression text, and stages document bytes, hashes and spans atomically. Refuse an unresolvable complete rename inventory without moving the ref. Rules persist actual typed expression/head/join/union/recursion semantics and migration defaults; dependency rows use exact rule IDs. RecursiveRef binds the nearest lexical Recursive node, is illegal in its seed, and is excluded from external reads. Persist the resolved target and recursion options in typed rows. Phase 0 supports UNION ALL with seed-row or explicit finite depth bounds; exceeding a bound with pending results is failure, never truncated success. Unsupported recursion is refused. Invariant head evidence does not constitute a write to the constrained authored relation.
+Use StagedRowRef { staged_port: text, staged_ordinal: u64 } for row_key and nullable row. Stage typed candidate rows in batches by relation and pre/post role, addressed by port and ordinal in the current receipt. Preserve each operation ordinal and repeated-key sequential before-images; staging does not advertise snapshot-wide key uniqueness. Insert may share key/payload; update preserves the registry PK; delete has no replacement; key changes require delete plus insert. Staging never claims canonical model membership. Rename uses identity-bound source references from the exact base, renders all retained target/expression text, and stages document bytes, hashes and spans atomically. Refuse an unresolvable complete rename inventory without moving the ref. Rules persist actual typed expression/head/join/union/recursion semantics and migration defaults; dependency rows use exact rule IDs. RecursiveRef binds the nearest lexical Recursive node, is illegal in its seed, and is excluded from external reads. Persist the resolved target and recursion options in typed rows. Native finite delta execution replaces the bounded-UNION-only interpreter. Exhaustion with pending work is failure, never convergence; declared truth/support/stratification semantics govern recursion. Invariant head evidence does not constitute a write to the constrained authored relation.
 
 Indexed targets bind local template-domain names through `authored.instance_domain_bindings`, keyed by `(instance_id, domain_name)` with an explicit `domain_id` foreign key. P1 validates the declared template domain name and actual domain compatibility, resolves each concrete selector to exactly one member in that domain, and stores its member ID in declaration order. Missing bindings, unknown/ambiguous members, repeated dimensions, wrong arity and domains owned outside the explicit instance context are errors. Wildcards retain their declared shape; no coordinate or label is hashed into an identity.
 
@@ -44,7 +49,7 @@ A commit ref atomically names the admitted snapshot manifest and an optional pai
 
 A derivation's optional fingerprint records an actual execution's existing stage or plan-evidence fingerprint. Standalone prepublication invariant evaluation has no such execution identity and stores null, matching its absent snapshot reference. Supporting keys preserve actual typed subject rows and the complete declared dependency bindings, including the binding context for negative claims. No invented digest or registry fingerprint stands in for execution attribution or semantic validation.
 
-A durable change-set receipt is an immutable control object at `changes/<encoding_checksum>.json`. It binds the exact typed header and operation sidecars, every named one-row staging artifact, original/replacement document references, the expected base revision receipt and output revision target. The revision ref may attach this exact receipt in the same atomic publication value. A staging artifact admits one authored/reference row without minting a snapshot or planner constraints. Receipt admission verifies actual schema, values, row references and the complete named inventory; operation application and rename binding remain the C2 authority and must be replayed by authoring when that semantic history is consumed.
+A durable change-set receipt is an immutable control object at `changes/<encoding_checksum>.json`. It binds the exact typed header and operation sidecars, every named one-row staging artifact, original/replacement document references, the expected base revision receipt and output revision target. The revision ref may attach this exact receipt in the same atomic publication value. A staging artifact contains typed authored/reference candidate rows with ordinal references, without minting a snapshot or planner constraints. Receipt admission verifies actual schema, values, row references and the complete named inventory; operation application and rename binding use the common source construction. Current-format external history establishes actual correspondence when consumed; completed local application is not replayed for verification.
 
 ### Continuous-domain validity
 
@@ -128,3 +133,5 @@ The correction removes an ambiguity or false guarantee with bounded implementati
 - 2026-09-14 — local conditional publication clarified before implementation: stable cooperative OS lock, complete observed-byte comparison and explicit synchronization outcomes within blueprint §20.1.
 
 - 2026-09-14 — revision 27 proposed before implementation: exact continuous-domain detail/unit cardinality and per-domain member ordinal uniqueness.
+
+- 2026-09-14 — reconciled with ADR-0067 and Plan 05; prior receipts describe their original code and do not certify the hard-pivot implementation.

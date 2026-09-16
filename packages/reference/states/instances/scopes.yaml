@@ -1,0 +1,38 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "scopes": [
+    {
+      "scope_id": "9900b2442a7e4a3b84ab73c37611c397",
+      "root_term_id": "6c41f3554f7a4ad18fdc1f23d976fd63"
+    },
+    {
+      "scope_id": "8e2e26ce4d9b485ca59fe2c7744c5b0a",
+      "root_term_id": "32e3d607eed446469fe818c230ce495c"
+    }
+  ],
+  "selector_terms": [
+    {
+      "term_id": "6c41f3554f7a4ad18fdc1f23d976fd63",
+      "scope_id": "9900b2442a7e4a3b84ab73c37611c397",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    },
+    {
+      "term_id": "32e3d607eed446469fe818c230ce495c",
+      "scope_id": "8e2e26ce4d9b485ca59fe2c7744c5b0a",
+      "parent_term_id": null,
+      "ordinal": 0,
+      "op": "self",
+      "entity_id": null,
+      "entity_kind": null,
+      "tag": null,
+      "parameter_name": null
+    }
+  ]
+}

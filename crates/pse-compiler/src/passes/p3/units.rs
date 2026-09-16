@@ -3,58 +3,60 @@
 
 //! Literal representation changes use actual unit definitions and explicit package choices.
 
-use crate::{
-    CompilerError,
-    quantity_relations::{decode_unit_sets, decode_units},
-};
+use crate::{CompilerError, quantity_relations::PhysicalInventory};
 use pse_authoring::dsl;
 use pse_ids::SemanticId;
 use pse_mathir::Payload;
 use pse_quantity::{
-    DimensionVector, ScaleKind, Unit, UnitId, UnitSet, UnitSetId, convert_spec, convert_value,
+    DimensionVector, QuantityRegistry, ScaleKind, Unit, UnitId, UnitSetId, convert_spec,
+    convert_value,
 };
-use pse_relations::{
-    RecordBatch,
-    generated::{authored, reference},
-};
-use pse_schema::{
-    Registry,
-    model::{Cell, RelationKey},
-};
-use std::collections::BTreeMap;
+use pse_relations::generated::{authored, normalized};
+use pse_schema::Registry;
+use std::collections::{BTreeMap, BTreeSet};
 
-pub(super) struct Units {
+pub(super) struct Units<'a> {
+    physical: &'a QuantityRegistry,
     definitions: BTreeMap<UnitId, Unit>,
-    sets: BTreeMap<UnitSetId, UnitSet>,
     packages: BTreeMap<SemanticId, UnitSetId>,
-    pub derived: BTreeMap<UnitId, Vec<Cell>>,
+    pub derived: BTreeMap<UnitId, normalized::units::Row>,
+    pub(super) dependencies: BTreeMap<UnitId, BTreeSet<UnitId>>,
+    pub(super) source_uses: BTreeSet<UnitId>,
+    pub(super) source_sets: BTreeSet<UnitSetId>,
 }
-impl Units {
+impl<'a> Units<'a> {
     pub(super) fn new(
-        inputs: &BTreeMap<RelationKey, RecordBatch>,
-        rows: &pse_authoring::document::Rows,
+        physical: &'a PhysicalInventory,
+        rows: &pse_authoring::document::Batches,
         registry: &Registry,
     ) -> Result<Self, CompilerError> {
-        let units = decode_units(inputs, registry)?;
-        let sets = decode_unit_sets(inputs, registry, &units)?;
+        let physical = physical.quantities();
         let spec = registry
             .relation("authored.package_unit_sets")
             .ok_or_else(|| error("package unit selector undeclared"))?;
         let mut packages = BTreeMap::new();
-        for row in rows.get(&spec.id).into_iter().flatten() {
-            let binding = authored::package_unit_sets::Row::from_cells(row.clone())?;
+        let batch = rows
+            .get(&spec.id)
+            .ok_or_else(|| error("package unit bindings absent"))?;
+        for binding in authored::package_unit_sets::View::from_checked(batch)?.rows()? {
             let package = binding.package_id;
             let set = UnitSetId::from_id(binding.unit_set_id);
-            if !sets.contains_key(&set) || packages.insert(package, set).is_some() {
+            if physical.unit_set(set).is_err() || packages.insert(package, set).is_some() {
                 return Err(error("unknown or duplicate package unit set"));
             }
         }
         Ok(Self {
-            definitions: units,
-            sets,
+            physical,
+            definitions: BTreeMap::new(),
             packages,
             derived: BTreeMap::new(),
+            dependencies: BTreeMap::new(),
+            source_uses: BTreeSet::new(),
+            source_sets: BTreeSet::new(),
         })
+    }
+    fn units(&self) -> impl Iterator<Item = &Unit> {
+        self.physical.units().chain(self.definitions.values())
     }
     pub(super) fn literal(
         &mut self,
@@ -66,15 +68,16 @@ impl Units {
                 return Ok(Payload::IntConst { value });
             }
             let candidates = self
-                .definitions
-                .values()
+                .units()
                 .filter(|unit| canonical_match(unit, DimensionVector::DIMENSIONLESS, 1.0))
+                .cloned()
                 .collect::<Vec<_>>();
             let [unit] = candidates.as_slice() else {
                 return Err(error(
                     "a fractional unitless literal requires exactly one admitted dimensionless unit",
                 ));
             };
+            self.source_uses.insert(unit.id);
             return Ok(Payload::FloatConst {
                 value: number.value,
                 unit: unit.id,
@@ -92,11 +95,19 @@ impl Units {
             });
         }
         let derived = self
-            .sets
-            .get(&set)
-            .ok_or_else(|| error("package unit set missing"))?
-            .derived_unit_from_units(from.dimension, &self.definitions)?;
+            .physical
+            .unit_set(set)?
+            .derived_unit(from.dimension, self.physical)?;
+        self.source_uses.extend(
+            self.physical
+                .unit_set(set)?
+                .base
+                .iter()
+                .zip(from.dimension.exponents())
+                .filter_map(|(unit, exponent)| (exponent.num() != 0).then_some(*unit).flatten()),
+        );
         let target = self.target(package, set, derived.dimension, derived.scale_to_canonical)?;
+        self.source_uses.insert(target.id);
         let conversion = convert_spec(&from, &target, ScaleKind::Difference)?;
         let value = convert_value(&conversion, number.value);
         if !value.is_finite() {
@@ -117,16 +128,18 @@ impl Units {
                 error("unit-bearing source requires an explicit package unit set")
             })?;
         let matches = self
-            .definitions
-            .values()
+            .units()
             .filter(|unit| unit.symbol == spelling)
             .cloned()
             .collect::<Vec<_>>();
-        match matches.as_slice() {
+        let unit = match matches.as_slice() {
             [unit] => Ok(unit.clone()),
             [] => self.compound(package, set, spelling),
             _ => Err(error("unit spelling is ambiguous")),
-        }
+        }?;
+        self.source_uses.insert(unit.id);
+        self.source_sets.insert(set);
+        Ok(unit)
     }
     fn compound(
         &mut self,
@@ -136,7 +149,8 @@ impl Units {
     ) -> Result<Unit, CompilerError> {
         let expression =
             dsl::parse_expr(spelling).map_err(|error| super::invalid(&error.to_string()))?;
-        let (dimension, scale) = compound_value(&expression, &self.definitions)?;
+        let mut dependencies = BTreeSet::new();
+        let (dimension, scale) = compound_value(&expression, self, &mut dependencies)?;
         let id = UnitId::from_id(pse_ids::named_id(
             package,
             &format!("pse:p3:unit-expression:v1:{spelling}"),
@@ -151,12 +165,12 @@ impl Units {
             reference_state: None,
         };
         unit.validate()?;
-        if self.definitions.contains_key(&id) {
+        if self.definitions.contains_key(&id) || self.physical.unit(id).is_ok() {
             return Err(error(
                 "compound unit identity collides with a distinct admitted symbol",
             ));
         }
-        let mut row = reference::units::Row {
+        let row = normalized::units::Row {
             unit_id: id.as_id(),
             symbol: spelling.to_owned(),
             name: format!("Authored unit {spelling}"),
@@ -173,10 +187,11 @@ impl Units {
             reference_state_id: None,
             system: "package".to_owned(),
             doc: "Derived from checked component-unit expressions.".to_owned(),
-        }
-        .into_cells();
-        row.extend([Cell::Id(package), Cell::Id(set.as_id())]);
+            package_id: package,
+            unit_set_id: set.as_id(),
+        };
         self.derived.insert(id, row);
+        self.dependencies.insert(id, dependencies);
         self.definitions.insert(id, unit.clone());
         Ok(unit)
     }
@@ -187,19 +202,13 @@ impl Units {
         dimension: DimensionVector,
         scale: f64,
     ) -> Result<Unit, CompilerError> {
-        let candidates = self
-            .definitions
-            .values()
-            .filter(|unit| canonical_match(unit, dimension, scale))
-            .cloned()
-            .collect::<Vec<_>>();
-        match candidates.as_slice() {
-            [unit] => return Ok(unit.clone()),
-            [] => {}
-            _ => {
-                return Err(error(
-                    "package representation has multiple matching unit declarations",
-                ));
+        // The package's explicit base-unit set determines its representation.
+        // Equivalent authored spellings may coexist; neither declaration order
+        // nor a global search for matching scales chooses the normalized unit.
+        for base in self.physical.unit_set(set)?.base.iter().flatten() {
+            let unit = self.physical.unit(*base)?;
+            if canonical_match(unit, dimension, scale) {
+                return Ok(unit.clone());
             }
         }
         let namespace = pse_ids::named_id(
@@ -226,7 +235,11 @@ impl Units {
             reference_state: None,
         };
         unit.validate()?;
-        if let Some(prior) = self.definitions.get(&id) {
+        if let Some(prior) = self
+            .definitions
+            .get(&id)
+            .or_else(|| self.physical.unit(id).ok())
+        {
             if !canonical_match(prior, dimension, scale) {
                 return Err(error(
                     "derived unit identity conflicts with actual declared values",
@@ -234,7 +247,7 @@ impl Units {
             }
             return Ok(prior.clone());
         }
-        let row = reference::units::Row {
+        let row = normalized::units::Row {
             unit_id: id.as_id(),
             symbol: unit.symbol.clone(),
             name: format!("Package unit {name}"),
@@ -250,10 +263,20 @@ impl Units {
             reference_state_id: None,
             system: "package".to_owned(),
             doc: "Derived from the exact package base-unit definitions.".to_owned(),
+            package_id: package,
+            unit_set_id: set.as_id(),
         };
-        let mut cells = row.into_cells();
-        cells.extend([Cell::Id(package), Cell::Id(set.as_id())]);
-        self.derived.insert(id, cells);
+        self.derived.insert(id, row);
+        let bases = self.physical.unit_set(set)?;
+        self.dependencies.insert(
+            id,
+            bases
+                .base
+                .iter()
+                .zip(dimension.exponents())
+                .filter_map(|(unit, exponent)| (exponent.num() != 0).then_some(*unit).flatten())
+                .collect(),
+        );
         self.definitions.insert(id, unit.clone());
         Ok(unit)
     }
@@ -275,7 +298,8 @@ fn error(reason: &str) -> CompilerError {
 
 fn compound_value(
     expr: &dsl::Expr,
-    units: &BTreeMap<UnitId, Unit>,
+    units: &Units<'_>,
+    dependencies: &mut BTreeSet<UnitId>,
 ) -> Result<(DimensionVector, f64), CompilerError> {
     let (dimension, scale) = match &expr.kind {
         dsl::ExprKind::Number(value) if value.unit.is_none() => {
@@ -285,24 +309,29 @@ fn compound_value(
             if path.segments.len() == 1 && path.segments[0].indices.is_empty() =>
         {
             let matches = units
-                .values()
+                .units()
                 .filter(|unit| unit.symbol == path.segments[0].name)
                 .collect::<Vec<_>>();
             let [unit] = matches.as_slice() else {
-                return Err(error("compound unit factor is missing or ambiguous"));
+                return Err(error(&format!(
+                    "compound unit factor '{}' has {} matching declarations",
+                    path.segments[0].name,
+                    matches.len()
+                )));
             };
             if unit.is_affine || unit.reference_state.is_some() {
                 return Err(error(
                     "affine or datum-restricted unit cannot be a compound factor",
                 ));
             }
+            dependencies.insert(unit.id);
             (unit.dimension, unit.scale_to_canonical)
         }
         dsl::ExprKind::Binary { op, lhs, rhs } => {
-            let (left, scale) = compound_value(lhs, units)?;
+            let (left, scale) = compound_value(lhs, units, dependencies)?;
             match op {
                 dsl::BinaryOp::Mul => {
-                    let (right, rscale) = compound_value(rhs, units)?;
+                    let (right, rscale) = compound_value(rhs, units, dependencies)?;
                     (
                         left.mul(&right)
                             .map_err(pse_quantity::QuantityError::from)?,
@@ -310,7 +339,7 @@ fn compound_value(
                     )
                 }
                 dsl::BinaryOp::Div => {
-                    let (right, rscale) = compound_value(rhs, units)?;
+                    let (right, rscale) = compound_value(rhs, units, dependencies)?;
                     (
                         left.div(&right)
                             .map_err(pse_quantity::QuantityError::from)?,

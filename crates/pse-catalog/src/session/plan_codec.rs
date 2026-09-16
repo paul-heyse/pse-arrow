@@ -81,7 +81,7 @@ impl SnapshotSession {
         admission::admit_plan(
             plan,
             &self.registry,
-            &self.tables,
+            &self.bindings.providers(),
             self.reserver.as_ref(),
             cancel,
         )
@@ -125,7 +125,7 @@ impl SnapshotSession {
         admission::admit_plan(
             &plan,
             &self.registry,
-            &self.tables,
+            &self.bindings.providers(),
             self.reserver.as_ref(),
             cancel,
         )
@@ -154,9 +154,9 @@ impl SnapshotSession {
         SnapshotCodec {
             functions: Arc::clone(&self.function_bindings),
             tables: self
-                .sources
-                .values()
-                .map(|(name, table)| (name.clone(), Arc::clone(table)))
+                .bindings
+                .iter()
+                .map(|(_, binding)| (binding.reference.clone(), Arc::clone(&binding.provider)))
                 .collect(),
         }
     }

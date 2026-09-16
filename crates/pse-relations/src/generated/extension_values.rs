@@ -19,8 +19,8 @@ impl crate::typed::CellCodec for ExtensionDimensionVectorItem {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#num), crate
-                ::typed::CellCodec::into_cell(self.r#den)
+                crate::typed::CellCodec::into_cell(self.r#num),
+                crate::typed::CellCodec::into_cell(self.r#den),
             ],
         )
     }
@@ -50,6 +50,50 @@ impl crate::typed::CellCodec for ExtensionDimensionVectorItem {
         })
     }
 }
+impl crate::columnar::ArrowValue for ExtensionDimensionVectorItem {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#num, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#den, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <i16 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <i16 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#num: <i16 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#den: <i16 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 ///The declared composite extension storage.
 pub type DimensionVector = [ExtensionDimensionVectorItem; 8usize];
 /// A row or nested value projected from the registry declaration.
@@ -71,9 +115,9 @@ impl crate::typed::CellCodec for ExtensionQuantityValue {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#value), crate
-                ::typed::CellCodec::into_cell(self.r#quantity_type_id), crate
-                ::typed::CellCodec::into_cell(self.r#unit_id)
+                crate::typed::CellCodec::into_cell(self.r#value),
+                crate::typed::CellCodec::into_cell(self.r#quantity_type_id),
+                crate::typed::CellCodec::into_cell(self.r#unit_id),
             ],
         )
     }
@@ -110,6 +154,63 @@ impl crate::typed::CellCodec for ExtensionQuantityValue {
         })
     }
 }
+impl crate::columnar::ArrowValue for ExtensionQuantityValue {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#value, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#quantity_type_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#unit_id, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <f64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#value: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#quantity_type_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 ///The declared composite extension storage.
 pub type QuantityValue = ExtensionQuantityValue;
 /// A row or nested value projected from the registry declaration.
@@ -129,8 +230,8 @@ impl crate::typed::CellCodec for ExtensionBound {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#kind), crate
-                ::typed::CellCodec::into_cell(self.r#value)
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#value),
             ],
         )
     }
@@ -158,6 +259,56 @@ impl crate::typed::CellCodec for ExtensionBound {
         })
     }
 }
+impl crate::columnar::ArrowValue for ExtensionBound {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::BoundKind as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::BoundKind as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#value: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 ///The declared composite extension storage.
 pub type Bound = ExtensionBound;
 /// A row or nested value projected from the registry declaration.
@@ -171,17 +322,17 @@ pub struct ExtensionSourceSpan {
     ///document_id
     pub r#document_id: pse_ids::SemanticId,
     ///start
-    pub r#start: u32,
+    pub r#start: i64,
     ///end
-    pub r#end: u32,
+    pub r#end: i64,
 }
 impl crate::typed::CellCodec for ExtensionSourceSpan {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#document_id), crate
-                ::typed::CellCodec::into_cell(self.r#start), crate
-                ::typed::CellCodec::into_cell(self.r#end)
+                crate::typed::CellCodec::into_cell(self.r#document_id),
+                crate::typed::CellCodec::into_cell(self.r#start),
+                crate::typed::CellCodec::into_cell(self.r#end),
             ],
         )
     }
@@ -201,19 +352,74 @@ impl crate::typed::CellCodec for ExtensionSourceSpan {
                         stringify!(ExtensionSourceSpan),
                     ))?,
             )?,
-            r#start: <u32 as crate::typed::CellCodec>::from_cell(
+            r#start: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(ExtensionSourceSpan),
                     ))?,
             )?,
-            r#end: <u32 as crate::typed::CellCodec>::from_cell(
+            r#end: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(ExtensionSourceSpan),
                     ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for ExtensionSourceSpan {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#document_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#end, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#document_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#start: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#end: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
             )?,
         })
     }

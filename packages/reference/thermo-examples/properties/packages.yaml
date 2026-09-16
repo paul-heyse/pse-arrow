@@ -1,0 +1,340 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "property_packages": [
+    {
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "material_system_id": "963639cbd9de44cb90112404ec02b24d",
+      "unit_set_id": "e95dc4e82a284f3877f924cb656b1de2",
+      "state_definition_method_id": "bb3ea14061b24335a0c78a25c67e67b6",
+      "temperature_ref": 298.15,
+      "pressure_ref": 100000.0,
+      "include_enthalpy_of_formation": false,
+      "bubble_dew_method_id": null,
+      "doc": "BT_liquid: ideal single-phase demonstration within declared coefficient validity; no extrapolation.",
+      "name": "BT_liquid"
+    },
+    {
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "material_system_id": "b7b9fd4a76474c72834d48b7da521384",
+      "unit_set_id": "e95dc4e82a284f3877f924cb656b1de2",
+      "state_definition_method_id": "bb3ea14061b24335a0c78a25c67e67b6",
+      "temperature_ref": 298.15,
+      "pressure_ref": 100000.0,
+      "include_enthalpy_of_formation": false,
+      "bubble_dew_method_id": null,
+      "doc": "BT_vapor: ideal single-phase demonstration within declared coefficient validity; no extrapolation.",
+      "name": "BT_vapor"
+    },
+    {
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "package_id": "7f518f9ba5af4b8cb54bfdfd4e2c805a",
+      "material_system_id": "30a37480208b4591b2126f24e5b6bd3d",
+      "unit_set_id": "e95dc4e82a284f3877f924cb656b1de2",
+      "state_definition_method_id": "bb3ea14061b24335a0c78a25c67e67b6",
+      "temperature_ref": 298.15,
+      "pressure_ref": 100000.0,
+      "include_enthalpy_of_formation": false,
+      "bubble_dew_method_id": null,
+      "doc": "N2_vapor: ideal single-phase demonstration within declared coefficient validity; no extrapolation.",
+      "name": "N2_vapor"
+    }
+  ],
+  "state_bounds": [
+    {
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "state_symbol": "temperature",
+      "lower": {
+        "kind": "finite",
+        "value": 298.15
+      },
+      "initial": 300.0,
+      "upper": {
+        "kind": "finite",
+        "value": 350.0
+      },
+      "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+    },
+    {
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "state_symbol": "pressure",
+      "lower": {
+        "kind": "finite",
+        "value": 100000.0
+      },
+      "initial": 100000.0,
+      "upper": {
+        "kind": "finite",
+        "value": 100000.0
+      },
+      "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b"
+    },
+    {
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "state_symbol": "flow_mol",
+      "lower": {
+        "kind": "finite",
+        "value": 1e-12
+      },
+      "initial": 1.0,
+      "upper": {
+        "kind": "finite",
+        "value": 1000.0
+      },
+      "unit_id": "462e80f8128a7586583e9470658e1e0e"
+    },
+    {
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "state_symbol": "temperature",
+      "lower": {
+        "kind": "finite",
+        "value": 298.15
+      },
+      "initial": 300.0,
+      "upper": {
+        "kind": "finite",
+        "value": 600.0
+      },
+      "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+    },
+    {
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "state_symbol": "pressure",
+      "lower": {
+        "kind": "finite",
+        "value": 100000.0
+      },
+      "initial": 100000.0,
+      "upper": {
+        "kind": "finite",
+        "value": 100000.0
+      },
+      "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b"
+    },
+    {
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "state_symbol": "flow_mol",
+      "lower": {
+        "kind": "finite",
+        "value": 1e-12
+      },
+      "initial": 1.0,
+      "upper": {
+        "kind": "finite",
+        "value": 1000.0
+      },
+      "unit_id": "462e80f8128a7586583e9470658e1e0e"
+    },
+    {
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "state_symbol": "temperature",
+      "lower": {
+        "kind": "finite",
+        "value": 298.15
+      },
+      "initial": 300.0,
+      "upper": {
+        "kind": "finite",
+        "value": 500.0
+      },
+      "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+    },
+    {
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "state_symbol": "pressure",
+      "lower": {
+        "kind": "finite",
+        "value": 100000.0
+      },
+      "initial": 100000.0,
+      "upper": {
+        "kind": "finite",
+        "value": 100000.0
+      },
+      "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b"
+    },
+    {
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "state_symbol": "flow_mol",
+      "lower": {
+        "kind": "finite",
+        "value": 1e-12
+      },
+      "initial": 1.0,
+      "upper": {
+        "kind": "finite",
+        "value": 1000.0
+      },
+      "unit_id": "462e80f8128a7586583e9470658e1e0e"
+    }
+  ],
+  "method_selections": [
+    {
+      "selection_id": "570267e283ec47789b1dc16c3e28ada9",
+      "is_default": false,
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "9aae781b9b3f43a5b9de80470929e4b8",
+      "family": "eos",
+      "method_id": "cba7f69ae7d945f6a7e0206279979cbb",
+      "options": []
+    },
+    {
+      "selection_id": "74a74a5a05ac448a9806e0253d4795bd",
+      "is_default": false,
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "3ec5adcc2eee4b7083dc362aceed8ad4",
+      "family": "eos",
+      "method_id": "59a34558695646668d3979346891bec7",
+      "options": []
+    },
+    {
+      "selection_id": "2981590184e6402d911a7017d178f4d0",
+      "is_default": false,
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "4530f9482d2041d1855b471475b5e890",
+      "family": "pure_component",
+      "method_id": "06535666496e4acc804aae4b25859046",
+      "options": []
+    },
+    {
+      "selection_id": "cea1b487cf284c92a2fa6c1b63b27d53",
+      "is_default": false,
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "817dbf0c81414b89a5e8c0b573524115",
+      "family": "pure_component",
+      "method_id": "f47bfef6acf44b29978030a37b558676",
+      "options": []
+    },
+    {
+      "selection_id": "772a419be89c42078eab4589bb75c811",
+      "is_default": false,
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "f001060878024753999780d99f9694a4",
+      "family": "pure_component",
+      "method_id": "6c92c46efd71453180ae182240b4ed96",
+      "options": []
+    },
+    {
+      "selection_id": "b00394ea38fa4e55b1e03362706bcb0c",
+      "is_default": false,
+      "property_package_id": "72ffd50cb6cc493bacfbea751311e974",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "1f1985c3fb7f4dd7908b2554f099b7ad",
+      "family": "pure_component",
+      "method_id": "28313358ec4642eab1766802eec46169",
+      "options": []
+    },
+    {
+      "selection_id": "1b099002345d467187c323c85d941b1e",
+      "is_default": false,
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "9aae781b9b3f43a5b9de80470929e4b8",
+      "family": "eos",
+      "method_id": "e7994cef1d6043c0a3de1706aa33c10c",
+      "options": []
+    },
+    {
+      "selection_id": "5779f43047e8440f86c2ee2ccdc50e53",
+      "is_default": false,
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "3ec5adcc2eee4b7083dc362aceed8ad4",
+      "family": "eos",
+      "method_id": "221c683b475043a7bbe45f2fc3911698",
+      "options": []
+    },
+    {
+      "selection_id": "397ef411be8f42308abb35049aa559d0",
+      "is_default": false,
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "e31a369c1b76425081c40fad3cb3b59c",
+      "family": "pure_component",
+      "method_id": "f3b769aa4e1f46ac802051d1123bb522",
+      "options": []
+    },
+    {
+      "selection_id": "80e9a56b0c884ba09cd6b3a04e1bf9d0",
+      "is_default": false,
+      "property_package_id": "f87348826732461c87bfd6008047e39a",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "ccfd921292e74b07bab8db8f46794571",
+      "family": "pure_component",
+      "method_id": "896f59a263f54103ac8d8cb0dd9ca06b",
+      "options": []
+    },
+    {
+      "selection_id": "94c9e09f9368461cb23be50172de85ed",
+      "is_default": false,
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "9aae781b9b3f43a5b9de80470929e4b8",
+      "family": "eos",
+      "method_id": "e7994cef1d6043c0a3de1706aa33c10c",
+      "options": []
+    },
+    {
+      "selection_id": "ea214f44457c4d5db18b52295b065e22",
+      "is_default": false,
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "3ec5adcc2eee4b7083dc362aceed8ad4",
+      "family": "eos",
+      "method_id": "221c683b475043a7bbe45f2fc3911698",
+      "options": []
+    },
+    {
+      "selection_id": "10cb17c8debe4a0498525ffa60b42a2d",
+      "is_default": false,
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "e31a369c1b76425081c40fad3cb3b59c",
+      "family": "pure_component",
+      "method_id": "e91e27d03e454351b534e2fbe01df028",
+      "options": []
+    },
+    {
+      "selection_id": "3cac685bd13645c196f79b5412426a4a",
+      "is_default": false,
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "ccfd921292e74b07bab8db8f46794571",
+      "family": "pure_component",
+      "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
+      "options": []
+    },
+    {
+      "selection_id": "1d23c8eb734c47d3b90d44a04756d3e6",
+      "is_default": false,
+      "property_package_id": "6aa4a49e750d46ea8da0da40f164dd78",
+      "scope_kind": "package",
+      "scope_ids": [],
+      "property_kind_id": "2376be0d233c40c3a58702adc25443fb",
+      "family": "pure_component",
+      "method_id": "9f779daa99854ab1b707977e7d054c04",
+      "options": []
+    }
+  ]
+}

@@ -9,7 +9,7 @@ use crate::{AuthoringError, SourceSpan};
 use pse_ids::SemanticId;
 use pse_relations::generated::{authored, enums::EntityKind, extension_values};
 use pse_schema::Registry;
-use pse_schema::model::{DocumentKind, DocumentSection, ExtensionUse, LogicalType, SourceColumn};
+use pse_schema::model::{DocumentKind, DocumentSection, ExtensionUse, FieldContract, SourceColumn};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -46,14 +46,20 @@ pub(super) fn documents(
             let prefix = parent
                 .and_then(|id| entities.get(&id))
                 .map_or(package.name.as_str(), |parent| &parent.qualified_name);
-            if let Some(entity) = identity(row, package, prefix, parent)?
-                && (!names.insert(entity.qualified_name.clone())
-                    || entities.insert(entity.entity_id, entity).is_some())
-            {
-                return Err(contract(
-                    Some(row.at),
-                    "duplicate entity identity or qualified name",
-                ));
+            if let Some(entity) = identity(row, package, prefix, parent)? {
+                if names.contains(&entity.qualified_name)
+                    || entities.contains_key(&entity.entity_id)
+                {
+                    return Err(contract(
+                        Some(row.at),
+                        &format!(
+                            "duplicate entity identity or qualified name: {} ({}) in {}",
+                            entity.qualified_name, entity.entity_id, row.section.relation,
+                        ),
+                    ));
+                }
+                names.insert(entity.qualified_name.clone());
+                entities.insert(entity.entity_id, entity);
             }
             done.insert(index);
         }
@@ -194,7 +200,7 @@ fn context(
     for column in &spec.columns {
         if row.section.source_column(column) == SourceColumn::PackageContext {
             let expected = package.package_id.to_string();
-            if let Some(value) = row.value.get(column.name) {
+            if let Some(value) = row.value.get(column.name()) {
                 let supplied = value
                     .text()
                     .ok_or_else(|| contract(Some(row.at), "package reference must be an ID"))?;
@@ -205,19 +211,19 @@ fn context(
                     ));
                 }
             }
-            row.value.set(column.name, Value::Text(expected));
+            row.value.set(column.name(), Value::Text(expected));
         }
         if row.section.source_column(column) == SourceColumn::ParserSpan {
-            if row.value.get(column.name).is_some() {
+            if row.value.get(column.name()).is_some() {
                 return Err(contract(
                     Some(row.at),
                     "source spans come from the original parser",
                 ));
             }
-            row.value.set(column.name, span_value(row.at));
+            row.value.set(column.name(), span_value(row.at));
         }
-        if let Some(value) = row.value.get_mut(column.name) {
-            normalize_ids(value, &column.logical_type, row.at)?;
+        if let Some(value) = row.value.get_mut(column.name()) {
+            normalize_ids(value, &column.value_type(), row.at)?;
         }
     }
     Ok(())
@@ -285,35 +291,43 @@ fn identity(
     Ok(Some(authored::entities::Row {
         entity_id: id,
         package_id: package.package_id,
-        kind: EntityKind::deserialize(Value::Text(kind.to_owned()))
+        kind: EntityKind::deserialize(&Value::Text(kind.to_owned()))
             .map_err(|error| contract(Some(row.at), &error.to_string()))?,
         name,
         qualified_name,
         parent_entity_id: parent,
         source_span: Some(extension_values::SourceSpan {
             document_id: row.at.document_id,
-            start: row.at.start,
-            end: row.at.end,
+            start: i64::from(row.at.start),
+            end: i64::from(row.at.end),
         }),
     }))
 }
 
 fn normalize_ids(
     value: &mut Value,
-    ty: &LogicalType,
+    ty: &FieldContract,
     at: SourceSpan,
 ) -> Result<(), AuthoringError> {
-    match (value, ty) {
-        (Value::Text(text), LogicalType::Ext(ExtensionUse::SemanticId)) => {
+    match (value, ty.extension(), ty.data_type()) {
+        (Value::Text(text), Some(ExtensionUse::SemanticId), _) => {
             *text = crate::ids::parse_id(text, at)?.to_string();
         }
-        (Value::List(values), LogicalType::List(element) | LogicalType::FixedList(element, _)) => {
+        (
+            Value::List(values),
+            None,
+            datafusion::arrow::datatypes::DataType::List(element)
+            | datafusion::arrow::datatypes::DataType::FixedSizeList(element, _),
+        ) => {
+            let element = &FieldContract::from_field((*element).clone());
             for value in values {
                 normalize_ids(&mut value.value, element, at)?;
             }
         }
-        (value @ Value::Map(_), LogicalType::Struct(fields)) => {
-            for (name, ty, _) in fields {
+        (value @ Value::Map(_), None, datafusion::arrow::datatypes::DataType::Struct(fields)) => {
+            for field in &fields {
+                let name = field.name();
+                let ty = &FieldContract::from_field((**field).clone());
                 if let Some(value) = value.get_mut(name) {
                     normalize_ids(value, ty, at)?;
                 }

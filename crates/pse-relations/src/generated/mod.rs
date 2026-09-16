@@ -25,17 +25,15 @@ pub mod r#provenance;
 pub mod r#reference;
 ///Generated namespace contracts.
 pub mod r#runtime;
-/// Closed dictionary types.
+/// Declared string enumerations.
 pub mod enums;
 /// Composite extension storage values.
 pub mod extension_values;
-/// Registered migration lookup.
-pub mod migrations;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    55u8, 207u8, 0u8, 188u8, 98u8, 27u8, 135u8, 22u8, 22u8, 133u8, 23u8, 129u8, 168u8,
-    170u8, 182u8, 216u8, 37u8, 62u8, 232u8, 120u8, 211u8, 12u8, 146u8, 7u8, 77u8, 162u8,
-    240u8, 63u8, 63u8, 242u8, 254u8, 226u8,
+    125u8, 48u8, 63u8, 4u8, 142u8, 77u8, 174u8, 37u8, 114u8, 250u8, 222u8, 213u8, 115u8,
+    133u8, 78u8, 229u8, 76u8, 24u8, 64u8, 119u8, 98u8, 138u8, 119u8, 60u8, 125u8, 60u8,
+    56u8, 201u8, 106u8, 141u8, 206u8, 28u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

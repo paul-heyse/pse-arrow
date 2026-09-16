@@ -6,6 +6,9 @@
     reason = "test factories use fixed valid declarations and fixture objects"
 )]
 
+#[path = "../../support/session_factory.rs"]
+pub(crate) mod session_factory;
+
 use pse_catalog::store::{
     membership::AdmissionContext,
     open::Catalog,
@@ -15,7 +18,7 @@ use pse_catalog::{EncodingPolicy, FixedClock, RelationContract, Snapshot, TrustL
 use pse_ids::{CancellationToken, FixedBudget, SnapshotKind};
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{Authority, Cell, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -38,7 +41,11 @@ fn fixture(version: u32) -> (Catalog, Arc<Registry>) {
                 "membership fixture",
             )
             .pk(&["id"])
-            .columns(vec![ColumnSpec::key("id", LogicalType::U64, "Key")]),
+            .columns(vec![FieldContract::key(
+                "id",
+                FieldContract::native(arrow::datatypes::DataType::UInt64),
+                "Key",
+            )]),
         );
     }
     let reg = Arc::new(builder.build().expect("registry"));
@@ -47,7 +54,7 @@ fn fixture(version: u32) -> (Catalog, Arc<Registry>) {
         Arc::clone(&reg),
         TrustLevel::Untrusted,
         Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        FixedBudget::new(64 << 20),
+        session_factory::factory(FixedBudget::new(64 << 20)),
     );
     (catalog, reg)
 }
@@ -90,6 +97,8 @@ fn model(catalog: &Catalog, reg: &Registry, id: u64) -> BundleDraft {
 }
 fn case(catalog: &Catalog, reg: &Registry, parent: Arc<Snapshot>) -> BundleDraft {
     let context = AdmissionContext {
+        traversal: Arc::default(),
+        invocation: None,
         parents: BTreeMap::from([("model".to_owned(), parent)]),
         stage_pass: None,
     };

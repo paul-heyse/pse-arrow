@@ -24,6 +24,11 @@ The original Wave 1 plan requires all seventeen pass registrations but deliberat
 
 ## Scope
 
+**Current construction target:** ADR-0067 and blueprint revision 37 replace this
+record's former local replay, row-copy and phase-limited execution mechanisms.
+Plan 05 owns implementation; the domain/identity/lifetime requirements retained
+below are implemented through its single native preparation/completion route.
+
 Amends the cited blueprint sections within the approved Wave 1 boundary. It supplements existing accepted decisions; their arguments remain immutable. Implementation is authorized by the maintainer's approved execution plan; formal ADR acceptance remains the decision-PR lifecycle.
 
 ## Drivers
@@ -36,7 +41,7 @@ Retain the inconsistent scaffold: rejected because its consumers cannot preserve
 
 ## Outcome
 
-Keep P0-P16 as the blueprint design inventory. Production registration requires fully specified relation contracts and a closed input/output graph. Wave 1 implements the closed P0-P3 production path. Implement and qualify P10 using an explicit test registry with a complete pinned predecessor bundle and producer; do not expose a fabricated authored-through-P10 pipeline. Deferred later-pass registrations and unspecified relation contracts have explicit register entries. B-evidence and the Ipopt bindgen arm remain optional deferrals; bindings retain hygiene-only checking. Mandatory in-scope validators, publication, query, ownership and typed-math guarantees are not deferred.
+Keep P0-P16 as the blueprint design inventory. Production registration requires fully specified relation contracts and a closed input/output graph. Plan 05 implements the real P0–P10 product path. The former Wave 1 P10 predecessor fixture remains only if it independently tests a leaf contract; remove fixture-only production registration. A fabricated predecessor graph never satisfies the required source-to-P10 workflow. Deferred later-pass registrations and unspecified relation contracts have explicit register entries. B-evidence and the Ipopt bindgen arm remain optional deferrals; bindings retain hygiene-only checking. Mandatory in-scope validators, publication, query, ownership and typed-math guarantees are not deferred.
 
 ### Consequences
 
@@ -98,3 +103,5 @@ Cancellation has a bounded cleanup recording operation distinct from the cancell
 Aggregate failures retain every typed leaf diagnostic. The record is cancelled only if all leaves are cancellation; a mixed failure uses the first non-cancellation leaf class in stable traversal order. A hint/index failure after complete output and a successful terminal record is an auxiliary error carrying the existing successful attempt and output, never a second contradictory terminal record. These are explicit outcome-selection rules, not diagnostic-string or hash heuristics.
 
 The successful P2 terminal record and complete immutable change/revision receipt precede the final commit-ref CAS (blueprint §20.1). Recording failure preserves the old visible ref. A subsequent CAS failure is a distinct typed commit-publication outcome carrying the successful P2 attempt/output and original publication error; it cannot retroactively falsify that completed pass record. Required controls cover both failure boundaries.
+
+- 2026-09-14 — reconciled with ADR-0067 and Plan 05; prior receipts describe their original code and do not certify the hard-pivot implementation.

@@ -6,11 +6,14 @@ use crate::{RuleError, errmap::internal};
 use pse_ids::{SemanticId, named_id};
 use pse_schema::{
     Registry,
-    model::{Cell, ColumnSpec, RelationSpec, RuleHead, RuleSpec},
+    model::{Cell, FieldContract, RelationSpec, RuleHead, RuleSpec},
 };
 
 const VERSION: &str = "pse.rule-key.v1";
-fn columns<'a>(rule: &RuleSpec, registry: &'a Registry) -> Result<Vec<&'a ColumnSpec>, RuleError> {
+fn columns<'a>(
+    rule: &RuleSpec,
+    registry: &'a Registry,
+) -> Result<Vec<&'a FieldContract>, RuleError> {
     let relation = registry
         .relation(rule.head.relation())
         .ok_or_else(|| internal("key head relation is undeclared"))?;
@@ -28,7 +31,7 @@ fn columns<'a>(rule: &RuleSpec, registry: &'a Registry) -> Result<Vec<&'a Column
         .collect()
 }
 fn validate(
-    columns: &[&ColumnSpec],
+    columns: &[&FieldContract],
     values: &[Cell],
     registry: &Registry,
 ) -> Result<(), RuleError> {
@@ -58,7 +61,7 @@ pub fn encode_key(
     encode_columns(&columns, registry, values)
 }
 fn encode_columns(
-    columns: &[&ColumnSpec],
+    columns: &[&FieldContract],
     registry: &Registry,
     values: &[Cell],
 ) -> Result<String, RuleError> {
@@ -67,8 +70,8 @@ fn encode_columns(
         .iter()
         .zip(values)
         .map(|(column, value)| {
-            let name =
-                serde_json::to_string(column.name).map_err(|error| internal(error.to_string()))?;
+            let name = serde_json::to_string(column.name())
+                .map_err(|error| internal(error.to_string()))?;
             Ok(format!("[{name},{}]", value.literal_spec()))
         })
         .collect::<Result<Vec<_>, RuleError>>()?;
@@ -92,7 +95,7 @@ pub fn encode_relation_key(
         let index = spec
             .columns
             .iter()
-            .position(|column| column.name == *name)
+            .position(|column| column.name() == *name)
             .ok_or_else(|| internal("support key undeclared"))?;
         columns.push(&spec.columns[index]);
         values.push(row[index].clone());
@@ -131,7 +134,7 @@ pub fn decode_key(
             .as_array()
             .filter(|member| member.len() == 2)
             .ok_or_else(|| internal("key member requires exact name and value"))?;
-        if member[0].as_str() != Some(column.name) {
+        if member[0].as_str() != Some(column.name()) {
             return Err(internal("diagnostic key name/order differs from rule head"));
         }
         values.push(

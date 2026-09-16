@@ -17,7 +17,13 @@ pub(super) fn scan(relation: impl Into<String>, port: &'static str) -> RulePlan 
 pub(super) fn project(input: RulePlan, keys: &[&'static str]) -> RulePlan {
     RulePlan::Project {
         input: Box::new(input),
-        columns: keys.iter().map(|key| (*key, RuleExpr::Col(key))).collect(),
+        columns: (keys
+            .iter()
+            .map(|key| (*key, RuleExpr::col(*key)))
+            .collect::<Vec<_>>())
+        .into_iter()
+        .map(|(name, expression)| (name.to_owned().into(), expression))
+        .collect(),
     }
 }
 pub(super) fn filter(input: RulePlan, predicate: RuleExpr) -> RulePlan {
@@ -30,7 +36,7 @@ pub(super) fn count(output_name: &'static str) -> RuleAggregate {
     RuleAggregate {
         function: RuleAggregateFn::Count,
         input: None,
-        output_name,
+        output_name: (output_name).into(),
         order_by: vec![],
         null_policy: AggregateNullPolicy::Reject,
         empty_policy: AggregateEmptyPolicy::Zero,

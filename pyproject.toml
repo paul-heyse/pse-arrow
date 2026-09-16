@@ -2,7 +2,9 @@
 # Copyright (c) 2026 Paul Heyse
 #
 # The one Python project of pse-arrow (import name `pse`; blueprint §21). Every library is
-# pinned `==` (blueprint §3.1). Two interpreter ranges: the platform package targets
+# pinned `==` (blueprint §3.1) -- a reproducibility rule, not an admission rule: no package
+# and no licence is refused through phases 0-1 (blueprint §3.3.2, ADR-0066,
+# docs/dev/dependency-policy.md). Two interpreter ranges: the platform package targets
 # CPython >= 3.11; the parity environment (idaes-pse 2.12.0) is 3.11-3.13, expressed as a
 # dependency group with a marker rather than a second project, so one uv.lock covers both.
 
@@ -45,6 +47,7 @@ classifiers = [
 ]
 # Blueprint §3.1: every library pinned ==. Exact pins in wheel metadata are a deliberate
 # reproducibility-over-composability choice, revisited by ADR at the first PyPI release.
+# Adding a dependency here needs no ADR; pinning it does need to be exact.
 dependencies = [
   "pyarrow==25.0.1",
   "attrs==26.1.0",
@@ -77,20 +80,25 @@ Changelog = "https://github.com/paul-heyse/pse-arrow/blob/main/CHANGELOG.md"
 # PEP 735. Exact pins for tools: a formatter or type checker that drifts produces phantom
 # diffs. Bumping is a deliberate commit (`just lock-upgrade <pkg>`).
 [dependency-groups]
+# Tools that only execute (formatters, linters, type checkers, test runners) carry
+# floors, not exact pins: uv.lock records what resolved, `uv lock --upgrade` moves them,
+# and nothing in CI or `just doctor` asserts a particular release. Runtime libraries
+# above stay `==`-pinned because the type universe and the parity reference depend on
+# exact versions (blueprint §3.1).
 quality = [
-  "ruff==0.16.7",
-  "pyrefly==1.3.0",
-  "import-linter==2.15",
-  "reuse==6.2.0",
-  "taplo==0.9.3",
-  "typos==1.50.1",
-  "pre-commit==4.6.2",
-  "maturin==1.15.0",
+  "ruff>=0.16.7",
+  "pyrefly>=1.3.0",
+  "import-linter>=2.15",
+  "reuse>=6.2.0",
+  "taplo>=0.9.3",
+  "typos>=1.50.1",
+  "pre-commit>=4.6.2",
+  "maturin>=1.15.0",
 ]
 test = [
-  "pytest==9.1.1",
-  "pytest-cov==7.1.0",
-  "pytest-xdist==3.8.0",
+  "pytest>=9.1.1",
+  "pytest-cov>=7.1.0",
+  "pytest-xdist>=3.8.0",
   # Test-time oracles only (blueprint §24.1); import-linter keeps them out of pse proper.
   # Split by interpreter for the same reason as the `pyomo` extra above.
   "numpy==2.5.3; python_full_version >= '3.12'",
@@ -116,7 +124,6 @@ dev = [
 
 [tool.uv]
 package = true
-required-version = "==0.12.13"
 python-preference = "managed"
 default-groups = ["dev"]
 # Rebuild the extension when Rust inputs change (uv's defaults watch only pyproject/src).
@@ -150,7 +157,9 @@ locked = true
 sdist-generator = "git"
 profile = "release"
 editable-profile = "dev"
-strip = true
+# PyO3 0.29 introspection reads ELF's ordinary symbol table to generate the
+# actual native API stub. Keep it available in the installed extension.
+strip = false
 auditwheel = "repair"
 # abi3-py311 lives in crates/pse-py/Cargo.toml (pyo3 features): one authority.
 include = [
@@ -174,7 +183,15 @@ exclude = [
 target-version = "py311"
 line-length = 88
 src = ["python"]
-extend-exclude = ["external", "build", "docs", "target", "tooling"]
+# Skill content is pinned upstream reference material, including verbatim Python examples.
+extend-exclude = [
+  "external",
+  "build",
+  "docs",
+  "target",
+  "tooling",
+  ".*/skills/*/content",
+]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -349,19 +366,18 @@ ignore_imports = [
   "pse.tests.** -> numpy",
 ]
 
+# `pandas`, `pydantic`, `sympy`, `networkx`, `matplotlib` and `click` used to be listed
+# here too. They were dependency hygiene, not architecture, and ADR-0066 lifted that
+# constraint -- use any of them if it gets the platform working. `idaes` stays forbidden
+# for a packaging reason that has not changed: uv workspaces enforce a single
+# `requires-python` (the intersection across members), which is why the parity set is a
+# dependency group with an environment marker. An `idaes` import inside `pse` would drag
+# the platform package back to the parity interpreter range.
 [[tool.importlinter.contracts]]
-name = "what IDAES drags in never becomes a platform dependency (blueprint §3.1)"
+name = "idaes is a parity dependency, never a platform dependency (blueprint §3.1)"
 type = "forbidden"
 source_modules = ["pse"]
-forbidden_modules = [
-  "idaes",
-  "pandas",
-  "pydantic",
-  "sympy",
-  "networkx",
-  "matplotlib",
-  "click",
-]
+forbidden_modules = ["idaes"]
 ignore_imports = []
 
 [[tool.importlinter.contracts]]
@@ -409,12 +425,11 @@ log_level = "INFO"
 console_output_style = "count"
 required_plugins = ["pytest-cov", "pytest-xdist"]
 markers = [
-  "unit: fast, no solver, no golden store; must run in < 2 s",
-  "component: may need a solver, the golden stores, or the built extension in release profile",
+  "unit: fast, no solver, no inspection store; must run in < 2 s",
+  "component: may need a solver, fresh native inspection stores, or the built extension in release profile",
   "integration: long-running end-to-end",
   "performance: opt-in with --performance; never collected otherwise",
   "parity: needs the parity environment (IDAES 2.12.0 + ipopt on PATH); deselected without --parity, FAILS (never skips) with it",
-  "golden(name): opens tests/golden/<name> read-only",
 ]
 
 [tool.coverage.run]

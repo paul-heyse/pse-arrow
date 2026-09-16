@@ -78,8 +78,8 @@ const BANS: &[Ban] = &[
     Ban {
         pattern: r"try_with_compression",
         literals: false,
-        scopes: &["crates/pse-ids", "crates/pse-catalog"],
-        reason: "canonical IPC is uncompressed (blueprint §5.3, pse.canon.v2)",
+        scopes: &["crates/pse-ids/src/canon"],
+        reason: "canonical identity IPC is uncompressed; transport may use compression (blueprint §5.3, §3.3.1, ADR-0065)",
     },
     Ban {
         pattern: r#"format\s*!\s*\(\s*(?:r#*)?"[^"\n]*\{[^{}]*:#?\?"#,

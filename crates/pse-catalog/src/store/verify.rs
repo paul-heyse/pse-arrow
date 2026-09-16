@@ -86,8 +86,19 @@ pub fn ipc_file(
     cancel: &CancellationToken,
     envelope: Envelope,
 ) -> Result<RecordBatch, CatalogError> {
+    Ok(ipc_file_checked(bytes, reg, spec, reserver, cancel, envelope)?.into_batch())
+}
+
+pub(crate) fn ipc_file_checked(
+    bytes: &[u8],
+    reg: &Registry,
+    spec: &RelationSpec,
+    reserver: &dyn MemoryReserver,
+    cancel: &CancellationToken,
+    envelope: Envelope,
+) -> Result<pse_relations::columnar::FieldCheckedBatch, CatalogError> {
     cancel.checkpoint()?;
-    Envelope::lowered(envelope.max_rows, envelope.max_normalized_bytes)?;
+    Envelope::new(envelope.max_rows, envelope.max_normalized_bytes)?;
     let end = bytes
         .len()
         .checked_sub(10)
@@ -170,9 +181,9 @@ pub fn ipc_file(
     cancel.checkpoint()?;
     let mut validation = reserver.open("store:ipc-value-admission");
     validation.try_grow(super::membership::validation_extent(&batch)?)?;
-    pse_relations::validate::validate_batch(reg, spec, &batch)
-        .map_err(|errors| admission("IPC relation", &messages(&errors)))?;
-    Ok(batch)
+    Ok(pse_relations::columnar::FieldCheckedBatch::admit(
+        reg, spec, batch,
+    )?)
 }
 
 fn field_shape(encoded: ipc::Field<'_>, expected: &Field) -> Result<(), CatalogError> {
@@ -304,7 +315,7 @@ pub fn parquet_file(
     cancel: &CancellationToken,
     envelope: Envelope,
 ) -> Result<RecordBatch, CatalogError> {
-    parquet::decode(bytes, reg, spec, reserver, cancel, envelope)
+    Ok(parquet::decode(bytes, reg, spec, reserver, cancel, envelope)?.into_batch())
 }
 
 pub(crate) fn decode_file(
@@ -315,14 +326,14 @@ pub(crate) fn decode_file(
     reserver: &dyn MemoryReserver,
     cancel: &CancellationToken,
     envelope: Envelope,
-) -> Result<RecordBatch, CatalogError> {
-    Envelope::lowered(envelope.max_rows, envelope.max_normalized_bytes)?;
+) -> Result<pse_relations::columnar::FieldCheckedBatch, CatalogError> {
+    Envelope::new(envelope.max_rows, envelope.max_normalized_bytes)?;
     match format {
         crate::EncodingFormat::ArrowIpcFile => {
-            ipc_file(bytes, reg, spec, reserver, cancel, envelope)
+            ipc_file_checked(bytes, reg, spec, reserver, cancel, envelope)
         }
         crate::EncodingFormat::Parquet => {
-            parquet_file(bytes, reg, spec, reserver, cancel, envelope)
+            parquet::decode(bytes, reg, spec, reserver, cancel, envelope)
         }
     }
 }

@@ -11,8 +11,8 @@
 
 use crate::builder::RegistryBuilder;
 use crate::model::{
-    Authority, ColumnSpec, DerivationGranularity, ExtensionUse, LogicalType, Namespace,
-    RelationDecl, SnapshotClass, Stability,
+    Authority, DerivationGranularity, ExtensionUse, FieldContract, Namespace, RelationDecl,
+    SnapshotClass, Stability,
 };
 
 /// Declares the §6.1 identity and package relations.
@@ -38,37 +38,49 @@ fn declare_packages(builder: &mut RegistryBuilder) {
         .stability(Stability::Stable)
         .pk(&["package_id"])
         .columns(vec![
-            ColumnSpec::key("package_id", LogicalType::id(), "The package identity."),
-            ColumnSpec::label("name", LogicalType::Text, "The package name."),
-            ColumnSpec::label(
+            FieldContract::key("package_id", FieldContract::id(), "The package identity."),
+            FieldContract::label(
+                "name",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "The package name.",
+            ),
+            FieldContract::label(
                 "version",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The package version (semver).",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "kind",
-                LogicalType::enumeration("PackageKind"),
+                FieldContract::enumeration("PackageKind"),
                 "What kind of package it is.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "id_policy",
-                LogicalType::enumeration("IdPolicy"),
+                FieldContract::enumeration("IdPolicy"),
                 "`explicit` or `named` (blueprint §5.1). Recorded on the package, never in the ID.",
             ),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "dependencies",
-                LogicalType::list(LogicalType::Struct(vec![
-                    ("package_id", LogicalType::id(), false),
-                    ("version_req", LogicalType::Text, false),
+                FieldContract::list(FieldContract::structure(vec![
+                    FieldContract::id()
+                        .with_name("package_id")
+                        .with_nullable(false),
+                    FieldContract::native(arrow_schema::DataType::Utf8)
+                        .with_name("version_req")
+                        .with_nullable(false),
                 ])),
                 "The declared dependencies. Phase 0 admits exact version requirements only.",
             ),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "content_hash",
-                LogicalType::hash(),
+                FieldContract::hash(),
                 "The digest of the package's documents.",
             ),
-            ColumnSpec::label("doc", LogicalType::Text, "What the package is for."),
+            FieldContract::label(
+                "doc",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "What the package is for.",
+            ),
         ]),
     );
 }
@@ -87,22 +99,22 @@ fn declare_documents(builder: &mut RegistryBuilder) {
         .stability(Stability::Stable)
         .pk(&["document_id"])
         .columns(vec![
-            ColumnSpec::key(
+            FieldContract::key(
                 "document_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "`named_id(package_id, path)` (blueprint §11).",
             ),
-            ColumnSpec::reference("package_id", LogicalType::id(), "The owning package.")
+            FieldContract::reference("package_id", FieldContract::id(), "The owning package.")
                 .with_fk("authored.packages", "package_id"),
-            ColumnSpec::label(
+            FieldContract::label(
                 "path",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The document path, relative to the package root.",
             ),
-            ColumnSpec::payload(
-                "content_hash",
-                LogicalType::hash(),
-                "The digest of the document bytes.",
+            FieldContract::payload(
+                "source_text",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Exact original UTF-8 source, including whitespace and comments (ADR-0068).",
             ),
         ]),
     );
@@ -122,35 +134,35 @@ fn declare_entities(builder: &mut RegistryBuilder) {
         .stability(Stability::Stable)
         .pk(&["entity_id"])
         .columns(vec![
-            ColumnSpec::key("entity_id", LogicalType::id(), "The entity identity."),
-            ColumnSpec::reference("package_id", LogicalType::id(), "The declaring package.")
+            FieldContract::key("entity_id", FieldContract::id(), "The entity identity."),
+            FieldContract::reference("package_id", FieldContract::id(), "The declaring package.")
                 .with_fk("authored.packages", "package_id"),
-            ColumnSpec::label(
+            FieldContract::label(
                 "kind",
-                LogicalType::enumeration("EntityKind"),
+                FieldContract::enumeration("EntityKind"),
                 "What kind of entity it is.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "An attribute, never identity: a rename changes this and nothing else.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "qualified_name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "An attribute, never identity — except under the `named` policy, where it \
                  determines the identity at creation and a rename is a new entity.",
             ),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "parent_entity_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "Containment: flowsheet ⊃ unit ⊃ control volume ⊃ state block.",
             )
             .with_fk("authored.entities", "entity_id")
             .optional(),
-            ColumnSpec::provenance(
+            FieldContract::provenance(
                 "source_span",
-                LogicalType::Ext(ExtensionUse::SourceSpan),
+                FieldContract::extended(ExtensionUse::SourceSpan),
                 "Where the entity was declared.",
             )
             .optional(),
@@ -173,21 +185,21 @@ fn declare_aliases(builder: &mut RegistryBuilder) {
         .stability(Stability::Stable)
         .pk(&["alias_id"])
         .columns(vec![
-            ColumnSpec::key("alias_id", LogicalType::id(), "The alias identity."),
-            ColumnSpec::reference(
+            FieldContract::key("alias_id", FieldContract::id(), "The alias identity."),
+            FieldContract::reference(
                 "entity_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The entity that kept the name.",
             )
             .with_fk("authored.entities", "entity_id"),
-            ColumnSpec::label(
+            FieldContract::label(
                 "old_qualified_name",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The deprecated qualified name.",
             ),
-            ColumnSpec::label(
+            FieldContract::label(
                 "deprecated_in",
-                LogicalType::Text,
+                FieldContract::native(arrow_schema::DataType::Utf8),
                 "The package version that deprecated it.",
             ),
         ]),
@@ -210,27 +222,31 @@ fn declare_package_graph(builder: &mut RegistryBuilder) {
         .granularity(DerivationGranularity::Row)
         .pk(&["package_id"])
         .columns(vec![
-            ColumnSpec::key("package_id", LogicalType::id(), "The resolved package.")
+            FieldContract::key("package_id", FieldContract::id(), "The resolved package.")
                 .with_fk("authored.packages", "package_id"),
-            ColumnSpec::label("version", LogicalType::Text, "The resolved version."),
-            ColumnSpec::payload(
+            FieldContract::label(
+                "version",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "The resolved version.",
+            ),
+            FieldContract::payload(
                 "content_hash",
-                LogicalType::hash(),
+                FieldContract::hash(),
                 "The digest the package is pinned by.",
             ),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "depth",
-                LogicalType::U16,
+                FieldContract::native(arrow_schema::DataType::UInt16),
                 "The distance from the root package.",
             ),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "dependency_package_ids",
-                LogicalType::list(LogicalType::id()),
+                FieldContract::list(FieldContract::id()),
                 "The resolved direct dependencies.",
             ),
-            ColumnSpec::provenance(
+            FieldContract::provenance(
                 "derivation_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "The `provenance.derivations` row this fact came from.",
             ),
         ]),

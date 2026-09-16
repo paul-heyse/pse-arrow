@@ -10,7 +10,7 @@ use std::{ops::Deref, sync::Arc};
 #[derive(Debug)]
 struct Retained<T> {
     value: T,
-    _lease: Arc<ReservationLease>,
+    lease: Arc<ReservationLease>,
 }
 /// Immutable catalog metadata whose clones retain its actual data and reservation.
 /// Cloning the borrowed underlying DTO explicitly creates caller-owned allocation.
@@ -23,10 +23,10 @@ impl<T> Clone for OwnedControl<T> {
 }
 impl<T> OwnedControl<T> {
     pub(crate) fn new(value: T, lease: Arc<ReservationLease>) -> Self {
-        Self(Arc::new(Retained {
-            value,
-            _lease: lease,
-        }))
+        Self(Arc::new(Retained { value, lease }))
+    }
+    pub(super) fn lease(&self) -> &Arc<ReservationLease> {
+        &self.0.lease
     }
 }
 impl<T> Deref for OwnedControl<T> {

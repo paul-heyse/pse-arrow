@@ -5,7 +5,7 @@
 
 use super::declarations::{column, relation, structure};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.10 case contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -38,12 +38,12 @@ fn declare_authored_cases(builder: &mut RegistryBuilder) {
         vec![
             column("case_id", T::id()),
             column("model_revision_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("parent_case_id", T::id())
                 .optional()
                 .with_fk("authored.cases", "case_id"),
             column("kind", T::enumeration("CaseKind")),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.10 case: cases.",
     );
@@ -59,15 +59,18 @@ fn declare_authored_case_specs(builder: &mut RegistryBuilder) {
         vec![
             column("spec_id", T::id()),
             column("case_id", T::id()).with_fk("authored.cases", "case_id"),
-            column("target", T::Ext(crate::model::ExtensionUse::TargetPath)),
+            column(
+                "target",
+                T::extended(crate::model::ExtensionUse::TargetPath),
+            ),
             column("treatment", T::enumeration("Treatment")).optional(),
-            column("value", T::F64).optional(),
+            column("value", T::native(arrow_schema::DataType::Float64)).optional(),
             column("unit_id", T::id()).optional(),
-            column("initial", T::F64).optional(),
-            column("lower", T::Ext(crate::model::ExtensionUse::Bound)).optional(),
-            column("upper", T::Ext(crate::model::ExtensionUse::Bound)).optional(),
-            column("scaling_factor", T::F64).optional(),
-            column("priority", T::I32),
+            column("initial", T::native(arrow_schema::DataType::Float64)).optional(),
+            column("lower", T::extended(crate::model::ExtensionUse::Bound)).optional(),
+            column("upper", T::extended(crate::model::ExtensionUse::Bound)).optional(),
+            column("scaling_factor", T::native(arrow_schema::DataType::Float64)).optional(),
+            column("priority", T::native(arrow_schema::DataType::Int32)),
         ],
         "blueprint §6.10 case: case_specs.",
     );
@@ -82,7 +85,7 @@ fn declare_authored_case_spec_targets(builder: &mut RegistryBuilder) {
         &["spec_id", "ordinal"],
         vec![
             column("spec_id", T::id()),
-            column("ordinal", T::U16),
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
             column("instance_id", T::id()),
             column("member_kind", T::enumeration("TargetKind")),
             column("symbol_decl_id", T::id()).optional(),
@@ -92,9 +95,9 @@ fn declare_authored_case_spec_targets(builder: &mut RegistryBuilder) {
             column("port_template_id", T::id())
                 .optional()
                 .with_fk("authored.templates", "template_id"),
-            column("port_name", T::Text).optional(),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("wildcard", T::Bool),
+            column("port_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
+            column("wildcard", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §6.10 case: case_spec_targets.",
     );
@@ -109,7 +112,7 @@ fn declare_authored_case_activation_targets(builder: &mut RegistryBuilder) {
         &["activation_id", "ordinal"],
         vec![
             column("activation_id", T::id()),
-            column("ordinal", T::U16),
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
             column("instance_id", T::id()),
             column("member_kind", T::enumeration("TargetKind")),
             column("symbol_decl_id", T::id()).optional(),
@@ -119,9 +122,9 @@ fn declare_authored_case_activation_targets(builder: &mut RegistryBuilder) {
             column("port_template_id", T::id())
                 .optional()
                 .with_fk("authored.templates", "template_id"),
-            column("port_name", T::Text).optional(),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("wildcard", T::Bool),
+            column("port_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
+            column("wildcard", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §6.10 case: case_activation_targets.",
     );
@@ -136,7 +139,7 @@ fn declare_authored_observation_targets(builder: &mut RegistryBuilder) {
         &["observation_id", "ordinal"],
         vec![
             column("observation_id", T::id()),
-            column("ordinal", T::U16),
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
             column("instance_id", T::id()),
             column("member_kind", T::enumeration("TargetKind")),
             column("symbol_decl_id", T::id()).optional(),
@@ -146,9 +149,9 @@ fn declare_authored_observation_targets(builder: &mut RegistryBuilder) {
             column("port_template_id", T::id())
                 .optional()
                 .with_fk("authored.templates", "template_id"),
-            column("port_name", T::Text).optional(),
-            column("index", T::Ext(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("wildcard", T::Bool),
+            column("port_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
+            column("wildcard", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §6.10 case: observation_targets.",
     );
@@ -164,8 +167,11 @@ fn declare_authored_case_activations(builder: &mut RegistryBuilder) {
         vec![
             column("activation_id", T::id()),
             column("case_id", T::id()),
-            column("target", T::Ext(crate::model::ExtensionUse::TargetPath)),
-            column("active", T::Bool),
+            column(
+                "target",
+                T::extended(crate::model::ExtensionUse::TargetPath),
+            ),
+            column("active", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §6.10 case: case_activations.",
     );
@@ -181,8 +187,8 @@ fn declare_authored_case_objectives(builder: &mut RegistryBuilder) {
         vec![
             column("case_id", T::id()),
             column("objective_id", T::id()),
-            column("active", T::Bool),
-            column("weight", T::F64),
+            column("active", T::native(arrow_schema::DataType::Boolean)),
+            column("weight", T::native(arrow_schema::DataType::Float64)),
         ],
         "blueprint §6.10 case: case_objectives.",
     );
@@ -216,8 +222,8 @@ fn declare_authored_datasets(builder: &mut RegistryBuilder) {
         &["dataset_id"],
         vec![
             column("dataset_id", T::id()),
-            column("name", T::Text),
-            column("source", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("source", T::native(arrow_schema::DataType::Utf8)),
             column("content_hash", T::hash()),
         ],
         "blueprint §6.10 case: datasets.",
@@ -234,12 +240,19 @@ fn declare_authored_observations(builder: &mut RegistryBuilder) {
         vec![
             column("observation_id", T::id()),
             column("dataset_id", T::id()),
-            column("target", T::Ext(crate::model::ExtensionUse::TargetPath)),
-            column("value", T::F64).optional(),
+            column(
+                "target",
+                T::extended(crate::model::ExtensionUse::TargetPath),
+            ),
+            column("value", T::native(arrow_schema::DataType::Float64)).optional(),
             column("unit_id", T::id()),
-            column("std_dev", T::F64).optional(),
-            column("timestamp", T::Timestamp).optional(),
-            column("tag", T::Text).optional(),
+            column("std_dev", T::native(arrow_schema::DataType::Float64)).optional(),
+            column(
+                "timestamp",
+                T::native(crate::model::extension::timestamp_storage()),
+            )
+            .optional(),
+            column("tag", T::native(arrow_schema::DataType::Utf8)).optional(),
         ],
         "blueprint §6.10 case: observations.",
     );
@@ -255,8 +268,8 @@ fn declare_authored_scenarios(builder: &mut RegistryBuilder) {
         vec![
             column("scenario_id", T::id()),
             column("case_id", T::id()),
-            column("weight", T::F64),
-            column("doc", T::Text),
+            column("weight", T::native(arrow_schema::DataType::Float64)),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.10 case: scenarios.",
     );
@@ -275,10 +288,13 @@ fn declare_authored_case_sets(builder: &mut RegistryBuilder) {
             column("generator_kind", T::enumeration("GeneratorKind")),
             column(
                 "generator_params",
-                T::list(structure(vec![("key", T::Text), ("value", T::Text)])),
+                T::list(structure(vec![
+                    ("key", T::native(arrow_schema::DataType::Utf8)),
+                    ("value", T::native(arrow_schema::DataType::Utf8)),
+                ])),
             ),
-            column("seed", T::U64).optional(),
-            column("sample_count", T::U64),
+            column("seed", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("sample_count", T::native(arrow_schema::DataType::UInt64)),
         ],
         "blueprint §6.10 case: case_sets.",
     );
@@ -293,7 +309,7 @@ fn declare_authored_case_set_samples(builder: &mut RegistryBuilder) {
         &["case_set_id", "sample_ordinal"],
         vec![
             column("case_set_id", T::id()),
-            column("sample_ordinal", T::U64),
+            column("sample_ordinal", T::native(arrow_schema::DataType::UInt64)),
             column("case_id", T::id()),
         ],
         "blueprint §6.10 case: case_set_samples.",

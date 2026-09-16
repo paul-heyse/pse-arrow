@@ -3,7 +3,11 @@
 
 //! Shared complete source binding for P3 and identity-preserving rename.
 
+mod indices;
+mod instance_path;
+mod native;
 mod paths;
+pub use instance_path::{BoundInstancePath, InstancePathSegment};
 mod rewrite;
 pub use rewrite::rename as rename_expression;
 mod walk;
@@ -14,13 +18,15 @@ use pse_ids::SemanticId;
 use pse_relations::generated::authored;
 use pse_schema::{
     Registry,
-    model::{Cell, ExtensionUse, LogicalType},
+    model::{Cell, ExpressionOwnerKind, ExtensionUse, FieldContract},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
 /// A declared or lexical path meaning; composite declaration keys stay composite.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PathMeaning {
+    /// Exact instance-relative source path, resolved independently in every actual context.
+    InstancePath(BoundInstancePath),
     /// A bound symbol declaration and its template.
     Symbol {
         /// Owning template.
@@ -77,6 +83,8 @@ pub enum PathMeaning {
         /// Exact declared member spelling.
         member: String,
     },
+    /// A Boolean configuration literal, distinct from a numerical graph constant.
+    BooleanLiteral(bool),
     /// A lexically bound reduction/let/index variable.
     Local(String),
 }
@@ -111,7 +119,11 @@ pub struct SourceExpression {
     pub relation_id: SemanticId,
     /// Complete actual primary key of the source row.
     pub row_key: Vec<Cell>,
-    /// Explicit template owner from the document declaration.
+    /// Explicit owner kind from the document declaration.
+    pub owner_kind: ExpressionOwnerKind,
+    /// Actual source owner identity; never substituted with its template context.
+    pub owner_id: SemanticId,
+    /// Resolved template binding context, which need not own an instance equation.
     pub owner_template_id: SemanticId,
     /// Ordered declared index variables visible in this source row.
     pub indexed_by: Vec<String>,
@@ -124,59 +136,85 @@ pub struct SourceExpression {
     /// Exhaustive path binding inventory.
     pub paths: Vec<BoundPath>,
 }
-/// Only construction through [`bind_sources`] establishes complete source coverage.
+/// Constructed from the retained parser fields and their native declaration joins.
 #[derive(Clone, Debug)]
 pub struct SourceBindings {
     expressions: Vec<SourceExpression>,
+    lookup: native::Lookup,
 }
 impl SourceBindings {
     /// Every source field, in document and declaration order.
     pub fn expressions(&self) -> &[SourceExpression] {
         &self.expressions
     }
+    /// Exact source key computed by the retained native source-row projection.
+    pub fn source_key(&self, expression: &SourceExpression) -> Option<&str> {
+        self.lookup
+            .source_keys
+            .get(&(expression.document_id, expression.document_path.clone()))
+            .map(String::as_str)
+    }
 }
 
 pub(super) struct Context {
-    targets: crate::targets::TargetContext,
+    entities: Vec<authored::entities::Row>,
+    symbols: Vec<authored::template_symbols::Row>,
+    template_domains: Vec<authored::template_domains::Row>,
+    instances: Vec<authored::instances::Row>,
     templates: Vec<authored::templates::Row>,
     params: Vec<authored::template_params::Row>,
     features: Vec<authored::template_features::Row>,
     submodels: Vec<authored::template_submodels::Row>,
-    units: Vec<pse_relations::generated::reference::units::Row>,
+    prospective: Vec<pse_relations::generated::normalized::instance_bindings::Row>,
+    semantic_id_type: SemanticId,
+    index_companions: indices::IndexCompanions,
+    lookup: native::Lookup,
     enums: BTreeMap<SemanticId, BTreeSet<String>>,
+    enum_names: BTreeMap<String, SemanticId>,
 }
 
-/// Bind every declared DSL field against a complete actual base/candidate row inventory.
+/// Bind cached DSL syntax through native occurrence/declaration plans.
 /// # Errors
-/// Missing ownership, malformed grammar, unbound or ambiguous paths, duplicate lexical
-/// declarations, cyclic submodel paths or missing source ranges are typed failures.
-pub fn bind_sources(
-    bundles: &[DocumentBundle],
-    rows: &super::Rows,
-    registry: &Registry,
-) -> Result<SourceBindings, AuthoringError> {
-    let parsed = reparse(bundles, registry)?;
-    bind_parsed(&parsed, rows, registry)
-}
-
-/// Bind immutable accounted loader results without reparsing their original source.
-/// # Errors
-/// Actual source/binding disagreement, cancellation or insufficient workspace.
-pub fn bind_sources_owned(
+/// Ownership/path ambiguity, malformed grammar, cancellation or insufficient workspace.
+pub async fn bind_sources_owned(
     bundles: &super::OwnedDocumentSet,
-    rows: &super::Rows,
-    registry: &Registry,
-    reserver: &dyn pse_ids::MemoryReserver,
+    batches: &super::Batches,
+    session: &pse_catalog::session::SnapshotSession,
     cancel: &pse_ids::CancellationToken,
 ) -> Result<OwnedSourceBindings, AuthoringError> {
-    bundles.validate_registry(registry)?;
+    bundles.validate_registry(session.registry())?;
     cancel.checkpoint()?;
-    let mut work = reserver.open("authoring:source-bindings");
+    let mut work = session.reserver().open("authoring:source-bindings");
+    let decoded = [
+        authored::entities::RELATION_ID,
+        authored::instances::RELATION_ID,
+        authored::templates::RELATION_ID,
+        authored::template_params::RELATION_ID,
+        authored::template_features::RELATION_ID,
+        authored::template_submodels::RELATION_ID,
+        authored::template_symbols::RELATION_ID,
+        authored::template_equations::RELATION_ID,
+        authored::template_ports::RELATION_ID,
+        authored::template_domains::RELATION_ID,
+        authored::domains::RELATION_ID,
+        authored::domain_members::RELATION_ID,
+        authored::instance_domain_bindings::RELATION_ID,
+        pse_relations::generated::normalized::instance_bindings::RELATION_ID,
+    ];
+    let columns = decoded
+        .iter()
+        .filter_map(|id| batches.get(id))
+        .try_fold(0_usize, |sum, batch| {
+            crate::work::add(sum, pse_ids::validation_extent(batch.batch())?)
+        })?;
     work.try_grow(crate::work::add(
         crate::work::sources(bundles.bundles())?,
-        crate::work::mul(crate::work::rows(rows)?, 4)?,
+        crate::work::mul(columns, 4)?,
     )?)?;
-    let bindings = bind_parsed(bundles.bundles(), rows, registry)?;
+    let mut lookup = native::prepare(bundles.bundles(), batches, session, cancel).await?;
+    let indices = indices::load(batches, session, cancel, &mut lookup.completed).await?;
+    let context = Context::new(batches, session.registry(), lookup, indices)?;
+    let bindings = bind_parsed(bundles.bundles(), session.registry(), context)?;
     cancel.checkpoint()?;
     Ok(OwnedSourceBindings(std::sync::Arc::new(BindingOwner {
         bindings,
@@ -196,22 +234,32 @@ impl OwnedSourceBindings {
     pub fn expressions(&self) -> &[SourceExpression] {
         self.0.bindings.expressions()
     }
+    /// Exact source row key produced by this inventory's native binding computation.
+    pub fn source_key(&self, source: &SourceExpression) -> Option<&str> {
+        self.0.bindings.source_key(source)
+    }
+    /// Actual completed native binding pieces, retaining their frozen providers.
+    pub fn completions(&self) -> &[std::sync::Arc<pse_catalog::session::CompletedComputation>] {
+        &self.0.bindings.lookup.completed
+    }
+    /// Actual parser occurrence batches bound by the prepared native computation.
+    pub fn occurrences(&self) -> &[pse_relations::columnar::FieldCheckedBatch] {
+        &self.0.bindings.lookup.occurrences
+    }
+    /// Complete matching declaration rows, including ambiguity multiplicity.
+    pub fn resolved_occurrences(&self) -> &[pse_relations::columnar::FieldCheckedBatch] {
+        &self.0.bindings.lookup.resolved
+    }
 }
 
-pub(crate) fn bind_parsed(
+fn bind_parsed(
     parsed: &[DocumentBundle],
-    rows: &super::Rows,
     registry: &Registry,
+    context: Context,
 ) -> Result<SourceBindings, AuthoringError> {
-    let context = Context::new(rows, registry)?;
     let mut expressions = Vec::new();
     for bundle in parsed {
         for document in &bundle.documents {
-            let decoded = crate::generated::documents::rows_from_document(
-                document.declaration.name,
-                document.value.clone(),
-            )
-            .map_err(|error| contract(None, &error.to_string()))?;
             for section in &document.declaration.sections {
                 let Some(owner) = section.expression_owner_column else {
                     continue;
@@ -228,55 +276,51 @@ pub(crate) fn bind_parsed(
                         .get(owner)
                         .and_then(Value::text)
                         .ok_or_else(|| contract(None, "missing declared expression owner"))?;
-                    let owner = crate::ids::parse_id(owner, SourceSpan::head(document.id))?;
-                    if context
-                        .templates
-                        .iter()
-                        .filter(|template| template.template_id == owner)
-                        .count()
-                        != 1
-                    {
-                        return Err(contract(
-                            None,
-                            "expression owner must resolve to exactly one declared template",
-                        ));
-                    }
-                    let row = decoded
-                        .get(&relation.id)
-                        .and_then(|rows| rows.get(ordinal))
-                        .ok_or_else(|| {
-                            contract(None, "source row missing from exact generated document")
-                        })?;
-                    let indexed_by = index_names(relation.id, row, &value.value)?;
-                    let key = checked_key(relation, row, rows)?;
+                    let owner_id = crate::ids::parse_id(owner, SourceSpan::head(document.id))?;
+                    let owner_kind = section
+                        .expression_owner_kind
+                        .ok_or_else(|| contract(None, "expression owner kind absent"))?;
+                    let owner = owner_template(&context, owner_kind, owner_id)?;
+                    let key = source_row_key(document, relation, ordinal, registry)?;
                     let mut fields = Vec::new();
                     for column in &relation.columns {
-                        if let Some(value) = value.value.get(column.name) {
+                        if let Some(value) = value.value.get(column.name()) {
                             fields_of(
                                 value,
-                                &column.logical_type,
-                                &format!("/{}/{ordinal}/{}", section.key, column.name),
-                                column.name,
+                                &column.value_type(),
+                                &format!("/{}/{ordinal}/{}", section.key, column.name()),
+                                column.name(),
                                 &mut fields,
                             );
                         }
                     }
-                    for (path, typed_path, text) in fields {
+                    for (path, _typed_path, text) in fields {
                         let span = document.spans.span(&path).ok_or_else(|| {
                             contract(None, "missing original expression field range")
                         })?;
-                        let syntax = section
-                            .expression_fields
-                            .iter()
-                            .find(|(path, _)| *path == typed_path)
-                            .map(|(_, syntax)| *syntax)
-                            .ok_or_else(|| contract(Some(span), "DSL field grammar undeclared"))?;
-                        let parsed = parse(text, span, syntax)?;
+                        let source_key = context
+                            .lookup
+                            .source_keys
+                            .get(&(document.id, path.clone()))
+                            .ok_or_else(|| {
+                                contract(Some(span), "native source-key binding absent")
+                            })?;
+                        let indexed_by =
+                            index_names(relation.id, source_key, &value.value, &context)?;
+                        let parsed = document
+                            .expressions
+                            .get(&path)
+                            .ok_or_else(|| {
+                                contract(Some(span), "parsed source expression missing")
+                            })?
+                            .clone();
                         let mut expression = SourceExpression {
                             document_id: document.id,
                             document_path: path,
                             relation_id: relation.id,
                             row_key: key.clone(),
+                            owner_kind,
+                            owner_id,
                             owner_template_id: owner,
                             indexed_by: indexed_by.clone(),
                             source_span: span,
@@ -284,30 +328,53 @@ pub(crate) fn bind_parsed(
                             parsed,
                             paths: Vec::new(),
                         };
-                        expression.paths =
-                            walk::bind(&expression.parsed, owner, &context, span, &indexed_by)?;
+                        expression.paths = walk::bind(
+                            &expression.parsed,
+                            owner,
+                            &context,
+                            span,
+                            &indexed_by,
+                            relation.id == authored::template_submodels::RELATION_ID,
+                        )?;
                         expressions.push(expression);
                     }
                 }
             }
         }
     }
-    Ok(SourceBindings { expressions })
+    Ok(SourceBindings {
+        expressions,
+        lookup: context.lookup,
+    })
 }
 
 fn index_names(
     relation: SemanticId,
-    row: &[Cell],
+    source_key: &str,
     value: &Value,
+    context: &Context,
 ) -> Result<Vec<String>, AuthoringError> {
+    if let Some(values) = context.index_companions.get(&relation) {
+        return values
+            .get(source_key)
+            .cloned()
+            .ok_or_else(|| contract(None, "source index companion lookup absent"));
+    }
     if relation == authored::template_property_requirements::RELATION_ID {
-        let requirement = authored::template_property_requirements::Row::from_cells(row.to_vec())
-            .map_err(|error| contract(None, &error.to_string()))?;
-        return Ok(requirement
-            .index_domain_bindings
-            .into_iter()
-            .map(|binding| binding.index_name)
-            .collect());
+        let Some(Value::List(bindings)) = value.get("index_domain_bindings") else {
+            return Ok(Vec::new());
+        };
+        return bindings
+            .iter()
+            .map(|binding| {
+                binding
+                    .value
+                    .get("index_name")
+                    .and_then(Value::text)
+                    .map(str::to_owned)
+                    .ok_or_else(|| contract(None, "requirement index name absent"))
+            })
+            .collect();
     }
     match value.get("indexed_by") {
         Some(Value::List(values)) => values
@@ -324,80 +391,24 @@ fn index_names(
     }
 }
 
-fn reparse(
-    bundles: &[DocumentBundle],
-    registry: &Registry,
-) -> Result<Vec<DocumentBundle>, AuthoringError> {
-    bundles
-        .iter()
-        .map(|bundle| {
-            let mut texts = BTreeMap::new();
-            for document in &bundle.documents {
-                if texts
-                    .insert(document.path.clone(), document.text.clone())
-                    .is_some()
-                {
-                    return Err(contract(None, "duplicate original document path"));
-                }
-            }
-            super::load_package_texts(texts, registry, crate::ParseBudget::default())
-        })
-        .collect()
-}
-fn checked_key(
-    relation: &pse_schema::model::RelationSpec,
-    row: &[Cell],
-    rows: &super::Rows,
-) -> Result<Vec<Cell>, AuthoringError> {
-    let columns = relation
-        .primary_key
-        .iter()
-        .map(|name| {
-            relation
-                .columns
-                .iter()
-                .position(|column| column.name == *name)
-                .ok_or_else(|| contract(None, "missing declared source key"))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let actual = rows
-        .get(&relation.id)
-        .into_iter()
-        .flatten()
-        .filter(|candidate| {
-            columns.iter().all(|&index| {
-                candidate.get(index).map(Cell::literal_spec)
-                    == row.get(index).map(Cell::literal_spec)
-            })
-        })
-        .collect::<Vec<_>>();
-    if actual.len() != 1
-        || actual[0].iter().map(Cell::literal_spec).collect::<Vec<_>>()
-            != row.iter().map(Cell::literal_spec).collect::<Vec<_>>()
-    {
-        return Err(contract(
-            None,
-            "original expression source row differs from the actual bound input",
-        ));
-    }
-    Ok(columns
-        .into_iter()
-        .map(|index| row[index].clone())
-        .collect())
-}
-
 fn fields_of<'a>(
     value: &'a Value,
-    ty: &LogicalType,
+    ty: &FieldContract,
     path: &str,
     typed_path: &str,
     fields: &mut Vec<(String, String, &'a str)>,
 ) {
-    match (value, ty) {
-        (Value::Text(text), LogicalType::Ext(ExtensionUse::ExprDsl)) => {
+    match (value, ty.extension(), ty.data_type()) {
+        (Value::Text(text), Some(ExtensionUse::ExprDsl), _) => {
             fields.push((path.to_owned(), typed_path.to_owned(), text));
         }
-        (Value::List(values), LogicalType::List(element) | LogicalType::FixedList(element, _)) => {
+        (
+            Value::List(values),
+            None,
+            datafusion::arrow::datatypes::DataType::List(element)
+            | datafusion::arrow::datatypes::DataType::FixedSizeList(element, _),
+        ) => {
+            let element = &FieldContract::from_field((*element).clone());
             for (ordinal, value) in values.iter().enumerate() {
                 fields_of(
                     &value.value,
@@ -408,8 +419,10 @@ fn fields_of<'a>(
                 );
             }
         }
-        (value @ Value::Map(_), LogicalType::Struct(columns)) => {
-            for (name, ty, _) in columns {
+        (value @ Value::Map(_), None, datafusion::arrow::datatypes::DataType::Struct(columns)) => {
+            for field in &columns {
+                let name = field.name();
+                let ty = &FieldContract::from_field((**field).clone());
                 if let Some(value) = value.get(name) {
                     fields_of(
                         value,
@@ -438,10 +451,11 @@ fn parse(
     .map_err(|error| contract(Some(at), &error.to_string()))
 }
 
-pub(super) fn validate_document(
+pub(super) fn parse_document(
     document: &super::Document,
     registry: &Registry,
-) -> Result<(), AuthoringError> {
+) -> Result<BTreeMap<String, ParsedExpression>, AuthoringError> {
+    let mut parsed = BTreeMap::new();
     for section in &document.declaration.sections {
         if section.expression_fields.is_empty() {
             continue;
@@ -455,12 +469,12 @@ pub(super) fn validate_document(
         for (ordinal, value) in values.iter().enumerate() {
             let mut fields = Vec::new();
             for column in &relation.columns {
-                if let Some(value) = value.value.get(column.name) {
+                if let Some(value) = value.value.get(column.name()) {
                     fields_of(
                         value,
-                        &column.logical_type,
-                        &format!("/{}/{ordinal}/{}", section.key, column.name),
-                        column.name,
+                        &column.value_type(),
+                        &format!("/{}/{ordinal}/{}", section.key, column.name()),
+                        column.name(),
                         &mut fields,
                     );
                 }
@@ -476,28 +490,41 @@ pub(super) fn validate_document(
                     .find(|(path, _)| *path == typed_path)
                     .map(|(_, syntax)| *syntax)
                     .ok_or_else(|| contract(Some(span), "DSL field grammar undeclared"))?;
-                parse(text, span, syntax)?;
+                parsed.insert(path, parse(text, span, syntax)?);
             }
         }
     }
-    Ok(())
+    Ok(parsed)
 }
 impl Context {
-    fn new(rows: &super::Rows, registry: &Registry) -> Result<Self, AuthoringError> {
-        fn decode<T>(
-            rows: &BTreeMap<SemanticId, Vec<Vec<Cell>>>,
-            id: SemanticId,
-            convert: fn(Vec<Cell>) -> Result<T, pse_relations::RelationError>,
-        ) -> Result<Vec<T>, AuthoringError> {
-            rows.get(&id)
-                .into_iter()
-                .flatten()
-                .cloned()
-                .map(convert)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|error| contract(None, &error.to_string()))
+    fn new(
+        batches: &super::Batches,
+        registry: &Registry,
+        lookup: native::Lookup,
+        index_companions: indices::IndexCompanions,
+    ) -> Result<Self, AuthoringError> {
+        macro_rules! rows {
+            ($module:path) => {{
+                use $module as relation;
+                batches
+                    .get(&relation::RELATION_ID)
+                    .map(|batch| relation::View::from_checked(batch)?.rows())
+                    .transpose()?
+                    .unwrap_or_default()
+            }};
         }
         Ok(Self {
+            index_companions,
+            lookup,
+            prospective: rows!(pse_relations::generated::normalized::instance_bindings),
+            semantic_id_type: registry
+                .logical_type(
+                    &FieldContract::id()
+                        .type_name()
+                        .map_err(|e| contract(None, &e.to_string()))?,
+                )
+                .ok_or_else(|| contract(None, "semantic-ID logical type declaration absent"))?
+                .id,
             enums: registry
                 .enums()
                 .iter()
@@ -512,32 +539,89 @@ impl Context {
                     )
                 })
                 .collect(),
-            targets: crate::targets::TargetContext::from_rows(rows)?,
-            templates: decode(
-                rows,
-                authored::templates::RELATION_ID,
-                authored::templates::Row::from_cells,
-            )?,
-            params: decode(
-                rows,
-                authored::template_params::RELATION_ID,
-                authored::template_params::Row::from_cells,
-            )?,
-            features: decode(
-                rows,
-                authored::template_features::RELATION_ID,
-                authored::template_features::Row::from_cells,
-            )?,
-            units: decode(
-                rows,
-                pse_relations::generated::reference::units::RELATION_ID,
-                pse_relations::generated::reference::units::Row::from_cells,
-            )?,
-            submodels: decode(
-                rows,
-                authored::template_submodels::RELATION_ID,
-                authored::template_submodels::Row::from_cells,
-            )?,
+            enum_names: registry
+                .enums()
+                .iter()
+                .map(|definition| (definition.name.to_owned(), definition.id))
+                .collect(),
+            entities: rows!(authored::entities),
+            symbols: rows!(authored::template_symbols),
+            template_domains: rows!(authored::template_domains),
+            instances: rows!(authored::instances),
+            templates: rows!(authored::templates),
+            params: rows!(authored::template_params),
+            features: rows!(authored::template_features),
+            submodels: rows!(authored::template_submodels),
         })
     }
+}
+
+fn owner_template(
+    context: &Context,
+    owner_kind: ExpressionOwnerKind,
+    owner_id: SemanticId,
+) -> Result<SemanticId, AuthoringError> {
+    let owner = match owner_kind {
+        ExpressionOwnerKind::Template => owner_id,
+        ExpressionOwnerKind::Instance => {
+            let mut matches = context
+                .instances
+                .iter()
+                .filter(|instance| instance.instance_id == owner_id);
+            let template = matches
+                .next()
+                .ok_or_else(|| contract(None, "instance expression owner absent"))?
+                .template_id;
+            if matches.next().is_some() {
+                return Err(contract(None, "instance expression owner is ambiguous"));
+            }
+            template
+        }
+    };
+    if context
+        .templates
+        .iter()
+        .filter(|template| template.template_id == owner)
+        .count()
+        != 1
+    {
+        return Err(contract(
+            None,
+            "expression owner must resolve to exactly one declared template",
+        ));
+    }
+    Ok(owner)
+}
+
+fn source_row_key(
+    document: &super::Document,
+    relation: &pse_schema::model::RelationSpec,
+    ordinal: usize,
+    registry: &Registry,
+) -> Result<Vec<Cell>, AuthoringError> {
+    let source = document
+        .batches
+        .get(&relation.id)
+        .ok_or_else(|| contract(None, "source batch absent"))?;
+    let positions = relation
+        .primary_key
+        .iter()
+        .map(|name| {
+            source
+                .batch()
+                .schema()
+                .index_of(name)
+                .map_err(|error| contract(None, &error.to_string()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let key_batch = source
+        .batch()
+        .slice(ordinal, 1)
+        .project(&positions)
+        .map_err(|error| contract(None, &error.to_string()))?;
+    let mut keys = pse_relations::cells::decode_columns(registry, &key_batch)?;
+    let key = keys
+        .pop()
+        .ok_or_else(|| contract(None, "source key absent"))?;
+    Ok(key)
 }

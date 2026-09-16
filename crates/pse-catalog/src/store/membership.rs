@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use datafusion::arrow::array::RecordBatch;
 use pse_ids::{SemanticId, SnapshotKind, model_port_name};
+use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::Registry;
 use pse_schema::model::{PortSource, RelationKey, RelationSpec, SnapshotClass};
 
@@ -26,6 +27,10 @@ pub struct AdmissionContext {
     pub parents: BTreeMap<String, Arc<Snapshot>>,
     /// The exact registered producing pass for a stage snapshot.
     pub stage_pass: Option<SemanticId>,
+    /// Actual auxiliary bindings retained by the producing invocation.
+    pub invocation: Option<super::invocation::OwnedInvocation>,
+    /// Shared transient owners for one cold admission, never serialized or retained by snapshots.
+    pub traversal: Arc<super::traversal::AdmissionTraversal>,
 }
 
 /// Resolve the exact relation inventory and validate its parent bindings.
@@ -33,12 +38,12 @@ pub(crate) fn inventory<'a>(
     reg: &'a Registry,
     manifest: &Manifest,
     context: &AdmissionContext,
-    admission: &Arc<()>,
+    admission: &Arc<crate::store::open::CatalogContext>,
 ) -> Result<BTreeMap<String, &'a RelationSpec>, CatalogError> {
     validate_parents(manifest, context, admission)?;
     match manifest.snapshot_kind {
         SnapshotKind::Model | SnapshotKind::Case => {
-            if context.stage_pass.is_some() {
+            if context.stage_pass.is_some() || context.invocation.is_some() {
                 return Err(refused("a model or case has no producing stage pass"));
             }
             let class = if manifest.snapshot_kind == SnapshotKind::Model {
@@ -67,8 +72,26 @@ pub(crate) fn inventory<'a>(
 fn validate_parents(
     manifest: &Manifest,
     context: &AdmissionContext,
-    admission: &Arc<()>,
+    admission: &Arc<crate::store::open::CatalogContext>,
 ) -> Result<(), CatalogError> {
+    if let Some(invocation) = &context.invocation {
+        if invocation
+            .document_source
+            .as_ref()
+            .is_some_and(|source| !Arc::ptr_eq(admission, &source.admission))
+        {
+            return Err(refused(
+                "a foreign document source must be reopened by this catalog",
+            ));
+        }
+        for policy in invocation.policies.values() {
+            if !Arc::ptr_eq(admission, &policy.snapshot.admission) {
+                return Err(refused(
+                    "a foreign policy owner must be reopened by this catalog",
+                ));
+            }
+        }
+    }
     let roles = manifest
         .semantic_parents
         .iter()
@@ -183,21 +206,16 @@ fn stage_inventory<'a>(
         .collect()
 }
 
-/// Check direct batch/schema/value/key/FK content with the bound parent rows.
-pub(crate) fn validate_content(
+/// Bind checked candidate fields to the exact admitted parent scope for native obligations.
+pub(crate) fn complete_context(
     reg: &Registry,
-    candidates: &BTreeMap<RelationKey, RecordBatch>,
+    candidates: &BTreeMap<RelationKey, FieldCheckedBatch>,
     context: &AdmissionContext,
-) -> Result<BTreeMap<RelationKey, RecordBatch>, CatalogError> {
+) -> Result<BTreeMap<RelationKey, FieldCheckedBatch>, CatalogError> {
     let mut complete = candidates.clone();
-    let mut stack = Vec::new();
-    bound_parent_members(reg, &context.parents, context.stage_pass, &mut stack)?;
-    let mut expanded = BTreeSet::new();
-    let mut visited = BTreeSet::new();
-    while let Some((parent, selected_port)) = stack.pop() {
-        if !visited.insert((Arc::as_ptr(parent), selected_port)) {
-            continue;
-        }
+    let mut selected = Vec::new();
+    bound_parent_members(reg, &context.parents, context.stage_pass, &mut selected)?;
+    for (parent, selected_port) in selected {
         for (port, relation) in parent.relations.iter() {
             if selected_port.is_some_and(|selected| selected != port) {
                 continue;
@@ -210,35 +228,59 @@ pub(crate) fn validate_content(
                 continue;
             }
             if let Some(existing) = complete.get(&spec.key) {
-                if existing != &relation.batch {
+                if existing.batch() != relation.batch() {
                     return Err(refused(&format!(
                         "parent bindings offer ambiguous actual rows for {}",
                         spec.key
                     )));
                 }
             } else {
-                complete.insert(spec.key, relation.batch.clone());
+                complete.insert(spec.key, relation.checked().clone());
             }
         }
-        if expanded.insert(Arc::as_ptr(parent)) {
-            bound_parent_members(reg, &parent.parents, parent.stage_pass, &mut stack)?;
-        }
     }
-    pse_relations::validate::validate_bundle(reg, &complete).map_err(|errors| {
-        CatalogError::Admission {
-            path: "snapshot bundle".to_owned(),
-            reason: errors
-                .iter()
-                .map(ToString::to_string)
-                .collect::<Vec<_>>()
-                .join("; "),
+    // A stage's current declared inputs are authoritative. An ancestor's derived
+    // output is not an additional implicit input and must not replace or conflict
+    // with the selected current relation. Only primitive model/case context is
+    // inherited for domain/reference obligations; derived reads require a port.
+    let current = complete.keys().copied().collect::<BTreeSet<_>>();
+    let mut stack = context.parents.values().collect::<Vec<_>>();
+    let mut visited = BTreeSet::new();
+    while let Some(parent) = stack.pop() {
+        if !visited.insert(Arc::as_ptr(parent)) {
+            continue;
         }
-    })?;
+        if matches!(
+            parent.manifest.snapshot_kind,
+            SnapshotKind::Model | SnapshotKind::Case
+        ) {
+            for relation in parent.relations.values() {
+                let spec = reg
+                    .relation_by_id(relation.member.relation_id)
+                    .ok_or_else(|| refused("primitive parent declaration is missing"))?;
+                if current.contains(&spec.key) {
+                    continue;
+                }
+                relation.contract.validate_against_registry(reg, spec)?;
+                if let Some(existing) = complete.get(&spec.key) {
+                    if existing.batch() != relation.batch() {
+                        return Err(refused(&format!(
+                            "primitive parent scope offers ambiguous actual rows for {}",
+                            spec.key
+                        )));
+                    }
+                } else {
+                    complete.insert(spec.key, relation.checked().clone());
+                }
+            }
+        }
+        stack.extend(parent.parents.values());
+    }
     Ok(complete)
 }
 
 // A model/case parent supplies its complete primitive scope. A stage parent supplies
-// the exact explicitly bound producer output, with ancestors added independently.
+// the exact explicitly bound producer output. Only primitive ancestor scope is inherited.
 // This prevents another same-schema output from silently replacing the chosen port.
 fn bound_parent_members<'a>(
     reg: &'a Registry,
@@ -276,14 +318,59 @@ pub(crate) fn refused(reason: &str) -> CatalogError {
 
 /// Required domain/invariant admission supplied by the rule layer. The catalog owns
 /// physical, schema, key and FK admission; this callback executes the actual registered
-/// predicates over those rows before a snapshot handle is constructed.
+/// predicates over those rows before a snapshot handle is constructed. Every callback
+/// receives the actual operation session and must retain its runtime, allocator,
+/// functions and scoped policies when constructing its validation workspace.
 pub trait SemanticValidator: Send + Sync + std::fmt::Debug {
+    /// Establish obligations affected by newly constructed relations while retaining
+    /// complete admitted parent inputs for every positive and negative read.
+    /// The default executes the complete program; rule implementations may select
+    /// obligations from their actual declared dependency closure.
+    fn validate_affected<'a>(
+        &'a self,
+        reg: &'a Registry,
+        rows: &'a BTreeMap<RelationKey, FieldCheckedBatch>,
+        _changed: &'a BTreeSet<RelationKey>,
+        session: &'a crate::session::SnapshotSession,
+        cancel: &'a pse_ids::CancellationToken,
+    ) -> crate::BoxFut<'a, Result<(), CatalogError>> {
+        self.validate_checked(reg, rows, session, cancel)
+    }
+    /// Actual typed local source construction consumer, bound when the catalog is opened.
+    fn source_producer(&self) -> Option<Arc<dyn crate::source_production::SourceProducer>> {
+        None
+    }
+    /// Evaluate residual relation obligations over actual locally checked fields.
+    /// Implementations should retain these owners in their native input providers.
+    fn validate_checked<'a>(
+        &'a self,
+        reg: &'a Registry,
+        rows: &'a BTreeMap<RelationKey, FieldCheckedBatch>,
+        session: &'a crate::session::SnapshotSession,
+        cancel: &'a pse_ids::CancellationToken,
+    ) -> crate::BoxFut<'a, Result<(), CatalogError>> {
+        Box::pin(async move {
+            let raw = rows
+                .iter()
+                .map(|(key, batch)| (*key, batch.batch().clone()))
+                .collect();
+            self.validate(reg, &raw, session, cancel).await
+        })
+    }
+    /// Actual producing implementation shared by local execution and reopening.
+    fn stage_producer(
+        &self,
+        _pass: SemanticId,
+    ) -> Option<Arc<dyn crate::computation::StageProducer>> {
+        None
+    }
     /// Validate all applicable registered invariants against actual candidate and parent
     /// rows. A matching fingerprint or cached certificate cannot replace evaluation.
     fn validate<'a>(
         &'a self,
         reg: &'a Registry,
         rows: &'a BTreeMap<RelationKey, RecordBatch>,
+        session: &'a crate::session::SnapshotSession,
         cancel: &'a pse_ids::CancellationToken,
     ) -> crate::BoxFut<'a, Result<(), CatalogError>>;
 
@@ -295,9 +382,10 @@ pub trait SemanticValidator: Send + Sync + std::fmt::Debug {
         &'a self,
         reg: &'a Registry,
         rows: &'a BTreeMap<RelationKey, RecordBatch>,
+        session: &'a crate::session::SnapshotSession,
         cancel: &'a pse_ids::CancellationToken,
     ) -> crate::BoxFut<'a, Result<(), CatalogError>> {
-        self.validate(reg, rows, cancel)
+        self.validate(reg, rows, session, cancel)
     }
 
     /// Establish correspondence between actual document bytes and their declared
@@ -319,24 +407,6 @@ pub trait SemanticValidator: Send + Sync + std::fmt::Debug {
             ))
         })
     }
-
-    /// Establish the actual registered producer semantics for every declared output port.
-    /// Generic invariant validity alone cannot certify source-to-derived meaning.
-    /// Implementations must inspect actual parents, sources and outputs; the default
-    /// refuses to mint a stage whose producing computation has not been established.
-    fn validate_stage<'a>(
-        &'a self,
-        _catalog: &'a crate::Catalog,
-        _context: &'a AdmissionContext,
-        _candidates: &'a BTreeMap<String, RecordBatch>,
-        _cancel: &'a pse_ids::CancellationToken,
-    ) -> crate::BoxFut<'a, Result<(), CatalogError>> {
-        Box::pin(async {
-            Err(refused(
-                "stage admission requires an executable validator for the actual registered producer",
-            ))
-        })
-    }
 }
 
 /// Conservative temporary extents for recursive Cell rows, tagged key/FK values and
@@ -349,13 +419,11 @@ pub fn validation_extent(batch: &RecordBatch) -> Result<usize, CatalogError> {
 }
 
 pub(crate) fn context_validation_extent(
-    candidates: &BTreeMap<RelationKey, RecordBatch>,
+    candidates: &BTreeMap<RelationKey, FieldCheckedBatch>,
     context: &AdmissionContext,
 ) -> Result<usize, CatalogError> {
-    let mut total = candidates.values().try_fold(0usize, |total, batch| {
-        total
-            .checked_add(validation_extent(batch)?)
-            .ok_or_else(super::encode::overflow)
+    let mut total = candidates.values().try_fold(0usize, |total, _batch| {
+        total.checked_add(1024).ok_or_else(super::encode::overflow)
     })?;
     let mut stack = context.parents.values().collect::<Vec<_>>();
     let mut visited = BTreeSet::new();
@@ -363,9 +431,9 @@ pub(crate) fn context_validation_extent(
         if !visited.insert(Arc::as_ptr(parent)) {
             continue;
         }
-        for relation in parent.relations.values() {
+        for _relation in parent.relations.values() {
             total = total
-                .checked_add(validation_extent(&relation.batch)?)
+                .checked_add(1024)
                 .ok_or_else(super::encode::overflow)?;
         }
         stack.extend(parent.parents.values());

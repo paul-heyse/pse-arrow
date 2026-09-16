@@ -3,7 +3,7 @@
 //! Exported Arrow buffers retain accounted ownership after session/provider drops.
 
 mod support;
-use pse_catalog::session::phase0_reference_profile;
+use pse_catalog::session::native_engine_profile;
 use pse_ids::CancellationToken;
 use std::sync::Arc;
 
@@ -26,7 +26,7 @@ async fn detached_result_arrays_hold_their_actual_shared_pool_claim() {
         .await
         .expect("snapshot");
     let factory = runtime
-        .session_factory(phase0_reference_profile())
+        .session_factory(native_engine_profile())
         .expect("factory");
     let session = factory
         .open_session(vec![snapshot], reg, &cancel)

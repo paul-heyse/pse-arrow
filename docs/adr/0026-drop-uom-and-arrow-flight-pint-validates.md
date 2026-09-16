@@ -1,7 +1,7 @@
 ---
 id: ADR-0026
 title: Drop uom and arrow-flight; pint validates what the adapter emits and never defines a quantity
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§3.1, §3.3, §21.2]
 review: docs/design_review/reviews/design_review_arrow-native-idaes-core-blueprint-rev2_2026-09-13.md#7-principle-findings
 evidence: Interface-checked
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0067
 revisit: A kernel genuinely needs compile-time unit typing, or a remote Arrow transport becomes a requirement
 verification: `rust / deny` (`deny.toml` bans `uom` and `arrow-flight`); `python / lint` banned-api rule on `assert_units_consistent`; `tests/governance/tests/banned_patterns.rs`
 
@@ -61,3 +61,4 @@ Blueprint §3.1, §3.3 ("explicitly not added"), §21.2 (adapter algorithm step 
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-14 — superseded by ADR-0067.

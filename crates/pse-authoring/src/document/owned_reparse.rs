@@ -3,11 +3,11 @@
 
 //! Accounted admission of caller DTO source inventories.
 use super::{DocumentBundle, OwnedDocumentSet};
-use crate::{AuthoringError, ParseBudget};
+use crate::AuthoringError;
 use pse_ids::{CancellationToken, MemoryReserver};
 use pse_schema::Registry;
 
-/// Reparse caller DTOs from exact original bytes, retaining every new allocation.
+/// Retain immutable private loader results without reparsing original bytes.
 /// # Errors
 /// Source/schema/identity failures, cancellation or an unavailable shared reservation.
 pub fn load_bundles_owned(
@@ -21,15 +21,8 @@ pub fn load_bundles_owned(
     let mut parts = Vec::with_capacity(bundles.len());
     for bundle in bundles {
         cancel.checkpoint()?;
-        parts.push(super::load_package_sources_owned(
-            bundle
-                .documents
-                .iter()
-                .map(|document| (document.path.as_str(), document.text.as_bytes())),
-            registry,
-            ParseBudget::default(),
-            reserver,
-            cancel,
+        parts.push(super::owned::retain_bundle(
+            bundle, registry, reserver, cancel,
         )?);
     }
     OwnedDocumentSet::try_from_bundles(parts, reserver, cancel)

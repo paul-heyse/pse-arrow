@@ -4,7 +4,7 @@
 //! Authoring sections map to exact declared rows (blueprint §22.1, ADR-0051).
 
 use crate::builder::RegistryBuilder;
-use crate::model::{DocumentKind, DocumentSection, DocumentSpec, DslSyntax};
+use crate::model::{DocumentKind, DocumentSection, DocumentSpec, DslSyntax, ExpressionOwnerKind};
 
 /// Declare each package surface once. Generated DTOs and the loader share these mappings.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -22,6 +22,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
                 name_column: None,
                 naming_scope_column: None,
                 expression_owner_column: None,
+                expression_owner_kind: None,
                 expression_fields: &[],
                 doc: "The package header; content_hash is supplied by the loader.",
             },
@@ -34,6 +35,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
                 name_column: None,
                 naming_scope_column: None,
                 expression_owner_column: None,
+                expression_owner_kind: None,
                 expression_fields: &[],
                 doc: "Optional explicit representation-unit selector, at most one per package.",
             },
@@ -47,6 +49,20 @@ pub fn declare(builder: &mut RegistryBuilder) {
     declare_laws(builder);
     declare_costing(builder);
     declare_cases(builder);
+    entities(
+        builder,
+        "instances",
+        "instances/*.yaml",
+        &[
+            "authored.instances",
+            "authored.instance_equations",
+            "authored.instance_domain_bindings",
+            "authored.flowsheets",
+            "authored.scopes",
+            "authored.selector_terms",
+            "authored.connections",
+        ],
+    );
     entities(
         builder,
         "assertions",
@@ -70,8 +86,11 @@ fn declare_materials(builder: &mut RegistryBuilder) {
             "reference.quantity_types",
             "reference.conversion_rules",
             "reference.quantity_operations",
+            "reference.quantity_operation_reductions",
+            "reference.quantity_preconditions",
             "reference.constants",
             "reference.elements",
+            "reference.math_context",
             "authored.domains",
             "authored.domain_members",
             "authored.continuous_domains",
@@ -95,7 +114,18 @@ fn declare_methods(builder: &mut RegistryBuilder) {
         builder,
         "methods",
         "methods/*.yaml",
-        &["reference.property_kinds", "reference.method_specs"],
+        &[
+            "reference.property_kinds",
+            "reference.method_specs",
+            "reference.method_precedence",
+            "reference.method_dependencies",
+            "reference.method_provisions",
+            "reference.method_parameters",
+            "reference.method_state_parameters",
+            "reference.method_parameter_axes",
+            "reference.method_kernel_inputs",
+            "reference.kernel_specs",
+        ],
     );
 }
 
@@ -126,16 +156,27 @@ fn declare_templates(builder: &mut RegistryBuilder) {
             "authored.template_feature_rules",
             "authored.template_guards",
             "authored.template_domains",
+            "authored.template_domain_bindings",
+            "authored.template_material_constraints",
             "authored.template_symbols",
+            "authored.template_symbol_contracts",
+            "authored.template_derivatives",
+            "authored.template_scopes",
+            "authored.template_symbol_expressions",
             "authored.template_symbol_properties",
             "authored.template_equations",
             "authored.template_submodels",
             "authored.template_ports",
+            "authored.template_port_members",
             "authored.template_contributions",
+            "authored.template_contribution_contracts",
             "authored.template_law_instances",
+            "authored.template_law_contracts",
             "authored.template_requirements",
             "authored.template_display",
+            "authored.template_display_indices",
             "authored.template_property_requirements",
+            "reference.connection_bindings",
         ],
     );
 }
@@ -145,7 +186,13 @@ fn declare_laws(builder: &mut RegistryBuilder) {
         builder,
         "laws",
         "laws/*.yaml",
-        &["authored.templates", "authored.template_law_instances"],
+        &[
+            "authored.templates",
+            "authored.template_law_instances",
+            "authored.template_law_contracts",
+            "reference.law_bindings",
+            "reference.element_projection_contracts",
+        ],
     );
 }
 
@@ -207,6 +254,10 @@ fn entities(
             name_column: projection(relation).2,
             naming_scope_column: projection(relation).3,
             expression_owner_column: expression_owner(relation),
+            expression_owner_kind: expression_owner(relation).map(|_| {
+                if *relation == "authored.instance_equations" { ExpressionOwnerKind::Instance }
+                else { ExpressionOwnerKind::Template }
+            }),
             expression_fields: expression_fields(relation),
             doc:"Typed rows under the declared relation contract.",
         }).collect(),
@@ -263,6 +314,13 @@ fn projection(relation: &str) -> Projection {
             Some("name"),
             Some("template_id"),
         ),
+        "authored.instance_equations" => (
+            Some("equation_decl_id"),
+            Some("equation_declaration"),
+            Some("name"),
+            Some("instance_id"),
+        ),
+        "authored.method_selections" => (Some("selection_id"), None, None, None),
         "authored.instances" => (
             Some("instance_id"),
             Some("instance"),
@@ -277,10 +335,21 @@ fn projection(relation: &str) -> Projection {
         "reference.conversion_rules" => (Some("conversion_id"), None, None, None),
         "reference.quantity_operations" => (Some("operation_id"), None, None, None),
         "reference.property_kinds" => (Some("property_kind_id"), None, None, None),
+        "reference.kernel_specs" => (Some("kernel_id"), None, None, None),
         "authored.domains" => (Some("domain_id"), None, None, None),
         "authored.domain_members" => (Some("member_id"), None, None, None),
-        "authored.property_packages" => (Some("property_package_id"), None, None, None),
-        "authored.reaction_packages" => (Some("reaction_package_id"), None, None, None),
+        "authored.property_packages" => (
+            Some("property_package_id"),
+            Some("property_package"),
+            Some("name"),
+            None,
+        ),
+        "authored.reaction_packages" => (
+            Some("reaction_package_id"),
+            Some("reaction_package"),
+            Some("name"),
+            None,
+        ),
         "authored.template_guards" => (Some("guard_id"), None, None, None),
         "authored.template_law_instances" => (Some("law_instance_decl_id"), None, None, None),
         "authored.template_property_requirements" => (Some("requirement_id"), None, None, None),
@@ -300,11 +369,13 @@ fn projection(relation: &str) -> Projection {
 
 fn expression_owner(relation: &str) -> Option<&'static str> {
     match relation {
+        "authored.instance_equations" => Some("instance_id"),
         "authored.template_guards"
+        | "authored.template_symbols"
+        | "authored.template_symbol_expressions"
         | "authored.template_equations"
         | "authored.template_submodels"
         | "authored.template_contributions"
-        | "authored.template_law_instances"
         | "authored.template_display"
         | "authored.template_property_requirements" => Some("template_id"),
         _ => None,
@@ -315,11 +386,15 @@ fn expression_fields(relation: &str) -> &'static [(&'static str, DslSyntax)] {
     use DslSyntax::{Equation, Expression, Predicate};
     match relation {
         "authored.template_guards" => &[("predicate", Predicate)],
-        "authored.template_equations" => &[("filter", Predicate), ("expression", Equation)],
+        "authored.template_symbols" => &[("reference_to", Expression)],
+        "authored.template_equations" | "authored.instance_equations" => {
+            &[("filter", Predicate), ("expression", Equation)]
+        }
         "authored.template_submodels" => &[("bindings[].value", Expression)],
-        "authored.template_contributions" => &[("subject", Expression), ("expression", Expression)],
-        "authored.template_law_instances" => &[("subject_selector", Predicate)],
-        "authored.template_display" => &[("expression", Expression)],
+        "authored.template_contributions" => &[("expression", Expression)],
+        "authored.template_display" | "authored.template_symbol_expressions" => {
+            &[("expression", Expression)]
+        }
         "authored.template_property_requirements" => &[("guard", Predicate)],
         _ => &[],
     }

@@ -8,14 +8,12 @@ use pse_ids::{CancellationToken, MemoryReserver, Reservation, ReservationLease};
 use std::sync::Arc;
 
 pub(super) struct Allocation<'a> {
-    pub(super) reserver: &'a dyn MemoryReserver,
     pub(super) cancel: &'a CancellationToken,
     reservation: Box<dyn Reservation>,
 }
 impl<'a> Allocation<'a> {
     pub(super) fn new(reserver: &'a dyn MemoryReserver, cancel: &'a CancellationToken) -> Self {
         Self {
-            reserver,
             cancel,
             reservation: reserver.open("authoring:owned-documents"),
         }
@@ -70,7 +68,7 @@ use super::{Document, value::Value};
 use crate::{ParseBudget, SourceSpan, dsl};
 use pse_schema::{
     Registry,
-    model::{Cell, DocumentSection, ExtensionUse, LogicalType},
+    model::{DocumentSection, ExtensionUse, FieldContract},
 };
 use serde_saphyr::Spanned;
 
@@ -256,7 +254,7 @@ pub(super) fn hydration_extent(
                     extent,
                     add(
                         mul(16, size_of::<(Spanned<String>, Spanned<Value>)>())?,
-                        add(column.name.len(), 256)?,
+                        add(column.name().len(), 256)?,
                     )?,
                 )?;
             }
@@ -291,17 +289,20 @@ pub(super) fn row_extent(
         let relation = registry
             .relation(section.relation)
             .ok_or_else(|| super::load::contract(None, "undeclared document relation"))?;
-        extent = add(extent, map_entry::<pse_ids::SemanticId, Vec<Vec<Cell>>>())?;
+        extent = add(
+            extent,
+            map_entry::<pse_ids::SemanticId, pse_relations::columnar::FieldCheckedBatch>(),
+        )?;
         for column in &relation.columns {
-            let child = value.get(column.name);
-            extent = add(extent, cells_extent(child, &column.logical_type)?)?;
+            let child = value.get(column.name());
+            extent = add(extent, field_extent(child, &column.value_type())?)?;
             if let Some(child) = child {
                 extent = add(
                     extent,
                     expression_extent(
                         child,
-                        &column.logical_type,
-                        add(section.key.len(), add(column.name.len(), 24)?)?,
+                        &column.value_type(),
+                        add(section.key.len(), add(column.name().len(), 24)?)?,
                     )?,
                 )?;
             }
@@ -311,28 +312,37 @@ pub(super) fn row_extent(
     Ok(extent)
 }
 
-fn cells_extent(value: Option<&Value>, ty: &LogicalType) -> Result<usize, AuthoringError> {
-    // DTO and final Cells can coexist; Vec extension may double a prior row
-    // inventory while moving it. Eight slots cover those four two-copy stages.
-    let mut bytes = mul(8, size_of::<Cell>())?;
-    match (value, ty) {
-        (Some(Value::Text(text)), _) => bytes = add(bytes, mul(add(text.len(), 64)?, 8)?)?,
+fn field_extent(value: Option<&Value>, ty: &FieldContract) -> Result<usize, AuthoringError> {
+    // Generated DTO slots, Arrow builder capacity growth, offsets and validity
+    // can coexist before the final checked columns replace their temporary inputs.
+    let mut bytes = mul(8, size_of::<Value>())?;
+    match (value, ty.extension(), ty.data_type()) {
+        (Some(Value::Text(text)), _, _) => bytes = add(bytes, mul(add(text.len(), 64)?, 8)?)?,
         (
             Some(Value::List(values)),
-            LogicalType::List(child) | LogicalType::FixedList(child, _),
+            None,
+            datafusion::arrow::datatypes::DataType::List(child)
+            | datafusion::arrow::datatypes::DataType::FixedSizeList(child, _),
         ) => {
+            let child = &FieldContract::from_field((*child).clone());
             for value in values {
-                bytes = add(bytes, cells_extent(Some(&value.value), child)?)?;
+                bytes = add(bytes, field_extent(Some(&value.value), child)?)?;
             }
         }
-        (Some(value @ Value::Map(_)), LogicalType::Struct(fields)) => {
-            for (name, child, _) in fields {
-                bytes = add(bytes, cells_extent(value.get(name), child)?)?;
+        (
+            Some(value @ Value::Map(_)),
+            None,
+            datafusion::arrow::datatypes::DataType::Struct(fields),
+        ) => {
+            for field in &fields {
+                let name = field.name();
+                let child = &FieldContract::from_field((**field).clone());
+                bytes = add(bytes, field_extent(value.get(name), child)?)?;
             }
         }
         // Extension DTOs are declared fixed shapes, or one scalar/list. Their
         // actual source Value already carries every nested slot and string.
-        (Some(value), LogicalType::Ext(_)) => bytes = add(bytes, mul(value_retained(value)?, 8)?)?,
+        (Some(value), Some(_), _) => bytes = add(bytes, mul(value_retained(value)?, 8)?)?,
         _ => {}
     }
     Ok(bytes)
@@ -340,12 +350,12 @@ fn cells_extent(value: Option<&Value>, ty: &LogicalType) -> Result<usize, Author
 
 fn expression_extent(
     value: &Value,
-    ty: &LogicalType,
+    ty: &FieldContract,
     path: usize,
 ) -> Result<usize, AuthoringError> {
     let mut bytes = mul(add(path, 32)?, 8)?;
-    match (value, ty) {
-        (Value::Text(text), LogicalType::Ext(ExtensionUse::ExprDsl)) => {
+    match (value, ty.extension(), ty.data_type()) {
+        (Value::Text(text), Some(ExtensionUse::ExprDsl), _) => {
             // A token witnesses every AST node (with at most a wrapper plus a
             // boxed/list node). Names/unit strings together are bounded by the
             // source; nested syntax does not duplicate complete source suffixes.
@@ -363,7 +373,13 @@ fn expression_extent(
                 )?,
             )?;
         }
-        (Value::List(values), LogicalType::List(child) | LogicalType::FixedList(child, _)) => {
+        (
+            Value::List(values),
+            None,
+            datafusion::arrow::datatypes::DataType::List(child)
+            | datafusion::arrow::datatypes::DataType::FixedSizeList(child, _),
+        ) => {
+            let child = &FieldContract::from_field((*child).clone());
             for value in values {
                 bytes = add(
                     bytes,
@@ -371,8 +387,10 @@ fn expression_extent(
                 )?;
             }
         }
-        (value @ Value::Map(_), LogicalType::Struct(fields)) => {
-            for (name, child, _) in fields {
+        (value @ Value::Map(_), None, datafusion::arrow::datatypes::DataType::Struct(fields)) => {
+            for field in &fields {
+                let name = field.name();
+                let child = &FieldContract::from_field((**field).clone());
                 if let Some(value) = value.get(name) {
                     bytes = add(
                         bytes,
@@ -386,41 +404,6 @@ fn expression_extent(
     Ok(bytes)
 }
 
-pub(super) fn key_extent(rows: &[Vec<Cell>]) -> Result<usize, AuthoringError> {
-    let mut bytes = 0;
-    for row in rows {
-        bytes = add(bytes, map_entry::<Vec<String>, ()>())?;
-        for cell in row {
-            bytes = add(bytes, literal_extent(cell)?)?;
-        }
-    }
-    Ok(bytes)
-}
-
-fn literal_extent(cell: &Cell) -> Result<usize, AuthoringError> {
-    let (bytes, nodes) = literal_shape(cell)?;
-    // literal_spec builds child strings, their joined parent, then the tagged
-    // wrapper. These are successive copies, not exponential per-depth expansion.
-    add(mul(bytes, 8)?, mul(nodes, 4 * size_of::<String>())?)
-}
-fn literal_shape(cell: &Cell) -> Result<(usize, usize), AuthoringError> {
-    let mut bytes = 128;
-    let mut nodes = 1;
-    match cell {
-        Cell::Text(value) => bytes = add(bytes, mul(value.len(), 6)?)?,
-        Cell::Enum(value) => bytes = add(bytes, mul(value.len(), 6)?)?,
-        Cell::List(values) | Cell::Struct(values) => {
-            for value in values {
-                let (child_bytes, child_nodes) = literal_shape(value)?;
-                bytes = add(bytes, child_bytes)?;
-                nodes = add(nodes, child_nodes)?;
-            }
-        }
-        _ => {}
-    }
-    Ok((bytes, nodes))
-}
-
 pub(super) fn registry_extent(registry: &Registry) -> Result<usize, AuthoringError> {
     let mut bytes = mul(
         registry.relations().len(),
@@ -430,13 +413,10 @@ pub(super) fn registry_extent(registry: &Registry) -> Result<usize, AuthoringErr
         bytes = add(bytes, mul(relation.primary_key.len(), size_of::<&str>())?)?;
         bytes = add(
             bytes,
-            mul(
-                relation.columns.len(),
-                size_of::<pse_schema::model::ColumnSpec>(),
-            )?,
+            mul(relation.columns.len(), size_of::<FieldContract>())?,
         )?;
         for column in &relation.columns {
-            bytes = add(bytes, logical_extent(&column.logical_type)?)?;
+            bytes = add(bytes, column.field().size())?;
         }
     }
     bytes = add(
@@ -457,20 +437,15 @@ pub(super) fn registry_extent(registry: &Registry) -> Result<usize, AuthoringErr
     }
     Ok(bytes)
 }
-fn logical_extent(ty: &LogicalType) -> Result<usize, AuthoringError> {
-    match ty {
-        LogicalType::List(child) | LogicalType::FixedList(child, _) => {
-            add(size_of::<LogicalType>(), logical_extent(child)?)
-        }
-        LogicalType::Struct(fields) => {
-            let mut bytes = mul(fields.len(), size_of::<(&str, LogicalType, bool)>())?;
-            for (_, ty, _) in fields {
-                bytes = add(bytes, logical_extent(ty)?)?;
-            }
-            Ok(bytes)
-        }
-        _ => Ok(0),
+fn source_value<'a>(mut value: &'a Value, path: &str) -> Option<&'a Value> {
+    for part in path.split('/').skip(1) {
+        value = match value {
+            Value::List(values) => &values.get(part.parse::<usize>().ok()?)?.value,
+            Value::Map(_) => value.get(&part.replace("~1", "/").replace("~0", "~"))?,
+            _ => return None,
+        };
     }
+    Some(value)
 }
 
 /// Retained-capacity accounting can only shrink the completed preflight; it is
@@ -483,6 +458,24 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, A
             add(document.path.capacity(), document.text.capacity())?,
         )?;
         bytes = add(bytes, value_retained(&document.value)?)?;
+        bytes = add(bytes, value_retained(&document.syntax)?)?;
+        for path in document.expressions.keys() {
+            let value = source_value(&document.value, path).ok_or_else(|| {
+                super::load::contract(None, "cached expression source path absent")
+            })?;
+            bytes = add(
+                bytes,
+                add(
+                    map_entry::<String, super::binding::ParsedExpression>(),
+                    expression_extent(
+                        value,
+                        &FieldContract::extended(ExtensionUse::ExprDsl),
+                        path.capacity(),
+                    )?,
+                )?,
+            )?;
+        }
+
         bytes = add(bytes, document.spans.retained_extent()?)?;
         bytes = add(
             bytes,
@@ -501,15 +494,8 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, A
             )?;
         }
     }
-    for rows in bundle.rows.values() {
-        bytes = add(bytes, map_entry::<pse_ids::SemanticId, Vec<Vec<Cell>>>())?;
-        bytes = add(bytes, mul(rows.capacity(), size_of::<Vec<Cell>>())?)?;
-        for row in rows {
-            bytes = add(bytes, mul(row.capacity(), size_of::<Cell>())?)?;
-            for cell in row {
-                bytes = add(bytes, cell_retained(cell)?)?;
-            }
-        }
+    for batch in bundle.batches.values() {
+        bytes = add(bytes, batch.batch().get_array_memory_size())?;
     }
     let package = &bundle.package;
     bytes = add(
@@ -533,20 +519,6 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, A
     }
     Ok(bytes)
 }
-fn cell_retained(cell: &Cell) -> Result<usize, AuthoringError> {
-    match cell {
-        Cell::Text(text) => Ok(text.capacity()),
-        Cell::List(values) | Cell::Struct(values) => {
-            let mut bytes = mul(values.capacity(), size_of::<Cell>())?;
-            for value in values {
-                bytes = add(bytes, cell_retained(value)?)?;
-            }
-            Ok(bytes)
-        }
-        _ => Ok(0),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -18,7 +18,9 @@ workspace = true
 
 [dependencies]
 pse-mathir.workspace = true
+pse-quantity.workspace = true
 pse-relations.workspace = true
+pse-schema.workspace = true
 pse-ids.workspace = true
 thiserror.workspace = true
 miette.workspace = true

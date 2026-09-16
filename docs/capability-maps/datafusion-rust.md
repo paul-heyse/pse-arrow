@@ -1,14 +1,26 @@
 ---
 status: evidence-map
-blueprint_revision: 5
+blueprint_revision: 36
 pins: Cargo.lock
 regenerated: null
-reviewed: 2026-09-13
+reviewed: 2026-09-14
 ---
 
 # DataFusion (Rust) — capability map
 
-**Current binding:** blueprint revision 5 and ADR-0039–ADR-0048. The inventories and
+**Capability policy correction (2026-09-14):** blueprint D10 makes Arrow and
+DataFusion the default data and execution foundation; §3.3.1 makes every capability
+eligible. Historical Reject/defer/no-consumer language
+below records earlier assessments, not current prohibitions. Use the
+[full-capability deployment matrix](../design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
+for current dispositions and the [review](../design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
+for actual implementation gaps. This update did not regenerate historical rustdoc
+JSON or probe receipts. New [pinned feature and behavioral evidence](../design_review/evidence/full-arrow-datafusion-2026-09-14/README.md)
+distinguishes native availability from PSE support, including raw ALL set-builder
+counterexamples and the infallible nature of Arrow tracking pools.
+
+
+**Current binding:** blueprint revision 36 and ADR-0065, supplementing ADR-0039–ADR-0048. The inventories and
 original extraction/probe receipts below retain their historical scope and dates;
 this update did not regenerate that corpus. Historical comparisons to revision 2
 are not current acceptance claims. Corrected interpretations are recorded in place.
@@ -977,7 +989,7 @@ In the previous edition this table combined Arrow and DataFusion rows. The Arrow
 | 48 | **`datafusion-ffi`** | §12 E1 | DM-44, DM-58 | A stable ABI for providers, UDFs and even physical optimizer rules across a dynamic-library boundary. No plugin boundary exists today, so **DM-58** says no — it matters only if §22's extension model ever admits compiled third-party kernel packages. **New.** |
 | 49 | **`datafusion-tracing`** (third party) | §12 E2, §12.5 | DM-50 | Instruments plans with tracing spans — D8's gap, solved. But it is at **55.0.0 against an engine at 55.1.0**: an independently-versioned compatibility edge of exactly the kind that produced the `num-dual`/`feos-core` split. `JoinSetTracer` (row 40) is the first-party alternative. **New.** |
 
-### Reject, with reason
+### Historical Reject dispositions — replaced by revision 34
 
 | # | Capability | Cluster | Why rejected |
 |---|---|---|---|

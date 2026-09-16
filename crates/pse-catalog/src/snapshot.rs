@@ -47,7 +47,7 @@ pub struct LoadedRelation {
     /// What the registry declares about this relation.
     pub(crate) contract: Arc<RelationContract>,
     /// The relation's complete content, in one primary-key-sorted batch.
-    pub(crate) batch: RecordBatch,
+    pub(crate) batch: pse_relations::columnar::FieldCheckedBatch,
     /// The manifest member this was loaded from.
     pub(crate) member: crate::store::control::OwnedControl<RelationMember>,
 }
@@ -59,6 +59,10 @@ impl LoadedRelation {
     }
     /// The admitted, sorted rows. Buffer clones retain the reservation owner.
     pub fn batch(&self) -> &RecordBatch {
+        self.batch.batch()
+    }
+    /// The retained field construction/admission result, without another value scan.
+    pub fn checked(&self) -> &pse_relations::columnar::FieldCheckedBatch {
         &self.batch
     }
     /// The independently checked manifest claims for this relation.
@@ -71,7 +75,7 @@ impl LoadedRelation {
     /// is comparing two independent statements (§20.2 validates row counts).
     #[must_use]
     pub fn rows(&self) -> usize {
-        self.batch.num_rows()
+        self.batch().num_rows()
     }
 }
 
@@ -121,12 +125,18 @@ pub struct Snapshot {
     /// Admitted semantic context retained for contextual validation and reproduction.
     pub(crate) parents: Arc<BTreeMap<String, Arc<Snapshot>>>,
     /// Catalog admission provenance, compared by allocation identity, never a digest.
-    pub(crate) admission: Arc<()>,
+    pub(crate) admission: Arc<crate::store::open::CatalogContext>,
     /// Registered producer checked during stage admission.
     pub(crate) stage_pass: Option<pse_ids::SemanticId>,
+    /// Actual auxiliary producer inputs admitted with this snapshot.
+    pub(crate) invocation: Option<crate::store::invocation::OwnedInvocation>,
 }
 
 impl Snapshot {
+    /// Exact selected policy owners and engine settings used by the producer.
+    pub fn invocation(&self) -> Option<&crate::store::invocation::OwnedInvocation> {
+        self.invocation.as_ref()
+    }
     /// The exact manifest object that produced this admitted handle.
     pub const fn manifest_ref(&self) -> ManifestRef {
         self.manifest_ref
@@ -200,13 +210,10 @@ impl Snapshot {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap as StdBTreeMap;
-
     use datafusion::arrow::array::{Int64Array, StringArray};
-    use datafusion::arrow::datatypes::{DataType, Field, Schema};
     use pse_ids::{
-        CANON_VERSION, CanonicalContract, ContentHash, EncodingChecksum, FieldPath, LogicalHash,
-        SNAPSHOT_PROFILE, SchemaVersion, SemanticId, SnapshotKind, SnapshotParent,
+        CANON_VERSION, ContentHash, EncodingChecksum, LogicalHash, SNAPSHOT_PROFILE, SchemaVersion,
+        SemanticId, SnapshotKind, SnapshotParent,
     };
 
     use super::*;
@@ -223,42 +230,57 @@ mod tests {
     }
 
     fn loaded(namespace: &str, name: &str, tag: u8) -> Arc<LoadedRelation> {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("id", DataType::Utf8, false),
-            Field::new("ordinal", DataType::Int64, false),
-        ]));
-        let canonical = CanonicalContract::try_new(
-            SemanticId::from_bytes([tag; 16]),
-            SchemaVersion(1),
-            ContentHash::from_bytes([0x11; 32]),
-            Arc::clone(&schema),
-            &["id"],
-            &StdBTreeMap::<FieldPath, Arc<[String]>>::new(),
-        );
-        let Ok(canonical) = canonical else {
-            panic!("the fixture schema is canonicalizable");
+        use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
+        let mut registry = pse_schema::RegistryBuilder::new();
+        let namespace_value = match namespace {
+            "compiled" => Namespace::Compiled,
+            "authored" => Namespace::Authored,
+            _ => panic!("fixture namespace"),
         };
-        let contract = RelationContract::try_new(
-            canonical,
-            namespace,
-            name,
-            &[],
-            &[],
-            EncodingPolicy::IpcFile,
+        registry.declare_relation(
+            RelationDecl::new(
+                namespace_value,
+                match name {
+                    "math_equations" => "math_equations",
+                    "math_expr_nodes" => "math_expr_nodes",
+                    "units" => "units",
+                    _ => panic!("fixture relation"),
+                },
+                1,
+                Authority::Authored,
+                SnapshotClass::Model,
+                "snapshot fixture",
+            )
+            .pk(&["id"])
+            .columns(vec![
+                FieldContract::key(
+                    "id",
+                    FieldContract::native(datafusion::arrow::datatypes::DataType::Utf8),
+                    "identity",
+                ),
+                FieldContract::payload(
+                    "ordinal",
+                    FieldContract::native(datafusion::arrow::datatypes::DataType::Int64),
+                    "ordinal",
+                ),
+            ]),
         );
-        let Ok(contract) = contract else {
-            panic!("the fixture contract is admissible");
-        };
+        let registry = registry.build().expect("fixture declarations");
+        let spec = registry
+            .relation(&format!("{namespace}.{name}"))
+            .expect("fixture relation");
+        let contract = RelationContract::from_spec(&registry, spec, EncodingPolicy::IpcFile)
+            .expect("fixture contract");
         let batch = RecordBatch::try_new(
-            schema,
+            Arc::clone(&contract.canonical.schema),
             vec![
                 Arc::new(StringArray::from(vec!["a", "b"])),
                 Arc::new(Int64Array::from(vec![1_i64, 2])),
             ],
-        );
-        let Ok(batch) = batch else {
-            panic!("the fixture batch is well formed");
-        };
+        )
+        .expect("fixture arrays");
+        let batch = pse_relations::columnar::FieldCheckedBatch::admit(&registry, spec, batch)
+            .expect("fixture admission");
         let version = SchemaVersion(1);
         let encoding_checksum = EncodingChecksum(ContentHash::from_bytes([tag; 32]));
         let path = relation_path(
@@ -300,6 +322,7 @@ mod tests {
             relations.insert(format!("{namespace}/{name}"), loaded(namespace, name, tag));
         }
         let manifest = Manifest {
+            admission_binding: None,
             manifest_version: MANIFEST_VERSION.to_owned(),
             snapshot_kind: SnapshotKind::Stage,
             snapshot_id: SnapshotId(ContentHash::from_bytes([0x77; 32])),
@@ -333,8 +356,28 @@ mod tests {
             manifest: owned(manifest),
             relations: Arc::new(relations),
             parents: Arc::new(BTreeMap::new()),
-            admission: Arc::new(()),
+            admission: crate::Catalog::open(
+                Arc::new(object_store::memory::InMemory::new()),
+                Arc::new(pse_schema::RegistryBuilder::new().build().unwrap()),
+                TrustLevel::Owned,
+                Arc::new(crate::store::clock::SystemClock),
+                Arc::new(
+                    crate::session::SessionFactory::new(
+                        Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
+                        pse_ids::FixedBudget::new(32 << 20),
+                        crate::ExecutionSettings::default(),
+                        crate::ThreadBudget {
+                            pool_threads: std::num::NonZeroUsize::MIN,
+                            target_partitions: std::num::NonZeroUsize::MIN,
+                        },
+                        crate::session::native_engine_profile(),
+                    )
+                    .unwrap(),
+                ),
+            )
+            .admission,
             stage_pass: None,
+            invocation: None,
         }
     }
 

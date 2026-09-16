@@ -4,19 +4,10 @@
 //! `pse.manifest.v2`: the physical envelope around the explicit semantic membership of
 //! blueprint §5.3 step 7 (blueprint §20.2, ADR-0044, ADR-0045, ADR-0049).
 //!
-//! # Why this is a hand-written wire type
-//!
-//! The manifest is a *format*, not a convenience view over some in-memory struct. Two
-//! consequences follow and both are visible in this file:
-//!
-//! - **`deny_unknown_fields` everywhere.** §20.5 rejects unknown manifest versions rather
-//!   than reading what it recognises; a field this build does not know about is a field
-//!   whose meaning it cannot honour, and silently ignoring it is how a reader ends up
-//!   serving a snapshot under a contract it never implemented.
-//! - **Hashes are text with their algorithm attached.** `blake3:<64 hex>` rather than a
-//!   bare digest, because the algorithm is part of the value (`pse-ids` says so) and a
-//!   manifest outlives the build that wrote it. Role-wrapper conversion lives here,
-//!   in the crate that owns this versioned physical format.
+//! The registry's `ManifestSpec` generates every wire field and nested object
+//! (ADR-0060). This module supplies existing native codecs and independent envelope
+//! admission. Unknown fields are refused recursively; hashes retain their explicit
+//! algorithm prefix and role types. A decoded envelope is not an admitted snapshot.
 //!
 //! # What is not in the manifest's own identity
 //!
@@ -35,11 +26,19 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::error::CatalogError;
 use crate::store::layout::{EncodingFormat, evidence_path, is_sidecar_path, relation_path};
 
-/// The frozen manifest format version (blueprint §20.2).
-pub const MANIFEST_VERSION: &str = "pse.manifest.v2";
+use crate::generated::manifest::ManifestSemanticParentsItem as ParentWire;
+/// Generated wire declarations retain the existing catalog API names.
+pub use crate::generated::manifest::{
+    MANIFEST_VERSION, Manifest, ManifestAdmissionBinding as AdmissionBindingRef,
+    ManifestCompiler as CompilerRef, ManifestCompilerPassesItem as PassRef,
+    ManifestEngineProfile as EngineProfileRef, ManifestEvidenceItem as EvidenceRecord,
+    ManifestKernelsItem as KernelRef, ManifestNumericalPolicy as NumericalPolicyRef,
+    ManifestPackagesItem as PackageRef, ManifestRelationsItem as RelationMember,
+    ManifestRelationsItemEncodingsItem as EncodingRecord, ManifestToolchain as ToolchainRef,
+};
 
 /// `blake3:<64 hex>`, the textual form of every hash in the manifest.
-mod hash_text {
+pub(crate) mod hash_text {
     use super::{ContentHash, Deserialize, Deserializer, Serializer};
 
     /// Writes `blake3:<64 hex>`.
@@ -66,7 +65,7 @@ mod hash_text {
 macro_rules! hash_role_text {
     ($module:ident, $role:ident) => {
         /// The `blake3:<64 hex>` form of a hash role newtype.
-        mod $module {
+        pub(crate) mod $module {
             use super::{Deserializer, Serializer, hash_text, $role};
 
             /// Writes `blake3:<64 hex>`.
@@ -93,7 +92,7 @@ hash_role_text!(snapshot_id_text, SnapshotId);
 
 /// A [`SemanticId`] as 32 lowercase hexadecimal digits, with no algorithm prefix: an ID
 /// is not a digest of anything, so `blake3:` would be a lie.
-mod semantic_id_text {
+pub(crate) mod semantic_id_text {
     use super::{Deserialize, Deserializer, SemanticId, Serializer};
 
     /// Writes 32 lowercase hexadecimal digits.
@@ -114,7 +113,7 @@ mod semantic_id_text {
 }
 
 /// A [`SchemaVersion`] as a JSON number, as §20.2's `"version": 1` shows it.
-mod schema_version_number {
+pub(crate) mod schema_version_number {
     use super::{Deserialize, Deserializer, SchemaVersion, Serializer};
 
     /// Writes the version as an unsigned number.
@@ -138,7 +137,7 @@ mod schema_version_number {
 }
 
 /// A [`SnapshotKind`] as `model`, `case`, `stage` or `run`.
-mod snapshot_kind_text {
+pub(crate) mod snapshot_kind_text {
     use super::{Deserialize, Deserializer, Serializer, SnapshotKind};
 
     /// Every kind; the parse side reads this rather than repeating the spellings.
@@ -173,7 +172,7 @@ mod snapshot_kind_text {
 }
 
 /// An [`EncodingFormat`] as `arrow_ipc_file` or `parquet`.
-mod encoding_format_text {
+pub(crate) mod encoding_format_text {
     use super::{Deserialize, Deserializer, EncodingFormat, Serializer};
 
     /// Writes the spelling the format declares.
@@ -197,19 +196,8 @@ mod encoding_format_text {
     }
 }
 
-/// The wire form of a [`SnapshotParent`], which `pse-ids` does not carry itself.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ParentWire {
-    /// The input binding this parent was bound to.
-    role: String,
-    /// The parent snapshot.
-    #[serde(with = "snapshot_id_text")]
-    snapshot_id: SnapshotId,
-}
-
 /// `Vec<SnapshotParent>` as an array of `{role, snapshot_id}` objects.
-mod parents_wire {
+pub(crate) mod parents_wire {
     use super::{Deserialize, Deserializer, ParentWire, Serialize, Serializer, SnapshotParent};
 
     /// Writes the parents in the order the manifest holds them.
@@ -240,205 +228,6 @@ mod parents_wire {
             })
             .collect())
     }
-}
-
-/// One stored encoding of one relation (blueprint §20.2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EncodingRecord {
-    /// Which physical encoding this is.
-    #[serde(with = "encoding_format_text")]
-    pub format: EncodingFormat,
-    /// The writer that produced the bytes, for §20.5 compatibility decisions.
-    pub writer_version: String,
-    /// The checksum of the finished bytes (ADR-0045).
-    #[serde(with = "encoding_checksum_text")]
-    pub encoding_checksum: EncodingChecksum,
-    /// The object's length, checked before the object is accepted.
-    pub bytes: u64,
-    /// The object-store path, which must equal the §20.1 layout for this record.
-    pub path: String,
-}
-
-/// One complete relation artifact in a snapshot (blueprint §20.2).
-///
-/// A member is always a *complete* relation: §5.3 step 7 declares any row-selection
-/// transformation before snapshot assembly, so a member cannot be a filtered view of one.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct RelationMember {
-    /// The port under which this relation is published.
-    pub port: String,
-    /// The relation's namespace.
-    pub namespace: String,
-    /// The relation's registry identity.
-    #[serde(with = "semantic_id_text")]
-    pub relation_id: SemanticId,
-    /// The relation's declared name, which a rename may change without changing the port.
-    pub name: String,
-    /// The relation's declared schema version.
-    #[serde(with = "schema_version_number")]
-    pub version: SchemaVersion,
-    /// The relation's logical content identity (blueprint §5.3 step 6).
-    #[serde(with = "logical_hash_text")]
-    pub logical_hash: LogicalHash,
-    /// The row count, which is the `Exact` statistic a scan may report (§5.4).
-    pub rows: u64,
-    /// Every stored encoding of this relation.
-    pub encodings: Vec<EncodingRecord>,
-}
-
-/// A package the snapshot was built from (blueprint §20.2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PackageRef {
-    /// The package's identity.
-    #[serde(with = "semantic_id_text")]
-    pub package_id: SemanticId,
-    /// The package version as authored.
-    pub version: String,
-    /// The logical hash of the package's content.
-    #[serde(with = "logical_hash_text")]
-    pub logical_hash: LogicalHash,
-}
-
-/// One compiler pass and the version of it that ran (blueprint §20.2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PassRef {
-    /// The pass's identity.
-    #[serde(with = "semantic_id_text")]
-    pub pass_id: SemanticId,
-    /// The pass version.
-    pub version: String,
-}
-
-/// The compiler that produced the snapshot (blueprint §20.2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CompilerRef {
-    /// The compiler version.
-    pub version: String,
-    /// Every pass that ran, in the order it ran.
-    pub passes: Vec<PassRef>,
-}
-
-/// The declared engine profile used by a snapshot (blueprint §20.2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EngineProfileRef {
-    /// The profile's identity, using the registry's manifest wire field.
-    #[serde(with = "semantic_id_text")]
-    pub engine_profile_id: SemanticId,
-    /// The hash of the profile's content.
-    #[serde(with = "hash_text")]
-    pub content_hash: ContentHash,
-}
-
-/// The numerical policy used by a snapshot (blueprint §20.2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NumericalPolicyRef {
-    /// The policy's identity, using the registry's manifest wire field.
-    #[serde(with = "semantic_id_text")]
-    pub policy_id: SemanticId,
-    /// The hash of the policy's content.
-    #[serde(with = "hash_text")]
-    pub content_hash: ContentHash,
-}
-
-/// The toolchain the snapshot was produced with (blueprint §20.2, §20.3).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ToolchainRef {
-    /// The hash of the committed lockfile.
-    #[serde(with = "hash_text")]
-    pub lockfile_hash: ContentHash,
-    /// The canonicalization contract version, `pse.canon.v2`.
-    pub canonicalization: String,
-}
-
-/// One kernel implementation the snapshot depends on (blueprint §20.2).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct KernelRef {
-    /// The kernel's identity.
-    #[serde(with = "semantic_id_text")]
-    pub kernel_id: SemanticId,
-    /// The kernel version.
-    pub version: String,
-    /// The digest of the implementation artifact.
-    #[serde(with = "hash_text")]
-    pub digest: ContentHash,
-}
-
-/// A noncanonical plan or diagnostic encoding (ADR-0044, blueprint §20.2).
-///
-/// `canonical` is always `false` and is written out anyway: ADR-0044 bounds what plan
-/// bytes mean, and a reader that has to *infer* noncanonicality from the record's absence
-/// will eventually infer wrongly and use a plan checksum as a semantic key.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct EvidenceRecord {
-    /// What kind of evidence this is, such as `datafusion_proto`.
-    pub kind: String,
-    /// Always `false`; evidence is never canonical (ADR-0044).
-    pub canonical: bool,
-    /// The checksum of the stored evidence bytes.
-    #[serde(with = "encoding_checksum_text")]
-    pub encoding_checksum: EncodingChecksum,
-    /// The codec and its version, for decoding and attribution.
-    pub codec_version: String,
-    /// The object-store path of the evidence object.
-    pub path: String,
-}
-
-/// A `pse.manifest.v2` manifest (blueprint §20.2).
-///
-/// Field order is declaration order is JSON order, and that is a contract: the encoded
-/// bytes are what [`crate::store::layout::manifest_path`] names, so a reordering would
-/// produce a second object for the same manifest.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[allow(
-    clippy::struct_field_names,
-    reason = "`manifest_version` is the §20.2 wire key; renaming the field renames the JSON"
-)]
-pub struct Manifest {
-    /// The manifest format version; must equal [`MANIFEST_VERSION`].
-    pub manifest_version: String,
-    /// What kind of snapshot this manifest envelopes.
-    #[serde(with = "snapshot_kind_text")]
-    pub snapshot_kind: SnapshotKind,
-    /// The snapshot's membership identity, recomputed at [`Manifest::validate`].
-    #[serde(with = "snapshot_id_text")]
-    pub snapshot_id: SnapshotId,
-    /// The membership frame version; must equal `pse_ids::SNAPSHOT_PROFILE`.
-    pub membership_profile: String,
-    /// When the manifest was written; excluded from logical membership.
-    pub created_at: String,
-    /// The schema registry fingerprint the members were declared under.
-    #[serde(with = "hash_text")]
-    pub schema_registry_fingerprint: ContentHash,
-    /// The complete member set.
-    pub relations: Vec<RelationMember>,
-    /// The packages the snapshot was built from.
-    pub packages: Vec<PackageRef>,
-    /// The compiler and its passes.
-    pub compiler: CompilerRef,
-    /// The engine profile, when the snapshot kind requires one.
-    pub engine_profile: Option<EngineProfileRef>,
-    /// The numerical policy, when the snapshot kind requires one.
-    pub numerical_policy: Option<NumericalPolicyRef>,
-    /// The toolchain.
-    pub toolchain: ToolchainRef,
-    /// The kernels the snapshot depends on.
-    pub kernels: Vec<KernelRef>,
-    /// The semantic parents, by role.
-    #[serde(with = "parents_wire")]
-    pub semantic_parents: Vec<SnapshotParent>,
-    /// Noncanonical evidence; excluded from logical membership (ADR-0044).
-    pub evidence: Vec<EvidenceRecord>,
 }
 
 impl Manifest {
@@ -706,6 +495,9 @@ mod tests {
     fn fixture() -> Manifest {
         let clock = FixedClock("2026-01-01T00:00:00Z".to_owned());
         let mut manifest = Manifest {
+            admission_binding: Some(AdmissionBindingRef {
+                encoding_checksum: EncodingChecksum(ContentHash::from_bytes([0x59; 32])),
+            }),
             manifest_version: MANIFEST_VERSION.to_owned(),
             snapshot_kind: SnapshotKind::Stage,
             snapshot_id: SnapshotId(ContentHash::NIL),
@@ -956,6 +748,72 @@ mod tests {
                 .expect("optional fields decode"),
             optional_absent
         );
+    }
+
+    fn malformed_objects(
+        complete: &serde_json::Value,
+        ty: &pse_schema::model::ManifestType,
+        path: &str,
+    ) {
+        use pse_schema::model::ManifestType;
+        match ty {
+            ManifestType::Struct(fields) => {
+                let mut extra = complete.clone();
+                extra.pointer_mut(path).expect("fixture object")["unknown_future_member"] =
+                    serde_json::Value::Bool(true);
+                assert!(
+                    Manifest::decode(&serde_json::to_vec(&extra).expect("JSON")).is_err(),
+                    "unknown field at {path}"
+                );
+                for field in fields {
+                    let mut absent = complete.clone();
+                    absent
+                        .pointer_mut(path)
+                        .expect("fixture object")
+                        .as_object_mut()
+                        .expect("object")
+                        .remove(field.name);
+                    let decoded = Manifest::decode(&serde_json::to_vec(&absent).expect("JSON"));
+                    assert_eq!(
+                        decoded.is_ok(),
+                        matches!(field.ty, ManifestType::Optional(_)),
+                        "absence at {path}/{}",
+                        field.name
+                    );
+                    malformed_objects(complete, &field.ty, &format!("{path}/{}", field.name));
+                }
+            }
+            ManifestType::List(inner) => {
+                let values = complete
+                    .pointer(path)
+                    .expect("fixture list")
+                    .as_array()
+                    .expect("list");
+                for index in 0..values.len() {
+                    malformed_objects(complete, inner, &format!("{path}/{index}"));
+                }
+            }
+            ManifestType::Optional(inner) => malformed_objects(complete, inner, path),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn generated_nested_objects_refuse_unknown_and_missing_required_fields() {
+        let registry = pse_schema::registry().expect("registry");
+        let spec = registry.manifest().expect("manifest");
+        let value = serde_json::to_value(fixture()).expect("populated wire fixture");
+        malformed_objects(
+            &value,
+            &pse_schema::model::ManifestType::Struct(spec.fields().to_vec()),
+            "",
+        );
+        let mut without_optionals = fixture();
+        without_optionals.engine_profile = None;
+        without_optionals.numerical_policy = None;
+        let text = String::from_utf8(without_optionals.encode().expect("wire")).expect("UTF-8");
+        assert!(text.contains("\"engine_profile\":null"));
+        assert!(text.contains("\"numerical_policy\":null"));
     }
 
     #[test]

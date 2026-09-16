@@ -8,17 +8,19 @@ blueprint §6.13 execution and evidence: diagnostics_findings.
 
 Version: 1. Snapshot class: `derived`. Primary key: `finding_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `finding_id` | `semantic_id` | false | `key` | — |
-| `subject_snapshot` | `content_hash` | true | `payload` | — |
-| `run_id` | `semantic_id` | true | `payload` | — |
-| `check_id` | `semantic_id` | false | `payload` | — |
-| `severity` | `enum:FindingSeverity` | false | `payload` | — |
-| `subjects` | `list<semantic_id>` | false | `payload` | — |
-| `values` | `text` | false | `payload` | — |
-| `message` | `text` | false | `payload` | — |
-| `next_steps` | `list<text>` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `finding_id` | `semantic_id` | false | `key` | — | — |
+| `subject_snapshot` | `content_hash` | true | `payload` | — | — |
+| `run_id` | `semantic_id` | true | `payload` | — | — |
+| `check_id` | `semantic_id` | false | `payload` | — | — |
+| `severity` | `enum:FindingSeverity` | false | `payload` | — | — |
+| `subjects` | `List` | false | `payload` | — | — |
+| `subjects.item` | `semantic_id` | false | `payload` | — | — |
+| `values` | `Utf8` | false | `payload` | — | — |
+| `message` | `Utf8` | false | `payload` | — | — |
+| `next_steps` | `List` | false | `payload` | — | — |
+| `next_steps.item` | `Utf8` | false | `payload` | — | — |
 
 ## `duals`
 
@@ -26,13 +28,13 @@ blueprint §6.13 execution and evidence: duals.
 
 Version: 1. Snapshot class: `derived`. Primary key: `run_id, equation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `run_id` | `semantic_id` | false | `key` | — |
-| `equation_id` | `semantic_id` | false | `key` | — |
-| `dual` | `f64` | false | `payload` | — |
-| `bound_multiplier_lower` | `f64` | true | `payload` | — |
-| `bound_multiplier_upper` | `f64` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `equation_id` | `semantic_id` | false | `key` | — | — |
+| `dual` | `Float64` | false | `payload` | — | — |
+| `bound_multiplier_lower` | `Float64` | true | `payload` | — | — |
+| `bound_multiplier_upper` | `Float64` | true | `payload` | — | — |
 
 ## `host_capabilities`
 
@@ -40,15 +42,27 @@ blueprint §6.13 execution and evidence: host_capabilities.
 
 Version: 1. Snapshot class: `derived`. Primary key: `host`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `host` | `text` | false | `key` | — |
-| `probed_at` | `ts` | false | `payload` | — |
-| `ipopt_version` | `text` | false | `payload` | — |
-| `linear_solvers` | `list<text>` | false | `payload` | — |
-| `hsl_available` | `bool` | false | `payload` | — |
-| `petsc_version` | `text` | true | `payload` | — |
-| `python_env` | `struct{interpreter:text,pyomo:text,pint:text,pyarrow:text,numpy:text,scipy:text,idaes:text?,pyomo_contrib:list<struct{name:text,version:text}>}` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `host` | `Utf8` | false | `key` | — | — |
+| `probed_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `ipopt_version` | `Utf8` | false | `payload` | — | — |
+| `linear_solvers` | `List` | false | `payload` | — | — |
+| `linear_solvers.item` | `Utf8` | false | `payload` | — | — |
+| `hsl_available` | `Boolean` | false | `payload` | — | — |
+| `petsc_version` | `Utf8` | true | `payload` | — | — |
+| `python_env` | `Struct` | true | `payload` | — | — |
+| `python_env.interpreter` | `Utf8` | false | `payload` | — | — |
+| `python_env.pyomo` | `Utf8` | false | `payload` | — | — |
+| `python_env.pint` | `Utf8` | false | `payload` | — | — |
+| `python_env.pyarrow` | `Utf8` | false | `payload` | — | — |
+| `python_env.numpy` | `Utf8` | false | `payload` | — | — |
+| `python_env.scipy` | `Utf8` | false | `payload` | — | — |
+| `python_env.idaes` | `Utf8` | true | `payload` | — | — |
+| `python_env.pyomo_contrib` | `List` | false | `payload` | — | — |
+| `python_env.pyomo_contrib.item` | `Struct` | false | `payload` | — | — |
+| `python_env.pyomo_contrib.item.name` | `Utf8` | false | `payload` | — | — |
+| `python_env.pyomo_contrib.item.version` | `Utf8` | false | `payload` | — | — |
 
 ## `iterations`
 
@@ -56,17 +70,17 @@ blueprint §6.13 execution and evidence: iterations.
 
 Version: 1. Snapshot class: `derived`. Primary key: `run_id, iteration`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `run_id` | `semantic_id` | false | `key` | — |
-| `iteration` | `u32` | false | `key` | — |
-| `objective` | `f64` | false | `payload` | — |
-| `inf_pr` | `f64` | false | `payload` | — |
-| `inf_du` | `f64` | false | `payload` | — |
-| `mu` | `f64` | false | `payload` | — |
-| `step_size` | `f64` | false | `payload` | — |
-| `regularization` | `f64` | false | `payload` | — |
-| `restoration` | `bool` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `iteration` | `UInt32` | false | `key` | — | — |
+| `objective` | `Float64` | false | `payload` | — | — |
+| `inf_pr` | `Float64` | false | `payload` | — | — |
+| `inf_du` | `Float64` | false | `payload` | — | — |
+| `mu` | `Float64` | false | `payload` | — | — |
+| `step_size` | `Float64` | false | `payload` | — | — |
+| `regularization` | `Float64` | false | `payload` | — | — |
+| `restoration` | `Boolean` | false | `payload` | — | — |
 
 ## `kernel_evaluation_outcomes`
 
@@ -74,16 +88,16 @@ blueprint §6.13 execution and evidence: kernel_evaluation_outcomes.
 
 Version: 1. Snapshot class: `derived`. Primary key: `evaluation_id, row_ordinal, output_ordinal`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `evaluation_id` | `semantic_id` | false | `key` | — |
-| `row_ordinal` | `u64` | false | `key` | — |
-| `output_ordinal` | `u16` | false | `key` | — |
-| `outcome` | `enum:KernelOutcome` | false | `payload` | — |
-| `value` | `f64` | true | `payload` | — |
-| `quantity_type_id` | `semantic_id` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
-| `reason_code` | `enum:KernelFailure` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `evaluation_id` | `semantic_id` | false | `key` | — | — |
+| `row_ordinal` | `UInt64` | false | `key` | — | — |
+| `output_ordinal` | `UInt16` | false | `key` | — | — |
+| `outcome` | `enum:KernelOutcome` | false | `payload` | — | — |
+| `value` | `Float64` | true | `payload` | — | — |
+| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `reason_code` | `enum:KernelFailure` | true | `payload` | — | — |
 
 ## `kernel_evaluations`
 
@@ -91,12 +105,50 @@ blueprint §6.13 execution and evidence: kernel_evaluations.
 
 Version: 1. Snapshot class: `derived`. Primary key: `evaluation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `evaluation_id` | `semantic_id` | false | `key` | — |
-| `kernel_binding_id` | `semantic_id` | false | `payload` | — |
-| `input_hash` | `content_hash` | false | `payload` | — |
-| `output_batch_hash` | `content_hash` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `evaluation_id` | `semantic_id` | false | `key` | — | — |
+| `kernel_binding_id` | `semantic_id` | false | `payload` | — | — |
+| `input_hash` | `content_hash` | false | `payload` | — | — |
+| `output_batch_hash` | `content_hash` | false | `payload` | — | — |
+
+## `publications`
+
+ADR-0068: one Delta control row atomically selects exact relation versions and slices; its Delta version identifies a publication root.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `workspace_id` | `semantic_id` | false | `key` | — | — |
+| `publication_id` | `semantic_id` | false | `payload` | — | — |
+| `parent_publication_id` | `semantic_id` | true | `payload` | — | — |
+| `attempt_id` | `semantic_id` | false | `payload` | — | — |
+| `kind` | `enum:PublicationKind` | false | `payload` | — | — |
+| `inputs` | `List` | false | `payload` | — | — |
+| `inputs.item` | `Struct` | false | `payload` | — | — |
+| `inputs.item.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.schema_name` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.table_name` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.relation_version` | `UInt32` | false | `payload` | — | — |
+| `inputs.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `inputs.item.table_uri` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.delta_version` | `UInt64` | false | `payload` | — | — |
+| `inputs.item.revision_column` | `Utf8` | true | `payload` | — | — |
+| `inputs.item.revision_id` | `semantic_id` | true | `payload` | — | — |
+| `members` | `List` | false | `payload` | — | — |
+| `members.item` | `Struct` | false | `payload` | — | — |
+| `members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `members.item.schema_name` | `Utf8` | false | `payload` | — | — |
+| `members.item.table_name` | `Utf8` | false | `payload` | — | — |
+| `members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `members.item.relation_version` | `UInt32` | false | `payload` | — | — |
+| `members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `members.item.table_uri` | `Utf8` | false | `payload` | — | — |
+| `members.item.delta_version` | `UInt64` | false | `payload` | — | — |
+| `members.item.revision_column` | `Utf8` | true | `payload` | — | — |
+| `members.item.revision_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `residuals`
 
@@ -104,13 +156,13 @@ blueprint §6.13 execution and evidence: residuals.
 
 Version: 1. Snapshot class: `derived`. Primary key: `run_id, equation_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `run_id` | `semantic_id` | false | `key` | — |
-| `equation_id` | `semantic_id` | false | `key` | — |
-| `residual` | `f64` | false | `payload` | — |
-| `scaled_residual` | `f64` | false | `payload` | — |
-| `relative_residual` | `f64` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `equation_id` | `semantic_id` | false | `key` | — | — |
+| `residual` | `Float64` | false | `payload` | — | — |
+| `scaled_residual` | `Float64` | false | `payload` | — | — |
+| `relative_residual` | `Float64` | true | `payload` | — | — |
 
 ## `runs`
 
@@ -118,25 +170,34 @@ blueprint §6.13 execution and evidence: runs.
 
 Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `run_id` | `semantic_id` | false | `key` | — |
-| `problem_id` | `semantic_id` | false | `payload` | — |
-| `case_id` | `semantic_id` | false | `payload` | — |
-| `model_revision_id` | `semantic_id` | false | `payload` | — |
-| `backend` | `enum:Backend` | false | `payload` | — |
-| `solver_profile_id` | `semantic_id` | false | `payload` | — |
-| `plan_id` | `semantic_id` | true | `payload` | — |
-| `stage_id` | `semantic_id` | true | `payload` | — |
-| `parent_run_id` | `semantic_id` | true | `payload` | — |
-| `attempt` | `u16` | false | `payload` | — |
-| `resolved_options` | `list<struct{key:text,value:text}>` | false | `payload` | — |
-| `started_at` | `ts` | false | `payload` | — |
-| `finished_at` | `ts` | false | `payload` | — |
-| `status` | `enum:TerminationStatus` | false | `payload` | — |
-| `environment` | `struct{platform_version:text,compiler_version:text,solver_version:text,kernel_digests:list<content_hash>,host:text}` | false | `payload` | — |
-| `wall_seconds` | `f64` | false | `payload` | — |
-| `iterations` | `u32` | true | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `problem_id` | `semantic_id` | false | `payload` | — | — |
+| `case_id` | `semantic_id` | false | `payload` | — | — |
+| `model_revision_id` | `semantic_id` | false | `payload` | — | — |
+| `backend` | `enum:Backend` | false | `payload` | — | — |
+| `solver_profile_id` | `semantic_id` | false | `payload` | — | — |
+| `plan_id` | `semantic_id` | true | `payload` | — | — |
+| `stage_id` | `semantic_id` | true | `payload` | — | — |
+| `parent_run_id` | `semantic_id` | true | `payload` | — | — |
+| `attempt` | `UInt16` | false | `payload` | — | — |
+| `resolved_options` | `List` | false | `payload` | — | — |
+| `resolved_options.item` | `Struct` | false | `payload` | — | — |
+| `resolved_options.item.key` | `Utf8` | false | `payload` | — | — |
+| `resolved_options.item.value` | `Utf8` | false | `payload` | — | — |
+| `started_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `finished_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
+| `status` | `enum:TerminationStatus` | false | `payload` | — | — |
+| `environment` | `Struct` | false | `payload` | — | — |
+| `environment.platform_version` | `Utf8` | false | `payload` | — | — |
+| `environment.compiler_version` | `Utf8` | false | `payload` | — | — |
+| `environment.solver_version` | `Utf8` | false | `payload` | — | — |
+| `environment.kernel_digests` | `List` | false | `payload` | — | — |
+| `environment.kernel_digests.item` | `content_hash` | false | `payload` | — | — |
+| `environment.host` | `Utf8` | false | `payload` | — | — |
+| `wall_seconds` | `Float64` | false | `payload` | — | — |
+| `iterations` | `UInt32` | true | `payload` | — | — |
 
 ## `solutions`
 
@@ -144,10 +205,10 @@ blueprint §6.13 execution and evidence: solutions.
 
 Version: 1. Snapshot class: `derived`. Primary key: `run_id, symbol_id`.
 
-| Column | Type | Nullable | Role | Reference |
-|---|---|---|---|---|
-| `run_id` | `semantic_id` | false | `key` | — |
-| `symbol_id` | `semantic_id` | false | `key` | — |
-| `value` | `f64` | false | `payload` | — |
-| `unit_id` | `semantic_id` | false | `payload` | — |
-| `bound_status` | `enum:BoundStatus` | false | `payload` | — |
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `bound_status` | `enum:BoundStatus` | false | `payload` | — | — |

@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    9u8, 16u8, 104u8, 226u8, 42u8, 251u8, 90u8, 246u8, 165u8, 109u8, 43u8, 103u8, 184u8,
-    108u8, 163u8, 255u8, 19u8, 128u8, 16u8, 201u8, 226u8, 38u8, 214u8, 216u8, 137u8, 7u8,
-    73u8, 152u8, 46u8, 184u8, 183u8, 71u8,
+    28u8, 175u8, 163u8, 73u8, 213u8, 36u8, 209u8, 122u8, 174u8, 109u8, 193u8, 168u8,
+    185u8, 121u8, 227u8, 62u8, 97u8, 93u8, 142u8, 127u8, 195u8, 120u8, 190u8, 248u8,
+    79u8, 59u8, 181u8, 84u8, 48u8, 230u8, 116u8, 88u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -68,24 +68,24 @@ impl crate::typed::CellCodec for NormalizedPredicateNodesRow {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#source_id), crate
-                ::typed::CellCodec::into_cell(self.r#predicate_id), crate
-                ::typed::CellCodec::into_cell(self.r#kind), crate
-                ::typed::CellCodec::into_cell(self.r#boolean_value), crate
-                ::typed::CellCodec::into_cell(self.r#comparison), crate
-                ::typed::CellCodec::into_cell(self.r#left_expr), crate
-                ::typed::CellCodec::into_cell(self.r#right_expr), crate
-                ::typed::CellCodec::into_cell(self.r#left_predicate), crate
-                ::typed::CellCodec::into_cell(self.r#right_predicate), crate
-                ::typed::CellCodec::into_cell(self.r#domain_id), crate
-                ::typed::CellCodec::into_cell(self.r#domain_template_id), crate
-                ::typed::CellCodec::into_cell(self.r#domain_name), crate
-                ::typed::CellCodec::into_cell(self.r#left_kind), crate
-                ::typed::CellCodec::into_cell(self.r#left_enum_id), crate
-                ::typed::CellCodec::into_cell(self.r#left_enum_member), crate
-                ::typed::CellCodec::into_cell(self.r#right_kind), crate
-                ::typed::CellCodec::into_cell(self.r#right_enum_id), crate
-                ::typed::CellCodec::into_cell(self.r#right_enum_member)
+                crate::typed::CellCodec::into_cell(self.r#source_id),
+                crate::typed::CellCodec::into_cell(self.r#predicate_id),
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#boolean_value),
+                crate::typed::CellCodec::into_cell(self.r#comparison),
+                crate::typed::CellCodec::into_cell(self.r#left_expr),
+                crate::typed::CellCodec::into_cell(self.r#right_expr),
+                crate::typed::CellCodec::into_cell(self.r#left_predicate),
+                crate::typed::CellCodec::into_cell(self.r#right_predicate),
+                crate::typed::CellCodec::into_cell(self.r#domain_id),
+                crate::typed::CellCodec::into_cell(self.r#domain_template_id),
+                crate::typed::CellCodec::into_cell(self.r#domain_name),
+                crate::typed::CellCodec::into_cell(self.r#left_kind),
+                crate::typed::CellCodec::into_cell(self.r#left_enum_id),
+                crate::typed::CellCodec::into_cell(self.r#left_enum_member),
+                crate::typed::CellCodec::into_cell(self.r#right_kind),
+                crate::typed::CellCodec::into_cell(self.r#right_enum_id),
+                crate::typed::CellCodec::into_cell(self.r#right_enum_member),
             ],
         )
     }
@@ -257,6 +257,261 @@ impl crate::typed::CellCodec for NormalizedPredicateNodesRow {
         })
     }
 }
+impl crate::columnar::ArrowValue for NormalizedPredicateNodesRow {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#source_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#predicate_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#boolean_value,
+            children[3usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#comparison,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#left_expr,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#right_expr,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#left_predicate,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#right_predicate,
+            children[8usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#domain_id,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#domain_template_id,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#domain_name,
+            children[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#left_kind,
+            children[12usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#left_enum_id,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#left_enum_member,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#right_kind,
+            children[15usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#right_enum_id,
+            children[16usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#right_enum_member,
+            children[17usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <crate::generated::enums::PredicateKind as crate::columnar::ArrowValue>::append_null(
+            children[2usize].as_mut(),
+        )?;
+        <Option<
+            bool,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Option<
+            crate::generated::enums::PredicateComparison,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <Option<
+            crate::generated::enums::PredicateOperandKind,
+        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Option<
+            crate::generated::enums::PredicateOperandKind,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#source_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#predicate_id: <u64 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#kind: <crate::generated::enums::PredicateKind as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#boolean_value: <Option<
+                bool,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#comparison: <Option<
+                crate::generated::enums::PredicateComparison,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#left_expr: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#right_expr: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#left_predicate: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#right_predicate: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#domain_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#domain_template_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
+                index,
+            )?,
+            r#domain_name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#left_kind: <Option<
+                crate::generated::enums::PredicateOperandKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
+                index,
+            )?,
+            r#left_enum_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#left_enum_member: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#right_kind: <Option<
+                crate::generated::enums::PredicateOperandKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#right_enum_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
+                index,
+            )?,
+            r#right_enum_member: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(17usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
 /// The concrete generated relation row.
 pub type Row = NormalizedPredicateNodesRow;
 /// The concrete generated relation view.
@@ -267,24 +522,24 @@ impl NormalizedPredicateNodesRow {
     /// Values in exact declared column order.
     pub fn into_cells(self) -> Vec<pse_schema::model::Cell> {
         vec![
-            crate ::typed::CellCodec::into_cell(self.r#source_id), crate
-            ::typed::CellCodec::into_cell(self.r#predicate_id), crate
-            ::typed::CellCodec::into_cell(self.r#kind), crate
-            ::typed::CellCodec::into_cell(self.r#boolean_value), crate
-            ::typed::CellCodec::into_cell(self.r#comparison), crate
-            ::typed::CellCodec::into_cell(self.r#left_expr), crate
-            ::typed::CellCodec::into_cell(self.r#right_expr), crate
-            ::typed::CellCodec::into_cell(self.r#left_predicate), crate
-            ::typed::CellCodec::into_cell(self.r#right_predicate), crate
-            ::typed::CellCodec::into_cell(self.r#domain_id), crate
-            ::typed::CellCodec::into_cell(self.r#domain_template_id), crate
-            ::typed::CellCodec::into_cell(self.r#domain_name), crate
-            ::typed::CellCodec::into_cell(self.r#left_kind), crate
-            ::typed::CellCodec::into_cell(self.r#left_enum_id), crate
-            ::typed::CellCodec::into_cell(self.r#left_enum_member), crate
-            ::typed::CellCodec::into_cell(self.r#right_kind), crate
-            ::typed::CellCodec::into_cell(self.r#right_enum_id), crate
-            ::typed::CellCodec::into_cell(self.r#right_enum_member)
+            crate::typed::CellCodec::into_cell(self.r#source_id),
+            crate::typed::CellCodec::into_cell(self.r#predicate_id),
+            crate::typed::CellCodec::into_cell(self.r#kind),
+            crate::typed::CellCodec::into_cell(self.r#boolean_value),
+            crate::typed::CellCodec::into_cell(self.r#comparison),
+            crate::typed::CellCodec::into_cell(self.r#left_expr),
+            crate::typed::CellCodec::into_cell(self.r#right_expr),
+            crate::typed::CellCodec::into_cell(self.r#left_predicate),
+            crate::typed::CellCodec::into_cell(self.r#right_predicate),
+            crate::typed::CellCodec::into_cell(self.r#domain_id),
+            crate::typed::CellCodec::into_cell(self.r#domain_template_id),
+            crate::typed::CellCodec::into_cell(self.r#domain_name),
+            crate::typed::CellCodec::into_cell(self.r#left_kind),
+            crate::typed::CellCodec::into_cell(self.r#left_enum_id),
+            crate::typed::CellCodec::into_cell(self.r#left_enum_member),
+            crate::typed::CellCodec::into_cell(self.r#right_kind),
+            crate::typed::CellCodec::into_cell(self.r#right_enum_id),
+            crate::typed::CellCodec::into_cell(self.r#right_enum_member),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -298,7 +553,7 @@ impl NormalizedPredicateNodesRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"4852700f60e9ddb7e94526d4a2ca090c\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"predicate_nodes\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"source_id\"],[\"text\",\"predicate_id\"]]],[\"list\",[[\"struct\",[[\"text\",\"source_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"struct\",[[\"text\",\"normalized.expression_sources\"],[\"text\",\"source_id\"],[\"struct\",[[\"id\",\"d991e504a2f0547c820adca400876ac7\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"expression_sources\"],[\"u64\",1]]]]]]],[\"text\",\"key\"],[\"text\",\"source_id\"],[\"struct\",[[\"text\",\"source_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"normalized.expression_sources.source_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]]]],[\"struct\",[[\"text\",\"predicate_id\"],[\"struct\",[[\"text\",\"u64\"],[\"text\",\"UInt64\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"key\"],[\"text\",\"predicate_id\"],[\"struct\",[[\"text\",\"predicate_id\"],[\"text\",\"UInt64\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateKind\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0fe5083204323c229ced7a0907289e14\\\"}\"],[\"struct\",[[\"id\",\"0fe5083204323c229ced7a0907289e14\"],[\"text\",\"PredicateKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"boolean\"],[\"null\",null],[\"bool\",false],[\"text\",\"boolean\"]]],[\"struct\",[[\"text\",\"null\"],[\"null\",null],[\"bool\",false],[\"text\",\"null\"]]],[\"struct\",[[\"text\",\"atom\"],[\"null\",null],[\"bool\",false],[\"text\",\"atom\"]]],[\"struct\",[[\"text\",\"compare\"],[\"null\",null],[\"bool\",false],[\"text\",\"compare\"]]],[\"struct\",[[\"text\",\"in\"],[\"null\",null],[\"bool\",false],[\"text\",\"in\"]]],[\"struct\",[[\"text\",\"and\"],[\"null\",null],[\"bool\",false],[\"text\",\"and\"]]],[\"struct\",[[\"text\",\"or\"],[\"null\",null],[\"bool\",false],[\"text\",\"or\"]]],[\"struct\",[[\"text\",\"not\"],[\"null\",null],[\"bool\",false],[\"text\",\"not\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"kind\"],[\"struct\",[[\"text\",\"kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0fe5083204323c229ced7a0907289e14\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"0fe5083204323c229ced7a0907289e14\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"boolean_value\"],[\"struct\",[[\"text\",\"bool\"],[\"text\",\"Boolean\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"boolean_value\"],[\"struct\",[[\"text\",\"boolean_value\"],[\"text\",\"Boolean\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"comparison\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateComparison\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c8e2205eafefb2169d3d481fe398b227\\\"}\"],[\"struct\",[[\"id\",\"c8e2205eafefb2169d3d481fe398b227\"],[\"text\",\"PredicateComparison\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"eq\"]]],[\"struct\",[[\"text\",\"not_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"not_eq\"]]],[\"struct\",[[\"text\",\"lt\"],[\"null\",null],[\"bool\",false],[\"text\",\"lt\"]]],[\"struct\",[[\"text\",\"le\"],[\"null\",null],[\"bool\",false],[\"text\",\"le\"]]],[\"struct\",[[\"text\",\"gt\"],[\"null\",null],[\"bool\",false],[\"text\",\"gt\"]]],[\"struct\",[[\"text\",\"ge\"],[\"null\",null],[\"bool\",false],[\"text\",\"ge\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"comparison\"],[\"struct\",[[\"text\",\"comparison\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c8e2205eafefb2169d3d481fe398b227\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"c8e2205eafefb2169d3d481fe398b227\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateComparison\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"left_expr\"],[\"struct\",[[\"text\",\"u64\"],[\"text\",\"UInt64\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"left_expr\"],[\"struct\",[[\"text\",\"left_expr\"],[\"text\",\"UInt64\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"right_expr\"],[\"struct\",[[\"text\",\"u64\"],[\"text\",\"UInt64\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"right_expr\"],[\"struct\",[[\"text\",\"right_expr\"],[\"text\",\"UInt64\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"left_predicate\"],[\"struct\",[[\"text\",\"u64\"],[\"text\",\"UInt64\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"left_predicate\"],[\"struct\",[[\"text\",\"left_predicate\"],[\"text\",\"UInt64\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"right_predicate\"],[\"struct\",[[\"text\",\"u64\"],[\"text\",\"UInt64\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"right_predicate\"],[\"struct\",[[\"text\",\"right_predicate\"],[\"text\",\"UInt64\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"domain_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"domain_id\"],[\"struct\",[[\"text\",\"domain_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"domain_template_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"domain_template_id\"],[\"struct\",[[\"text\",\"domain_template_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"domain_name\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"domain_name\"],[\"struct\",[[\"text\",\"domain_name\"],[\"text\",\"Utf8\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"left_kind\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateOperandKind\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"],[\"struct\",[[\"id\",\"339a3ae8f663a73ba04c7133f93a7f63\"],[\"text\",\"PredicateOperandKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"expression\"],[\"null\",null],[\"bool\",false],[\"text\",\"expression\"]]],[\"struct\",[[\"text\",\"enum_literal\"],[\"null\",null],[\"bool\",false],[\"text\",\"enum_literal\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"left_kind\"],[\"struct\",[[\"text\",\"left_kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"339a3ae8f663a73ba04c7133f93a7f63\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateOperandKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"left_enum_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"left_enum_id\"],[\"struct\",[[\"text\",\"left_enum_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"left_enum_member\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"left_enum_member\"],[\"struct\",[[\"text\",\"left_enum_member\"],[\"text\",\"Utf8\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"right_kind\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateOperandKind\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"],[\"struct\",[[\"id\",\"339a3ae8f663a73ba04c7133f93a7f63\"],[\"text\",\"PredicateOperandKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"expression\"],[\"null\",null],[\"bool\",false],[\"text\",\"expression\"]]],[\"struct\",[[\"text\",\"enum_literal\"],[\"null\",null],[\"bool\",false],[\"text\",\"enum_literal\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"right_kind\"],[\"struct\",[[\"text\",\"right_kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"339a3ae8f663a73ba04c7133f93a7f63\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateOperandKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"right_enum_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"right_enum_id\"],[\"struct\",[[\"text\",\"right_enum_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"right_enum_member\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"right_enum_member\"],[\"struct\",[[\"text\",\"right_enum_member\"],[\"text\",\"Utf8\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]]]],[\"text\",\"Typed predicate structure with exact operand alternatives and order.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"4852700f60e9ddb7e94526d4a2ca090c\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"4852700f60e9ddb7e94526d4a2ca090c\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"predicate_nodes\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"source_id\"],[\"text\",\"predicate_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"source_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"source_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"source_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"normalized.expression_sources\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"source_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"normalized.expression_sources.source_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"a4452b672cb11ce8aa09f5b7c0c711b0\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"expression_sources\"],[\"u64\",3]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"predicate_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"predicate_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"predicate_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"PredicateKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0fe5083204323c229ced7a0907289e14\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"0fe5083204323c229ced7a0907289e14\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0fe5083204323c229ced7a0907289e14\\\"}\"],[\"struct\",[[\"id\",\"0fe5083204323c229ced7a0907289e14\"],[\"text\",\"PredicateKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"boolean\"],[\"null\",null],[\"bool\",false],[\"text\",\"boolean\"]]],[\"struct\",[[\"text\",\"null\"],[\"null\",null],[\"bool\",false],[\"text\",\"null\"]]],[\"struct\",[[\"text\",\"atom\"],[\"null\",null],[\"bool\",false],[\"text\",\"atom\"]]],[\"struct\",[[\"text\",\"compare\"],[\"null\",null],[\"bool\",false],[\"text\",\"compare\"]]],[\"struct\",[[\"text\",\"in\"],[\"null\",null],[\"bool\",false],[\"text\",\"in\"]]],[\"struct\",[[\"text\",\"and\"],[\"null\",null],[\"bool\",false],[\"text\",\"and\"]]],[\"struct\",[[\"text\",\"or\"],[\"null\",null],[\"bool\",false],[\"text\",\"or\"]]],[\"struct\",[[\"text\",\"not\"],[\"null\",null],[\"bool\",false],[\"text\",\"not\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"boolean_value\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"boolean_value\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"boolean_value\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"comparison\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"comparison\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"PredicateComparison\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"comparison\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c8e2205eafefb2169d3d481fe398b227\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"c8e2205eafefb2169d3d481fe398b227\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateComparison\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateComparison\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c8e2205eafefb2169d3d481fe398b227\\\"}\"],[\"struct\",[[\"id\",\"c8e2205eafefb2169d3d481fe398b227\"],[\"text\",\"PredicateComparison\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"eq\"]]],[\"struct\",[[\"text\",\"not_eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"not_eq\"]]],[\"struct\",[[\"text\",\"lt\"],[\"null\",null],[\"bool\",false],[\"text\",\"lt\"]]],[\"struct\",[[\"text\",\"le\"],[\"null\",null],[\"bool\",false],[\"text\",\"le\"]]],[\"struct\",[[\"text\",\"gt\"],[\"null\",null],[\"bool\",false],[\"text\",\"gt\"]]],[\"struct\",[[\"text\",\"ge\"],[\"null\",null],[\"bool\",false],[\"text\",\"ge\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"left_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"left_expr\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"left_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"right_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"right_expr\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"right_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"left_predicate\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"left_predicate\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"left_predicate\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"right_predicate\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"right_predicate\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"right_predicate\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"domain_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"domain_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"domain_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"domain_template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"domain_template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"domain_template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"domain_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"domain_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"domain_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"left_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"left_kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"PredicateOperandKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"left_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"339a3ae8f663a73ba04c7133f93a7f63\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateOperandKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateOperandKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"],[\"struct\",[[\"id\",\"339a3ae8f663a73ba04c7133f93a7f63\"],[\"text\",\"PredicateOperandKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"expression\"],[\"null\",null],[\"bool\",false],[\"text\",\"expression\"]]],[\"struct\",[[\"text\",\"enum_literal\"],[\"null\",null],[\"bool\",false],[\"text\",\"enum_literal\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"left_enum_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"left_enum_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"left_enum_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"left_enum_member\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"left_enum_member\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"left_enum_member\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"right_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"right_kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"PredicateOperandKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"right_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"339a3ae8f663a73ba04c7133f93a7f63\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:PredicateOperandKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:PredicateOperandKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"339a3ae8f663a73ba04c7133f93a7f63\\\"}\"],[\"struct\",[[\"id\",\"339a3ae8f663a73ba04c7133f93a7f63\"],[\"text\",\"PredicateOperandKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"expression\"],[\"null\",null],[\"bool\",false],[\"text\",\"expression\"]]],[\"struct\",[[\"text\",\"enum_literal\"],[\"null\",null],[\"bool\",false],[\"text\",\"enum_literal\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"right_enum_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"right_enum_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"right_enum_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"right_enum_member\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"right_enum_member\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"right_enum_member\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Typed predicate structure with exact operand alternatives and order.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"4852700f60e9ddb7e94526d4a2ca090c\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -324,9 +579,7 @@ fn check_declaration(
             actual: spec.fingerprint,
         });
     }
-    if pse_schema::compiled_contract::relation(reg, spec)?.literal_spec()
-        != COMPILED_DECLARATION
-    {
+    if reg.compiled_declaration(spec)? != COMPILED_DECLARATION {
         return Err(crate::RelationError::Contract {
             relation: "normalized.predicate_nodes".to_owned(),
             reason: "runtime declaration differs from the complete generated contract"
@@ -349,96 +602,909 @@ pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationErr
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
     crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
 }
-/// A borrowed batch admitted against the complete generated contract.
+impl crate::columnar::RelationRow for NormalizedPredicateNodesRow {
+    type Builder = NormalizedPredicateNodesBuilder;
+    fn relation(
+        registry: &pse_schema::Registry,
+    ) -> Result<&pse_schema::model::RelationSpec, crate::RelationError> {
+        spec(registry)
+    }
+    fn builder(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self::Builder, crate::RelationError> {
+        NormalizedPredicateNodesBuilder::with_registry(registry, capacity)
+    }
+    fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
+        builder.push(row)
+    }
+    fn finish(
+        builder: Self::Builder,
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        builder.finish()
+    }
+    fn rows(
+        batch: &crate::columnar::FieldCheckedBatch,
+    ) -> Result<Vec<Self>, crate::RelationError> {
+        NormalizedPredicateNodesView::from_checked(batch)?.rows()
+    }
+    fn builder_allocation_size() -> usize {
+        174_448_usize + size_of::<Self::Builder>()
+    }
+    fn minimum_row_allocation_size() -> usize {
+        328usize
+    }
+    fn allocation_size(&self) -> Result<usize, crate::RelationError> {
+        let mut bytes = 0usize;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#kind).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#boolean_value).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#comparison).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#left_expr).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#right_expr).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#left_predicate).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#right_predicate).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#domain_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#domain_template_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#domain_name).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#left_kind).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#left_enum_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#left_enum_member).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#right_kind).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#right_enum_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#right_enum_member).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        Ok(bytes)
+    }
+}
+/// The complete declared relation key.
+pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::RelationKey {
+    namespace: NAMESPACE,
+    name: NAME,
+    version: VERSION,
+};
+/// Stable field references projected from the declared column order.
+pub const COLUMNS: [crate::columnar::ColumnReference; 18usize] = [
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "source_id",
+        position: 0usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "predicate_id",
+        position: 1usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "kind",
+        position: 2usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "boolean_value",
+        position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "comparison",
+        position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "left_expr",
+        position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "right_expr",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "left_predicate",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "right_predicate",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "domain_id",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "domain_template_id",
+        position: 10usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "domain_name",
+        position: 11usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "left_kind",
+        position: 12usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "left_enum_id",
+        position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "left_enum_member",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "right_kind",
+        position: 15usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "right_enum_id",
+        position: 16usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "right_enum_member",
+        position: 17usize,
+    },
+];
+/// Borrowed Arrow columns with checked layout and local values.
+/// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct NormalizedPredicateNodesView<'a> {
     batch: &'a crate::RecordBatch,
-    registry: &'a pse_schema::Registry,
+    source_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    predicate_id_column: &'a arrow_array::UInt64Array,
+    kind_column: &'a arrow_array::StringArray,
+    boolean_value_column: &'a arrow_array::BooleanArray,
+    comparison_column: &'a arrow_array::StringArray,
+    left_expr_column: &'a arrow_array::UInt64Array,
+    right_expr_column: &'a arrow_array::UInt64Array,
+    left_predicate_column: &'a arrow_array::UInt64Array,
+    right_predicate_column: &'a arrow_array::UInt64Array,
+    domain_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    domain_template_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    domain_name_column: &'a arrow_array::StringArray,
+    left_kind_column: &'a arrow_array::StringArray,
+    left_enum_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    left_enum_member_column: &'a arrow_array::StringArray,
+    right_kind_column: &'a arrow_array::StringArray,
+    right_enum_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    right_enum_member_column: &'a arrow_array::StringArray,
 }
 impl<'a> NormalizedPredicateNodesView<'a> {
-    /// Admits the actual schema and visible values, including extension metadata.
+    /// Admits a raw candidate's actual schema and visible local values.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
     }
-    /// Admits a batch with an explicitly bound registry.
+    /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch_with_registry(
-        registry: &'a pse_schema::Registry,
+        registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         crate::validate::validate_batch(registry, spec(registry)?, batch)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Ok(Self { batch, registry })
+        Self::borrow_columns(batch)
     }
-    /// The admitted batch, preserving its owners and reservations.
+    /// Borrows a checked owner without rescanning visible values.
+    /// The private owner must carry this exact relation and complete declaration.
+    /// # Errors
+    /// A different generated declaration or an incompatible Arrow layout.
+    pub fn from_checked(
+        owner: &'a crate::columnar::FieldCheckedBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Self::borrow_columns(owner.for_declaration(RELATION_ID, COMPILED_DECLARATION)?)
+    }
+    fn borrow_columns(
+        batch: &'a crate::RecordBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Ok(Self {
+            batch,
+            source_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(0usize).as_ref())?,
+            predicate_id_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(1usize).as_ref())?,
+            kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(2usize).as_ref())?,
+            boolean_value_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(3usize).as_ref())?,
+            comparison_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            left_expr_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(5usize).as_ref())?,
+            right_expr_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(6usize).as_ref())?,
+            left_predicate_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(7usize).as_ref())?,
+            right_predicate_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(8usize).as_ref())?,
+            domain_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(9usize).as_ref())?,
+            domain_template_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(10usize).as_ref())?,
+            domain_name_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(11usize).as_ref())?,
+            left_kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(12usize).as_ref())?,
+            left_enum_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(13usize).as_ref())?,
+            left_enum_member_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(14usize).as_ref())?,
+            right_kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(15usize).as_ref())?,
+            right_enum_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(16usize).as_ref())?,
+            right_enum_member_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(17usize).as_ref())?,
+        })
+    }
+    /// The immutable batch, preserving its buffer owners and reservations.
     pub const fn batch(&self) -> &'a crate::RecordBatch {
         self.batch
     }
-    /// Decode dictionary values and nested fields into generated typed rows.
+    /// The number of visible relation rows.
+    pub fn len(&self) -> usize {
+        self.batch.num_rows()
+    }
+    /// Whether this view has no relation rows.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "source_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn source_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.source_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "source_id", "`.")]
+    pub fn source_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[0usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "predicate_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn predicate_id_column(&self) -> &'a arrow_array::UInt64Array {
+        self.predicate_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "predicate_id", "`.")]
+    pub fn predicate_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn kind_column(&self) -> &'a arrow_array::StringArray {
+        self.kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "kind", "`.")]
+    pub fn kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "boolean_value",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn boolean_value_column(&self) -> &'a arrow_array::BooleanArray {
+        self.boolean_value_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "boolean_value", "`.")]
+    pub fn boolean_value_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "comparison",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn comparison_column(&self) -> &'a arrow_array::StringArray {
+        self.comparison_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "comparison", "`.")]
+    pub fn comparison_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "left_expr",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn left_expr_column(&self) -> &'a arrow_array::UInt64Array {
+        self.left_expr_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "left_expr", "`.")]
+    pub fn left_expr_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "right_expr",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn right_expr_column(&self) -> &'a arrow_array::UInt64Array {
+        self.right_expr_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "right_expr", "`.")]
+    pub fn right_expr_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "left_predicate",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn left_predicate_column(&self) -> &'a arrow_array::UInt64Array {
+        self.left_predicate_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "left_predicate", "`.")]
+    pub fn left_predicate_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "right_predicate",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn right_predicate_column(&self) -> &'a arrow_array::UInt64Array {
+        self.right_predicate_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "right_predicate", "`.")]
+    pub fn right_predicate_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "domain_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn domain_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.domain_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "domain_id", "`.")]
+    pub fn domain_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "domain_template_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn domain_template_id_column(
+        &self,
+    ) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.domain_template_id_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "domain_template_id",
+        "`.",
+    )]
+    pub fn domain_template_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "domain_name",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn domain_name_column(&self) -> &'a arrow_array::StringArray {
+        self.domain_name_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "domain_name", "`.")]
+    pub fn domain_name_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[11usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "left_kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn left_kind_column(&self) -> &'a arrow_array::StringArray {
+        self.left_kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "left_kind", "`.")]
+    pub fn left_kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[12usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "left_enum_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn left_enum_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.left_enum_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "left_enum_id", "`.")]
+    pub fn left_enum_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[13usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "left_enum_member",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn left_enum_member_column(&self) -> &'a arrow_array::StringArray {
+        self.left_enum_member_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "left_enum_member", "`.")]
+    pub fn left_enum_member_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "right_kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn right_kind_column(&self) -> &'a arrow_array::StringArray {
+        self.right_kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "right_kind", "`.")]
+    pub fn right_kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[15usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "right_enum_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn right_enum_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.right_enum_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "right_enum_id", "`.")]
+    pub fn right_enum_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[16usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "right_enum_member",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn right_enum_member_column(&self) -> &'a arrow_array::StringArray {
+        self.right_enum_member_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "right_enum_member", "`.")]
+    pub fn right_enum_member_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[17usize]
+    }
+    /// Decodes one row for an explicit scalar algorithm boundary.
+    /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
-    /// A typed decoding error.
+    /// The row is out of range or its physical value cannot be decoded.
+    pub fn row(
+        &self,
+        index: usize,
+    ) -> Result<NormalizedPredicateNodesRow, crate::RelationError> {
+        if index >= self.len() {
+            return Err(crate::columnar::mismatch("a row within the generated view"));
+        }
+        Ok(NormalizedPredicateNodesRow {
+            r#source_id: crate::columnar::ArrowValue::read(
+                self.source_id_column,
+                index,
+            )?,
+            r#predicate_id: crate::columnar::ArrowValue::read(
+                self.predicate_id_column,
+                index,
+            )?,
+            r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
+            r#boolean_value: crate::columnar::ArrowValue::read(
+                self.boolean_value_column,
+                index,
+            )?,
+            r#comparison: crate::columnar::ArrowValue::read(
+                self.comparison_column,
+                index,
+            )?,
+            r#left_expr: crate::columnar::ArrowValue::read(
+                self.left_expr_column,
+                index,
+            )?,
+            r#right_expr: crate::columnar::ArrowValue::read(
+                self.right_expr_column,
+                index,
+            )?,
+            r#left_predicate: crate::columnar::ArrowValue::read(
+                self.left_predicate_column,
+                index,
+            )?,
+            r#right_predicate: crate::columnar::ArrowValue::read(
+                self.right_predicate_column,
+                index,
+            )?,
+            r#domain_id: crate::columnar::ArrowValue::read(
+                self.domain_id_column,
+                index,
+            )?,
+            r#domain_template_id: crate::columnar::ArrowValue::read(
+                self.domain_template_id_column,
+                index,
+            )?,
+            r#domain_name: crate::columnar::ArrowValue::read(
+                self.domain_name_column,
+                index,
+            )?,
+            r#left_kind: crate::columnar::ArrowValue::read(
+                self.left_kind_column,
+                index,
+            )?,
+            r#left_enum_id: crate::columnar::ArrowValue::read(
+                self.left_enum_id_column,
+                index,
+            )?,
+            r#left_enum_member: crate::columnar::ArrowValue::read(
+                self.left_enum_member_column,
+                index,
+            )?,
+            r#right_kind: crate::columnar::ArrowValue::read(
+                self.right_kind_column,
+                index,
+            )?,
+            r#right_enum_id: crate::columnar::ArrowValue::read(
+                self.right_enum_id_column,
+                index,
+            )?,
+            r#right_enum_member: crate::columnar::ArrowValue::read(
+                self.right_enum_member_column,
+                index,
+            )?,
+        })
+    }
+    /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
+    /// This performs no schema/value admission and creates no `Cell` intermediates.
+    /// # Errors
+    /// A physical value cannot be decoded.
     pub fn rows(
         &self,
     ) -> Result<Vec<NormalizedPredicateNodesRow>, crate::RelationError> {
-        crate::cells::cells_from_batch(self.registry, spec(self.registry)?, self.batch)?
-            .into_iter()
-            .map(NormalizedPredicateNodesRow::from_cells)
-            .collect()
+        (0..self.len()).map(|index| self.row(index)).collect()
     }
 }
-/// Builds a batch under the declared schema, with admission before return.
-#[derive(Debug, Default)]
+/// Appends typed values directly into the declared Arrow column builders.
+/// Finish establishes layout and local value contracts, not relational validity.
+#[derive(Debug)]
 pub struct NormalizedPredicateNodesBuilder {
-    rows: Vec<NormalizedPredicateNodesRow>,
+    columns: crate::columnar::BatchBuilder,
 }
 impl NormalizedPredicateNodesBuilder {
-    /// An empty builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-    /// Reserves row capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            rows: Vec::with_capacity(capacity),
-        }
-    }
-    /// Checks one candidate row before adding it. Bundle constraints run at P2.
+    /// Opens empty Arrow builders under the generated declaration.
     /// # Errors
-    /// An extension value or field contract violation.
+    /// The runtime registry or declared storage is incompatible.
+    pub fn new() -> Result<Self, crate::RelationError> {
+        Self::with_capacity(0)
+    }
+    /// Reserves initial Arrow column capacity.
+    /// # Errors
+    /// The runtime registry or declared storage is incompatible.
+    pub fn with_capacity(capacity: usize) -> Result<Self, crate::RelationError> {
+        Self::with_registry(pse_schema::registry()?, capacity)
+    }
+    /// Opens Arrow builders after checking the exact runtime declaration once.
+    /// # Errors
+    /// A generated declaration mismatch or unrepresentable storage capacity.
+    pub fn with_registry(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let schema = std::sync::Arc::new(
+            pse_schema::arrow::relation_schema(registry, spec(registry)?)?,
+        );
+        Ok(Self {
+            columns: crate::columnar::BatchBuilder::new(
+                RELATION_ID,
+                COMPILED_DECLARATION,
+                schema,
+                capacity,
+            )?,
+        })
+    }
+    /// Number of appended rows, including retained bulk column chunks.
+    pub const fn len(&self) -> usize {
+        self.columns.len()
+    }
+    /// Whether the builder contains no rows.
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Checks local logical values before appending directly to Arrow buffers.
+    /// Local refusal does not modify the builder; storage failure closes it.
+    /// # Errors
+    /// An extension value, quantity sibling or Arrow storage violation.
     pub fn push(
         &mut self,
         row: NormalizedPredicateNodesRow,
     ) -> Result<(), crate::RelationError> {
-        let reg = pse_schema::registry()?;
-        crate::cells::batch_from_cells(reg, spec(reg)?, &[row.clone().into_cells()])?;
-        self.rows.push(row);
-        Ok(())
+        self.columns
+            .append(move |columns| {
+                let row = &row;
+                crate::columnar::ArrowValue::append(
+                    &row.r#source_id,
+                    columns[0usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#predicate_id,
+                    columns[1usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#kind,
+                    columns[2usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#boolean_value,
+                    columns[3usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#comparison,
+                    columns[4usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#left_expr,
+                    columns[5usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#right_expr,
+                    columns[6usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#left_predicate,
+                    columns[7usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#right_predicate,
+                    columns[8usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#domain_id,
+                    columns[9usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#domain_template_id,
+                    columns[10usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#domain_name,
+                    columns[11usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#left_kind,
+                    columns[12usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#left_enum_id,
+                    columns[13usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#left_enum_member,
+                    columns[14usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#right_kind,
+                    columns[15usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#right_enum_id,
+                    columns[16usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#right_enum_member,
+                    columns[17usize].as_mut(),
+                )?;
+                Ok(())
+            })
     }
-    /// Builds and admits the complete batch.
+    /// Appends an admitted view's actual Arrow arrays without decoding rows.
     /// # Errors
-    /// A schema, value or Arrow layout failure.
-    pub fn finish(self) -> Result<crate::RecordBatch, crate::RelationError> {
-        self.finish_with_registry(pse_schema::registry()?)
+    /// A different field contract, Arrow failure or row-count overflow.
+    pub fn append_view(
+        &mut self,
+        view: &NormalizedPredicateNodesView<'_>,
+    ) -> Result<(), crate::RelationError> {
+        self.columns.append_batch(view.batch())
     }
-    /// Builds under an explicitly bound runtime registry.
+    /// Finishes Arrow buffers and retains private local field evidence.
     /// # Errors
-    /// A contract mismatch or batch admission failure.
-    pub fn finish_with_registry(
+    /// Arrow rejected the physical layout or a previous append failed.
+    pub fn finish(
         self,
-        reg: &pse_schema::Registry,
-    ) -> Result<crate::RecordBatch, crate::RelationError> {
-        let cells = self
-            .rows
-            .into_iter()
-            .map(NormalizedPredicateNodesRow::into_cells)
-            .collect::<Vec<_>>();
-        crate::cells::batch_from_cells(reg, spec(reg)?, &cells)
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        self.columns.finish()
     }
 }

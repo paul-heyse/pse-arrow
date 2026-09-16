@@ -1,0 +1,318 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "method_parameter_axes": [
+    {
+      "method_id": "e91e27d03e454351b534e2fbe01df028",
+      "parameter_kind": "NIST_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "e91e27d03e454351b534e2fbe01df028",
+      "parameter_kind": "NIST_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "e91e27d03e454351b534e2fbe01df028",
+      "parameter_kind": "NIST_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "e91e27d03e454351b534e2fbe01df028",
+      "parameter_kind": "NIST_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "e91e27d03e454351b534e2fbe01df028",
+      "parameter_kind": "NIST_E",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
+      "parameter_kind": "NIST_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
+      "parameter_kind": "NIST_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
+      "parameter_kind": "NIST_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
+      "parameter_kind": "NIST_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
+      "parameter_kind": "NIST_E",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
+      "parameter_kind": "gas_h_ref",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9f779daa99854ab1b707977e7d054c04",
+      "parameter_kind": "NIST_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9f779daa99854ab1b707977e7d054c04",
+      "parameter_kind": "NIST_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9f779daa99854ab1b707977e7d054c04",
+      "parameter_kind": "NIST_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9f779daa99854ab1b707977e7d054c04",
+      "parameter_kind": "NIST_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9f779daa99854ab1b707977e7d054c04",
+      "parameter_kind": "NIST_E",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "9f779daa99854ab1b707977e7d054c04",
+      "parameter_kind": "gas_s_ref",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f3b769aa4e1f46ac802051d1123bb522",
+      "parameter_kind": "RPP4_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f3b769aa4e1f46ac802051d1123bb522",
+      "parameter_kind": "RPP4_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f3b769aa4e1f46ac802051d1123bb522",
+      "parameter_kind": "RPP4_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f3b769aa4e1f46ac802051d1123bb522",
+      "parameter_kind": "RPP4_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "896f59a263f54103ac8d8cb0dd9ca06b",
+      "parameter_kind": "RPP4_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "896f59a263f54103ac8d8cb0dd9ca06b",
+      "parameter_kind": "RPP4_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "896f59a263f54103ac8d8cb0dd9ca06b",
+      "parameter_kind": "RPP4_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "896f59a263f54103ac8d8cb0dd9ca06b",
+      "parameter_kind": "RPP4_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "896f59a263f54103ac8d8cb0dd9ca06b",
+      "parameter_kind": "gas_h_ref",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "981027ad2c8e4bdb9e5083b96af34e41",
+      "parameter_kind": "RPP4_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "981027ad2c8e4bdb9e5083b96af34e41",
+      "parameter_kind": "RPP4_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "981027ad2c8e4bdb9e5083b96af34e41",
+      "parameter_kind": "RPP4_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "981027ad2c8e4bdb9e5083b96af34e41",
+      "parameter_kind": "RPP4_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "981027ad2c8e4bdb9e5083b96af34e41",
+      "parameter_kind": "gas_s_ref",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "06535666496e4acc804aae4b25859046",
+      "parameter_kind": "PerryCp_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "06535666496e4acc804aae4b25859046",
+      "parameter_kind": "PerryCp_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "06535666496e4acc804aae4b25859046",
+      "parameter_kind": "PerryCp_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "06535666496e4acc804aae4b25859046",
+      "parameter_kind": "PerryCp_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "06535666496e4acc804aae4b25859046",
+      "parameter_kind": "PerryCp_E",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f47bfef6acf44b29978030a37b558676",
+      "parameter_kind": "PerryCp_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f47bfef6acf44b29978030a37b558676",
+      "parameter_kind": "PerryCp_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f47bfef6acf44b29978030a37b558676",
+      "parameter_kind": "PerryCp_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f47bfef6acf44b29978030a37b558676",
+      "parameter_kind": "PerryCp_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f47bfef6acf44b29978030a37b558676",
+      "parameter_kind": "PerryCp_E",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "f47bfef6acf44b29978030a37b558676",
+      "parameter_kind": "liquid_h_ref",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "6c92c46efd71453180ae182240b4ed96",
+      "parameter_kind": "PerryCp_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "6c92c46efd71453180ae182240b4ed96",
+      "parameter_kind": "PerryCp_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "6c92c46efd71453180ae182240b4ed96",
+      "parameter_kind": "PerryCp_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "6c92c46efd71453180ae182240b4ed96",
+      "parameter_kind": "PerryCp_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "6c92c46efd71453180ae182240b4ed96",
+      "parameter_kind": "PerryCp_E",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "6c92c46efd71453180ae182240b4ed96",
+      "parameter_kind": "liquid_s_ref",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "28313358ec4642eab1766802eec46169",
+      "parameter_kind": "PerryRho_A",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "28313358ec4642eab1766802eec46169",
+      "parameter_kind": "PerryRho_B",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "28313358ec4642eab1766802eec46169",
+      "parameter_kind": "PerryRho_C",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    },
+    {
+      "method_id": "28313358ec4642eab1766802eec46169",
+      "parameter_kind": "PerryRho_D",
+      "position": 0,
+      "source_coordinate": "ref_entity"
+    }
+  ]
+}

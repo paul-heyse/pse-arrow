@@ -18,6 +18,34 @@ pub struct PassRegistry {
     passes: BTreeMap<&'static str, Arc<dyn Pass>>,
 }
 impl PassRegistry {
+    /// Bind the production implementations once. Local execution and read-only
+    /// import use these same objects; no independent producer dispatch exists.
+    /// # Errors
+    /// A declared pass differs from its implementation contract.
+    pub fn production(registry: &Registry) -> Result<Self, CompilerError> {
+        type Constructor = fn(&Registry) -> Result<Arc<dyn Pass>, CompilerError>;
+        let constructors: [(&str, Constructor); 8] = [
+            ("P3@1", |r| Ok(Arc::new(super::p3::P3::new(r)?))),
+            ("P4@1", |r| Ok(Arc::new(super::p4::P4::new(r)?))),
+            ("P5@1", |r| Ok(Arc::new(super::p5::P5::new(r)?))),
+            ("P6@1", |r| Ok(Arc::new(super::p6::P6::new(r)?))),
+            ("P7@1", |r| Ok(Arc::new(super::p7::P7::new(r)?))),
+            ("P8@1", |r| Ok(Arc::new(super::p8::P8::new(r)?))),
+            ("P9@1", |r| Ok(Arc::new(super::p9::P9::new(r)?))),
+            ("P10@1", |r| Ok(Arc::new(super::p10::P10::new(r)?))),
+        ];
+        let mut result = Self::new();
+        for (name, constructor) in constructors {
+            if registry.pass(name).is_some() {
+                result.register(constructor(registry)?, registry)?;
+            }
+        }
+        Ok(result)
+    }
+    /// Actual implementation objects in deterministic declaration-name order.
+    pub fn implementations(&self) -> impl Iterator<Item = &Arc<dyn Pass>> {
+        self.passes.values()
+    }
     /// An empty implementation inventory.
     pub fn new() -> Self {
         Self::default()

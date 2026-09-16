@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Actual immutable rows and source artifacts behind compiler input bindings.
+//! Actual immutable rows and source rows behind compiler input bindings.
 use crate::{
     CompilerError,
     passes::{BoundInput, InputBundle, dag::invalid},
@@ -21,14 +21,18 @@ use std::{
     sync::Arc,
 };
 
-/// Exact commit base, including original bytes read from its admitted document artifacts.
+/// Exact commit base, including original bytes read from its typed document rows.
 #[derive(Clone, Debug)]
 pub struct BaseReader {
     pub(crate) revision: SemanticId,
     pub(crate) rows: BTreeMap<SemanticId, RecordBatch>,
+    pub(crate) checked: Option<pse_authoring::document::Batches>,
     pub(crate) documents: OwnedDocumentSet,
 }
 impl AuthoredReader for BaseReader {
+    fn checked_relations(&self) -> Option<&pse_authoring::document::Batches> {
+        self.checked.as_ref()
+    }
     fn revision_id(&self) -> SemanticId {
         self.revision
     }
@@ -81,7 +85,7 @@ pub(crate) fn inventory(
     }
     Ok(found)
 }
-pub(super) fn row_inventory(
+pub(crate) fn row_inventory(
     inputs: &BTreeMap<RelationKey, BoundInput>,
 ) -> BTreeMap<RelationKey, RecordBatch> {
     inputs
@@ -89,7 +93,7 @@ pub(super) fn row_inventory(
         .map(|(key, input)| (*key, input.relation().batch().clone()))
         .collect()
 }
-pub(crate) async fn documents(
+pub(crate) fn documents(
     catalog: &Catalog,
     rows: &BTreeMap<RelationKey, RecordBatch>,
     cancel: &CancellationToken,
@@ -112,13 +116,10 @@ pub(crate) async fn documents(
     for row in pse_relations::cells::cells_from_batch(registry, spec, batch)? {
         cancel.checkpoint()?;
         let row = authored::documents::Row::from_cells(row)?;
-        let bytes = catalog
-            .read_document(row.document_id, row.content_hash, cancel)
-            .await?;
         if texts
             .entry(row.package_id)
             .or_default()
-            .insert(row.path, bytes)
+            .insert(row.path, row.source_text)
             .is_some()
         {
             return Err(invalid("duplicate document path in package"));
@@ -129,7 +130,7 @@ pub(crate) async fn documents(
         bundles.push(pse_authoring::document::load_package_sources_owned(
             texts
                 .iter()
-                .map(|(path, bytes)| (path.as_str(), bytes.as_ref())),
+                .map(|(path, bytes)| (path.as_str(), bytes.as_bytes())),
             registry,
             ParseBudget::default(),
             catalog.reserver().as_ref(),
@@ -160,7 +161,6 @@ pub(super) fn bind(
     registry: &Registry,
     pinned: &BTreeMap<RelationKey, BoundInput>,
     stages: &BTreeMap<String, Arc<Snapshot>>,
-    external: &crate::ExternalInputs,
 ) -> Result<InputBundle, CompilerError> {
     let mut bundle = InputBundle::new();
     for port in &spec.inputs {
@@ -175,13 +175,7 @@ pub(super) fn bind(
                     BoundInput::bind_port(Arc::clone(snapshot), relation.key, port, registry)
                 })
                 .transpose()?,
-        }
-        .or_else(|| {
-            external
-                .bindings
-                .get(&format!("{}/{}", spec.name, port.port))
-                .cloned()
-        });
+        };
         bundle.ports.insert(port.port, input);
     }
     bundle.validate(spec, registry)?;

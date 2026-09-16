@@ -7,8 +7,10 @@
 # Ipopt + MUMPS solves are memory-heavy and spawn their own rayon/tokio threads
 # (blueprint §18.8 thread budget).
 solver = { max-threads = 2 }
-# Object-store lifecycle tests and golden-snapshot writers share on-disk state.
+# Serialize resource-intensive object-store and source-pipeline admission tests.
 serial = { max-threads = 1 }
+# Each engineering workflow has its own 32 GiB runtime ceiling and one worker.
+engineering = { max-threads = 2 }
 
 [profile.default]
 fail-fast = true
@@ -29,6 +31,13 @@ slow-timeout = { period = "300s", terminate-after = 2 }
 filter = 'package(pse-tests-engine) & (test(actual_p3_outputs_match_in_process_durable_and_uncached_execution) | test(changed_species_commit_invalidates_p3_and_matches_a_clean_complete_run))'
 test-group = "serial"
 slow-timeout = { period = "120s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+# The target heater reached P10 after 293.374s (2026-09-15, ci/force-validation).
+# Give complete heater/mixer graphs a diagnostic timeout, without a timing gate.
+filter = 'package(pse-tests-engine) & binary(native_engineering_workflows)'
+test-group = "engineering"
+slow-timeout = { period = "300s", terminate-after = 3 }
 
 [[profile.default.overrides]]
 filter = 'package(pse-tests-engine) | package(pse-catalog) | test(/object_store/)'

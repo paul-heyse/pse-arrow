@@ -1,7 +1,7 @@
 ---
 id: ADR-0006
 title: Adopt D3: one catalog holds CanonicalModel, CanonicalMathGraph and CanonicalMathProblem
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D3, §5, §14.1]
 review: not-required: neither review raised a finding against D3
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0068
 revisit: A fourth artifact level is proposed, or a level needs identity, hashing or provenance conventions the other two do not share
 verification: `tests/governance/tests/every_crate_registered.rs`; the lifecycle test layer in `tests/lifecycle`
 
@@ -61,3 +61,4 @@ Blueprint §D3, §5 (identity and catalog), §14.1 (pass pipeline).
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-15 — superseded by ADR-0068.

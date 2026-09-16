@@ -5,17 +5,20 @@
 
 use super::BoxFut;
 use crate::{CatalogError, LoadedRelation, Snapshot};
-use datafusion::arrow::array::BooleanArray;
-use datafusion::arrow::compute::filter_record_batch;
 use datafusion::arrow::datatypes::SchemaRef;
+use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::catalog::{Session, TableProvider};
 use datafusion::common::{Constraints, DFSchema, DataFusionError, Result, Statistics};
 use datafusion::datasource::memory::MemorySourceConfig;
+use datafusion::logical_expr::utils::conjunction;
 use datafusion::logical_expr::{Expr, TableProviderFilterPushDown, TableType};
 use datafusion::physical_plan::ExecutionPlan;
+use datafusion::physical_plan::filter::FilterExecBuilder;
+use datafusion::physical_plan::limit::GlobalLimitExec;
 use datafusion_catalog::{ScanArgs, ScanResult};
-use pse_ids::{MemoryReserver, ReservationLease, SemanticId};
+use pse_ids::SemanticId;
 use pse_schema::Registry;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 /// A provider whose primitive and semantic checks ran before its snapshot was minted.
@@ -24,8 +27,6 @@ pub struct RelationTable {
     snapshot: Arc<Snapshot>,
     relation: Arc<LoadedRelation>,
     constraints: Constraints,
-    reserver: Arc<dyn MemoryReserver>,
-    pushdown: bool,
 }
 impl RelationTable {
     /// Resolve and recheck the actual member and schema, without trusting a digest.
@@ -36,7 +37,6 @@ impl RelationTable {
         snapshot: Arc<Snapshot>,
         relation_id: SemanticId,
         registry: &Registry,
-        reserver: Arc<dyn MemoryReserver>,
     ) -> Result<Self, CatalogError> {
         let spec = registry
             .relation_by_id(relation_id)
@@ -45,29 +45,44 @@ impl RelationTable {
             .relation(spec.key.namespace.as_str(), spec.key.name)
             .cloned()
             .ok_or_else(|| invalid("snapshot has no uniquely named member; repeated stage outputs require an explicit port binding"))?;
-        let mut validation = reserver.open("provider:semantic-admission");
-        validation.try_grow(crate::store::membership::validation_extent(
-            relation.batch(),
-        )?)?;
+        Self::from_member(snapshot, relation, registry)
+    }
+    /// Bind one exact admitted output port, including repeated relation declarations.
+    /// # Errors
+    /// Missing port or a registry different from the actual admission owner.
+    pub fn from_port(
+        snapshot: Arc<Snapshot>,
+        port: &str,
+        registry: &Registry,
+    ) -> Result<Self, CatalogError> {
+        let relation = snapshot
+            .relation_port(port)
+            .cloned()
+            .ok_or_else(|| invalid("snapshot port is absent"))?;
+        Self::from_member(snapshot, relation, registry)
+    }
+    fn from_member(
+        snapshot: Arc<Snapshot>,
+        relation: Arc<LoadedRelation>,
+        registry: &Registry,
+    ) -> Result<Self, CatalogError> {
+        let spec = registry
+            .relation_by_id(relation.contract().canonical.relation_id)
+            .ok_or_else(|| invalid("member declaration is absent"))?;
+        if !std::ptr::eq(snapshot.admission.registry.as_ref(), registry) {
+            return Err(invalid(
+                "provider registry differs from the actual admission context",
+            ));
+        }
         relation
             .contract()
             .validate_against_registry(registry, spec)?;
-        pse_relations::validate::validate_batch(registry, spec, relation.batch())
-            .map_err(|errors| invalid(&format!("invalid table rows: {errors:?}")))?;
         let constraints = relation.contract().constraints();
         Ok(Self {
             snapshot,
             relation,
             constraints,
-            reserver,
-            pushdown: true,
         })
-    }
-    /// Disable source filtering for the independent completeness oracle.
-    #[must_use]
-    pub const fn without_pushdown(mut self) -> Self {
-        self.pushdown = false;
-        self
     }
     /// The immutable handle establishing this table's admission context.
     pub fn snapshot(&self) -> &Arc<Snapshot> {
@@ -85,64 +100,27 @@ impl RelationTable {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        if filters.iter().any(|filter| {
-            !self.pushdown || !super::pushdown::supported(filter, self.relation.contract())
-        }) {
+        if filters
+            .iter()
+            .any(|filter| !super::pushdown::supported(filter, self.relation.contract()))
+        {
             return Err(DataFusionError::Plan(
                 "unsupported predicate was sent to exact provider".to_owned(),
             ));
         }
-        let mut batch = self.relation.batch().clone();
-        for filter in filters {
-            let extent = pse_ids::owned_buffer::retained_buffer_bytes(&batch).map_err(external)?;
-            let envelope = extent
-                .checked_mul(4)
-                .and_then(|n| {
-                    batch
-                        .num_rows()
-                        .checked_mul(64)
-                        .and_then(|rows| n.checked_add(rows))
-                })
-                .and_then(|n| n.checked_add(4096))
-                .ok_or_else(|| {
-                    DataFusionError::ResourcesExhausted("filter extent overflow".to_owned())
-                })?;
-            let mut reservation = self.reserver.open("provider:exact-filter");
-            reservation.try_grow(envelope).map_err(external)?;
-            let schema = DFSchema::try_from(batch.schema().as_ref().clone())?;
-            let physical = state.create_physical_expr(filter.clone(), &schema)?;
-            let values = physical.evaluate(&batch)?.into_array(batch.num_rows())?;
-            let predicate = values
-                .as_any()
-                .downcast_ref::<BooleanArray>()
-                .ok_or_else(|| {
-                    DataFusionError::Plan("filter did not produce Boolean storage".to_owned())
-                })?;
-            let filtered = filter_record_batch(&batch, predicate)?;
-            drop(values);
-            drop(physical);
-            let retained =
-                pse_ids::owned_buffer::retained_buffer_bytes(&filtered).map_err(external)?;
-            reservation.shrink(reservation.size().saturating_sub(retained));
-            let lease = ReservationLease::new(reservation);
-            batch = pse_ids::owned_buffer::attach_reservation(filtered, lease).map_err(external)?;
-        }
-        if let Some(limit) = limit {
-            batch = batch.slice(0, limit.min(batch.num_rows()));
-        }
-        let projection = projection.map(<[usize]>::to_vec);
-        let constraints = projection.as_ref().map_or_else(
-            || Some(self.constraints.clone()),
-            |indices| self.constraints.project(indices),
-        );
-        let source = MemorySourceConfig::try_new_exec(&[vec![batch]], self.schema(), projection)?;
-        let source = Arc::unwrap_or_clone(source).with_constraints(constraints.unwrap_or_default());
-        Ok(Arc::new(source))
+        native_scan(
+            &crate::session::query_schema::batch(self.relation.batch())?,
+            &self.constraints,
+            state,
+            projection,
+            filters,
+            limit,
+        )
     }
 }
 impl TableProvider for RelationTable {
     fn schema(&self) -> SchemaRef {
-        self.relation.batch().schema()
+        crate::session::query_schema::schema(self.relation.batch().schema().as_ref())
     }
     fn table_type(&self) -> TableType {
         TableType::Base
@@ -160,7 +138,7 @@ impl TableProvider for RelationTable {
         Ok(filters
             .iter()
             .map(|filter| {
-                if self.pushdown && super::pushdown::supported(filter, self.relation.contract()) {
+                if super::pushdown::supported(filter, self.relation.contract()) {
                     TableProviderFilterPushDown::Exact
                 } else {
                     TableProviderFilterPushDown::Unsupported
@@ -213,6 +191,79 @@ fn invalid(reason: &str) -> CatalogError {
         reason: reason.to_owned(),
     }
 }
-fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
-    DataFusionError::External(Box::new(error))
+
+/// Construct native operators without evaluating any input rows. The source retains
+/// admitted Arrow buffer owners; native filter allocations follow DataFusion's own
+/// accounting scope, rather than a second PSE filtering implementation.
+fn native_scan(
+    batch: &RecordBatch,
+    constraints: &Constraints,
+    state: &dyn Session,
+    projection: Option<&[usize]>,
+    filters: &[Expr],
+    limit: Option<usize>,
+) -> Result<Arc<dyn ExecutionPlan>> {
+    let predicate = conjunction(filters.iter().cloned());
+    let source_projection = required_columns(batch, projection, predicate.as_ref())?;
+    let source_constraints = constraints.project(&source_projection).unwrap_or_default();
+    let source = MemorySourceConfig::try_new_exec(
+        &[vec![batch.clone()]],
+        batch.schema(),
+        Some(source_projection.clone()),
+    )?;
+    let mut plan: Arc<dyn ExecutionPlan> =
+        Arc::new(Arc::unwrap_or_clone(source).with_constraints(source_constraints));
+    if let Some(predicate) = predicate {
+        let schema = DFSchema::try_from(plan.schema().as_ref().clone())?;
+        let physical = state.create_physical_expr(predicate, &schema)?;
+        let output_projection = projection
+            .map(|indices| {
+                indices
+                    .iter()
+                    .map(|index| {
+                        source_projection.binary_search(index).map_err(|_| {
+                            DataFusionError::Internal(
+                                "required output column is absent from scan".to_owned(),
+                            )
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })
+            .transpose()?;
+        plan = Arc::new(
+            FilterExecBuilder::new(physical, plan)
+                .with_batch_size(state.config_options().execution.batch_size.into())
+                .with_default_selectivity(
+                    state.config_options().optimizer.default_filter_selectivity,
+                )
+                .apply_projection(output_projection)?
+                .build()?,
+        );
+    }
+    if let Some(limit) = limit {
+        plan = Arc::new(GlobalLimitExec::new(plan, 0, Some(limit)));
+    }
+    Ok(plan)
 }
+
+fn required_columns(
+    batch: &RecordBatch,
+    projection: Option<&[usize]>,
+    predicate: Option<&Expr>,
+) -> Result<Vec<usize>> {
+    // With no filter, keep the requested order and repeated output columns exactly.
+    let Some(predicate) = predicate else {
+        return Ok(projection.map_or_else(|| (0..batch.num_columns()).collect(), <[usize]>::to_vec));
+    };
+    let mut required: BTreeSet<_> = projection.map_or_else(
+        || (0..batch.num_columns()).collect(),
+        |indices| indices.iter().copied().collect(),
+    );
+    for column in predicate.column_refs() {
+        required.insert(batch.schema().index_of(column.name())?);
+    }
+    Ok(required.into_iter().collect())
+}
+
+#[cfg(test)]
+mod tests;

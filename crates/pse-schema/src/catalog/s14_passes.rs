@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Closed Wave 1 pass declarations (blueprint §14.1, ADR-0056).
+//! Source commit and native normalization declarations (blueprint §14.1, ADR-0067).
 
 use std::collections::BTreeSet;
 
@@ -14,8 +14,8 @@ use crate::model::{
 /// Project complete ports from the authoritative relation and document inventories.
 ///
 /// P0–P2 operate on unpublished candidates. P3 begins from an admitted model/case
-/// revision and therefore pins its primitive inputs directly. P10 is available only
-/// in a complete predecessor fixture registry, never by inventing P4–P9 producers.
+/// revision and therefore pins its primitive inputs directly. P3–P10 each execute
+/// native plans over their declared inputs.
 #[expect(
     clippy::too_many_lines,
     reason = "one declaration projects the closed four-pass inventory"
@@ -113,8 +113,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
                 output_named("undecided", "inferred.undecided"),
             ])
             .conditions(vec![], conditions.clone())
-            .diagnostics(vec!["validation.invariant"])
-            .executes_plans(),
+            .diagnostics(vec!["validation.invariant"]),
     );
     builder.declare_pass(
         PassDecl::new("P3", "1", Determinism::Deterministic)
@@ -128,7 +127,10 @@ pub fn declare(builder: &mut RegistryBuilder) {
             .outputs(
                 relations
                     .iter()
-                    .filter(|relation| relation.key.namespace == Namespace::Normalized)
+                    .filter(|relation| {
+                        relation.key.namespace == Namespace::Normalized
+                            && relation.snapshot_class != SnapshotClass::Sidecar
+                    })
                     .map(output)
                     .collect(),
             )

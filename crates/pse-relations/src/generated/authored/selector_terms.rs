@@ -4,20 +4,20 @@
 
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    0u8, 181u8, 89u8, 146u8, 46u8, 46u8, 241u8, 95u8, 156u8, 45u8, 65u8, 198u8, 123u8,
-    209u8, 203u8, 229u8,
+    34u8, 233u8, 73u8, 198u8, 10u8, 173u8, 94u8, 98u8, 101u8, 96u8, 78u8, 94u8, 124u8,
+    59u8, 201u8, 172u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "selector_terms";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    92u8, 159u8, 102u8, 31u8, 235u8, 7u8, 41u8, 34u8, 47u8, 35u8, 58u8, 144u8, 184u8,
-    40u8, 30u8, 171u8, 61u8, 157u8, 249u8, 117u8, 146u8, 1u8, 57u8, 99u8, 224u8, 10u8,
-    191u8, 197u8, 248u8, 64u8, 170u8, 102u8,
+    78u8, 207u8, 166u8, 98u8, 207u8, 247u8, 200u8, 142u8, 229u8, 206u8, 69u8, 2u8, 232u8,
+    63u8, 140u8, 186u8, 55u8, 170u8, 137u8, 229u8, 207u8, 144u8, 219u8, 38u8, 238u8,
+    194u8, 170u8, 53u8, 249u8, 222u8, 95u8, 52u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -43,19 +43,22 @@ pub struct AuthoredSelectorTermsRow {
     pub r#entity_kind: Option<crate::generated::enums::EntityKind>,
     ///tag
     pub r#tag: Option<String>,
+    ///parameter_name
+    pub r#parameter_name: Option<String>,
 }
 impl crate::typed::CellCodec for AuthoredSelectorTermsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Struct(
             vec![
-                crate ::typed::CellCodec::into_cell(self.r#term_id), crate
-                ::typed::CellCodec::into_cell(self.r#scope_id), crate
-                ::typed::CellCodec::into_cell(self.r#parent_term_id), crate
-                ::typed::CellCodec::into_cell(self.r#ordinal), crate
-                ::typed::CellCodec::into_cell(self.r#op), crate
-                ::typed::CellCodec::into_cell(self.r#entity_id), crate
-                ::typed::CellCodec::into_cell(self.r#entity_kind), crate
-                ::typed::CellCodec::into_cell(self.r#tag)
+                crate::typed::CellCodec::into_cell(self.r#term_id),
+                crate::typed::CellCodec::into_cell(self.r#scope_id),
+                crate::typed::CellCodec::into_cell(self.r#parent_term_id),
+                crate::typed::CellCodec::into_cell(self.r#ordinal),
+                crate::typed::CellCodec::into_cell(self.r#op),
+                crate::typed::CellCodec::into_cell(self.r#entity_id),
+                crate::typed::CellCodec::into_cell(self.r#entity_kind),
+                crate::typed::CellCodec::into_cell(self.r#tag),
+                crate::typed::CellCodec::into_cell(self.r#parameter_name),
             ],
         )
     }
@@ -63,7 +66,7 @@ impl crate::typed::CellCodec for AuthoredSelectorTermsRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(AuthoredSelectorTermsRow)));
         };
-        if values.len() != 8usize {
+        if values.len() != 9usize {
             return Err(crate::typed::mismatch(stringify!(AuthoredSelectorTermsRow)));
         }
         let mut values = values.into_iter();
@@ -132,6 +135,142 @@ impl crate::typed::CellCodec for AuthoredSelectorTermsRow {
                         stringify!(AuthoredSelectorTermsRow),
                     ))?,
             )?,
+            r#parameter_name: <Option<
+                String,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(AuthoredSelectorTermsRow),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredSelectorTermsRow {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#term_id, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#scope_id,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parent_term_id,
+            children[2usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#ordinal, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#op, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#entity_id,
+            children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#entity_kind,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#tag, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter_name,
+            children[8usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <u16 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <crate::generated::enums::SelectorOp as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
+        <Option<
+            pse_ids::SemanticId,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            crate::generated::enums::EntityKind,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#term_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#scope_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#parent_term_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#ordinal: <u16 as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
+                index,
+            )?,
+            r#op: <crate::generated::enums::SelectorOp as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
+            r#entity_id: <Option<
+                pse_ids::SemanticId,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#entity_kind: <Option<
+                crate::generated::enums::EntityKind,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#tag: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#parameter_name: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
         })
     }
 }
@@ -145,14 +284,15 @@ impl AuthoredSelectorTermsRow {
     /// Values in exact declared column order.
     pub fn into_cells(self) -> Vec<pse_schema::model::Cell> {
         vec![
-            crate ::typed::CellCodec::into_cell(self.r#term_id), crate
-            ::typed::CellCodec::into_cell(self.r#scope_id), crate
-            ::typed::CellCodec::into_cell(self.r#parent_term_id), crate
-            ::typed::CellCodec::into_cell(self.r#ordinal), crate
-            ::typed::CellCodec::into_cell(self.r#op), crate
-            ::typed::CellCodec::into_cell(self.r#entity_id), crate
-            ::typed::CellCodec::into_cell(self.r#entity_kind), crate
-            ::typed::CellCodec::into_cell(self.r#tag)
+            crate::typed::CellCodec::into_cell(self.r#term_id),
+            crate::typed::CellCodec::into_cell(self.r#scope_id),
+            crate::typed::CellCodec::into_cell(self.r#parent_term_id),
+            crate::typed::CellCodec::into_cell(self.r#ordinal),
+            crate::typed::CellCodec::into_cell(self.r#op),
+            crate::typed::CellCodec::into_cell(self.r#entity_id),
+            crate::typed::CellCodec::into_cell(self.r#entity_kind),
+            crate::typed::CellCodec::into_cell(self.r#tag),
+            crate::typed::CellCodec::into_cell(self.r#parameter_name),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -166,7 +306,7 @@ impl AuthoredSelectorTermsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"00b559922e2ef15f9c2d41c67bd1cbe5\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"selector_terms\"],[\"u64\",1]]],[\"text\",\"authored\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"term_id\"]]],[\"list\",[[\"struct\",[[\"text\",\"term_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"key\"],[\"text\",\"term_id\"],[\"struct\",[[\"text\",\"term_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]]]],[\"struct\",[[\"text\",\"scope_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"struct\",[[\"text\",\"authored.scopes\"],[\"text\",\"scope_id\"],[\"struct\",[[\"id\",\"8e7459f428a40eafe8f199da9b804e84\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"scopes\"],[\"u64\",1]]]]]]],[\"text\",\"payload\"],[\"text\",\"scope_id\"],[\"struct\",[[\"text\",\"scope_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.scopes.scope_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"parent_term_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"struct\",[[\"text\",\"authored.selector_terms\"],[\"text\",\"term_id\"],[\"struct\",[[\"id\",\"00b559922e2ef15f9c2d41c67bd1cbe5\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"selector_terms\"],[\"u64\",1]]]]]]],[\"text\",\"payload\"],[\"text\",\"parent_term_id\"],[\"struct\",[[\"text\",\"parent_term_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.selector_terms.term_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"struct\",[[\"text\",\"u16\"],[\"text\",\"UInt16\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"ordinal\"],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"UInt16\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"op\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:SelectorOp\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"ae43d79105dd8166e6b417efb8a79e14\\\"}\"],[\"struct\",[[\"id\",\"ae43d79105dd8166e6b417efb8a79e14\"],[\"text\",\"SelectorOp\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"descendant_of\"],[\"null\",null],[\"bool\",false],[\"text\",\"descendant_of\"]]],[\"struct\",[[\"text\",\"kind_is\"],[\"null\",null],[\"bool\",false],[\"text\",\"kind_is\"]]],[\"struct\",[[\"text\",\"tagged_with\"],[\"null\",null],[\"bool\",false],[\"text\",\"tagged_with\"]]],[\"struct\",[[\"text\",\"union\"],[\"null\",null],[\"bool\",false],[\"text\",\"union\"]]],[\"struct\",[[\"text\",\"intersection\"],[\"null\",null],[\"bool\",false],[\"text\",\"intersection\"]]],[\"struct\",[[\"text\",\"difference\"],[\"null\",null],[\"bool\",false],[\"text\",\"difference\"]]],[\"struct\",[[\"text\",\"include\"],[\"null\",null],[\"bool\",false],[\"text\",\"include\"]]],[\"struct\",[[\"text\",\"exclude\"],[\"null\",null],[\"bool\",false],[\"text\",\"exclude\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",false],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"op\"],[\"struct\",[[\"text\",\"op\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"ae43d79105dd8166e6b417efb8a79e14\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"ae43d79105dd8166e6b417efb8a79e14\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:SelectorOp\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"entity_id\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"entity_id\"],[\"struct\",[[\"text\",\"entity_id\"],[\"struct\",[[\"text\",\"FixedSizeBinary\"],[\"i64\",16]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"entity_kind\"],[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EntityKind\"],[\"text\",\"pse.enum\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"d011566878576edc0f490954b17f4af9\\\"}\"],[\"struct\",[[\"id\",\"d011566878576edc0f490954b17f4af9\"],[\"text\",\"EntityKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"package\"],[\"null\",null],[\"bool\",false],[\"text\",\"A package.\"]]],[\"struct\",[[\"text\",\"dimension\"],[\"null\",null],[\"bool\",false],[\"text\",\"A base or derived dimension.\"]]],[\"struct\",[[\"text\",\"quantity_type\"],[\"null\",null],[\"bool\",false],[\"text\",\"A quantity type.\"]]],[\"struct\",[[\"text\",\"unit\"],[\"null\",null],[\"bool\",false],[\"text\",\"A unit of measure.\"]]],[\"struct\",[[\"text\",\"unit_set\"],[\"null\",null],[\"bool\",false],[\"text\",\"A coherent selection of base units.\"]]],[\"struct\",[[\"text\",\"quantity_kind\"],[\"null\",null],[\"bool\",false],[\"text\",\"A physical quantity kind.\"]]],[\"struct\",[[\"text\",\"constant\"],[\"null\",null],[\"bool\",false],[\"text\",\"A named physical constant.\"]]],[\"struct\",[[\"text\",\"symbol_declaration\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template symbol declaration.\"]]],[\"struct\",[[\"text\",\"equation_declaration\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template equation declaration.\"]]],[\"struct\",[[\"text\",\"contribution_declaration\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template contribution declaration.\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"A chemical element.\"]]],[\"struct\",[[\"text\",\"domain\"],[\"null\",null],[\"bool\",false],[\"text\",\"An index set or continuous domain.\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"A chemical species.\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"A phase.\"]]],[\"struct\",[[\"text\",\"material_system\"],[\"null\",null],[\"bool\",false],[\"text\",\"A material system.\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"A reaction.\"]]],[\"struct\",[[\"text\",\"property_package\"],[\"null\",null],[\"bool\",false],[\"text\",\"A property package.\"]]],[\"struct\",[[\"text\",\"reaction_package\"],[\"null\",null],[\"bool\",false],[\"text\",\"A reaction package.\"]]],[\"struct\",[[\"text\",\"method\"],[\"null\",null],[\"bool\",false],[\"text\",\"A property or reaction method.\"]]],[\"struct\",[[\"text\",\"kernel\"],[\"null\",null],[\"bool\",false],[\"text\",\"A kernel.\"]]],[\"struct\",[[\"text\",\"template\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template.\"]]],[\"struct\",[[\"text\",\"instance\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template instance.\"]]],[\"struct\",[[\"text\",\"flowsheet\"],[\"null\",null],[\"bool\",false],[\"text\",\"A flowsheet.\"]]],[\"struct\",[[\"text\",\"scope\"],[\"null\",null],[\"bool\",false],[\"text\",\"A scope.\"]]],[\"struct\",[[\"text\",\"connection\"],[\"null\",null],[\"bool\",false],[\"text\",\"A connection between ports.\"]]],[\"struct\",[[\"text\",\"case\"],[\"null\",null],[\"bool\",false],[\"text\",\"A case.\"]]],[\"struct\",[[\"text\",\"dataset\"],[\"null\",null],[\"bool\",false],[\"text\",\"A dataset.\"]]],[\"struct\",[[\"text\",\"observation\"],[\"null\",null],[\"bool\",false],[\"text\",\"An observation.\"]]],[\"struct\",[[\"text\",\"solver_profile\"],[\"null\",null],[\"bool\",false],[\"text\",\"A solver profile.\"]]],[\"struct\",[[\"text\",\"discretization_policy\"],[\"null\",null],[\"bool\",false],[\"text\",\"A discretization policy.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"entity_kind\"],[\"struct\",[[\"text\",\"entity_kind\"],[\"struct\",[[\"text\",\"Dictionary\"],[\"text\",\"Int32\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"d011566878576edc0f490954b17f4af9\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"d011566878576edc0f490954b17f4af9\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EntityKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]],[\"struct\",[[\"text\",\"tag\"],[\"struct\",[[\"text\",\"text\"],[\"text\",\"Utf8\"]]],[\"bool\",true],[\"struct\",[[\"text\",\"none\"]]],[\"null\",null],[\"text\",\"payload\"],[\"text\",\"tag\"],[\"struct\",[[\"text\",\"tag\"],[\"text\",\"Utf8\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]]]]]],[\"text\",\"blueprint §6.7 instance: selector_terms.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"00b559922e2ef15f9c2d41c67bd1cbe5\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"22e949c60aad5e6265604e5e7c3bc9ac\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"selector_terms\"],[\"u64\",2]]],[\"text\",\"authored\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"term_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"term_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"term_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"term_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"scope_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"scope_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"scope_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.scopes\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"scope_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.scopes.scope_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"8e7459f428a40eafe8f199da9b804e84\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"scopes\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"parent_term_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"parent_term_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"term_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.selector_terms\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"parent_term_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.selector_terms.term_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"22e949c60aad5e6265604e5e7c3bc9ac\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"selector_terms\"],[\"u64\",2]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"ordinal\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"op\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"SelectorOp\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"ae43d79105dd8166e6b417efb8a79e14\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"ae43d79105dd8166e6b417efb8a79e14\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:SelectorOp\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:SelectorOp\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"ae43d79105dd8166e6b417efb8a79e14\\\"}\"],[\"struct\",[[\"id\",\"ae43d79105dd8166e6b417efb8a79e14\"],[\"text\",\"SelectorOp\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"self\"],[\"null\",null],[\"bool\",false],[\"text\",\"self\"]]],[\"struct\",[[\"text\",\"instance_parameter\"],[\"null\",null],[\"bool\",false],[\"text\",\"instance_parameter\"]]],[\"struct\",[[\"text\",\"descendant_of\"],[\"null\",null],[\"bool\",false],[\"text\",\"descendant_of\"]]],[\"struct\",[[\"text\",\"kind_is\"],[\"null\",null],[\"bool\",false],[\"text\",\"kind_is\"]]],[\"struct\",[[\"text\",\"tagged_with\"],[\"null\",null],[\"bool\",false],[\"text\",\"tagged_with\"]]],[\"struct\",[[\"text\",\"union\"],[\"null\",null],[\"bool\",false],[\"text\",\"union\"]]],[\"struct\",[[\"text\",\"intersection\"],[\"null\",null],[\"bool\",false],[\"text\",\"intersection\"]]],[\"struct\",[[\"text\",\"difference\"],[\"null\",null],[\"bool\",false],[\"text\",\"difference\"]]],[\"struct\",[[\"text\",\"include\"],[\"null\",null],[\"bool\",false],[\"text\",\"include\"]]],[\"struct\",[[\"text\",\"exclude\"],[\"null\",null],[\"bool\",false],[\"text\",\"exclude\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"entity_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"entity_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"entity_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"entity_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"entity_kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"EntityKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"entity_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"d011566878576edc0f490954b17f4af9\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"d011566878576edc0f490954b17f4af9\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EntityKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EntityKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"d011566878576edc0f490954b17f4af9\\\"}\"],[\"struct\",[[\"id\",\"d011566878576edc0f490954b17f4af9\"],[\"text\",\"EntityKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"package\"],[\"null\",null],[\"bool\",false],[\"text\",\"A package.\"]]],[\"struct\",[[\"text\",\"dimension\"],[\"null\",null],[\"bool\",false],[\"text\",\"A base or derived dimension.\"]]],[\"struct\",[[\"text\",\"quantity_type\"],[\"null\",null],[\"bool\",false],[\"text\",\"A quantity type.\"]]],[\"struct\",[[\"text\",\"unit\"],[\"null\",null],[\"bool\",false],[\"text\",\"A unit of measure.\"]]],[\"struct\",[[\"text\",\"unit_set\"],[\"null\",null],[\"bool\",false],[\"text\",\"A coherent selection of base units.\"]]],[\"struct\",[[\"text\",\"quantity_kind\"],[\"null\",null],[\"bool\",false],[\"text\",\"A physical quantity kind.\"]]],[\"struct\",[[\"text\",\"constant\"],[\"null\",null],[\"bool\",false],[\"text\",\"A named physical constant.\"]]],[\"struct\",[[\"text\",\"symbol_declaration\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template symbol declaration.\"]]],[\"struct\",[[\"text\",\"equation_declaration\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template equation declaration.\"]]],[\"struct\",[[\"text\",\"contribution_declaration\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template contribution declaration.\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"A chemical element.\"]]],[\"struct\",[[\"text\",\"domain\"],[\"null\",null],[\"bool\",false],[\"text\",\"An index set or continuous domain.\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"A chemical species.\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"A phase.\"]]],[\"struct\",[[\"text\",\"material_system\"],[\"null\",null],[\"bool\",false],[\"text\",\"A material system.\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"A reaction.\"]]],[\"struct\",[[\"text\",\"property_package\"],[\"null\",null],[\"bool\",false],[\"text\",\"A property package.\"]]],[\"struct\",[[\"text\",\"reaction_package\"],[\"null\",null],[\"bool\",false],[\"text\",\"A reaction package.\"]]],[\"struct\",[[\"text\",\"method\"],[\"null\",null],[\"bool\",false],[\"text\",\"A property or reaction method.\"]]],[\"struct\",[[\"text\",\"kernel\"],[\"null\",null],[\"bool\",false],[\"text\",\"A kernel.\"]]],[\"struct\",[[\"text\",\"template\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template.\"]]],[\"struct\",[[\"text\",\"instance\"],[\"null\",null],[\"bool\",false],[\"text\",\"A template instance.\"]]],[\"struct\",[[\"text\",\"port\"],[\"null\",null],[\"bool\",false],[\"text\",\"An actual typed interface bound to a state instance or collection.\"]]],[\"struct\",[[\"text\",\"flowsheet\"],[\"null\",null],[\"bool\",false],[\"text\",\"A flowsheet.\"]]],[\"struct\",[[\"text\",\"scope\"],[\"null\",null],[\"bool\",false],[\"text\",\"A scope.\"]]],[\"struct\",[[\"text\",\"connection\"],[\"null\",null],[\"bool\",false],[\"text\",\"A connection between ports.\"]]],[\"struct\",[[\"text\",\"case\"],[\"null\",null],[\"bool\",false],[\"text\",\"A case.\"]]],[\"struct\",[[\"text\",\"dataset\"],[\"null\",null],[\"bool\",false],[\"text\",\"A dataset.\"]]],[\"struct\",[[\"text\",\"observation\"],[\"null\",null],[\"bool\",false],[\"text\",\"An observation.\"]]],[\"struct\",[[\"text\",\"solver_profile\"],[\"null\",null],[\"bool\",false],[\"text\",\"A solver profile.\"]]],[\"struct\",[[\"text\",\"discretization_policy\"],[\"null\",null],[\"bool\",false],[\"text\",\"A discretization policy.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"tag\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"tag\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"tag\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"parameter_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"parameter_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"parameter_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.7 instance: selector_terms.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"22e949c60aad5e6265604e5e7c3bc9ac\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"2\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -192,9 +332,7 @@ fn check_declaration(
             actual: spec.fingerprint,
         });
     }
-    if pse_schema::compiled_contract::relation(reg, spec)?.literal_spec()
-        != COMPILED_DECLARATION
-    {
+    if reg.compiled_declaration(spec)? != COMPILED_DECLARATION {
         return Err(crate::RelationError::Contract {
             relation: "authored.selector_terms".to_owned(),
             reason: "runtime declaration differs from the complete generated contract"
@@ -217,94 +355,522 @@ pub fn validate(batch: &crate::RecordBatch) -> Result<(), Vec<crate::RelationErr
     let reg = pse_schema::registry().map_err(|error| vec![error.into()])?;
     crate::validate::validate_batch(reg, spec(reg).map_err(|error| vec![error])?, batch)
 }
-/// A borrowed batch admitted against the complete generated contract.
+impl crate::columnar::RelationRow for AuthoredSelectorTermsRow {
+    type Builder = AuthoredSelectorTermsBuilder;
+    fn relation(
+        registry: &pse_schema::Registry,
+    ) -> Result<&pse_schema::model::RelationSpec, crate::RelationError> {
+        spec(registry)
+    }
+    fn builder(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self::Builder, crate::RelationError> {
+        AuthoredSelectorTermsBuilder::with_registry(registry, capacity)
+    }
+    fn push(builder: &mut Self::Builder, row: Self) -> Result<(), crate::RelationError> {
+        builder.push(row)
+    }
+    fn finish(
+        builder: Self::Builder,
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        builder.finish()
+    }
+    fn rows(
+        batch: &crate::columnar::FieldCheckedBatch,
+    ) -> Result<Vec<Self>, crate::RelationError> {
+        AuthoredSelectorTermsView::from_checked(batch)?.rows()
+    }
+    fn builder_allocation_size() -> usize {
+        124_464_usize + size_of::<Self::Builder>()
+    }
+    fn minimum_row_allocation_size() -> usize {
+        176usize
+    }
+    fn allocation_size(&self) -> Result<usize, crate::RelationError> {
+        let mut bytes = 0usize;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(16usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#parent_term_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#op).as_str().len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#entity_id).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#entity_kind).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).as_str().len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#tag).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#parameter_name).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        Ok(bytes)
+    }
+}
+/// The complete declared relation key.
+pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::RelationKey {
+    namespace: NAMESPACE,
+    name: NAME,
+    version: VERSION,
+};
+/// Stable field references projected from the declared column order.
+pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "term_id",
+        position: 0usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "scope_id",
+        position: 1usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "parent_term_id",
+        position: 2usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "ordinal",
+        position: 3usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "op",
+        position: 4usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "entity_id",
+        position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "entity_kind",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "tag",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "parameter_name",
+        position: 8usize,
+    },
+];
+/// Borrowed Arrow columns with checked layout and local values.
+/// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct AuthoredSelectorTermsView<'a> {
     batch: &'a crate::RecordBatch,
-    registry: &'a pse_schema::Registry,
+    term_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    scope_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    parent_term_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    ordinal_column: &'a arrow_array::UInt16Array,
+    op_column: &'a arrow_array::StringArray,
+    entity_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    entity_kind_column: &'a arrow_array::StringArray,
+    tag_column: &'a arrow_array::StringArray,
+    parameter_name_column: &'a arrow_array::StringArray,
 }
 impl<'a> AuthoredSelectorTermsView<'a> {
-    /// Admits the actual schema and visible values, including extension metadata.
+    /// Admits a raw candidate's actual schema and visible local values.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch(
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         Self::try_from_batch_with_registry(pse_schema::registry()?, batch)
     }
-    /// Admits a batch with an explicitly bound registry.
+    /// Admits a raw candidate with an explicitly bound registry.
     /// # Errors
-    /// A schema, contract or value violation.
+    /// A schema, field contract or local value violation.
     pub fn try_from_batch_with_registry(
-        registry: &'a pse_schema::Registry,
+        registry: &pse_schema::Registry,
         batch: &'a crate::RecordBatch,
     ) -> Result<Self, crate::RelationError> {
         crate::validate::validate_batch(registry, spec(registry)?, batch)
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Ok(Self { batch, registry })
+        Self::borrow_columns(batch)
     }
-    /// The admitted batch, preserving its owners and reservations.
+    /// Borrows a checked owner without rescanning visible values.
+    /// The private owner must carry this exact relation and complete declaration.
+    /// # Errors
+    /// A different generated declaration or an incompatible Arrow layout.
+    pub fn from_checked(
+        owner: &'a crate::columnar::FieldCheckedBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Self::borrow_columns(owner.for_declaration(RELATION_ID, COMPILED_DECLARATION)?)
+    }
+    fn borrow_columns(
+        batch: &'a crate::RecordBatch,
+    ) -> Result<Self, crate::RelationError> {
+        Ok(Self {
+            batch,
+            term_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(0usize).as_ref())?,
+            scope_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(1usize).as_ref())?,
+            parent_term_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(2usize).as_ref())?,
+            ordinal_column: crate::columnar::array::<
+                arrow_array::UInt16Array,
+            >(batch.column(3usize).as_ref())?,
+            op_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
+            entity_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(5usize).as_ref())?,
+            entity_kind_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            tag_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
+            parameter_name_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
+        })
+    }
+    /// The immutable batch, preserving its buffer owners and reservations.
     pub const fn batch(&self) -> &'a crate::RecordBatch {
         self.batch
     }
-    /// Decode dictionary values and nested fields into generated typed rows.
+    /// The number of visible relation rows.
+    pub fn len(&self) -> usize {
+        self.batch.num_rows()
+    }
+    /// Whether this view has no relation rows.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "term_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn term_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.term_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "term_id", "`.")]
+    pub fn term_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[0usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "scope_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn scope_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.scope_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "scope_id", "`.")]
+    pub fn scope_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "parent_term_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn parent_term_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.parent_term_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "parent_term_id", "`.")]
+    pub fn parent_term_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[2usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "ordinal",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn ordinal_column(&self) -> &'a arrow_array::UInt16Array {
+        self.ordinal_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "ordinal", "`.")]
+    pub fn ordinal_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "op",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn op_column(&self) -> &'a arrow_array::StringArray {
+        self.op_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "op", "`.")]
+    pub fn op_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "entity_id",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn entity_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.entity_id_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "entity_id", "`.")]
+    pub fn entity_id_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "entity_kind",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn entity_kind_column(&self) -> &'a arrow_array::StringArray {
+        self.entity_kind_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "entity_kind", "`.")]
+    pub fn entity_kind_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "tag",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn tag_column(&self) -> &'a arrow_array::StringArray {
+        self.tag_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "tag", "`.")]
+    pub fn tag_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "parameter_name",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn parameter_name_column(&self) -> &'a arrow_array::StringArray {
+        self.parameter_name_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "parameter_name", "`.")]
+    pub fn parameter_name_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    /// Decodes one row for an explicit scalar algorithm boundary.
+    /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
-    /// A typed decoding error.
+    /// The row is out of range or its physical value cannot be decoded.
+    pub fn row(
+        &self,
+        index: usize,
+    ) -> Result<AuthoredSelectorTermsRow, crate::RelationError> {
+        if index >= self.len() {
+            return Err(crate::columnar::mismatch("a row within the generated view"));
+        }
+        Ok(AuthoredSelectorTermsRow {
+            r#term_id: crate::columnar::ArrowValue::read(self.term_id_column, index)?,
+            r#scope_id: crate::columnar::ArrowValue::read(self.scope_id_column, index)?,
+            r#parent_term_id: crate::columnar::ArrowValue::read(
+                self.parent_term_id_column,
+                index,
+            )?,
+            r#ordinal: crate::columnar::ArrowValue::read(self.ordinal_column, index)?,
+            r#op: crate::columnar::ArrowValue::read(self.op_column, index)?,
+            r#entity_id: crate::columnar::ArrowValue::read(
+                self.entity_id_column,
+                index,
+            )?,
+            r#entity_kind: crate::columnar::ArrowValue::read(
+                self.entity_kind_column,
+                index,
+            )?,
+            r#tag: crate::columnar::ArrowValue::read(self.tag_column, index)?,
+            r#parameter_name: crate::columnar::ArrowValue::read(
+                self.parameter_name_column,
+                index,
+            )?,
+        })
+    }
+    /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
+    /// This performs no schema/value admission and creates no `Cell` intermediates.
+    /// # Errors
+    /// A physical value cannot be decoded.
     pub fn rows(&self) -> Result<Vec<AuthoredSelectorTermsRow>, crate::RelationError> {
-        crate::cells::cells_from_batch(self.registry, spec(self.registry)?, self.batch)?
-            .into_iter()
-            .map(AuthoredSelectorTermsRow::from_cells)
-            .collect()
+        (0..self.len()).map(|index| self.row(index)).collect()
     }
 }
-/// Builds a batch under the declared schema, with admission before return.
-#[derive(Debug, Default)]
+/// Appends typed values directly into the declared Arrow column builders.
+/// Finish establishes layout and local value contracts, not relational validity.
+#[derive(Debug)]
 pub struct AuthoredSelectorTermsBuilder {
-    rows: Vec<AuthoredSelectorTermsRow>,
+    columns: crate::columnar::BatchBuilder,
 }
 impl AuthoredSelectorTermsBuilder {
-    /// An empty builder.
-    pub fn new() -> Self {
-        Self::default()
-    }
-    /// Reserves row capacity.
-    pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            rows: Vec::with_capacity(capacity),
-        }
-    }
-    /// Checks one candidate row before adding it. Bundle constraints run at P2.
+    /// Opens empty Arrow builders under the generated declaration.
     /// # Errors
-    /// An extension value or field contract violation.
+    /// The runtime registry or declared storage is incompatible.
+    pub fn new() -> Result<Self, crate::RelationError> {
+        Self::with_capacity(0)
+    }
+    /// Reserves initial Arrow column capacity.
+    /// # Errors
+    /// The runtime registry or declared storage is incompatible.
+    pub fn with_capacity(capacity: usize) -> Result<Self, crate::RelationError> {
+        Self::with_registry(pse_schema::registry()?, capacity)
+    }
+    /// Opens Arrow builders after checking the exact runtime declaration once.
+    /// # Errors
+    /// A generated declaration mismatch or unrepresentable storage capacity.
+    pub fn with_registry(
+        registry: &pse_schema::Registry,
+        capacity: usize,
+    ) -> Result<Self, crate::RelationError> {
+        let schema = std::sync::Arc::new(
+            pse_schema::arrow::relation_schema(registry, spec(registry)?)?,
+        );
+        Ok(Self {
+            columns: crate::columnar::BatchBuilder::new(
+                RELATION_ID,
+                COMPILED_DECLARATION,
+                schema,
+                capacity,
+            )?,
+        })
+    }
+    /// Number of appended rows, including retained bulk column chunks.
+    pub const fn len(&self) -> usize {
+        self.columns.len()
+    }
+    /// Whether the builder contains no rows.
+    pub const fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    /// Checks local logical values before appending directly to Arrow buffers.
+    /// Local refusal does not modify the builder; storage failure closes it.
+    /// # Errors
+    /// An extension value, quantity sibling or Arrow storage violation.
     pub fn push(
         &mut self,
         row: AuthoredSelectorTermsRow,
     ) -> Result<(), crate::RelationError> {
-        let reg = pse_schema::registry()?;
-        crate::cells::batch_from_cells(reg, spec(reg)?, &[row.clone().into_cells()])?;
-        self.rows.push(row);
-        Ok(())
+        self.columns
+            .append(move |columns| {
+                let row = &row;
+                crate::columnar::ArrowValue::append(
+                    &row.r#term_id,
+                    columns[0usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#scope_id,
+                    columns[1usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#parent_term_id,
+                    columns[2usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#ordinal,
+                    columns[3usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#op,
+                    columns[4usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#entity_id,
+                    columns[5usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#entity_kind,
+                    columns[6usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#tag,
+                    columns[7usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#parameter_name,
+                    columns[8usize].as_mut(),
+                )?;
+                Ok(())
+            })
     }
-    /// Builds and admits the complete batch.
+    /// Appends an admitted view's actual Arrow arrays without decoding rows.
     /// # Errors
-    /// A schema, value or Arrow layout failure.
-    pub fn finish(self) -> Result<crate::RecordBatch, crate::RelationError> {
-        self.finish_with_registry(pse_schema::registry()?)
+    /// A different field contract, Arrow failure or row-count overflow.
+    pub fn append_view(
+        &mut self,
+        view: &AuthoredSelectorTermsView<'_>,
+    ) -> Result<(), crate::RelationError> {
+        self.columns.append_batch(view.batch())
     }
-    /// Builds under an explicitly bound runtime registry.
+    /// Finishes Arrow buffers and retains private local field evidence.
     /// # Errors
-    /// A contract mismatch or batch admission failure.
-    pub fn finish_with_registry(
+    /// Arrow rejected the physical layout or a previous append failed.
+    pub fn finish(
         self,
-        reg: &pse_schema::Registry,
-    ) -> Result<crate::RecordBatch, crate::RelationError> {
-        let cells = self
-            .rows
-            .into_iter()
-            .map(AuthoredSelectorTermsRow::into_cells)
-            .collect::<Vec<_>>();
-        crate::cells::batch_from_cells(reg, spec(reg)?, &cells)
+    ) -> Result<crate::columnar::FieldCheckedBatch, crate::RelationError> {
+        self.columns.finish()
     }
 }

@@ -32,6 +32,7 @@ arrow-buffer.workspace = true
 arrow-row.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+tokio-util.workspace = true
 
 [dev-dependencies]
 proptest.workspace = true

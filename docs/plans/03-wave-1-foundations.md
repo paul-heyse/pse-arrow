@@ -1,6 +1,6 @@
 ---
 title: Wave 1 — foundations completion and corrections
-status: in-progress
+status: abandoned
 date: 2026-09-13
 adrs: [ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0009, ADR-0027, ADR-0030, ADR-0031, ADR-0039, ADR-0040, ADR-0041, ADR-0042, ADR-0043, ADR-0044, ADR-0045, ADR-0046, ADR-0047, ADR-0048, ADR-0049, ADR-0050, ADR-0051, ADR-0052, ADR-0053, ADR-0054, ADR-0055, ADR-0056, ADR-0057, ADR-0058, ADR-0059]
 phase: 0
@@ -9,6 +9,32 @@ phase: 0
 # Wave 1 — foundations completion and corrections
 
 ## Context
+
+### Execution superseded by the hard pivot — 2026-09-14
+
+[Plan 05](05-native-logical-plan-hard-pivot.md) originally took over the foundation
+replacement and semantic-compilation delivery. The maintainer selected new
+implementation plus deletion of misaligned code, with first-principles target
+validation and no legacy-equivalence or compatibility program. `abandoned` marks
+this earlier execution strategy as superseded; its historical work and receipts
+are not erased, and its required product scope is carried into Plan 05. Do not
+resume the predecessor qualification or migration instructions below.
+
+As of 2026-09-15, [Plan 06](06-provider-contracts-hard-pivot.md) owns the remaining
+execution, including these carried-forward foundation outcomes.
+
+### Logical-plan foundations follow-up — 2026-09-14
+
+**Proposed architectural follow-up:** the maintainer requested a fundamental
+review of Wave 1 and the overall design after the broad Wave 2 capability review.
+[The follow-up review](../design_review/reviews/design_review_wave1-logical-plan-foundations_2026-09-14.md)
+recommends native DataFusion plans with registry-derived semantic properties,
+immutable preparation/results and preserved input ownership. Its §11 sequences
+LP0–LP7: establish validity through construction, consolidate generated invariants,
+and remove repeated local validation/replay when those guarantees discharge it.
+This preserves Wave 1 passing as a planning assumption and its historical receipts;
+it does not mark the redesigned foundations implemented or qualified. The original
+completion plan below remains historical implementation context.
 
 At the start of this plan, the repository had finished design and planning (blueprint
 revision 5, ADR-0001–0048, two implementation plans, four capability maps with probes)

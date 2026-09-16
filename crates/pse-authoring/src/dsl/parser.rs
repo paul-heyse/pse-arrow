@@ -281,6 +281,12 @@ impl<'a> Cursor<'a> {
             if !named.is_empty() && !function.has_epsilon() {
                 return Err(syntax(start, "function without named epsilon", &name));
             }
+            if function == Function::Broadcast
+                && !matches!(args.as_slice(), [_, Expr { kind: ExprKind::Path(path), .. }]
+                    if path.segments.len() == 1 && path.segments[0].indices.is_empty())
+            {
+                return Err(syntax(start, "broadcast(value, bound_index)", &name));
+            }
             return Ok(ExprKind::Call {
                 function,
                 args,

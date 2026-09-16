@@ -15,16 +15,16 @@ use pse_relations::validate::{validate_batch, validate_bundle, validate_field, v
 use pse_schema::Registry;
 use pse_schema::builder::RegistryBuilder;
 use pse_schema::model::{
-    Authority, Cell, ColumnSpec, EnumDecl, EnumMember, ExtensionUse, LogicalType, Namespace,
-    RelationDecl, SnapshotClass,
+    Authority, Cell, EnumDecl, EnumMember, ExtensionUse, FieldContract, Namespace, RelationDecl,
+    SnapshotClass,
 };
 use std::collections::BTreeMap;
 
 fn id(value: u8) -> Cell {
     Cell::Id(SemanticId::from_bytes([value; 16]))
 }
-fn decl(name: &'static str, columns: Vec<ColumnSpec>) -> RelationDecl {
-    let mut all = vec![ColumnSpec::key("id", LogicalType::id(), "identity")];
+fn decl(name: &'static str, columns: Vec<FieldContract>) -> RelationDecl {
+    let mut all = vec![FieldContract::key("id", FieldContract::id(), "identity")];
     all.extend(columns);
     RelationDecl::new(
         Namespace::Authored,
@@ -37,53 +37,99 @@ fn decl(name: &'static str, columns: Vec<ColumnSpec>) -> RelationDecl {
     .pk(&["id"])
     .columns(all)
 }
+
+#[test]
+fn dictionary_ordering_cannot_be_forged_with_an_unchanged_fingerprint() {
+    let mut builder = RegistryBuilder::new();
+    builder.declare_relation(decl(
+        "ordered",
+        vec![FieldContract::payload(
+            "value",
+            FieldContract::native(DataType::Dictionary(
+                Box::new(DataType::Int32),
+                Box::new(DataType::Utf8),
+            )),
+            "native dictionary",
+        )],
+    ));
+    let registry = builder.build().unwrap();
+    let spec = registry.relation("authored.ordered").unwrap();
+    let mut forged = spec.clone();
+    forged.columns[1] =
+        FieldContract::from_field(forged.columns[1].field().clone().with_dict_is_ordered(true));
+    assert_eq!(forged.fingerprint, spec.fingerprint);
+    let actual = pse_schema::arrow::relation_schema(&registry, &forged).unwrap();
+    assert!(validate_schema(&registry, &forged, &actual).is_err());
+}
 fn fixture() -> Registry {
     let mut builder = RegistryBuilder::new();
+    builder.declare_enum(EnumDecl::platform(
+        "BoundKind",
+        vec![
+            EnumMember::new("finite", "finite"),
+            EnumMember::new("unbounded", "unbounded"),
+        ],
+    ));
     builder.declare_enum(EnumDecl::platform(
         "Choice",
         vec![EnumMember::new("one", "one"), EnumMember::new("two", "two")],
     ));
     builder.declare_relation(decl("target", vec![]));
     let types = vec![
-        ("i64", LogicalType::I64),
-        ("i32", LogicalType::I32),
-        ("u8", LogicalType::U8),
-        ("u16", LogicalType::U16),
-        ("u32", LogicalType::U32),
-        ("u64", LogicalType::U64),
-        ("bool", LogicalType::Bool),
-        ("text", LogicalType::Text),
-        ("time", LogicalType::Timestamp),
-        ("float", LogicalType::F64),
-        ("hash", LogicalType::Ext(ExtensionUse::ContentHash)),
-        ("choice", LogicalType::Ext(ExtensionUse::Enum("Choice"))),
-        ("bound", LogicalType::Ext(ExtensionUse::Bound)),
-        ("dimension", LogicalType::Ext(ExtensionUse::DimensionVector)),
-        ("quantity", LogicalType::Ext(ExtensionUse::QuantityValue)),
-        ("index", LogicalType::Ext(ExtensionUse::IndexTuple)),
-        ("span", LogicalType::Ext(ExtensionUse::SourceSpan)),
-        ("dsl", LogicalType::Ext(ExtensionUse::ExprDsl)),
-        ("path", LogicalType::Ext(ExtensionUse::TargetPath)),
+        ("i64", FieldContract::native(DataType::Int64)),
+        ("i32", FieldContract::native(DataType::Int32)),
+        ("u8", FieldContract::native(DataType::UInt8)),
+        ("u16", FieldContract::native(DataType::UInt16)),
+        ("u32", FieldContract::native(DataType::UInt32)),
+        ("u64", FieldContract::native(DataType::UInt64)),
+        ("bool", FieldContract::native(DataType::Boolean)),
+        ("text", FieldContract::native(DataType::Utf8)),
+        (
+            "time",
+            FieldContract::native(DataType::Timestamp(
+                arrow_schema::TimeUnit::Nanosecond,
+                Some("UTC".into()),
+            )),
+        ),
+        ("float", FieldContract::native(DataType::Float64)),
+        ("hash", FieldContract::extended(ExtensionUse::ContentHash)),
+        (
+            "choice",
+            FieldContract::extended(ExtensionUse::Enum("Choice")),
+        ),
+        ("bound", FieldContract::extended(ExtensionUse::Bound)),
+        (
+            "dimension",
+            FieldContract::extended(ExtensionUse::DimensionVector),
+        ),
+        (
+            "quantity",
+            FieldContract::extended(ExtensionUse::QuantityValue),
+        ),
+        ("index", FieldContract::extended(ExtensionUse::IndexTuple)),
+        ("span", FieldContract::extended(ExtensionUse::SourceSpan)),
+        ("dsl", FieldContract::extended(ExtensionUse::ExprDsl)),
+        ("path", FieldContract::extended(ExtensionUse::TargetPath)),
         (
             "ordinal",
-            LogicalType::Ext(ExtensionUse::OrdinalRef {
+            FieldContract::extended(ExtensionUse::OrdinalRef {
                 target: "authored.target",
             }),
         ),
         (
             "list",
-            LogicalType::list(LogicalType::Ext(ExtensionUse::Enum("Choice"))),
+            FieldContract::list(FieldContract::extended(ExtensionUse::Enum("Choice"))),
         ),
-        ("fixed", LogicalType::fixed_list(LogicalType::id(), 2)),
+        ("fixed", FieldContract::fixed_list(FieldContract::id(), 2)),
         (
             "nested",
-            LogicalType::Struct(vec![
-                (
-                    "choice",
-                    LogicalType::Ext(ExtensionUse::Enum("Choice")),
-                    false,
-                ),
-                ("list", LogicalType::list(LogicalType::id()), true),
+            FieldContract::structure(vec![
+                FieldContract::extended(ExtensionUse::Enum("Choice"))
+                    .with_name("choice")
+                    .with_nullable(false),
+                FieldContract::list(FieldContract::id())
+                    .with_name("list")
+                    .with_nullable(true),
             ]),
         ),
     ];
@@ -91,7 +137,7 @@ fn fixture() -> Registry {
         "values",
         types
             .into_iter()
-            .map(|(name, ty)| ColumnSpec::payload(name, ty, "value").optional())
+            .map(|(name, ty)| FieldContract::payload(name, ty, "value").optional())
             .collect(),
     ));
     builder.build().unwrap()
@@ -119,10 +165,10 @@ fn row() -> Vec<Cell> {
         ),
         Cell::Struct(vec![Cell::F64(1.5), id(4), id(5)]),
         Cell::List(vec![id(8), id(9)]),
-        Cell::Struct(vec![id(4), Cell::U64(2), Cell::U64(5)]),
+        Cell::Struct(vec![id(4), Cell::I64(2), Cell::I64(5)]),
         Cell::text("x + 1"),
         Cell::text("fs.a.*"),
-        Cell::U64(0),
+        Cell::I64(0),
         Cell::List(vec![Cell::Enum("two"), Cell::Enum("one")]),
         Cell::List(vec![id(2), id(3)]),
         Cell::Struct(vec![Cell::Enum("one"), Cell::List(vec![id(3)])]),
@@ -221,7 +267,7 @@ fn invalid_visible_values_fail_with_unchanged_contract_hash() {
         ),
         (
             "span",
-            Cell::Struct(vec![id(1), Cell::U64(8), Cell::U64(4)]),
+            Cell::Struct(vec![id(1), Cell::I64(8), Cell::I64(4)]),
         ),
         (
             "quantity",
@@ -242,7 +288,7 @@ fn invalid_visible_values_fail_with_unchanged_contract_hash() {
         let index = spec
             .columns
             .iter()
-            .position(|column| column.name == name)
+            .position(|column| column.name() == name)
             .unwrap();
         values[index] = invalid;
         assert!(
@@ -253,7 +299,7 @@ fn invalid_visible_values_fail_with_unchanged_contract_hash() {
 }
 
 #[test]
-fn masked_struct_payload_does_not_leak_invalid_dictionary_values() {
+fn masked_struct_payload_does_not_leak_invalid_enum_strings() {
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
     let mut values = vec![Cell::Null; spec.columns.len()];
@@ -271,11 +317,11 @@ fn bundle_compares_keys_references_and_nested_ordinals_directly() {
     builder.declare_relation(decl(
         "source",
         vec![
-            ColumnSpec::reference("target_id", LogicalType::id(), "target")
+            FieldContract::reference("target_id", FieldContract::id(), "target")
                 .with_fk("authored.target", "id"),
-            ColumnSpec::payload(
+            FieldContract::payload(
                 "ordinals",
-                LogicalType::list(LogicalType::Ext(ExtensionUse::OrdinalRef {
+                FieldContract::list(FieldContract::extended(ExtensionUse::OrdinalRef {
                     target: "authored.target",
                 })),
                 "ordinals",
@@ -292,7 +338,7 @@ fn bundle_compares_keys_references_and_nested_ordinals_directly() {
         (id(1), 1, false),
         (id(1), 0, true),
     ] {
-        let row = vec![id(2), target_id, Cell::List(vec![Cell::U64(ordinal)])];
+        let row = vec![id(2), target_id, Cell::List(vec![Cell::I64(ordinal)])];
         let rows = if duplicate {
             vec![row.clone(), row]
         } else {
@@ -343,15 +389,16 @@ fn per_row_quantity_presence_is_a_direct_cross_field_check() {
     builder.declare_relation(decl(
         "quantities",
         vec![
-            ColumnSpec::new(
+            FieldContract::new(
                 "value",
-                LogicalType::F64,
+                FieldContract::native(DataType::Float64),
                 true,
                 pse_schema::model::ColumnRole::Measure,
                 "value",
             )
             .with_per_row_quantity(),
-            ColumnSpec::reference("value_quantity_type_id", LogicalType::id(), "type").optional(),
+            FieldContract::reference("value_quantity_type_id", FieldContract::id(), "type")
+                .optional(),
         ],
     ));
     let reg = builder.build().unwrap();
@@ -367,63 +414,6 @@ fn per_row_quantity_presence_is_a_direct_cross_field_check() {
     )
     .unwrap();
     assert!(validate_batch(&reg, spec, &batch).is_ok());
-}
-
-#[test]
-fn explicit_migration_admits_both_versions_and_preserves_values() {
-    use pse_schema::model::{MigrationSpec, MigrationStep};
-    let mut builder = RegistryBuilder::new();
-    builder.declare_relation(decl(
-        "versioned",
-        vec![ColumnSpec::label("old_name", LogicalType::Text, "label")],
-    ));
-    let mut target = decl(
-        "versioned",
-        vec![
-            ColumnSpec::label("new_name", LogicalType::Text, "label"),
-            ColumnSpec::payload("number", LogicalType::U64, "number"),
-        ],
-    );
-    target.key.version = 2;
-    builder.declare_relation(target);
-    builder.declare_migration(MigrationSpec {
-        relation: "authored.versioned",
-        from_version: 1,
-        to_version: 2,
-        steps: vec![
-            MigrationStep::RenameColumn {
-                from: "old_name",
-                to: "new_name",
-            },
-            MigrationStep::AddColumn {
-                name: "number",
-                default: Cell::U64(7),
-            },
-        ],
-        doc: "add value",
-    });
-    let reg = builder.build().unwrap();
-    let source = reg
-        .relations()
-        .iter()
-        .find(|spec| spec.key.version == 1)
-        .unwrap();
-    let target = reg.relation("authored.versioned").unwrap();
-    let batch = batch_from_cells(&reg, source, &[vec![id(1), Cell::text("kept")]]).unwrap();
-    let migrated = pse_relations::migrate::migrate(&reg, &reg.migrations()[0], &batch).unwrap();
-    let current = pse_relations::migrate::migrate_to_current(&reg, &batch).unwrap();
-    assert_eq!(
-        cells_from_batch(&reg, target, &current).unwrap(),
-        cells_from_batch(&reg, target, &migrated).unwrap()
-    );
-    assert_eq!(
-        cells_from_batch(&reg, target, &migrated).unwrap(),
-        vec![vec![id(1), Cell::text("kept"), Cell::U64(7)]]
-    );
-    let mut undeclared = reg.migrations()[0].clone();
-    undeclared.steps.clear();
-    assert!(pse_relations::migrate::migrate(&reg, &undeclared, &batch).is_err());
-    assert!(pse_relations::migrate::migrate(&reg, &reg.migrations()[0], &migrated).is_err());
 }
 
 #[test]
@@ -463,7 +453,7 @@ fn formatter_renders_all_extensions_without_raw_storage_bytes() {
             .unwrap()
         {
             rendered.insert(
-                field.name().clone(),
+                field.name().to_owned(),
                 formatter.value(0).try_to_string().unwrap(),
             );
         }

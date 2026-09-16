@@ -56,6 +56,12 @@ fields and its status history — it is changed by superseding it, never by edit
 `scripts/adr.py lint` enforces this against `origin/main` and runs as
 `governance / adr-lint`.
 
+The maintainer-authorized Plan 05 hard pivot is recorded by ADR-0067 and blueprint
+revision 37. Implementation authorization is distinct from formal decision-PR
+acceptance. Historical accepted arguments remain immutable; scoped supersession
+links retire their replaced restrictions. Current work requires no additional
+compatibility approval or discarded-code qualification.
+
 ### The decision-PR rule
 
 An ADR enters the repository, or changes status, **only** in a pull request that:
@@ -81,7 +87,7 @@ An ADR whose `level` is `must-gap` **narrows scope**; it never claims compliance
 
 | Change | Needs |
 |---|---|
-| Alters D1–D14; adds or removes a crate; adds, drops, or majors a dependency family; changes the hashing contract, the Python boundary contract, metadata conventions, or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** (label `needs-review`; verdict Accept or Accept-scoped before `status: accepted`) |
+| Alters D1–D14; adds or removes a crate; majors one of the four pinned families (arrow, datafusion, object_store, pyo3); changes the hashing contract, the Python boundary contract, metadata conventions, or the commit contract; any SHOULD deviation; governance changes | **ADR + design review** (label `needs-review`; verdict Accept or Accept-scoped before `status: accepted`) |
 | A new relation family, pass, kernel contract, or backend binding within an accepted decision; a small local SHOULD deviation; moving the parity pin; a deferred trigger firing | **ADR (short)**; review at maintainer discretion |
 | Bug fixes, refactors within contracts, tests, documentation wording, patch bumps inside a pinned family, tooling | **Neither**; an ordinary pull request with the evidence field filled |
 
@@ -151,8 +157,15 @@ that had to change — each tolerance change called out individually in the PR b
 parity run must be green on the pinned interpreters before merge. The pin is never moved
 in the same PR as a behavioural change on our side.
 
+**Adding a dependency.** Nothing. No library is refused and no licence is grounds to
+refuse one through phases 0–1: add it, pin it exactly, commit the lockfile. No ADR, no
+design review, no blueprint row. See [dependency policy](docs/dev/dependency-policy.md)
+and ADR-0066 for the reasoning, what is still enforced, and register row R-31 — the dated
+obligation to answer the licensing question before anything is published.
+
 **Dependency families (arrow, datafusion, pyo3, object_store).** A family is pinned with
-`=` once in `[workspace.dependencies]` and moves as a unit:
+`=` once in `[workspace.dependencies]` and moves as a unit. A **major** move follows all
+six steps below; a patch bump inside the pinned family needs none of them:
 
 1. An ADR records the move, the reason, and what was re-checked.
 2. `cargo update -p <crate> --precise <version>` for each member — never a bare
@@ -164,8 +177,9 @@ in the same PR as a behavioural change on our side.
    (`just evidence-regen`) and its `pins:` front matter updated.
 5. Pre-1.0 crate floors are re-checked (`dependency_floors` in `tests/governance`), and
    any register row whose trigger the move fires is answered.
-6. `cargo deny check` and `cargo semver-checks` must be green; a `datafusion-proto`
-   bump also re-checks byte stability (register row).
+6. `cargo semver-checks` must be green; a `datafusion-proto` bump also re-checks byte
+   stability (register row). `cargo deny check` reports but does not gate (ADR-0066) —
+   read it, act on what matters, and do not treat it as a blocker.
 
 Dependabot proposes these as grouped PRs (`arrow-family`, `datafusion-family`,
 `pyo3-family`, `codegen`, `numerics`) so the unit is preserved; a PR that moves part of a

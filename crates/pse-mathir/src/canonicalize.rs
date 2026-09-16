@@ -17,6 +17,8 @@ use pse_quantity::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+mod literal_context;
+
 /// The only package-graph numerical policy: authored order and guarded failures.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Policy {
@@ -24,7 +26,7 @@ pub enum Policy {
     Strict,
 }
 static NO_BINDINGS: KernelBindings = BTreeMap::new();
-/// Complete predecessor inputs; selection rows are claims to revalidate, never proof.
+/// Complete current graph inputs; selection rows are claims to revalidate, never proof.
 #[derive(Clone, Copy)]
 pub struct CanonicalizeInput<'a> {
     /// Source graph.
@@ -39,7 +41,7 @@ pub struct CanonicalizeInput<'a> {
     pub registry: &'a QuantityRegistry,
     /// Complete kernel binding relation rows.
     pub kernel_bindings: &'a KernelBindings,
-    /// Predecessor selection claims, needed for explicit physical conversion edges.
+    /// Input selection claims, needed for explicit physical conversion edges.
     pub selections: &'a [QuantitySelection],
 }
 impl std::fmt::Debug for CanonicalizeInput<'_> {
@@ -78,6 +80,41 @@ impl<'a> CanonicalizeInput<'a> {
 /// types, unbound indices, malformed references and unconditional static domain failures.
 pub fn canonicalize(
     input: CanonicalizeInput<'_>,
+    policy: Policy,
+) -> Result<CanonicalGraph, MathIrError> {
+    canonicalize_inner(input, None, policy)
+}
+
+/// Actual free-index and expected physical contract for one additional root occurrence.
+#[derive(Clone, Debug, Default)]
+pub struct RootEnvironment {
+    /// Lexical free indices in the actual declared domains.
+    pub indices: IndexSet,
+    /// A complete consumer quantity contract, checked against the inferred result.
+    pub expected: Option<QuantityTypeId>,
+}
+
+/// Canonicalize indexed non-equation roots under their actual consumer environments.
+/// The environments correspond one-for-one to `input.roots`, including repeated nodes.
+/// # Errors
+/// Missing environments, invalid domains or physical/index contracts, in addition to
+/// the ordinary canonicalization failures.
+pub fn canonicalize_with_environments(
+    input: CanonicalizeInput<'_>,
+    environments: &[RootEnvironment],
+    policy: Policy,
+) -> Result<CanonicalGraph, MathIrError> {
+    if environments.len() != input.roots.len() {
+        return Err(MathIrError::malformed_at(
+            NodeId(0),
+            "root environments differ from the complete root occurrence inventory",
+        ));
+    }
+    canonicalize_inner(input, Some(environments), policy)
+}
+fn canonicalize_inner(
+    input: CanonicalizeInput<'_>,
+    environments: Option<&[RootEnvironment]>,
     _policy: Policy,
 ) -> Result<CanonicalGraph, MathIrError> {
     let all: Vec<_> = input.graph.iter().map(|(id, _)| id).collect();
@@ -95,8 +132,35 @@ pub fn canonicalize(
     }
     let mut driver = Driver::new(&input)?;
     let mut roots = Vec::new();
-    for root in input.roots {
-        roots.push(driver.visit(&Request::root(*root))?.node);
+    for (position, root) in input.roots.iter().enumerate() {
+        let mut request = Request::root(*root);
+        if let Some(environment) = environments.map(|all| &all[position]) {
+            request.environment = environment.indices.clone();
+            request.expected = environment.expected;
+            for bound in &request.environment {
+                let domain = input.symbols.domain(bound.domain).ok_or_else(|| {
+                    MathIrError::malformed_at(*root, "root binder domain is absent")
+                })?;
+                if domain.kind != bound.kind {
+                    return Err(MathIrError::malformed_at(
+                        *root,
+                        "root binder kind differs from its actual domain",
+                    ));
+                }
+            }
+        }
+        let value = driver.visit(&request)?;
+        if let Some(expected) = request.expected {
+            q(
+                *root,
+                pse_quantity::admission::require_same_contract(
+                    expected,
+                    value.quantity_type,
+                    input.registry,
+                ),
+            )?;
+        }
+        roots.push(value.node);
     }
     let mut equations = Vec::new();
     for equation in input.equations {
@@ -120,13 +184,22 @@ pub fn canonicalize(
         .iter()
         .map(|(id, value)| (*id, value.indices.clone()))
         .collect();
-    let mut output = crate::canonical::number_typed_graph_with_bindings(
+    let output = crate::canonical::number_typed_graph_with_bindings(
         &driver.graph,
         &roots,
         &indices,
         input.registry,
         &driver.bindings,
     )?;
+    finish_graph(output, driver, equations, input.roots.len())
+}
+
+fn finish_graph(
+    mut output: CanonicalGraph,
+    driver: Driver<'_, '_>,
+    mut equations: Vec<EquationRecord>,
+    root_count: usize,
+) -> Result<CanonicalGraph, MathIrError> {
     let map = |id: NodeId| {
         output
             .node_mapping()
@@ -136,6 +209,37 @@ pub fn canonicalize(
     };
     for equation in &mut equations {
         equation.map_node_references(map)?;
+    }
+    let actual_results = driver
+        .resolved
+        .values()
+        .map(|value| value.node)
+        .collect::<BTreeSet<_>>();
+    for (request, value) in &driver.resolved {
+        let mut pending = vec![value.node];
+        let mut visited = BTreeSet::new();
+        while let Some(node) = pending.pop() {
+            if !visited.insert(node) {
+                continue;
+            }
+            if node != value.node && actual_results.contains(&node) {
+                continue;
+            }
+            if let Some(canonical) = output.node_mapping().get(&node).copied() {
+                output
+                    .source_nodes
+                    .entry(canonical)
+                    .or_default()
+                    .insert(request.node);
+            }
+            let actual = driver.graph.node(node)?;
+            pending.extend(actual.children.iter().copied());
+            let mut payload = actual.payload.clone();
+            payload.map_node_references(|child| {
+                pending.push(child);
+                Ok(child)
+            })?;
+        }
     }
     let mut selected = BTreeMap::new();
     for (_, mut selection) in driver.selections {
@@ -159,7 +263,7 @@ pub fn canonicalize(
             ));
         }
     }
-    output.roots.truncate(input.roots.len());
+    output.roots.truncate(root_count);
     output.equations = equations;
     output.selections = selected.into_values().collect();
     Ok(output)
@@ -275,7 +379,14 @@ impl<'a, 'b> Driver<'a, 'b> {
             let slot = frame.order[frame.next];
             let mut dependency = frame.dependencies[slot].clone();
             if dependency.expected.is_none() {
-                dependency.expected = Self::sibling_expected(&frame, slot);
+                dependency.expected = if matches!(frame.node.opcode, Opcode::Add | Opcode::Sub) {
+                    self.additive_expected(&frame, slot)?
+                } else {
+                    Self::sibling_expected(&frame, slot)
+                };
+            }
+            if dependency.expected.is_none() {
+                dependency.expected = self.literal_operand_expected(&frame, slot)?;
             }
             if let Some(value) = self.resolved.get(&dependency).cloned() {
                 frame.values[slot] = Some(value);
@@ -293,7 +404,7 @@ impl<'a, 'b> Driver<'a, 'b> {
     fn sibling_expected(frame: &Frame, slot: usize) -> Option<QuantityTypeId> {
         if matches!(
             frame.node.opcode,
-            Opcode::Add | Opcode::Sub | Opcode::Conditional | Opcode::SmoothMax | Opcode::SmoothMin
+            Opcode::Conditional | Opcode::SmoothMax | Opcode::SmoothMin
         ) && slot < 2
         {
             frame
@@ -346,6 +457,14 @@ impl<'a, 'b> Driver<'a, 'b> {
             }
         }
         match &node.payload {
+            Payload::Broadcast { domain, .. } => {
+                if let Some(expected) = node.quantity_type.or(request.expected)
+                    && let Some(child) = dependencies.first_mut()
+                {
+                    child.expected =
+                        Some(self.broadcast_input_type(request.node, domain, expected)?);
+                }
+            }
             Payload::Reduction {
                 domain,
                 bound_index,
@@ -399,20 +518,14 @@ impl<'a, 'b> Driver<'a, 'b> {
             node.opcode,
             Opcode::Add
                 | Opcode::Sub
+                | Opcode::Mul
+                | Opcode::Div
                 | Opcode::Conditional
                 | Opcode::WeightedMean
                 | Opcode::SmoothMax
                 | Opcode::SmoothMin
         ) {
-            order.sort_by_key(|slot| {
-                matches!(
-                    self.input
-                        .graph
-                        .node(dependencies[*slot].node)
-                        .map(|n| &n.payload),
-                    Ok(Payload::IntConst { .. } | Payload::FloatConst { .. })
-                )
-            });
+            order.sort_by_key(|slot| self.literal_priority(dependencies[*slot].node));
         }
         let values = vec![None; dependencies.len()];
         Ok(Frame {
@@ -423,6 +536,23 @@ impl<'a, 'b> Driver<'a, 'b> {
             next: 0,
             values,
         })
+    }
+    fn broadcast_input_type(
+        &self,
+        node: NodeId,
+        domain: &crate::DomainRef,
+        expected: QuantityTypeId,
+    ) -> Result<QuantityTypeId, MathIrError> {
+        let domain = domain.require_actual(node)?;
+        let kind = self.domain(node, domain)?.kind;
+        let mut key = self.ty(node, expected)?.key.clone();
+        if key.shape.pop() != Some(kind) {
+            return Err(MathIrError::malformed_at(
+                node,
+                "broadcast result contract does not add the declared domain kind",
+            ));
+        }
+        q(node, self.input.registry.resolve_key(&key))
     }
     fn kernel_dependencies(
         &self,
@@ -962,7 +1092,7 @@ impl<'a, 'b> Driver<'a, 'b> {
                     "pending conversion must be resolved after child typing",
                 ));
             }
-            Payload::PendingGather { .. } => {
+            Payload::PendingGather { .. } | Payload::PendingPath { .. } => {
                 return Err(MathIrError::malformed_at(
                     id,
                     "pending indexed read requires actual instance/domain lowering before P10",

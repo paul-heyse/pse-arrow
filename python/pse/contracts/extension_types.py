@@ -4,6 +4,7 @@
 """Passive Arrow registration and strict versioned extension metadata codecs."""
 
 import contextlib
+from types import NotImplementedType
 from typing import Never, Self
 
 import msgspec
@@ -37,10 +38,13 @@ def _identity(value: str | None) -> str:
 
 class _PseExtensionType(pa.ExtensionType):
     _extension_name = ""
-    _storage_type: pa.DataType = pa.null()
     _metadata_version = 1
     _binding_key: str | None = None
     _prototype_binding: str | None = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.null()
 
     def __init__(self, binding_id: str | None = None) -> None:
         if self._binding_key is None:
@@ -49,7 +53,24 @@ class _PseExtensionType(pa.ExtensionType):
             self.binding_id = None
         else:
             self.binding_id = _identity(binding_id)
-        super().__init__(self._storage_type, self._extension_name)
+        super().__init__(self._declared_storage(), self._extension_name)
+
+    def __eq__(self, other: object) -> bool | NotImplementedType:
+        if not isinstance(other, _PseExtensionType):
+            return NotImplemented
+        return (
+            type(self) is type(other)
+            and self.extension_name == other.extension_name
+            and self.__arrow_ext_serialize__() == other.__arrow_ext_serialize__()
+            and self.storage_type.equals(other.storage_type, check_metadata=True)
+        )
+
+    def __hash__(self) -> int:
+        return hash((type(self), self.extension_name, self.__arrow_ext_serialize__(), self.storage_type))
+
+    def __ne__(self, other: object) -> bool | NotImplementedType:
+        equal = self.__eq__(other)
+        return NotImplemented if equal is NotImplemented else not equal
 
     def __arrow_ext_serialize__(self) -> bytes:
         if self._binding_key == "enum_id":
@@ -60,7 +81,9 @@ class _PseExtensionType(pa.ExtensionType):
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type: pa.DataType, serialized: bytes) -> Self:
-        if storage_type != cls._storage_type:
+        actual = pa.schema([pa.field("value", storage_type)])
+        expected = pa.schema([pa.field("value", cls._declared_storage())])
+        if not actual.equals(expected, check_metadata=True):
             _reject(f"{cls._extension_name} storage does not match its declared physical fields")
         try:
             if cls._binding_key == "enum_id":
@@ -89,110 +112,143 @@ class PseSemanticId(_PseExtensionType):
     """The declared pse.semantic_id extension."""
 
     _extension_name = "pse.semantic_id"
-    _storage_type = pa.binary(16)
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.binary(16)
 
 
 class PseContentHash(_PseExtensionType):
     """The declared pse.content_hash extension."""
 
     _extension_name = "pse.content_hash"
-    _storage_type = pa.binary(32)
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.binary(32)
 
 
 class PseDimensionVector(_PseExtensionType):
     """The declared pse.dimension_vector extension."""
 
     _extension_name = "pse.dimension_vector"
-    _storage_type = pa.list_(pa.field("item", pa.struct([pa.field("num", pa.int16(), nullable=False), pa.field("den", pa.int16(), nullable=False)]), nullable=False), 8)
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.list_(pa.field("item", pa.struct([pa.field("num", pa.int16(), nullable=False, metadata={}), pa.field("den", pa.int16(), nullable=False, metadata={})]), nullable=False, metadata={}), 8)
 
 
 class PseQuantityValue(_PseExtensionType):
     """The declared pse.quantity_value extension."""
 
     _extension_name = "pse.quantity_value"
-    _storage_type = pa.struct([pa.field("value", pa.float64(), nullable=False), pa.field("quantity_type_id", pa.binary(16), nullable=False), pa.field("unit_id", pa.binary(16), nullable=False)])
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.struct([pa.field("value", pa.float64(), nullable=False, metadata={}), pa.field("quantity_type_id", pa.binary(16), nullable=False, metadata={}), pa.field("unit_id", pa.binary(16), nullable=False, metadata={})])
 
 
 class PseBound(_PseExtensionType):
     """The declared pse.bound extension."""
 
     _extension_name = "pse.bound"
-    _storage_type = pa.struct([pa.field("kind", pa.dictionary(pa.int8(), pa.utf8()), nullable=False), pa.field("value", pa.float64(), nullable=True)])
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.struct([pa.field("kind", PseEnum("2a210de257dce67bfcca3df1197a5db6"), nullable=False, metadata={"pse.semantic.enum":"2a210de257dce67bfcca3df1197a5db6","pse.semantic.logical_type":"enum:BoundKind"}), pa.field("value", pa.float64(), nullable=True, metadata={})])
 
 
 class PseIndexTuple(_PseExtensionType):
     """The declared pse.index_tuple extension."""
 
     _extension_name = "pse.index_tuple"
-    _storage_type = pa.list_(pa.field("item", pa.binary(16), nullable=False))
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.list_(pa.field("item", pa.binary(16), nullable=False, metadata={}))
 
 
 class PseOrdinalRef(_PseExtensionType):
     """The declared pse.ordinal_ref extension."""
 
     _extension_name = "pse.ordinal_ref"
-    _storage_type = pa.uint64()
     _metadata_version = 1
     _binding_key = "target_relation_id"
     _prototype_binding = "56752e2d6020f4af611a09376e97ac67"
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.int64()
 
 
 class PseSourceSpan(_PseExtensionType):
     """The declared pse.source_span extension."""
 
     _extension_name = "pse.source_span"
-    _storage_type = pa.struct([pa.field("document_id", pa.binary(16), nullable=False), pa.field("start", pa.uint32(), nullable=False), pa.field("end", pa.uint32(), nullable=False)])
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.struct([pa.field("document_id", pa.binary(16), nullable=False, metadata={}), pa.field("start", pa.int64(), nullable=False, metadata={"pse.semantic.integer_range":"[0,4294967295]"}), pa.field("end", pa.int64(), nullable=False, metadata={"pse.semantic.integer_range":"[0,4294967295]"})])
 
 
 class PseEnum(_PseExtensionType):
     """The declared pse.enum extension."""
 
     _extension_name = "pse.enum"
-    _storage_type = pa.dictionary(pa.int32(), pa.utf8())
     _metadata_version = 1
     _binding_key = "enum_id"
     _prototype_binding = "08153de61514e9f76900b32011bbae90"
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.utf8()
 
 
 class PseExprDsl(_PseExtensionType):
     """The declared pse.expr_dsl extension."""
 
     _extension_name = "pse.expr_dsl"
-    _storage_type = pa.utf8()
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.utf8()
 
 
 class PseTargetPath(_PseExtensionType):
     """The declared pse.target_path extension."""
 
     _extension_name = "pse.target_path"
-    _storage_type = pa.utf8()
     _metadata_version = 1
     _binding_key = None
     _prototype_binding = None
+
+    @classmethod
+    def _declared_storage(cls) -> pa.DataType:
+        return pa.utf8()
 
 
 _EXTENSION_TYPES: tuple[type[_PseExtensionType], ...] = (

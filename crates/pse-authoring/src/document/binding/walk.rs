@@ -16,6 +16,7 @@ pub(super) fn bind(
     context: &Context,
     at: SourceSpan,
     indexed_by: &[String],
+    submodel_binding: bool,
 ) -> Result<Vec<BoundPath>, AuthoringError> {
     let mut walker = Walker {
         owner,
@@ -23,13 +24,13 @@ pub(super) fn bind(
         at,
         paths: Vec::new(),
         locals: indexed_by.iter().cloned().collect(),
+        submodel_binding,
     };
     if walker.locals.len() != indexed_by.len() {
         return Err(contract(Some(at), "duplicate expression index variables"));
     }
     for name in indexed_by {
         if context
-            .targets
             .template_domains
             .iter()
             .filter(|domain| domain.template_id == owner && domain.name == *name)
@@ -55,9 +56,58 @@ struct Walker<'a> {
     at: SourceSpan,
     paths: Vec<BoundPath>,
     locals: BTreeSet<String>,
+    submodel_binding: bool,
 }
 impl Walker<'_> {
     fn path(&mut self, path: &dsl::Path, span: dsl::Span) -> Result<(), AuthoringError> {
+        if self.submodel_binding
+            && let [parent, member] = path.segments.as_slice()
+            && parent.name == "parent"
+        {
+            if !parent.indices.is_empty() || !member.indices.is_empty() {
+                return Err(contract(
+                    Some(self.at),
+                    "parent configuration references must be scalar",
+                ));
+            }
+            let meaning = paths::local(self.owner, &member.name, self.context, self.at)?
+                .filter(|meaning| {
+                    matches!(
+                        meaning,
+                        PathMeaning::Parameter { .. } | PathMeaning::Feature { .. }
+                    )
+                })
+                .ok_or_else(|| {
+                    contract(
+                        Some(self.at),
+                        "parent configuration declaration is absent or ambiguous",
+                    )
+                })?;
+            self.paths.push(BoundPath {
+                span,
+                meaning,
+                segment_entities: vec![None; 2],
+            });
+            return Ok(());
+        }
+        if self.submodel_binding
+            && let [value] = path.segments.as_slice()
+            && value.indices.is_empty()
+            && matches!(value.name.as_str(), "true" | "false")
+        {
+            if !paths::unbound_bare(&value.name, self.owner, self.context, &self.locals, self.at)? {
+                return Err(contract(
+                    Some(self.at),
+                    "Boolean configuration literal conflicts with a declaration",
+                ));
+            }
+            self.paths.push(BoundPath {
+                span,
+                meaning: PathMeaning::BooleanLiteral(value.name == "true"),
+                segment_entities: vec![None],
+            });
+            return Ok(());
+        }
         self.paths.push(paths::bind(
             path,
             span,
@@ -156,11 +206,11 @@ impl Walker<'_> {
                 }
                 let matches = self
                     .context
+                    .lookup
                     .units
-                    .iter()
-                    .filter(|unit| unit.symbol == part.name)
-                    .collect::<Vec<_>>();
-                let [unit] = matches.as_slice() else {
+                    .get(&part.name)
+                    .map_or(&[][..], Vec::as_slice);
+                let [unit_id] = matches else {
                     return Err(contract(
                         Some(self.at),
                         "conversion target unit symbol is missing or ambiguous",
@@ -168,9 +218,7 @@ impl Walker<'_> {
                 };
                 self.paths.push(BoundPath {
                     span: expr.span,
-                    meaning: PathMeaning::Unit {
-                        unit_id: unit.unit_id,
-                    },
+                    meaning: PathMeaning::Unit { unit_id: *unit_id },
                     segment_entities: vec![None],
                 });
             }
@@ -237,17 +285,62 @@ impl Walker<'_> {
 }
 
 impl Walker<'_> {
-    fn operand_enum(&self, expr: &dsl::Expr) -> Result<Option<SemanticId>, AuthoringError> {
+    fn qualified_enum(
+        &self,
+        expr: &dsl::Expr,
+    ) -> Result<Option<(SemanticId, String)>, AuthoringError> {
         let ExprKind::Path(path) = &expr.kind else {
             return Ok(None);
         };
-        if path
-            .segments
-            .iter()
-            .any(|segment| !segment.indices.is_empty())
-        {
+        let [enumeration, member] = path.segments.as_slice() else {
             return Ok(None);
+        };
+        let Some(identity) = self.context.enum_names.get(&enumeration.name) else {
+            return Ok(None);
+        };
+        if !enumeration.indices.is_empty() || !member.indices.is_empty() {
+            return Err(contract(
+                Some(self.at),
+                "enum literals cannot carry indices",
+            ));
         }
+        if !paths::unbound_bare(
+            &enumeration.name,
+            self.owner,
+            self.context,
+            &self.locals,
+            self.at,
+        )? || self
+            .context
+            .lookup
+            .global
+            .contains_key(&format!("{}.{}", enumeration.name, member.name))
+        {
+            return Err(contract(
+                Some(self.at),
+                "qualified enum literal also resolves as a declaration or lexical value",
+            ));
+        }
+        if !self
+            .context
+            .enums
+            .get(identity)
+            .is_some_and(|members| members.contains(&member.name))
+        {
+            return Err(contract(
+                Some(self.at),
+                "qualified enum member is absent from its exact declaration",
+            ));
+        }
+        Ok(Some((*identity, member.name.clone())))
+    }
+    fn operand_enum(&self, expr: &dsl::Expr) -> Result<Option<SemanticId>, AuthoringError> {
+        if let Some((identity, _)) = self.qualified_enum(expr)? {
+            return Ok(Some(identity));
+        }
+        let ExprKind::Path(path) = &expr.kind else {
+            return Ok(None);
+        };
         // This probe supplies context only. Every operand is independently admitted
         // below, so failed or ambiguous ordinary binding is never accepted by the probe.
         let Ok(binding) = paths::bind(
@@ -261,6 +354,7 @@ impl Walker<'_> {
             return Ok(None);
         };
         let identity = match binding.meaning {
+            PathMeaning::InstancePath(path) => path.member_enum,
             PathMeaning::Feature { template_id, name } => self
                 .context
                 .features
@@ -312,6 +406,20 @@ impl Walker<'_> {
         expr: &dsl::Expr,
         enum_id: SemanticId,
     ) -> Result<(), AuthoringError> {
+        if let Some((identity, member)) = self.qualified_enum(expr)? {
+            if identity != enum_id {
+                return Err(contract(
+                    Some(self.at),
+                    "qualified literal belongs to a different enum",
+                ));
+            }
+            self.paths.push(BoundPath {
+                span: expr.span,
+                meaning: PathMeaning::EnumLiteral { enum_id, member },
+                segment_entities: vec![None; 2],
+            });
+            return Ok(());
+        }
         if let ExprKind::Path(path) = &expr.kind
             && let [segment] = path.segments.as_slice()
             && segment.indices.is_empty()
@@ -330,7 +438,10 @@ impl Walker<'_> {
             )? {
                 return Err(contract(
                     Some(self.at),
-                    "enum member spelling also resolves as a declaration or lexical value",
+                    &format!(
+                        "enum member `{}` also resolves as a declaration or lexical value in owner {}",
+                        segment.name, self.owner,
+                    ),
                 ));
             }
             self.paths.push(BoundPath {
@@ -344,6 +455,21 @@ impl Walker<'_> {
             return Ok(());
         }
         if self.operand_enum(expr)? != Some(enum_id) {
+            if let ExprKind::Path(path) = &expr.kind
+                && let Ok(binding) = paths::bind(
+                    path,
+                    expr.span,
+                    self.owner,
+                    self.context,
+                    &self.locals,
+                    self.at,
+                )
+                && matches!(binding.meaning, PathMeaning::InstancePath(path) if path.deferred)
+            {
+                // The exact selected leaf is admitted by predicate evaluation;
+                // the qualified literal provides its explicit expected enum.
+                return self.expr(expr);
+            }
             return Err(contract(
                 Some(self.at),
                 "operand is neither a member nor a value of the exact expected enum",

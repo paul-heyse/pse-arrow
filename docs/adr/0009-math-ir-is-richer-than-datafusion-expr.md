@@ -1,7 +1,7 @@
 ---
 id: ADR-0009
 title: Adopt D6: the math IR is relations, and DataFusion Expr computes over it
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§D6, §7.1, §7.2]
 review: not-required: neither review raised a finding against D6
 evidence: Proposed
 supersedes: []
-superseded-by: null
+superseded-by: ADR-0068
 revisit: A backend requires an operator the IR cannot express without scalarizing earlier than §7.1 allows
 verification: `tests/conformance` operator-contract tests; the expression DSL round-trip test at the phase-0 exit
 
@@ -61,3 +61,4 @@ Blueprint §D6, §7.1 (design constraints), §7.2 (operator catalog), §14.1 (P1
 ## Status history
 
 - 2026-09-13 — accepted with the repository-seeding pull request (backfilled from blueprint revision 3).
+- 2026-09-15 — superseded by ADR-0068.

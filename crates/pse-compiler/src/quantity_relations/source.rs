@@ -1,49 +1,54 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Actual predecessor facts for physical inference, joined by declared identities.
-mod groups;
+//! Native selection of admitted stage outputs for the existing physical algorithms.
+mod columns;
 mod kernels;
-use super::{invalid, read};
-use crate::CompilerError;
-use pse_ids::SemanticId;
+mod plans;
+pub(crate) mod preconditions;
+
+use super::invalid;
+use crate::{CompilerError, InputBundle, PassContext};
+use datafusion::logical_expr::{LogicalPlan, LogicalPlanBuilder, col};
+use pse_catalog::session::{
+    CompletedComputation, SnapshotSession, output::declare_relation_output,
+};
+use pse_ids::{CancellationToken, Reservation, ReservationLease, SemanticId};
 use pse_mathir::{
     NodeId,
     index::DomainFacts,
     infer::{GroupFacts, KernelContract, SymbolTypeSource},
 };
-use pse_quantity::{
-    ConversionId, DomainId, DomainKind, QuantityKindId, QuantityRegistry, QuantityTypeId, UnitId,
+use pse_quantity::{ConversionId, DomainId, DomainKind, QuantityKindId, QuantityTypeId, UnitId};
+use pse_relations::{columnar::FieldCheckedBatch, generated::normalized};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
 };
-use pse_relations::RecordBatch;
-use pse_schema::{Registry, model::RelationKey};
-use std::collections::{BTreeMap, BTreeSet};
 
-/// Admitted complete physical source facts. Private maps prevent unchecked replacement.
+/// Algorithm-only indexes derived from the actual admitted P10 input bindings.
+/// Construction is private to the registered pass route: local field checking alone
+/// cannot establish the carrier correspondences established by the input producers.
 #[derive(Debug)]
 pub struct RelationSymbolSource {
-    symbols: BTreeMap<SemanticId, SymbolFacts>,
+    symbols: BTreeMap<SemanticId, (QuantityTypeId, UnitId)>,
     domains: BTreeMap<DomainId, DomainFacts>,
     groups: BTreeMap<SemanticId, GroupFacts>,
     kernels: BTreeMap<SemanticId, KernelContract>,
     unknowns: BTreeMap<(SemanticId, u16), QuantityTypeId>,
     boolean: Option<QuantityKindId>,
-    conversions: BTreeMap<(NodeId, u16, ConversionId), SemanticId>,
-}
-#[derive(Debug)]
-struct SymbolFacts {
-    quantity: QuantityTypeId,
-    unit: UnitId,
-    owner: SemanticId,
-    declaration: SemanticId,
-    index: Vec<SemanticId>,
+    preconditions: Arc<preconditions::PhysicalPreconditions>,
+    _allocation: Arc<ReservationLease>,
 }
 impl SymbolTypeSource for RelationSymbolSource {
+    fn invariant_checker(&self, _node: NodeId) -> &dyn pse_quantity::infer::InvariantChecker {
+        self.preconditions.as_ref()
+    }
     fn symbol_type(&self, symbol: SemanticId) -> Option<QuantityTypeId> {
-        self.symbols.get(&symbol).map(|value| value.quantity)
+        self.symbols.get(&symbol).map(|value| value.0)
     }
     fn symbol_unit(&self, symbol: SemanticId) -> Option<UnitId> {
-        self.symbols.get(&symbol).map(|value| value.unit)
+        self.symbols.get(&symbol).map(|value| value.1)
     }
     fn boolean_kind(&self) -> Option<QuantityKindId> {
         self.boolean
@@ -62,284 +67,236 @@ impl SymbolTypeSource for RelationSymbolSource {
     }
     fn conversion_binding(
         &self,
-        node: NodeId,
-        operand: u16,
-        conversion: ConversionId,
+        _node: NodeId,
+        _operand: u16,
+        _conversion: ConversionId,
     ) -> Option<SemanticId> {
-        self.conversions.get(&(node, operand, conversion)).copied()
+        None
     }
 }
-/// Decode exact predecessor bindings for P10. The Boolean kind is an explicit semantic
-/// designation. Missing invariant evidence remains conservatively unavailable.
-///
-/// # Errors
-/// Rejects absent relations, duplicate identities, invalid domain ordinals, broken joins,
-/// incompatible symbol/unit/type contracts and inconsistent group/kernel declarations.
-pub fn decode_symbol_source(
-    rows: &BTreeMap<RelationKey, RecordBatch>,
-    registry: &Registry,
-    quantities: &QuantityRegistry,
-    boolean: Option<QuantityKindId>,
-) -> Result<RelationSymbolSource, CompilerError> {
-    if let Some(id) = boolean {
-        quantities.kind(id)?;
-    }
-    let symbols = symbols(rows, registry, quantities)?;
-    let domains = domains(rows, registry, quantities)?;
-    let groups = groups::decode(rows, registry, quantities, &symbols, &domains)?;
-    let kernels = kernels::decode(rows, registry, quantities)?;
-    let mut unknowns = BTreeMap::new();
-    let mut systems = BTreeSet::new();
-    for row in read(rows, registry, "compiled.math_implicit_systems")? {
-        let system = row.id("implicit_system_id")?;
-        if !systems.insert(system) {
-            return Err(invalid("duplicate implicit system"));
-        }
-        let mut seen = BTreeSet::new();
-        for (index, symbol) in row.ids("unknown_symbol_ids")?.into_iter().enumerate() {
-            if !seen.insert(symbol) {
-                return Err(invalid("implicit unknown symbol repeated"));
-            }
-            let ordinal =
-                u16::try_from(index).map_err(|_| invalid("implicit unknown count exceeds u16"))?;
-            let symbol = symbols
-                .get(&symbol)
-                .ok_or_else(|| invalid("implicit unknown symbol is missing"))?;
-            unknowns.insert((system, ordinal), symbol.quantity);
-        }
-    }
-    Ok(RelationSymbolSource {
-        symbols,
-        domains,
-        groups,
-        kernels,
-        unknowns,
-        boolean,
-        conversions: BTreeMap::new(),
-    })
-}
-fn symbols(
-    rows: &BTreeMap<RelationKey, RecordBatch>,
-    registry: &Registry,
-    quantities: &QuantityRegistry,
-) -> Result<BTreeMap<SemanticId, SymbolFacts>, CompilerError> {
-    let mut declarations = BTreeMap::new();
-    for row in read(rows, registry, "authored.template_symbols")? {
-        let id = row.id("symbol_decl_id")?;
-        let entry = (
-            row.id("template_id")?,
-            QuantityTypeId::from_id(row.id("quantity_type_id")?),
-            row.list("indexed_by")?.len(),
-        );
-        if quantities.quantity_type(entry.1)?.key.shape.len() != entry.2 {
-            return Err(invalid(
-                "template symbol index names differ from its declared quantity shape",
-            ));
-        }
-        if declarations.insert(id, entry).is_some() {
-            return Err(invalid("duplicate template symbol declaration identity"));
-        }
-    }
-    let mut instances = BTreeMap::new();
-    for row in read(rows, registry, "authored.instances")? {
-        if instances
-            .insert(row.id("instance_id")?, row.id("template_id")?)
-            .is_some()
-        {
-            return Err(invalid("duplicate instance identity"));
-        }
-    }
-    let mut symbols = BTreeMap::new();
-    let mut ordinals = BTreeSet::new();
-    let mut addresses = BTreeSet::new();
-    for row in read(rows, registry, "compiled.symbols")? {
-        let id = row.id("symbol_id")?;
-        let ty = QuantityTypeId::from_id(row.id("quantity_type_id")?);
-        let unit = UnitId::from_id(row.id("unit_id")?);
-        let contract = quantities.quantity_type(ty)?;
-        let (template, declared_type, arity) = declarations
-            .get(&row.id("symbol_decl_id")?)
-            .ok_or_else(|| invalid("compiled symbol declaration is absent"))?;
-        if instances.get(&row.id("owner_instance_id")?) != Some(template) {
-            return Err(invalid(
-                "compiled symbol belongs to a different template instance",
-            ));
-        }
-        let mut expected = quantities.quantity_type(*declared_type)?.key.clone();
-        expected.shape.clear();
-        if expected != contract.key {
-            return Err(invalid(
-                "compiled scalar symbol differs from its complete declaration contract",
-            ));
-        }
-        if !contract.key.shape.is_empty() {
-            return Err(invalid("scalar symbol has an indexed quantity type"));
-        }
-        pse_quantity::convert_spec_for_type(
-            quantities.unit(unit)?,
-            quantities.unit(contract.canonical_unit)?,
-            &contract.key,
+impl RelationSymbolSource {
+    /// Bind admitted input owners to the same immutable engine, then execute
+    /// native joins/order/recursive carrier selection. Quantity operations and
+    /// occurrence typing remain the leaf algorithms' responsibility.
+    pub(crate) async fn load(
+        ctx: &PassContext<'_>,
+        inputs: &InputBundle,
+    ) -> Result<Self, CompilerError> {
+        let spec = ctx
+            .registry
+            .pass("P10@1")
+            .ok_or_else(|| invalid("physical source requires declared P10"))?;
+        inputs.validate(spec, ctx.registry)?;
+        let session = ctx
+            .session
+            .select_inputs(&BTreeSet::new(), ctx.cancel)?
+            .with_checked_workspace(inputs.checked_rows(ctx.registry)?, ctx.cancel)?;
+        let physical = ctx.physical()?;
+        let quantities = physical.quantities();
+        let mut loader = Loader {
+            session: &session,
+            cancel: ctx.cancel,
+            allocation: ctx.reserver.open("physical graph algorithm indexes"),
+        };
+        let mut symbols = BTreeMap::new();
+        let plan = plans::project(
+            plans::scan(&session, "compiled.symbols", "symbol")?,
+            [
+                col("symbol.symbol_id").alias("symbol_id"),
+                col("symbol.quantity_type_id").alias("quantity_type_id"),
+                col("symbol.unit_id").alias("unit_id"),
+            ],
         )?;
-        let facts = SymbolFacts {
-            quantity: ty,
-            unit,
-            owner: row.id("owner_instance_id")?,
-            declaration: row.id("symbol_decl_id")?,
-            index: row.ids("index")?,
-        };
-        if facts.index.len() != *arity
-            || !addresses.insert((facts.owner, facts.declaration, facts.index.clone()))
-        {
-            return Err(invalid(
-                "compiled symbol has wrong index arity or repeats an actual declaration coordinate",
-            ));
+        let result = loader.execute(plan).await?;
+        for batch in result.batches() {
+            for row in 0..batch.num_rows() {
+                ctx.cancel.checkpoint()?;
+                let id = columns::id(batch, "symbol_id", row)?;
+                let quantity =
+                    QuantityTypeId::from_id(columns::id(batch, "quantity_type_id", row)?);
+                let unit = UnitId::from_id(columns::id(batch, "unit_id", row)?);
+                let contract = quantities.quantity_type(quantity)?;
+                if !contract.key.shape.is_empty() {
+                    return Err(invalid("scalar symbol has an indexed quantity type"));
+                }
+                pse_quantity::convert_spec_for_type(
+                    quantities.unit(unit)?,
+                    quantities.unit(contract.canonical_unit)?,
+                    &contract.key,
+                )?;
+                symbols.insert(id, (quantity, unit));
+            }
         }
-        if symbols.insert(id, facts).is_some() || !ordinals.insert(row.unsigned("ordinal")?) {
-            return Err(invalid("duplicate symbol identity or ordinal"));
-        }
-    }
-    Ok(symbols)
-}
-fn domains(
-    rows: &BTreeMap<RelationKey, RecordBatch>,
-    registry: &Registry,
-    quantities: &QuantityRegistry,
-) -> Result<BTreeMap<DomainId, DomainFacts>, CompilerError> {
-    let mut domains = BTreeMap::new();
-    for row in read(rows, registry, "authored.domains")? {
-        let id = DomainId::from_id(row.id("domain_id")?);
-        let unit = row.optional_id("unit_id")?.map(UnitId::from_id);
-        if let Some(unit) = unit {
-            quantities.unit(unit)?;
-        }
-        let facts = DomainFacts {
-            kind: row.enumeration("kind", DomainKind::parse)?,
-            continuous: row.boolean("continuous")?,
-            unit,
-            members: vec![],
-        };
-        if domains.insert(id, facts).is_some() {
-            return Err(invalid("duplicate domain identity"));
-        }
-    }
-    admit_continuous_domains(rows, registry, &domains)?;
-    let mut members = BTreeMap::new();
-    let mut identities = BTreeSet::new();
-    for row in read(rows, registry, "authored.domain_members")? {
-        let domain = DomainId::from_id(row.id("domain_id")?);
-        let ordinal = row.unsigned("ordinal")?;
-        let member = row.id("member_id")?;
-        if !domains.contains_key(&domain)
-            || !identities.insert(member)
-            || members.insert((domain, ordinal), member).is_some()
-        {
-            return Err(invalid(
-                "domain member has missing domain or repeated identity/ordinal",
-            ));
-        }
-    }
-    for ((domain, _ordinal), member) in members {
-        let facts = domains
-            .get_mut(&domain)
-            .ok_or_else(|| invalid("domain disappeared"))?;
-        facts.members.push(member);
-    }
-    Ok(domains)
-}
-
-fn admit_continuous_domains(
-    rows: &BTreeMap<RelationKey, RecordBatch>,
-    registry: &Registry,
-    domains: &BTreeMap<DomainId, DomainFacts>,
-) -> Result<(), CompilerError> {
-    let mut seen = BTreeSet::new();
-    for row in read(rows, registry, "authored.continuous_domains")? {
-        let id = DomainId::from_id(row.id("domain_id")?);
-        let domain = domains
-            .get(&id)
-            .ok_or_else(|| invalid("continuous detail domain absent"))?;
-        if !seen.insert(id)
-            || !domain.continuous
-            || domain.unit != Some(UnitId::from_id(row.id("unit_id")?))
-        {
-            return Err(invalid(
-                "continuous detail must occur once with the exact continuous-domain unit",
-            ));
-        }
-        let lower = row.number("lower")?;
-        let upper = row.number("upper")?;
-        if !lower.is_finite() || !upper.is_finite() || lower >= upper {
-            return Err(invalid(
-                "continuous domain lower bound must precede upper bound",
-            ));
-        }
-    }
-    if domains
-        .iter()
-        .any(|(id, facts)| facts.continuous && !seen.contains(id))
-    {
-        return Err(invalid("continuous domain has no actual coordinate detail"));
-    }
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pse_schema::model::Cell;
-
-    #[test]
-    fn domain_members_follow_declared_unique_order_without_inventing_contiguity() {
-        let registry = pse_schema::catalog::assemble().unwrap();
-        let quantities = pse_quantity::standard::standard_registry().unwrap();
-        let id = |value| SemanticId::from_bytes([value; 16]);
-        let mut rows = BTreeMap::new();
-        for (name, values) in [
-            (
-                "authored.domains",
-                vec![vec![
-                    Cell::Id(id(1)),
-                    Cell::Id(id(9)),
-                    Cell::Enum("custom"),
-                    Cell::Bool(false),
-                    Cell::Null,
-                    Cell::Null,
-                    Cell::Text(String::new()),
-                ]],
-            ),
-            (
-                "authored.domain_members",
-                vec![
-                    vec![
-                        Cell::Id(id(1)),
-                        Cell::Id(id(2)),
-                        Cell::U64(20),
-                        Cell::Text("last".into()),
-                        Cell::Null,
-                        Cell::Null,
-                    ],
-                    vec![
-                        Cell::Id(id(1)),
-                        Cell::Id(id(3)),
-                        Cell::U64(7),
-                        Cell::Text("first".into()),
-                        Cell::Null,
-                        Cell::Null,
-                    ],
-                ],
-            ),
-            ("authored.continuous_domains", vec![]),
-        ] {
-            let spec = registry.relation(name).unwrap();
-            rows.insert(
-                spec.key,
-                pse_relations::cells::batch_from_cells(&registry, spec, &values).unwrap(),
+        let domain_batch = loader.declared("normalized.domains").await?;
+        let view = normalized::domains::View::from_checked(&domain_batch)?;
+        let mut domains = BTreeMap::new();
+        for position in 0..view.len() {
+            ctx.cancel.checkpoint()?;
+            let row = view.row(position)?;
+            let unit = row.unit_id.map(UnitId::from_id);
+            if let Some(unit) = unit {
+                quantities.unit(unit)?;
+            }
+            domains.insert(
+                DomainId::from_id(row.domain_id),
+                DomainFacts {
+                    kind: DomainKind::parse(row.kind.as_str())
+                        .ok_or_else(|| invalid("unknown physical domain kind"))?,
+                    continuous: row.continuous,
+                    unit,
+                    members: Vec::new(),
+                },
             );
         }
-        let result = domains(&rows, &registry, &quantities).unwrap();
-        assert_eq!(
-            result[&DomainId::from_id(id(1))].members,
-            vec![id(3), id(2)]
-        );
+        let result = loader.execute(plans::domain_members(&session)?).await?;
+        for batch in result.batches() {
+            for row in 0..batch.num_rows() {
+                ctx.cancel.checkpoint()?;
+                let domain = DomainId::from_id(columns::id(batch, "domain_id", row)?);
+                domains
+                    .get_mut(&domain)
+                    .ok_or_else(|| invalid("native domain join lacks its selected owner"))?
+                    .members
+                    .push(columns::id(batch, "member_id", row)?);
+            }
+        }
+        let mut groups = BTreeMap::new();
+        let result = loader.execute(plans::groups(&session, ctx.cancel)?).await?;
+        for batch in result.batches() {
+            for row in 0..batch.num_rows() {
+                ctx.cancel.checkpoint()?;
+                let id = columns::id(batch, "group_id", row)?;
+                let factors = columns::ids(batch, "domain_ids", row)?
+                    .into_iter()
+                    .map(DomainId::from_id)
+                    .collect::<Vec<_>>();
+                let quantity =
+                    QuantityTypeId::from_id(columns::id(batch, "quantity_type_id", row)?);
+                let mut key = quantities.quantity_type(quantity)?.key.clone();
+                let shape = factors
+                    .iter()
+                    .map(|domain| {
+                        domains
+                            .get(domain)
+                            .map(|facts| facts.kind)
+                            .ok_or_else(|| invalid("group factor has no actual domain"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                if columns::id(batch, "origin_group_id", row)? == id && key.shape != shape {
+                    return Err(invalid(
+                        "declared group shape differs from actual ordered domains",
+                    ));
+                }
+                key.shape = shape;
+                let facts = GroupFacts {
+                    quantity_type: quantities.resolve_key(&key)?,
+                    domains: factors,
+                    valid_tuples: Vec::new(),
+                    members: BTreeMap::new(),
+                };
+                if groups.insert(id, facts).is_some() {
+                    return Err(invalid(
+                        "native group carrier has multiple physical meanings",
+                    ));
+                }
+            }
+        }
+        let result = loader.execute(plans::group_members(&session)?).await?;
+        for batch in result.batches() {
+            for row in 0..batch.num_rows() {
+                ctx.cancel.checkpoint()?;
+                let group = columns::id(batch, "group_id", row)?;
+                let facts = groups
+                    .get_mut(&group)
+                    .ok_or_else(|| invalid("native member has no physical group"))?;
+                let member_type =
+                    QuantityTypeId::from_id(columns::id(batch, "quantity_type_id", row)?);
+                let mut scalar = quantities.quantity_type(facts.quantity_type)?.key.clone();
+                scalar.shape.clear();
+                if quantities.quantity_type(member_type)?.key != scalar {
+                    return Err(invalid(
+                        "group member differs from its complete scalar physical contract",
+                    ));
+                }
+                let tuple = columns::ids(batch, "tuple", row)?;
+                facts.valid_tuples.push(tuple.clone());
+                facts
+                    .members
+                    .insert(tuple, columns::id(batch, "symbol_id", row)?);
+            }
+        }
+        let descriptor_batch = loader.declared("reference.kernel_specs").await?;
+        let kernels = kernels::decode(&descriptor_batch, quantities, ctx.cancel)?;
+        let mut unknowns = BTreeMap::new();
+        let result = loader.execute(plans::unknowns(&session)?).await?;
+        for batch in result.batches() {
+            for row in 0..batch.num_rows() {
+                ctx.cancel.checkpoint()?;
+                let system = columns::id(batch, "implicit_system_id", row)?;
+                let ordinal = u16::try_from(columns::integer(batch, "ordinal", row)?)
+                    .map_err(|_| invalid("implicit unknown ordinal exceeds u16"))?;
+                unknowns.insert(
+                    (system, ordinal),
+                    QuantityTypeId::from_id(columns::id(batch, "quantity_type_id", row)?),
+                );
+            }
+        }
+        Ok(Self {
+            symbols,
+            domains,
+            groups,
+            kernels,
+            unknowns,
+            boolean: physical.boolean(),
+            preconditions: physical.checker_owner(),
+            _allocation: ReservationLease::new(loader.allocation),
+        })
+    }
+}
+struct Loader<'a> {
+    session: &'a SnapshotSession,
+    cancel: &'a CancellationToken,
+    allocation: Box<dyn Reservation>,
+}
+impl Loader<'_> {
+    async fn execute(&mut self, plan: LogicalPlan) -> Result<CompletedComputation, CompilerError> {
+        let result = self
+            .session
+            .prepare_rule_plan(plan, self.cancel)?
+            .execute(self.cancel)
+            .await?;
+        let extent = result
+            .batches()
+            .iter()
+            .try_fold(0usize, |sum, batch| {
+                sum.checked_add(batch.get_array_memory_size())?
+                    .checked_add(batch.num_rows().checked_mul(256)?)
+            })
+            .and_then(|bytes| bytes.checked_mul(8))
+            .ok_or_else(|| invalid("physical algorithm result extent overflow"))?;
+        self.allocation
+            .try_grow(extent)
+            .map_err(pse_ids::CanonError::from)?;
+        Ok(result)
+    }
+    async fn declared(&mut self, name: &str) -> Result<FieldCheckedBatch, CompilerError> {
+        let spec = self
+            .session
+            .registry()
+            .relation(name)
+            .ok_or_else(|| invalid("physical input declaration absent"))?;
+        let plan = LogicalPlanBuilder::from(plans::scan(self.session, name, "input")?)
+            .sort(
+                spec.primary_key
+                    .iter()
+                    .map(|key| col(*key).sort(true, false)),
+            )
+            .and_then(LogicalPlanBuilder::build)
+            .map_err(plans::engine)?;
+        let plan =
+            declare_relation_output(plan, self.session.registry(), spec).map_err(plans::engine)?;
+        let result = self.execute(plan).await?;
+        let batch = result.checked_relation(self.session.registry(), spec, self.cancel)?;
+        Ok(batch)
     }
 }

@@ -1,7 +1,7 @@
 ---
 id: ADR-0046
 title: Share runtime budgets and reserve platform allocations explicitly
-status: accepted
+status: superseded
 date: 2026-09-13
 deciders: [paul-heyse]
 level: decision
@@ -10,7 +10,7 @@ blueprint: [§14.3, §18.2, §18.8, §20.1, §24.3]
 review: docs/design_review/reviews/design_review_blueprint-rev5-contracts_2026-09-13.md#6-acceptance-gates
 evidence: Proposed
 supersedes: [ADR-0029]
-superseded-by: null
+superseded-by: ADR-0068
 revisit: Measured pool/process peaks diverge materially or a supported consumer cannot reserve before allocation.
 verification: just adr-lint; just docs; docs/plans/02-blueprint-revision-5-contracts.md Verification; bash docs/design_review/evidence/blueprint-rev4-2026-09-13/run.sh
 ---
@@ -62,3 +62,4 @@ See the governed blueprint sections, the [revision-4 review](../design_review/re
 - 2026-09-13 — proposed before the revision-5 blueprint amendment; user requested reconciliation of all review findings and library opportunities.
 - 2026-09-13 — proposes superseding ADR-0029 for the corrected contract above; accepted arguments remain immutable.
 - 2026-09-13 — accepted (revision-5 review, Accept for bounded proposed scope; evidence remains Proposed until the wave-1 implementation review).
+- 2026-09-15 — superseded by ADR-0068.

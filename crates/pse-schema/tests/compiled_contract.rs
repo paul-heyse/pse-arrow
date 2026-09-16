@@ -9,8 +9,8 @@ use pse_schema::{
     Registry, RegistryBuilder,
     compiled_contract::relation,
     model::{
-        Authority, ColumnRole, ColumnSpec, DerivationGranularity, EnumDecl, EnumMember, ForeignKey,
-        LogicalType as T, Namespace, QuantityContract, RelationDecl, SnapshotClass, Stability,
+        Authority, ColumnRole, DerivationGranularity, EnumDecl, EnumMember, FieldContract,
+        FieldContract as T, Namespace, QuantityContract, RelationDecl, SnapshotClass, Stability,
     },
 };
 
@@ -31,17 +31,17 @@ fn fixture(member: &'static str) -> Registry {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", T::id(), "identity"),
-            ColumnSpec::payload(
+            FieldContract::key("id", T::id(), "identity"),
+            FieldContract::payload(
                 "value",
-                T::Struct(vec![(
-                    "choices",
-                    T::fixed_list(T::enumeration("Choice"), 2),
-                    true,
-                )]),
+                T::structure(vec![
+                    T::fixed_list(T::enumeration("Choice"), 2)
+                        .with_name("choices")
+                        .with_nullable(true),
+                ]),
                 "nested declaration",
             ),
-            ColumnSpec::reference("parent", T::id(), "parent")
+            FieldContract::reference("parent", T::id(), "parent")
                 .optional()
                 .with_fk("authored.contract", "id"),
         ]),
@@ -54,6 +54,11 @@ fn every_relation_and_column_fact_survives_an_unchanged_fingerprint() {
     let reg = fixture("first");
     let original = reg.relation("authored.contract").unwrap();
     let expected = relation(&reg, original).unwrap().literal_spec();
+    assert!(matches!(
+        reg.compiled_declaration(original).unwrap(),
+        std::borrow::Cow::Borrowed(_)
+    ));
+    assert_eq!(reg.compiled_declaration(original).unwrap(), expected);
     let mut alternatives = vec![];
     macro_rules! altered {
         ($value:ident, $change:expr) => {{
@@ -75,39 +80,60 @@ fn every_relation_and_column_fact_survives_an_unchanged_fingerprint() {
     altered!(s, s.stability = Stability::Stable);
     altered!(s, s.primary_key = vec!["id", "parent"]);
     altered!(s, s.doc = "different relation meaning");
-    altered!(s, s.columns[1].name = "renamed");
-    altered!(s, s.columns[1].nullable = true);
+    altered!(s, s.columns[1] = s.columns[1].clone().with_name("renamed"));
+    altered!(s, s.columns[1] = s.columns[1].clone().with_nullable(true));
     altered!(
         s,
-        s.columns[1].quantity = QuantityContract::Column("temperature")
-    );
-    altered!(s, s.columns[1].role = ColumnRole::Reference);
-    altered!(s, s.columns[1].doc = "different column meaning");
-    altered!(s, s.columns[2].fk = None);
-    altered!(
-        s,
-        s.columns[2].fk = Some(ForeignKey::new("authored.contract", "parent"))
+        s.columns[1] = s.columns[1]
+            .clone()
+            .with_quantity_contract(QuantityContract::Column("temperature"))
     );
     altered!(
         s,
-        s.columns[1].logical_type = T::Struct(vec![(
-            "choices",
-            T::fixed_list(T::enumeration("Choice"), 3),
-            true
-        )])
+        s.columns[1] = s.columns[1].clone().with_role(ColumnRole::Reference)
     );
     altered!(
         s,
-        s.columns[1].logical_type = T::Struct(vec![(
-            "choices",
-            T::fixed_list(T::enumeration("Choice"), 2),
-            false
-        )])
+        s.columns[1] = s.columns[1].clone().with_doc("different column meaning")
+    );
+    altered!(s, s.columns[2] = s.columns[2].clone().without_fk());
+    altered!(
+        s,
+        s.columns[2] = s.columns[2].clone().with_fk("authored.contract", "parent")
+    );
+    altered!(
+        s,
+        s.columns[1] = FieldContract::payload(
+            "value",
+            T::structure(vec![
+                T::fixed_list(T::enumeration("Choice"), 3)
+                    .with_name("choices")
+                    .with_nullable(true)
+            ]),
+            "nested declaration"
+        )
+    );
+    altered!(
+        s,
+        s.columns[1] = FieldContract::payload(
+            "value",
+            T::structure(vec![
+                T::fixed_list(T::enumeration("Choice"), 2)
+                    .with_name("choices")
+                    .with_nullable(false)
+            ]),
+            "nested declaration"
+        )
     );
     altered!(s, s.columns.swap(1, 2));
     for changed in alternatives {
         assert_eq!(changed.fingerprint, original.fingerprint);
         assert_ne!(relation(&reg, &changed).unwrap().literal_spec(), expected);
+        assert!(matches!(
+            reg.compiled_declaration(&changed).unwrap(),
+            std::borrow::Cow::Owned(_)
+        ));
+        assert_ne!(reg.compiled_declaration(&changed).unwrap(), expected);
     }
 }
 
@@ -123,7 +149,8 @@ fn resolved_enum_members_and_extension_descriptors_are_compiled_values() {
     );
     let literal = relation(&reg, spec).unwrap().literal_spec();
     assert!(literal.contains("pse.enum"));
-    assert!(literal.contains("Dictionary"));
+    assert!(literal.contains("Utf8"));
+    assert!(!literal.contains("Dictionary"));
     assert!(literal.contains("enum_id"));
     assert!(literal.contains("first"));
     assert!(!literal.contains(&spec.fingerprint.to_hex()));

@@ -4,7 +4,6 @@
 # R-30 requires an ADR before a later pass consumes them.
 # A later producer alone is not a reason to omit an already specified relation.
 [deferred]
-"authored.instance_equations" = "Later equation instantiation; no complete column contract."
 "authored.template_scaling_defaults" = "Later scaling defaults; column contract remains partial."
 "reference.diagnostic_thresholds" = "Later diagnostic policy; column contract remains partial."
 "reference.cost_indices" = "Later costing data; column contract remains partial."
@@ -15,7 +14,6 @@
 "authored.measurement_models" = "Blueprint §6.10 leaves parameters untyped and the ErrorModel dictionary members undefined."
 "authored.tags" = "Blueprint §19.2 does not specify authored tag identity, ownership/key columns, or the representation of group defaults."
 "inferred.phase_equilibrium_species" = "Blueprint §9.5 does not map schematic pair to the composite phase-equilibrium-pair key, and intersection-only membership conflicts with l_only/v_only roles; both require a contract decision."
-"inferred.tear_candidates" = "Blueprint §6.7 names the relation and §12.5 describes the algorithm, without a row contract."
 "compiled.math_alternative_sets" = "Blueprint §6.9 names the relation without a column contract."
 "compiled.math_alternatives" = "Blueprint §6.9 names the relation without a column contract."
 "compiled.math_static_analysis" = "Blueprint §6.9 leaves a literal ellipsis in the row contract; §7.5 only supplies parameter_dependence."

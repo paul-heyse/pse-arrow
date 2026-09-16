@@ -6,7 +6,6 @@
 use std::sync::Arc;
 
 use bytes::Bytes;
-use datafusion::arrow::array::RecordBatch;
 use datafusion::parquet;
 use datafusion::parquet::arrow::arrow_reader::{
     ArrowReaderMetadata, ArrowReaderOptions, ParquetRecordBatchReaderBuilder,
@@ -34,9 +33,9 @@ pub(super) fn decode(
     reserver: &dyn MemoryReserver,
     cancel: &CancellationToken,
     envelope: Envelope,
-) -> Result<RecordBatch, CatalogError> {
+) -> Result<pse_relations::columnar::FieldCheckedBatch, CatalogError> {
     cancel.checkpoint()?;
-    Envelope::lowered(envelope.max_rows, envelope.max_normalized_bytes)?;
+    Envelope::new(envelope.max_rows, envelope.max_normalized_bytes)?;
     let footer = footer(bytes)?;
     let mut control = reserver.open("store:parquet-metadata");
     control.try_grow(
@@ -126,14 +125,13 @@ pub(super) fn decode(
         .map_err(|error| admission("Parquet batches", &error.to_string()))?;
     let mut validation = reserver.open("store:parquet-value-admission");
     validation.try_grow(super::super::membership::validation_extent(&batch)?)?;
-    pse_relations::validate::validate_batch(reg, spec, &batch)
-        .map_err(|errors| admission("Parquet relation", &super::messages(&errors)))?;
     drop(batches);
     let retained = pse_ids::owned_buffer::retained_buffer_bytes(&batch)?;
     reservation.shrink(reservation.size().saturating_sub(retained));
-    Ok(pse_ids::owned_buffer::attach_reservation(
-        batch,
-        ReservationLease::new(reservation),
+    let batch =
+        pse_ids::owned_buffer::attach_reservation(batch, ReservationLease::new(reservation))?;
+    Ok(pse_relations::columnar::FieldCheckedBatch::admit(
+        reg, spec, batch,
     )?)
 }
 

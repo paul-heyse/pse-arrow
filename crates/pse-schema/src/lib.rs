@@ -51,14 +51,16 @@ pub mod catalog;
 mod checks;
 pub mod codegen;
 pub mod compiled_contract;
+pub mod delta;
 pub mod error;
 pub mod ext_metadata;
+pub mod field_contract;
 pub mod fingerprint;
 pub mod membership;
 pub mod model;
 mod rule_deps;
 
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 pub use crate::builder::{REGISTRY_PACKAGE_ID, REGISTRY_PACKAGE_NAME, Registry, RegistryBuilder};
 pub use crate::error::SchemaError;
@@ -68,7 +70,7 @@ pub use crate::error::SchemaError;
 /// The `Result` is memoized rather than the `Registry`: a failed assembly is a
 /// deterministic property of the declarations, so re-running it would produce the same
 /// failure at a cost, and the second caller deserves the same diagnosis as the first.
-static REGISTRY: OnceLock<Result<Registry, SchemaError>> = OnceLock::new();
+static REGISTRY: OnceLock<Result<Arc<Registry>, SchemaError>> = OnceLock::new();
 
 /// The registry.
 ///
@@ -86,8 +88,17 @@ static REGISTRY: OnceLock<Result<Registry, SchemaError>> = OnceLock::new();
 /// # Ok::<(), pse_schema::SchemaError>(())
 /// ```
 pub fn registry() -> Result<&'static Registry, SchemaError> {
-    match REGISTRY.get_or_init(catalog::assemble) {
+    match REGISTRY.get_or_init(|| catalog::assemble().map(Arc::new)) {
         Ok(registry) => Ok(registry),
         Err(error) => Err(error.clone()),
     }
+}
+
+/// Shared ownership of the same declaration registry for native execution bindings.
+/// # Errors
+/// The errors of [`catalog::assemble`].
+pub fn shared_registry() -> Result<Arc<Registry>, SchemaError> {
+    REGISTRY
+        .get_or_init(|| catalog::assemble().map(Arc::new))
+        .clone()
 }

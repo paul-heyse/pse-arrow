@@ -60,7 +60,7 @@ body:
       label: Which bar does this clear?
       description: From the CONTRIBUTING.md §4 table. If you are unsure, pick the higher one.
       options:
-        - ADR + design review (D1–D14, a crate, a dependency family, a contract, governance, any SHOULD deviation)
+        - ADR + design review (D1–D14, a crate, a pinned-family major, a contract, governance, any SHOULD deviation)
         - ADR only (a new relation family, pass, kernel contract, or backend binding within an accepted decision; moving the parity pin; a deferred trigger firing)
         - Not sure — please triage
     validations:

@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "f72889ca948f4c01bf5334a8ab18ea94"
+name = "pse.states"
+version = "1.0.0"
+kind = "library"
+id_policy = "explicit"
+dependencies = [
+  { package_id = "ce317b088cc74ac89873845b0c086ea8", version_req = "=1.0.0" },
+]
+doc = "See sources.md for source, domain and qualification boundaries."
+
+[[unit_sets]]
+package_id = "f72889ca948f4c01bf5334a8ab18ea94"
+unit_set_id = "e95dc4e82a284f3877f924cb656b1de2"

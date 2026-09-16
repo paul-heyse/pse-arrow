@@ -11,16 +11,16 @@
 
 use pse_schema::builder::RegistryBuilder;
 use pse_schema::model::{
-    Authority, Cell, CmpOp, ColumnRole, ColumnSpec, DependencyMode, DepthBound, Determinism,
-    DocumentKind, DocumentSection, DocumentSpec, EnumDecl, EnumMember, ExtensionUse, InputPort,
-    LogicalType, ManifestField, ManifestSpec, ManifestType, MigrationSpec, MigrationStep,
-    Namespace, NullEquality, OutputPort, PassDecl, PortSource, RelationDecl, RuleDecl, RuleExpr,
-    RuleHead, RulePlan, SnapshotClass,
+    Authority, Cell, CmpOp, ColumnRole, DependencyMode, DepthBound, Determinism, DocumentKind,
+    DocumentSection, DocumentSpec, EnumDecl, EnumMember, ExtensionUse, FieldContract, InputPort,
+    ManifestField, ManifestSpec, ManifestType, MigrationSpec, MigrationStep, Namespace,
+    NullEquality, OutputPort, PassDecl, PortSource, RelationDecl, RuleDecl, RuleExpr, RuleHead,
+    RulePlan, SnapshotClass,
 };
 use pse_schema::{Registry, SchemaError};
 
-fn relation(name: &'static str, version: u32, extra: Vec<ColumnSpec>) -> RelationDecl {
-    let mut columns = vec![ColumnSpec::key("id", LogicalType::id(), "identity")];
+fn relation(name: &'static str, version: u32, extra: Vec<FieldContract>) -> RelationDecl {
+    let mut columns = vec![FieldContract::key("id", FieldContract::id(), "identity")];
     columns.extend(extra);
     RelationDecl::new(
         Namespace::Authored,
@@ -76,6 +76,43 @@ fn rules(rules: Vec<RuleDecl>) -> Result<Registry, SchemaError> {
     builder.build()
 }
 
+#[test]
+fn explicit_assertion_is_allowed_only_beneath_output_projections() {
+    let assertion = RulePlan::Assert {
+        input: Box::new(scan("authored.base", "base")),
+        predicate: RuleExpr::Lit(Cell::Bool(true)),
+    };
+    assert!(
+        rules(vec![rule(
+            "1",
+            RulePlan::Project {
+                input: Box::new(assertion.clone()),
+                columns: vec![("id".into(), RuleExpr::col("id"))],
+            }
+        )])
+        .is_ok()
+    );
+    for invalid in [
+        RulePlan::Filter {
+            input: Box::new(assertion.clone()),
+            predicate: RuleExpr::Lit(Cell::Bool(true)),
+        },
+        RulePlan::Union(vec![assertion.clone(), assertion.clone()]),
+        RulePlan::Assert {
+            input: Box::new(assertion),
+            predicate: RuleExpr::Lit(Cell::Bool(true)),
+        },
+    ] {
+        let error = rules(vec![rule("1", invalid)]).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("assertion predicate is allowed only"),
+            "{error}"
+        );
+    }
+}
+
 fn rows(registry: &Registry, name: &str) -> Vec<Vec<Cell>> {
     registry
         .schema_rows()
@@ -91,31 +128,42 @@ fn malformed_keys_and_duplicate_columns_are_rejected_before_identity() {
         relation("a", 1, vec![]).pk(&[]),
         relation("a", 1, vec![]).pk(&["id", "id"]),
         relation("a", 1, vec![]).columns(vec![
-            ColumnSpec::key("id", LogicalType::id(), "id").optional(),
+            FieldContract::key("id", FieldContract::id(), "id").optional(),
         ]),
-        relation("a", 1, vec![]).columns(vec![ColumnSpec::key("id", LogicalType::F64, "float")]),
+        relation("a", 1, vec![]).columns(vec![FieldContract::key(
+            "id",
+            FieldContract::native(arrow_schema::DataType::Float64),
+            "float",
+        )]),
         relation(
             "a",
             1,
-            vec![ColumnSpec::key("id", LogicalType::id(), "duplicate")],
+            vec![FieldContract::key("id", FieldContract::id(), "duplicate")],
         ),
         relation(
             "a",
             1,
-            vec![ColumnSpec::label(
+            vec![FieldContract::label(
                 "payload",
-                LogicalType::fixed_list(LogicalType::U64, -1),
+                FieldContract::fixed_list(
+                    FieldContract::native(arrow_schema::DataType::UInt64),
+                    -1,
+                ),
                 "bad width",
             )],
         ),
         relation(
             "a",
             1,
-            vec![ColumnSpec::label(
+            vec![FieldContract::label(
                 "payload",
-                LogicalType::Struct(vec![
-                    ("x", LogicalType::U64, false),
-                    ("x", LogicalType::U64, false),
+                FieldContract::structure(vec![
+                    FieldContract::native(arrow_schema::DataType::UInt64)
+                        .with_name("x")
+                        .with_nullable(false),
+                    FieldContract::native(arrow_schema::DataType::UInt64)
+                        .with_name("x")
+                        .with_nullable(false),
                 ]),
                 "duplicate fields",
             )],
@@ -153,6 +201,7 @@ fn duplicate_enum_members_document_sections_and_manifest_fields_are_rejected() {
         name_column: None,
         naming_scope_column: None,
         expression_owner_column: None,
+        expression_owner_kind: None,
         expression_fields: &[],
         doc: "items",
     };
@@ -212,8 +261,12 @@ fn foreign_key_and_quantity_sibling_types_must_match() {
         "source",
         1,
         vec![
-            ColumnSpec::reference("target_id", LogicalType::U64, "wrong identity type")
-                .with_fk("authored.target", "id"),
+            FieldContract::reference(
+                "target_id",
+                FieldContract::native(arrow_schema::DataType::UInt64),
+                "wrong identity type",
+            )
+            .with_fk("authored.target", "id"),
         ],
     ));
     assert!(matches!(
@@ -225,17 +278,17 @@ fn foreign_key_and_quantity_sibling_types_must_match() {
             "measure",
             1,
             vec![
-                ColumnSpec::new(
+                FieldContract::new(
                     "value",
-                    LogicalType::F64,
+                    FieldContract::native(arrow_schema::DataType::Float64),
                     false,
                     ColumnRole::Measure,
                     "value"
                 )
                 .with_per_row_quantity(),
-                ColumnSpec::reference(
+                FieldContract::reference(
                     "value_quantity_type_id",
-                    LogicalType::Text,
+                    FieldContract::native(arrow_schema::DataType::Utf8),
                     "not an identity"
                 ),
             ]
@@ -252,9 +305,9 @@ fn resolved_ordinal_target_is_present_in_the_consuming_contract() {
         builder.declare_relation(relation(
             "source",
             1,
-            vec![ColumnSpec::reference(
+            vec![FieldContract::reference(
                 "target",
-                LogicalType::Ext(ExtensionUse::OrdinalRef {
+                FieldContract::extended(ExtensionUse::OrdinalRef {
                     target: "authored.target",
                 }),
                 "ordinal",
@@ -276,6 +329,91 @@ fn resolved_ordinal_target_is_present_in_the_consuming_contract() {
         before.relation("authored.source").unwrap().fingerprint,
         after.relation("authored.source").unwrap().fingerprint
     );
+}
+
+#[test]
+fn arbitrary_registries_project_complete_declared_integrity_programs() {
+    let mut builder = RegistryBuilder::new();
+    builder.declare_relation(relation("target", 1, vec![]));
+    builder.declare_relation(relation(
+        "source",
+        1,
+        vec![
+            FieldContract::reference("target_id", FieldContract::id(), "Foreign key")
+                .with_fk("authored.target", "id")
+                .optional(),
+            FieldContract::payload(
+                "nested",
+                FieldContract::structure(vec![
+                    FieldContract::list(FieldContract::extended(ExtensionUse::OrdinalRef {
+                        target: "authored.target",
+                    }))
+                    .with_name("items")
+                    .with_nullable(true),
+                ]),
+                "Nested ordinal values",
+            )
+            .optional(),
+        ],
+    ));
+    let registry = builder.build().unwrap();
+    let names = registry
+        .invariants()
+        .iter()
+        .map(pse_schema::model::InvariantSpec::qualified_name)
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(
+        names,
+        std::collections::BTreeSet::from([
+            "authored.target:unique:pk".to_owned(),
+            "authored.source:unique:pk".to_owned(),
+            "authored.source:foreign_key:target_id".to_owned(),
+            "authored.source:ordinal_range:nested.items[]".to_owned(),
+        ])
+    );
+    let ordinal = registry
+        .rule("ordinal_range:nested.items[]:authored.source@1")
+        .unwrap();
+    let dependencies = ordinal.plan.dependencies();
+    assert!(
+        dependencies
+            .iter()
+            .any(|(name, _, _)| *name == "authored.source")
+    );
+    assert!(
+        dependencies
+            .iter()
+            .any(|(name, _, _)| *name == "authored.target")
+    );
+}
+
+#[test]
+fn a_conflicting_manual_integrity_projection_cannot_replace_the_declaration() {
+    let mut builder = RegistryBuilder::new();
+    builder.declare_relation(relation("base", 1, vec![]));
+    builder.declare_rule(
+        RuleDecl::new(
+            "unique:pk:authored.base",
+            "1",
+            1,
+            RuleHead::Violations {
+                of: "authored.base".into(),
+                key_columns: vec!["id"],
+            },
+            RulePlan::Project {
+                input: Box::new(filtered(RuleExpr::Lit(Cell::Bool(false)))),
+                columns: (vec![("id", RuleExpr::col("id"))])
+                    .into_iter()
+                    .map(|(name, expression)| (name.into(), expression))
+                    .collect(),
+            },
+        )
+        .stratified_negation(),
+    );
+    assert!(matches!(
+        builder.build(),
+        Err(SchemaError::DuplicateDeclaration { .. })
+    ));
 }
 
 #[test]
@@ -305,8 +443,15 @@ fn nested_literals_and_expression_edges_preserve_every_scalar_payload() {
         filtered(RuleExpr::IsNull(Box::new(RuleExpr::Lit(literal)))),
     )])
     .unwrap();
-    let nodes = rows(&registry, "rule_expr_nodes");
-    let edges = rows(&registry, "rule_expr_edges");
+    let rule_id = registry.rule("fixture@1").unwrap().id;
+    let nodes = rows(&registry, "rule_expr_nodes")
+        .into_iter()
+        .filter(|row| row[1] == Cell::Id(rule_id))
+        .collect::<Vec<_>>();
+    let edges = rows(&registry, "rule_expr_edges")
+        .into_iter()
+        .filter(|row| nodes.iter().any(|node| node[0] == row[0]))
+        .collect::<Vec<_>>();
     assert_eq!(nodes.len(), 7);
     assert_eq!(edges.len(), 6);
     assert!(nodes.iter().any(|row| row[6] == Cell::Enum("struct")));
@@ -405,7 +550,14 @@ fn recursive_references_bind_lexically_and_do_not_become_external_dependencies()
         recursive(scan("authored.base", "base"), reference()),
     )])
     .unwrap();
-    assert_eq!(registry.rule_dependencies().len(), 1);
+    assert_eq!(
+        registry
+            .rule_dependencies()
+            .iter()
+            .filter(|dependency| dependency.rule_id == registry.rule("fixture@1").unwrap().id)
+            .count(),
+        1
+    );
     let nodes = rows(&registry, "rule_plan_nodes");
     let binder = nodes
         .iter()
@@ -420,7 +572,7 @@ fn recursive_references_bind_lexically_and_do_not_become_external_dependencies()
 }
 
 #[test]
-fn recursive_policy_rejects_unproved_closure_and_resolves_nearest_binders() {
+fn recursive_policy_retains_native_closure_and_resolves_nearest_binders() {
     let recursive = |seed, step, is_distinct, depth_bound| RulePlan::Recursive {
         name: "closure",
         seed: Box::new(seed),
@@ -428,23 +580,24 @@ fn recursive_policy_rejects_unproved_closure_and_resolves_nearest_binders() {
         is_distinct,
         depth_bound,
     };
-    for (is_distinct, depth_bound) in [
-        (false, DepthBound::FixedPoint),
-        (true, DepthBound::FixedPoint),
-        (true, DepthBound::Bounded(4)),
-        (false, DepthBound::Bounded(0)),
+    for (is_distinct, depth_bound, accepted) in [
+        (false, DepthBound::FixedPoint, true),
+        (true, DepthBound::FixedPoint, true),
+        (true, DepthBound::Bounded(4), true),
+        (false, DepthBound::Bounded(0), false),
     ] {
-        assert!(
+        assert_eq!(
             rules(vec![rule(
                 "1",
                 recursive(
                     scan("authored.base", "base"),
                     RulePlan::RecursiveRef { name: "closure" },
                     is_distinct,
-                    depth_bound,
-                )
+                    depth_bound
+                ),
             )])
-            .is_err()
+            .is_ok(),
+            accepted
         );
     }
     let registry = rules(vec![rule(
@@ -470,14 +623,24 @@ fn recursive_policy_rejects_unproved_closure_and_resolves_nearest_binders() {
         .unwrap();
     assert_eq!(reference[12], inner[0]);
     assert!(nodes.iter().any(|row| row[14] == Cell::Enum("seed_rows")));
-    assert_eq!(registry.rule_dependencies().len(), 1);
+    assert_eq!(
+        registry
+            .rule_dependencies()
+            .iter()
+            .filter(|dependency| dependency.rule_id == registry.rule("fixture@1").unwrap().id)
+            .count(),
+        1
+    );
 }
 
 #[test]
 fn projected_float_keys_are_rejected_in_the_operator_that_uses_them() {
     let plan = RulePlan::Distinct(Box::new(RulePlan::Project {
         input: Box::new(scan("authored.base", "base")),
-        columns: vec![("id", RuleExpr::Lit(Cell::F64(1.0)))],
+        columns: (vec![("id", RuleExpr::Lit(Cell::F64(1.0)))])
+            .into_iter()
+            .map(|(name, expression)| (name.into(), expression))
+            .collect(),
     }));
     assert!(matches!(
         rules(vec![rule("1", plan)]),
@@ -501,10 +664,10 @@ fn join_keys_resolve_against_their_own_sides_and_preserve_null_semantics() {
             )
             .pk(&["key"])
             .columns(vec![
-                ColumnSpec::key("key", LogicalType::id(), "key"),
-                ColumnSpec::new(
+                FieldContract::key("key", FieldContract::id(), "key"),
+                FieldContract::new(
                     "id",
-                    LogicalType::F64,
+                    FieldContract::native(arrow_schema::DataType::Float64),
                     false,
                     ColumnRole::Measure,
                     "unrelated same-name float",
@@ -517,10 +680,16 @@ fn join_keys_resolve_against_their_own_sides_and_preserve_null_semantics() {
                 input: Box::new(RulePlan::EquiJoin {
                     left: Box::new(scan("authored.base", "left")),
                     right: Box::new(scan("authored.right", "right")),
-                    keys: vec![("id", "key")],
+                    keys: (vec![("id", "key")])
+                        .into_iter()
+                        .map(|(left, right)| (left.into(), right.into()))
+                        .collect(),
                     null_equality,
                 }),
-                columns: vec![("id", RuleExpr::col("left.id"))],
+                columns: (vec![("id", RuleExpr::col("left.id"))])
+                    .into_iter()
+                    .map(|(name, expression)| (name.into(), expression))
+                    .collect(),
             },
         ));
         builder.build().unwrap()
@@ -544,9 +713,9 @@ fn migration_defaults_are_lossless_and_type_checked() {
         builder.declare_relation(relation(
             "base",
             2,
-            vec![ColumnSpec::new(
+            vec![FieldContract::new(
                 "value",
-                LogicalType::F64,
+                FieldContract::native(arrow_schema::DataType::Float64),
                 false,
                 ColumnRole::Measure,
                 "value",
@@ -658,9 +827,17 @@ fn document_identity_projection_is_admitted_and_fingerprinted() {
             )
             .pk(&["thing_id"])
             .columns(vec![
-                ColumnSpec::key("thing_id", LogicalType::id(), "Identity."),
-                ColumnSpec::label("name", LogicalType::Text, "Name."),
-                ColumnSpec::label("label", LogicalType::Text, "Alternate name."),
+                FieldContract::key("thing_id", FieldContract::id(), "Identity."),
+                FieldContract::label(
+                    "name",
+                    FieldContract::native(arrow_schema::DataType::Utf8),
+                    "Name.",
+                ),
+                FieldContract::label(
+                    "label",
+                    FieldContract::native(arrow_schema::DataType::Utf8),
+                    "Alternate name.",
+                ),
             ]),
         );
         builder.declare_enum(EnumDecl::platform(
@@ -684,6 +861,7 @@ fn document_identity_projection_is_admitted_and_fingerprinted() {
                 name_column: Some("name"),
                 naming_scope_column: None,
                 expression_owner_column: None,
+                expression_owner_kind: None,
                 expression_fields: &[],
                 doc: "Rows.",
             }],
@@ -736,9 +914,9 @@ fn document_dsl_grammar_requires_complete_nested_leaf_coverage_and_affects_proje
                 "owner",
             )
             .pk(&["template_id"])
-            .columns(vec![ColumnSpec::key(
+            .columns(vec![FieldContract::key(
                 "template_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "id",
             )]),
         );
@@ -746,15 +924,15 @@ fn document_dsl_grammar_requires_complete_nested_leaf_coverage_and_affects_proje
             "expressions",
             1,
             vec![
-                ColumnSpec::reference("template_id", LogicalType::id(), "owner")
+                FieldContract::reference("template_id", FieldContract::id(), "owner")
                     .with_fk("authored.templates", "template_id"),
-                ColumnSpec::payload(
+                FieldContract::payload(
                     "bindings",
-                    LogicalType::list(LogicalType::Struct(vec![(
-                        "value",
-                        LogicalType::Ext(ExtensionUse::ExprDsl),
-                        false,
-                    )])),
+                    FieldContract::list(FieldContract::structure(vec![
+                        FieldContract::extended(ExtensionUse::ExprDsl)
+                            .with_name("value")
+                            .with_nullable(false),
+                    ])),
                     "nested source",
                 ),
             ],
@@ -773,6 +951,7 @@ fn document_dsl_grammar_requires_complete_nested_leaf_coverage_and_affects_proje
                 name_column: None,
                 naming_scope_column: None,
                 expression_owner_column: Some("template_id"),
+                expression_owner_kind: Some(pse_schema::model::ExpressionOwnerKind::Template),
                 expression_fields: fields,
                 doc: "grammar",
             }],

@@ -22,7 +22,9 @@ roles. Skills are canonical in `.codex/skills/`, exposed through `.claude/skills
 symlinks are unavailable. `just lint-agents` checks drift and `just setup-test` checks
 behavior.
 
-Use planning for architecture, dependency-family, generation and Python-boundary
-changes. Apply the ADR criteria in AGENTS.md: touching those files alone does not make
-every bug fix an architecture decision. Use the `adr` and `design-review` skills when
+Use planning for architecture, pinned-family-major, generation and Python-boundary
+changes. Adding a third-party dependency is not one of them: no library and no licence is
+refused during phases 0-1 (`docs/dev/dependency-policy.md`, ADR-0066). Apply the ADR
+criteria in AGENTS.md: touching those files alone does not make every bug fix an
+architecture decision. Use the `adr` and `design-review` skills when
 required. Plans belong in `docs/plans/`, never in a runtime's private home directory.

@@ -11,21 +11,14 @@ use crate::{
     passes::{dag::invalid, p2},
 };
 use pse_authoring::{
-    change_set::{AuthoredReader, ChangeSet},
+    change_set::{AuthoredReader, OwnedChangeSet},
     document::{DocumentBundle, OwnedDocumentSet},
 };
-use pse_catalog::{
-    RefName, Snapshot,
-    store::{
-        membership::AdmissionContext,
-        publish::{BundleDraft, RelationDraft},
-        refs::RefState,
-    },
-};
-use pse_ids::{CancellationToken, SemanticId, SnapshotKind};
-use pse_relations::{RecordBatch, generated::authored};
+use pse_catalog::{RefName, Snapshot, store::refs::RefState};
+use pse_ids::{CancellationToken, SemanticId};
+use pse_relations::generated::authored;
 use pse_rules::invariants::InvariantReport;
-use pse_schema::model::{Authority, Cell, RelationKey, SnapshotClass};
+use pse_schema::model::{Authority, SnapshotClass};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// An observed revision alias and its exact admitted target, retained through CAS.
@@ -53,18 +46,18 @@ pub struct CommitRequest {
     pub revision_ids: Option<CommitRevisionIds>,
     /// Exact observed revision; absent only for first creation.
     pub base: Option<CommitBase>,
-    /// Exact desired source inventory. Ordinary commits reparse every document.
+    /// Exact desired source inventory. Immutable parsed documents are retained by source construction.
     pub documents: Vec<DocumentBundle>,
     /// Typed operation header with an explicit expected base revision.
     pub header: authored::change_sets::Row,
-    /// Optional staged envelope, including a full rename source proof when applicable.
-    pub changes: Option<ChangeSet>,
+    /// Optional staged envelope, including retained renamed sources when applicable.
+    pub changes: Option<OwnedChangeSet>,
 }
 /// Commit outcome, retaining all P2 findings even when nothing is published.
 #[derive(Debug)]
 pub struct CommitReport {
     /// Actual P2 evidence, including every violating and undecided key.
-    pub validation: InvariantReport,
+    pub validation: Arc<InvariantReport>,
     /// New model snapshot, present only on successful commit.
     pub model: Option<Arc<Snapshot>>,
     /// New case tip whose model parent is published with it through one alias.
@@ -78,7 +71,7 @@ pub struct CommitReport {
 }
 impl CommitReport {
     fn rejected(
-        validation: InvariantReport,
+        validation: Arc<InvariantReport>,
         attempts: Vec<pse_catalog::store::sidecar::SidecarArtifact>,
     ) -> Self {
         Self {
@@ -115,45 +108,52 @@ impl Driver {
             .revision_receipt(&artifact, revision.revision_id, &base.snapshot)?;
         let bindings = inputs::inventory(&base.snapshot, self.registry())?;
         let rows = inputs::row_inventory(&bindings);
-        let documents = inputs::documents(&self.catalog, &rows, cancel).await?;
+        let documents = inputs::documents(&self.catalog, &rows, cancel)?;
         let mut work = self.sessions.reserver().open("compiler:base-sidecars");
         let extent = pse_authoring::document::workspace_extent(&documents)?;
         work.try_grow(extent).map_err(pse_ids::CanonError::from)?;
         let mut base_rows = inputs::primitive_rows(&rows, self.registry());
-        let mut sidecars = BTreeMap::<SemanticId, Vec<Vec<Cell>>>::new();
+        let mut checked = bindings
+            .iter()
+            .filter(|(key, _)| {
+                self.registry()
+                    .relation(&key.qualified_name())
+                    .is_some_and(|spec| {
+                        matches!(spec.authority, Authority::Authored | Authority::Reference)
+                    })
+            })
+            .map(|(_, binding)| (binding.relation_id(), binding.relation().checked().clone()))
+            .collect::<pse_authoring::document::Batches>();
+        let mut sidecars =
+            BTreeMap::<SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>::new();
         for bundle in documents.bundles() {
-            for (id, values) in &bundle.rows {
+            for (id, batch) in &bundle.batches {
                 let spec = self
                     .registry()
                     .relation_by_id(*id)
-                    .ok_or_else(|| invalid("document sidecar declaration absent"))?;
+                    .ok_or_else(|| invalid("source relation absent"))?;
                 if spec.snapshot_class == SnapshotClass::Sidecar {
-                    sidecars
-                        .entry(*id)
-                        .or_default()
-                        .extend(values.iter().cloned());
+                    sidecars.entry(*id).or_default().push(batch.clone());
                 }
             }
         }
-        for (id, values) in sidecars {
+        for (id, batches) in sidecars {
             let spec = self
                 .registry()
                 .relation_by_id(id)
-                .ok_or_else(|| invalid("document sidecar declaration absent"))?;
-            base_rows.insert(
-                id,
-                pse_relations::cells::batch_from_cells_owned(
-                    self.registry(),
-                    spec,
-                    &values,
-                    self.sessions.reserver().as_ref(),
-                    cancel,
-                )?,
-            );
+                .ok_or_else(|| invalid("sidecar relation absent"))?;
+            let batch = pse_relations::columnar::FieldCheckedBatch::concat(
+                self.registry(),
+                spec,
+                &batches,
+            )?;
+            base_rows.insert(id, batch.batch().clone());
+            checked.insert(id, batch);
         }
         Ok(BaseReader {
             revision: revision.revision_id,
             rows: base_rows,
+            checked: Some(checked),
             documents,
         })
     }
@@ -191,7 +191,9 @@ impl Driver {
             initial.ids,
             initial.documents,
             cancel,
-        ) {
+        )
+        .await
+        {
             Ok(prepared) => prepared,
             Err(error) => return Err(p1.failed(&self.catalog, input, error).await),
         };
@@ -218,10 +220,14 @@ impl Driver {
             Err(error) => return Err(p2.failed(&self.catalog, input, error).await),
         };
         let (validation, engine, published) = completed;
-        if validation.error_count != 0 {
+        if validation.error_count() != 0 {
             let error = pse_rules::RuleError::InvariantViolations {
-                count: validation.error_count,
-                findings: validation.findings.clone(),
+                count: validation.error_count(),
+                findings: validation
+                    .findings()
+                    .iter()
+                    .map(|batch| batch.batch().clone())
+                    .collect(),
             }
             .into();
             match p2.failed(&self.catalog, input, error).await {
@@ -232,6 +238,16 @@ impl Driver {
         }
         let published =
             published.ok_or_else(|| invalid("successful validation has no published commit"))?;
+        let findings = validation
+            .findings()
+            .iter()
+            .map(|batch| batch.batch().clone())
+            .collect::<Vec<_>>();
+        let plans = validation
+            .completion()
+            .map(|completed| completed.prepared().observation().clone())
+            .into_iter()
+            .collect::<Vec<_>>();
         let terminal = p2
             .success(
                 &self.catalog,
@@ -240,8 +256,9 @@ impl Driver {
                     input,
                     output: Some(published.tip.snapshot_id()),
                     engine: Some(engine),
-                    findings: &validation.findings,
-                    plans: &validation.plans,
+                    findings: &findings,
+                    derivations: &[],
+                    plans: &plans,
                 },
                 cancel,
             )
@@ -282,9 +299,14 @@ impl Driver {
             }
             self.base_reader(base, cancel).await?
         } else {
+            let checked = self.empty_primitives(cancel)?;
             BaseReader {
                 revision: SemanticId::NIL,
-                rows: self.empty_primitives(cancel)?,
+                rows: checked
+                    .iter()
+                    .map(|(id, batch)| (*id, batch.batch().clone()))
+                    .collect(),
+                checked: Some(checked),
                 documents: OwnedDocumentSet::default(),
             }
         };
@@ -316,7 +338,13 @@ impl Driver {
             .try_grow(pse_authoring::document::workspace_extent(&documents)?)
             .map_err(pse_ids::CanonError::from)?;
         cancel.checkpoint()?;
-        pse_authoring::p0::resolve(documents.bundles(), self.registry())?;
+        let packages = pse_authoring::p1::source_batches(documents.bundles(), self.registry())?
+            .remove(&authored::packages::RELATION_ID)
+            .ok_or_else(|| invalid("package source absent"))?;
+        let source_session =
+            self.sessions
+                .candidate(BTreeMap::new(), Arc::clone(self.registry()), cancel)?;
+        pse_authoring::p0::resolve(&packages, &source_session, cancel).await?;
         cancel.checkpoint()?;
         Ok(prepare::Initial {
             base,
@@ -334,32 +362,35 @@ impl Driver {
         cancel: &CancellationToken,
     ) -> Result<
         (
-            InvariantReport,
+            Arc<InvariantReport>,
             pse_ids::ContentHash,
             Option<publish::Published>,
         ),
         CompilerError,
     > {
         cancel.checkpoint()?;
-        let session =
-            self.sessions
-                .candidate(prepared.rows.clone(), Arc::clone(self.registry()), cancel)?;
-        let validation = p2::validate(&prepared.rows, &session, self.registry(), cancel).await?;
+        let session = self.sessions.candidate_checked(
+            prepared.checked.clone(),
+            Arc::clone(self.registry()),
+            cancel,
+        )?;
+        let validation =
+            Arc::new(p2::validate(&prepared.rows, &session, self.registry(), cancel).await?);
         let engine = session.profile_hash();
-        if validation.error_count != 0 {
+        if validation.error_count() != 0 {
             return Ok((validation, engine, None));
         }
         let result = async {
-            self.verify_document_rows(prepared.documents.bundles(), &prepared.rows, cancel)?;
-            for bundle in prepared.documents.bundles() {
-                for document in &bundle.documents {
-                    self.catalog
-                        .put_document(document.id, document.text.as_bytes(), cancel)
-                        .await?;
-                }
-            }
+            let completed =
+                self.catalog
+                    .complete_sources(Arc::new(crate::validator::SourceArguments {
+                        candidate: prepared.candidate.clone(),
+                        rows: prepared.checked.clone(),
+                        validation: Arc::clone(&validation),
+                        registry: Arc::clone(self.registry()),
+                    }))?;
             let mut published = self
-                .publish_revisions(&prepared.rows, request, ids, parent_model, cancel)
+                .publish_revisions(completed, request, ids, parent_model, cancel)
                 .await?;
             published.receipt = self
                 .publish_changes(request, &prepared.candidate.changes, &published, cancel)
@@ -369,14 +400,18 @@ impl Driver {
         .await
         .map_err(|source| CompilerError::PassFailure {
             source: Box::new(source),
-            findings: validation.findings.clone(),
+            findings: validation
+                .findings()
+                .iter()
+                .map(|batch| batch.batch().clone())
+                .collect(),
         })?;
         Ok((validation, engine, Some(result)))
     }
     fn empty_primitives(
         &self,
         cancel: &CancellationToken,
-    ) -> Result<BTreeMap<SemanticId, RecordBatch>, CompilerError> {
+    ) -> Result<pse_authoring::document::Batches, CompilerError> {
         let registry = self.registry();
         let mut rows = BTreeMap::new();
         let declared = registry
@@ -394,125 +429,19 @@ impl Driver {
                 .map_or(&[][..], |rows| rows.as_slice());
             rows.insert(
                 spec.id,
-                pse_relations::cells::batch_from_cells_owned(
+                pse_relations::columnar::FieldCheckedBatch::admit(
                     registry,
                     spec,
-                    values,
-                    self.sessions.reserver().as_ref(),
-                    cancel,
+                    pse_relations::cells::batch_from_cells_owned(
+                        registry,
+                        spec,
+                        values,
+                        self.sessions.reserver().as_ref(),
+                        cancel,
+                    )?,
                 )?,
             );
         }
         Ok(rows)
-    }
-    fn verify_document_rows(
-        &self,
-        documents: &[DocumentBundle],
-        rows: &BTreeMap<RelationKey, RecordBatch>,
-        cancel: &CancellationToken,
-    ) -> Result<(), CompilerError> {
-        cancel.checkpoint()?;
-        let spec = self
-            .registry()
-            .relation("authored.documents")
-            .ok_or_else(|| invalid("document relation absent"))?;
-        let batch = rows
-            .get(&spec.key)
-            .ok_or_else(|| invalid("candidate document inventory absent"))?;
-        let mut source_work = self
-            .sessions
-            .reserver()
-            .open("compiler:document-correspondence");
-        source_work
-            .try_grow(pse_ids::validation_extent(batch)?)
-            .map_err(pse_ids::CanonError::from)?;
-        let references = documents.iter().try_fold(0_usize, |count, bundle| {
-            count
-                .checked_add(bundle.documents.len())
-                .ok_or_else(|| invalid("document inventory extent overflow"))
-        })?;
-        source_work
-            .try_grow(
-                references
-                    .checked_mul(256)
-                    .ok_or_else(|| invalid("document comparison extent overflow"))?,
-            )
-            .map_err(pse_ids::CanonError::from)?;
-        cancel.checkpoint()?;
-        let expected = pse_relations::cells::cells_from_batch(self.registry(), spec, batch)?
-            .into_iter()
-            .map(authored::documents::Row::from_cells)
-            .collect::<Result<Vec<_>, _>>()?;
-        let actual = documents
-            .iter()
-            .flat_map(|bundle| {
-                bundle
-                    .documents
-                    .iter()
-                    .map(|document| (bundle.package.package_id, document))
-            })
-            .collect::<Vec<_>>();
-        if expected.len() != actual.len()
-            || expected.iter().any(|row| {
-                !actual.iter().any(|(package, document)| {
-                    *package == row.package_id
-                        && document.id == row.document_id
-                        && document.path == row.path
-                        && pse_ids::encoding_checksum(document.text.as_bytes()).content_hash()
-                            == row.content_hash
-                })
-            })
-        {
-            return Err(invalid(
-                "candidate document rows disagree with exact reparsed source inventory",
-            ));
-        }
-        cancel.checkpoint()?;
-        Ok(())
-    }
-    async fn publish_primitive(
-        &self,
-        rows: &BTreeMap<RelationKey, RecordBatch>,
-        kind: SnapshotKind,
-        context: AdmissionContext,
-        cancel: &CancellationToken,
-    ) -> Result<Arc<Snapshot>, CompilerError> {
-        let class = if kind == SnapshotKind::Model {
-            SnapshotClass::Model
-        } else {
-            SnapshotClass::Case
-        };
-        let manifest = self.catalog.manifest_template(kind, &context)?;
-        let relations = self
-            .registry()
-            .relations()
-            .iter()
-            .filter(|spec| spec.snapshot_class == class)
-            .map(|spec| {
-                let batches = rows.get(&spec.key).cloned().into_iter().collect();
-                Ok((
-                    pse_schema::membership::port_name(spec),
-                    RelationDraft {
-                        contract: Arc::new(pse_catalog::RelationContract::from_spec(
-                            self.registry(),
-                            spec,
-                            pse_catalog::EncodingPolicy::IpcFile,
-                        )?),
-                        batches,
-                    },
-                ))
-            })
-            .collect::<Result<_, CompilerError>>()?;
-        Ok(self
-            .catalog
-            .publish_bundle(
-                BundleDraft {
-                    manifest,
-                    relations,
-                    context,
-                },
-                cancel,
-            )
-            .await?)
     }
 }

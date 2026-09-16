@@ -115,11 +115,10 @@ fn quantity_value_storage() -> DataType {
 /// non-nullable `value` would force a fabricated number into every unbounded row.
 fn bound_storage() -> DataType {
     DataType::Struct(Fields::from(vec![
-        Field::new(
-            "kind",
-            DataType::Dictionary(Box::new(DataType::Int8), Box::new(DataType::Utf8)),
-            false,
-        ),
+        Field::new("kind", enum_storage(), false).with_metadata(crate::arrow::enum_metadata(
+            "BoundKind",
+            crate::builder::registry_id("enum:BoundKind"),
+        )),
         Field::new("value", DataType::Float64, true),
     ]))
 }
@@ -132,21 +131,21 @@ fn index_tuple_storage() -> DataType {
 /// The storage of `pse.ordinal_ref`: an artifact-local reference whose target relation is
 /// named by the metadata.
 fn ordinal_ref_storage() -> DataType {
-    DataType::UInt64
+    DataType::Int64
 }
 
 /// The storage of `pse.source_span`: authoring provenance.
 fn source_span_storage() -> DataType {
     DataType::Struct(Fields::from(vec![
         Field::new("document_id", DataType::FixedSizeBinary(16), false),
-        Field::new("start", DataType::UInt32, false),
-        Field::new("end", DataType::UInt32, false),
+        super::IntegerRange::SOURCE_OFFSET.field("start"),
+        super::IntegerRange::SOURCE_OFFSET.field("end"),
     ]))
 }
 
-/// The storage of `pse.enum`: a closed dictionary whose codes are presentation only.
+/// The storage of `pse.enum`: the declared member spelling, without dictionary codes.
 fn enum_storage() -> DataType {
-    DataType::Dictionary(Box::new(DataType::Int32), Box::new(DataType::Utf8))
+    DataType::Utf8
 }
 
 /// The storage of `pse.expr_dsl`: authored expression text.
@@ -248,3 +247,87 @@ pub const EXTENSION_TYPES: [ExtensionTypeSpec; 11] = [
         doc: "An authored selector path; P1 resolves it to identities at commit (§6.10).",
     },
 ];
+
+/// A use of one of the eleven extension types, with the parameters the use needs
+/// (blueprint §4.4).
+///
+/// The parameter is on the *use*, not on the type: `pse.enum` is one registered extension
+/// whose metadata names which enumeration this column holds. An unaware reader sees
+/// ordinary string values, and a registered reader also sees their declared domain.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ExtensionUse<'a> {
+    /// `pse.semantic_id`.
+    SemanticId,
+    /// `pse.content_hash`.
+    ContentHash,
+    /// `pse.dimension_vector`.
+    DimensionVector,
+    /// `pse.quantity_value`.
+    QuantityValue,
+    /// `pse.bound`.
+    Bound,
+    /// `pse.index_tuple`.
+    IndexTuple,
+    /// `pse.ordinal_ref`, naming the relation whose ordinals it references.
+    OrdinalRef {
+        /// The qualified relation name, for example `compiled.math_expr_nodes`.
+        target: &'a str,
+    },
+    /// `pse.source_span`.
+    SourceSpan,
+    /// `pse.enum`, naming the declared enumeration.
+    Enum(&'a str),
+    /// `pse.expr_dsl`.
+    ExprDsl,
+    /// `pse.target_path`.
+    TargetPath,
+}
+
+impl ExtensionUse<'_> {
+    /// The index of this use's type in [`EXTENSION_TYPES`].
+    const fn index(&self) -> usize {
+        match self {
+            Self::SemanticId => 0,
+            Self::ContentHash => 1,
+            Self::DimensionVector => 2,
+            Self::QuantityValue => 3,
+            Self::Bound => 4,
+            Self::IndexTuple => 5,
+            Self::OrdinalRef { .. } => 6,
+            Self::SourceSpan => 7,
+            Self::Enum(_) => 8,
+            Self::ExprDsl => 9,
+            Self::TargetPath => 10,
+        }
+    }
+
+    /// The extension type this use refers to.
+    pub const fn spec(&self) -> &'static ExtensionTypeSpec {
+        &EXTENSION_TYPES[self.index()]
+    }
+
+    /// The `ARROW:extension:name` value, for example `pse.semantic_id`.
+    pub const fn extension_name(&self) -> &'static str {
+        self.spec().name
+    }
+
+    /// The registry logical-type name of this use.
+    ///
+    /// Parameterised uses carry their parameter, because `enum:PhaseType` and
+    /// `enum:CubicType` are different contracts even though they share one storage.
+    pub fn name(&self) -> String {
+        match self {
+            Self::SemanticId => "semantic_id".to_owned(),
+            Self::ContentHash => "content_hash".to_owned(),
+            Self::DimensionVector => "dimension_vector".to_owned(),
+            Self::QuantityValue => "quantity_value".to_owned(),
+            Self::Bound => "bound".to_owned(),
+            Self::IndexTuple => "index_tuple".to_owned(),
+            Self::OrdinalRef { target } => format!("ordinal_ref:{target}"),
+            Self::SourceSpan => "source_span".to_owned(),
+            Self::Enum(name) => format!("enum:{name}"),
+            Self::ExprDsl => "expr_dsl".to_owned(),
+            Self::TargetPath => "target_path".to_owned(),
+        }
+    }
+}

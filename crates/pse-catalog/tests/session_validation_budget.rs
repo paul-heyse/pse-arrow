@@ -9,13 +9,13 @@ use datafusion::logical_expr::LogicalPlanBuilder;
 use miette::Diagnostic;
 use pse_catalog::session::{
     ExecutionSettings, ThreadBudget, admission::admit_plan, build_candidate_session_with_cancel,
-    phase0_reference_profile,
+    native_engine_profile,
 };
 use pse_catalog::{CatalogError, PlanOrigin};
 use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, Reservation, ReserveError};
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{Authority, Cell, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
@@ -38,10 +38,16 @@ fn input() -> (Arc<Registry>, RecordBatch) {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::U64, "identity"),
-            ColumnSpec::payload(
+            FieldContract::key(
+                "id",
+                FieldContract::native(datafusion::arrow::datatypes::DataType::UInt64),
+                "identity",
+            ),
+            FieldContract::payload(
                 "members",
-                LogicalType::list(LogicalType::Text),
+                FieldContract::list(FieldContract::native(
+                    datafusion::arrow::datatypes::DataType::Utf8,
+                )),
                 "large nested strings",
             ),
         ]),
@@ -91,7 +97,7 @@ fn build(
         reserver,
         ExecutionSettings::default(),
         thread_budget(),
-        phase0_reference_profile(),
+        native_engine_profile(),
         cancel,
     )
 }
@@ -113,12 +119,12 @@ fn candidate_nested_decode_is_refused_before_allocation_with_a_tiny_budget() {
         panic!("large candidate cannot fit its validation scratch");
     };
     assert_eq!(code(&error), "runtime::resource_limit");
-    assert!(error.to_string().contains("session:validate-batch"));
+    assert!(error.to_string().contains("relations:raw-admission"));
     assert_eq!(budget.reserved(), 0);
 }
 
 #[test]
-fn repeated_plan_admission_releases_scratch_and_cannot_borrow_retained_input_budget() {
+fn repeated_plan_admission_reuses_immutable_input_without_value_scratch() {
     let (registry, batch) = input();
     let extent = pse_catalog::store::membership::validation_extent(&batch).expect("extent");
     let budget = FixedBudget::new(extent * 2);
@@ -153,20 +159,17 @@ fn repeated_plan_admission_releases_scratch_and_cannot_borrow_retained_input_bud
     }
     let mut pressure = budget.open("test:other-live-consumer");
     pressure
-        .try_grow(budget.limit_bytes() - retained - extent + 1)
+        .try_grow(budget.limit_bytes() - retained)
         .expect("other consumer");
     let baseline = budget.reserved();
-    let error = admit_plan(
+    admit_plan(
         &plan,
         &registry,
         &[Arc::clone(&table)],
         budget.as_ref(),
         &cancel,
     )
-    .expect_err("no scratch headroom");
-    let errors = pse_catalog::failure::classify(error, PlanOrigin::RuleCompiler);
-    assert_eq!(errors.len(), 1);
-    assert_eq!(code(&errors[0]), "runtime::resource_limit");
+    .expect("bound immutable providers need no repeated value scratch");
     assert_eq!(budget.reserved(), baseline);
     pressure.release();
     cancel.cancel();
@@ -241,8 +244,12 @@ fn cancellation_after_validation_reservation_releases_the_entire_scratch_claim()
 }
 
 #[test]
+#[allow(
+    clippy::too_many_lines,
+    reason = "keep the complete independent nested fixture and its assertions together"
+)]
 fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratch() {
-    use datafusion::arrow::array::{Array, ArrayRef, ListArray, StructArray, UInt32Array};
+    use datafusion::arrow::array::{Array, ArrayRef, Int64Array, ListArray, StructArray};
     use pse_schema::model::ExtensionUse;
     let mut builder = RegistryBuilder::new();
     builder.declare_relation(
@@ -256,10 +263,14 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::U64, "identity"),
-            ColumnSpec::payload(
+            FieldContract::key(
+                "id",
+                FieldContract::native(datafusion::arrow::datatypes::DataType::UInt64),
+                "identity",
+            ),
+            FieldContract::payload(
                 "members",
-                LogicalType::list(LogicalType::Ext(ExtensionUse::SourceSpan)),
+                FieldContract::list(FieldContract::extended(ExtensionUse::SourceSpan)),
                 "nested source spans",
             ),
         ]),
@@ -268,8 +279,8 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
     let spec = registry.relation("authored.nested").expect("relation");
     let row = Cell::Struct(vec![
         Cell::Id(pse_ids::SemanticId::NIL),
-        Cell::U64(0),
-        Cell::U64(1),
+        Cell::I64(0),
+        Cell::I64(1),
     ]);
     let valid = pse_relations::cells::batch_from_cells(
         &registry,
@@ -291,7 +302,7 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
         spans.fields().clone(),
         vec![
             Arc::clone(spans.column(0)),
-            Arc::new(UInt32Array::from(vec![2; 1024])),
+            Arc::new(Int64Array::from(vec![2; 1024])),
             Arc::clone(spans.column(2)),
         ],
         spans.nulls().cloned(),
@@ -318,13 +329,24 @@ fn many_invalid_nested_values_are_budgeted_before_diagnostics_and_release_scratc
         panic!("invalid spans must refuse");
     };
     assert_eq!(code(&error), "schema::admission");
-    assert_eq!(
-        error
-            .to_string()
-            .matches("source span start exceeds end")
-            .count(),
-        1024
-    );
+    let CatalogError::Relation(relation) = &error else {
+        panic!("expected structured relation diagnostics: {error:?}");
+    };
+    let pse_relations::RelationError::Validation { errors } = relation.as_ref() else {
+        panic!("expected independent value violations: {relation:?}");
+    };
+    assert_eq!(errors.len(), 1024);
+    for (index, finding) in errors.iter().enumerate() {
+        let pse_relations::RelationError::Value { field, row, reason } = finding else {
+            panic!("expected span value violation: {finding:?}");
+        };
+        assert_eq!(field, &format!("members[{index}]"));
+        assert_eq!(*row, 0);
+        assert_eq!(
+            reason,
+            "source span requires bounded nonnegative offsets and start <= end"
+        );
+    }
     assert_eq!(budget.reserved(), 0);
     let tiny = FixedBudget::new(1024);
     let reserver: Arc<dyn MemoryReserver> = tiny.clone();

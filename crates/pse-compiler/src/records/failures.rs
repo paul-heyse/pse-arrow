@@ -18,6 +18,7 @@ pub(super) fn visit<'a>(
     visitor: &mut Visitor<'a, '_>,
 ) -> Result<(), CompilerError> {
     match error {
+        CompilerError::KernelUnbound { .. } => visitor("kernel.unbound_parameter", error, None),
         CompilerError::Cancelled { findings } => {
             visitor("runtime.cancelled", error, Some(findings))
         }
@@ -48,12 +49,23 @@ pub(super) fn visit<'a>(
         | CompilerError::SuccessRecording { source, .. }
         | CompilerError::CommitPublication { source, .. }
         | CompilerError::AuxiliaryHint { source, .. } => visit(source, reg, visitor),
-        CompilerError::Authoring(error) => authoring(error, visitor),
+        CompilerError::Authoring(error) => authoring(error, reg, visitor),
         CompilerError::Rule(error) => rule(error, reg, visitor),
+        CompilerError::Template(error) => match error {
+            pse_templates::TemplateError::Binding { .. } => {
+                visitor("validation.invariant", error, None)
+            }
+            pse_templates::TemplateError::GuardUndecidable { .. } => {
+                visitor("template.guard_undecidable", error, None)
+            }
+            pse_templates::TemplateError::Math(error) => visitor(math(error), error, None),
+            pse_templates::TemplateError::Resource(error) => visitor(canonical(error), error, None),
+        },
         CompilerError::Catalog(error) => catalog(error, reg, visitor),
         CompilerError::Canon(error) => visitor(canonical(error), error, None),
         CompilerError::Relation(error) => relation(error, visitor),
         CompilerError::Quantity(error) => visitor(quantity(error), error, None),
+        CompilerError::Material(error) => visitor("validation.invariant", error, None),
         CompilerError::MathIr(error) => visitor(math(error), error, None),
         CompilerError::Schema(_) => visitor("validation.invariant", error, None),
         CompilerError::ResourceLimit { .. } => visitor("runtime.resource_limit", error, None),
@@ -68,10 +80,12 @@ pub(super) fn visit<'a>(
 }
 fn authoring<'a>(
     error: &'a pse_authoring::AuthoringError,
+    reg: &Registry,
     visitor: &mut Visitor<'a, '_>,
 ) -> Result<(), CompilerError> {
     use pse_authoring::AuthoringError as E;
     let class = match error {
+        E::Catalog(error) => return catalog(error, reg, visitor),
         E::Resource(_) => "runtime.resource_limit",
         E::Allocation(error) => return visitor(canonical(error), error, None),
         E::Relation(error) => return relation(error, visitor),
@@ -126,6 +140,7 @@ fn quantity(error: &pse_quantity::QuantityError) -> &'static str {
 fn math(error: &pse_mathir::MathIrError) -> &'static str {
     use pse_mathir::MathIrError as E;
     match error {
+        E::Canon(error) => canonical(error),
         E::Cycle { .. }
         | E::Quantity { .. }
         | E::StaticDomain { .. }
@@ -155,6 +170,7 @@ fn rule<'a>(
         RuleError::InvariantViolations { findings, .. } => {
             visitor("validation.invariant", error, Some(findings))
         }
+        RuleError::Conflict { .. } => visitor("validation.invariant", error, None),
         RuleError::Catalog(error) => catalog(error, reg, visitor),
         RuleError::Relation(error) => relation(error, visitor),
         RuleError::ResourceLimit { .. } => visitor("runtime.resource_limit", error, None),

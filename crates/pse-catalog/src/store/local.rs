@@ -16,6 +16,7 @@ use object_store::{PutMode, PutOptions, UpdateVersion};
 use pse_ids::{CancellationToken, MemoryReserver};
 
 use super::open::Catalog;
+use super::publication::{PublicationJournal, PublicationOutcome, Visibility};
 use super::verify::admission;
 use crate::{CatalogError, Clock, TrustLevel};
 
@@ -58,7 +59,7 @@ impl Catalog {
         registry: Arc<pse_schema::Registry>,
         trust: TrustLevel,
         clock: Arc<dyn Clock>,
-        reserver: Arc<dyn MemoryReserver>,
+        sessions: Arc<crate::session::SessionFactory>,
     ) -> Result<Self, CatalogError> {
         if !cfg!(unix) {
             return Err(admission(
@@ -86,7 +87,7 @@ impl Catalog {
             root,
             store: Arc::clone(&store),
         });
-        let mut catalog = Self::open(store, registry, trust, clock, reserver);
+        let mut catalog = Self::open(store, registry, trust, clock, sessions);
         catalog.local = Some(files);
         Ok(catalog)
     }
@@ -99,6 +100,17 @@ impl Catalog {
         cancel: &CancellationToken,
     ) -> Result<(), CatalogError> {
         cancel.checkpoint()?;
+        let journal = self.publication.clone().unwrap_or_default();
+        let index = journal.begin(
+            PublicationOutcome {
+                path: path.to_string(),
+                expected: expected.map(|value| pse_ids::encoding_checksum(&value.bytes).0),
+                intended: pse_ids::encoding_checksum(&bytes).0,
+                visibility: Visibility::Indeterminate,
+                durability_confirmed: false,
+            },
+            self.reserver.as_ref(),
+        )?;
         if let Some(local) = &self.local {
             let local = Arc::clone(local);
             let path = path.clone();
@@ -107,14 +119,15 @@ impl Catalog {
             let cancel = cancel.clone();
             let limit = self.limits.max_control_bytes;
             return tokio::task::spawn_blocking(move || {
-                local.replace(
+                let result = local.replace(
                     &path,
                     expected.as_deref(),
                     &bytes,
                     limit,
                     reserver.as_ref(),
                     &cancel,
-                )
+                );
+                record_result(&journal, index, result, true)
             })
             .await
             .map_err(|error| infrastructure("join local conditional write", error))?;
@@ -122,7 +135,8 @@ impl Catalog {
         let mode = expected.map_or(PutMode::Create, |value| {
             PutMode::Update(value.version.clone())
         });
-        self.store
+        let result = self
+            .store
             .put_opts(
                 path,
                 bytes.into(),
@@ -138,8 +152,8 @@ impl Catalog {
                     name: path.to_string(),
                 },
                 source => infrastructure("conditionally write control object", source),
-            })?;
-        Ok(())
+            });
+        record_result(&journal, index, result.map(|_| ()), false)
     }
 
     pub(super) async fn synchronize_immutable(
@@ -223,10 +237,14 @@ impl LocalFiles {
         // Publication has occurred. Never turn a later cancellation into a false
         // rollback report. A sync failure explicitly communicates the visible outcome.
         self.sync_parents(&destination)
-            .map_err(|error| CatalogError::Infrastructure {
-                op:
-                    "local control replacement visible; durability unconfirmed; reread before retry"
-                        .to_owned(),
+            .map_err(|error| CatalogError::Publication {
+                outcomes: vec![PublicationOutcome {
+                    path: path.to_string(),
+                    expected: expected.map(|bytes| pse_ids::encoding_checksum(bytes).0),
+                    intended: pse_ids::encoding_checksum(bytes).0,
+                    visibility: Visibility::Visible,
+                    durability_confirmed: false,
+                }],
                 source: Box::new(error),
             })
     }
@@ -244,6 +262,23 @@ impl LocalFiles {
         }
         Ok(())
     }
+}
+
+fn record_result(
+    journal: &PublicationJournal,
+    index: usize,
+    result: Result<(), CatalogError>,
+    local: bool,
+) -> Result<(), CatalogError> {
+    let (visibility, durable) = match &result {
+        Ok(()) => (Visibility::Visible, true),
+        Err(CatalogError::Publication { .. }) => (Visibility::Visible, false),
+        Err(CatalogError::RefConflict { .. }) => (Visibility::Unchanged, false),
+        Err(_) if local => (Visibility::Unchanged, false),
+        Err(_) => (Visibility::Indeterminate, false),
+    };
+    journal.finish(index, visibility, durable)?;
+    result.map_err(|error| journal.failure(error))
 }
 
 fn matches_current(

@@ -11,11 +11,11 @@
 /// A rule that will not compile, or an execution that failed.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum RuleError {
-    /// Add exact rule/phase attribution while forwarding the underlying diagnostic class.
+    /// Add exact rule or native declaration attribution while forwarding the diagnostic class.
     #[error("rule `{rule}` failed during {phase}: {source}")]
     #[diagnostic(forward(source))]
     Execution {
-        /// Actual registered rule being executed.
+        /// Actual registered rule or native output declaration being executed.
         rule: String,
         /// Precondition check, decided head or unknown candidate execution.
         phase: &'static str,
@@ -87,6 +87,20 @@ pub enum RuleError {
         expected: String,
         /// The contract inferred from the plan.
         found: String,
+    },
+
+    /// Competing actual assertions abort a complete Reject-policy stratum.
+    #[error("rule stratum {stratum} conflicts in {relation} at {key}: {assertions:?}")]
+    #[diagnostic(code(validation::invariant))]
+    Conflict {
+        /// Stratum whose publication was refused.
+        stratum: u16,
+        /// Declared head relation.
+        relation: String,
+        /// Complete reversible key, not a value digest.
+        key: String,
+        /// Up to three actual conflicting assertions with producer and truth.
+        assertions: Vec<String>,
     },
 
     /// A platform postcondition failed.

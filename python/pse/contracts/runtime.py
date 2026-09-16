@@ -113,6 +113,51 @@ class RuntimeKernelEvaluationsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimePublicationsFieldInputsItem:
+    """Declared relation row or nested value."""
+
+    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimePublicationsFieldMembersItem:
+    """Declared relation row or nested value."""
+
+    catalog_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    table_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimePublicationsRow:
+    """Declared relation row or nested value."""
+
+    workspace_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    publication_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    parent_publication_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    attempt_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    kind: e.PublicationKind = attrs.field(validator=attrs.validators.instance_of(e.PublicationKind))
+    inputs: b.tuple[RuntimePublicationsFieldInputsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimePublicationsFieldInputsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    members: b.tuple[RuntimePublicationsFieldMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimePublicationsFieldMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeResidualsRow:
     """Declared relation row or nested value."""
 

@@ -17,6 +17,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+datafusion.workspace = true
+pse-ids.workspace = true
 num-dual.workspace = true
 faer.workspace = true
 rayon.workspace = true
@@ -24,3 +26,7 @@ pse-relations.workspace = true
 pse-mathir.workspace = true
 thiserror.workspace = true
 miette.workspace = true
+
+[dev-dependencies]
+pse-quantity.workspace = true
+tokio.workspace = true

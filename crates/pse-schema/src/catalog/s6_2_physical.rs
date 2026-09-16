@@ -5,7 +5,7 @@
 
 use super::declarations::{column, relation, structure};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §6.2 physical type contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -45,7 +45,10 @@ fn declare_reference_dimensions(builder: &mut RegistryBuilder) {
         "dimensions",
         S::Model,
         &["ordinal"],
-        vec![column("ordinal", T::U16), column("name", T::Text)],
+        vec![
+            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+        ],
         "blueprint §6.2 physical type: dimensions.",
     );
 }
@@ -59,20 +62,26 @@ fn declare_reference_units(builder: &mut RegistryBuilder) {
         &["unit_id"],
         vec![
             column("unit_id", T::id()),
-            column("symbol", T::Text),
-            column("name", T::Text),
+            column("symbol", T::native(arrow_schema::DataType::Utf8)),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column(
                 "dimension",
-                T::Ext(crate::model::ExtensionUse::DimensionVector),
+                T::extended(crate::model::ExtensionUse::DimensionVector),
             ),
-            column("scale_to_canonical", T::F64),
-            column("offset_to_canonical", T::F64),
-            column("is_affine", T::Bool),
+            column(
+                "scale_to_canonical",
+                T::native(arrow_schema::DataType::Float64),
+            ),
+            column(
+                "offset_to_canonical",
+                T::native(arrow_schema::DataType::Float64),
+            ),
+            column("is_affine", T::native(arrow_schema::DataType::Boolean)),
             column("reference_state_id", T::id())
                 .optional()
                 .with_fk("reference.reference_states", "reference_state_id"),
-            column("system", T::Text),
-            column("doc", T::Text),
+            column("system", T::native(arrow_schema::DataType::Utf8)),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.2 physical type: units.",
     );
@@ -87,7 +96,7 @@ fn declare_reference_unit_sets(builder: &mut RegistryBuilder) {
         &["unit_set_id"],
         vec![
             column("unit_set_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column("time_unit_id", T::id()).with_fk("reference.units", "unit_id"),
             column("length_unit_id", T::id()).with_fk("reference.units", "unit_id"),
             column("mass_unit_id", T::id()).with_fk("reference.units", "unit_id"),
@@ -116,14 +125,14 @@ fn declare_reference_quantity_kinds(builder: &mut RegistryBuilder) {
         &["quantity_kind_id"],
         vec![
             column("quantity_kind_id", T::id()),
-            column("name", T::Text),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
             column(
                 "dimension",
-                T::Ext(crate::model::ExtensionUse::DimensionVector),
+                T::extended(crate::model::ExtensionUse::DimensionVector),
             ),
-            column("extensive", T::Bool),
+            column("extensive", T::native(arrow_schema::DataType::Boolean)),
             column("addition_kind", T::enumeration("QuantityAdditionKind")),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.2 physical type: quantity_kinds.",
     );
@@ -159,13 +168,16 @@ fn declare_reference_reference_states(builder: &mut RegistryBuilder) {
         vec![
             column("reference_state_id", T::id()),
             column("kind", T::enumeration("ReferenceStateKind")),
-            column("temperature", T::F64).optional(),
-            column("pressure", T::F64).optional(),
-            column("include_enthalpy_of_formation", T::Bool),
+            column("temperature", T::native(arrow_schema::DataType::Float64)).optional(),
+            column("pressure", T::native(arrow_schema::DataType::Float64)).optional(),
+            column(
+                "include_enthalpy_of_formation",
+                T::native(arrow_schema::DataType::Boolean),
+            ),
             column("phase_id", T::id())
                 .optional()
                 .with_fk("authored.phases", "phase_id"),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.2 physical type: reference_states.",
     );
@@ -192,8 +204,12 @@ fn declare_reference_quantity_types(builder: &mut RegistryBuilder) {
             column("shape", T::list(T::enumeration("DomainKind"))),
             column("subject_kind", T::enumeration("SubjectKind")).optional(),
             column("canonical_unit_id", T::id()).with_fk("reference.units", "unit_id"),
-            column("nominal_magnitude", T::F64).optional(),
-            column("doc", T::Text),
+            column(
+                "nominal_magnitude",
+                T::native(arrow_schema::DataType::Float64),
+            )
+            .optional(),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.2 physical type: quantity_types.",
     );
@@ -214,9 +230,12 @@ fn declare_reference_conversion_rules(builder: &mut RegistryBuilder) {
                 .with_fk("reference.quantity_types", "quantity_type_id"),
             column("kind", T::enumeration("ConversionKind")),
             column("kernel_id", T::id()).optional(),
-            column("required_parameters", T::list(T::Text)),
-            column("scale", T::F64).optional(),
-            column("offset", T::F64).optional(),
+            column(
+                "required_parameters",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
+            column("scale", T::native(arrow_schema::DataType::Float64)).optional(),
+            column("offset", T::native(arrow_schema::DataType::Float64)).optional(),
         ],
         "blueprint §6.2 physical type: conversion_rules.",
     );
@@ -239,19 +258,23 @@ fn declare_reference_quantity_operations(builder: &mut RegistryBuilder) {
             column("reference_rule", T::enumeration("ReferenceRule")),
             column("scale_rule", T::enumeration("QuantityScaleRule")),
             column("shape_rule", T::enumeration("QuantityShapeRule")),
-            column("basis_source", T::U16).optional(),
-            column("reference_source", T::U16).optional(),
-            column("scale_source", T::U16).optional(),
-            column("shape_source", T::U16).optional(),
+            column("basis_source", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column(
+                "reference_source",
+                T::native(arrow_schema::DataType::UInt16),
+            )
+            .optional(),
+            column("scale_source", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column("shape_source", T::native(arrow_schema::DataType::UInt16)).optional(),
             column("subject_rule", T::enumeration("SubjectRule")),
-            column("subject_source", T::U16).optional(),
+            column("subject_source", T::native(arrow_schema::DataType::UInt16)).optional(),
             column("result_subject_kind", T::enumeration("SubjectKind")).optional(),
             column("result_basis_id", T::id()).optional(),
             column("result_reference_state_id", T::id()).optional(),
             column(
                 "input_conversions",
                 T::list(structure(vec![
-                    ("operand", T::U16),
+                    ("operand", T::native(arrow_schema::DataType::UInt16)),
                     ("conversion_id", T::id()),
                 ])),
             ),
@@ -270,13 +293,13 @@ fn declare_reference_constants(builder: &mut RegistryBuilder) {
         &["constant_id"],
         vec![
             column("constant_id", T::id()),
-            column("name", T::Text),
-            column("idaes_name", T::Text).optional(),
-            column("value", T::F64),
+            column("name", T::native(arrow_schema::DataType::Utf8)),
+            column("idaes_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("value", T::native(arrow_schema::DataType::Float64)),
             column("unit_id", T::id()).with_fk("reference.units", "unit_id"),
             column("quantity_kind_id", T::id())
                 .with_fk("reference.quantity_kinds", "quantity_kind_id"),
-            column("doc", T::Text),
+            column("doc", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.2 physical type: constants.",
     );

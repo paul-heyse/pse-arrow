@@ -328,7 +328,7 @@ impl fmt::Display for Severity {
     }
 }
 
-/// A declared closed dictionary: one `pse.enum` contract and its
+/// A declared string enumeration: one `pse.enum` contract and its
 /// `reference.schema_enums` rows (blueprint §4.1, §4.4).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EnumSpec {
@@ -346,7 +346,7 @@ pub struct EnumSpec {
 /// One member of an [`EnumSpec`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EnumMember {
-    /// The platform spelling, which is the stored dictionary value.
+    /// The platform spelling, which is the stored string value.
     pub name: &'static str,
     /// The IDAES spelling, when the two differ (blueprint §6.14).
     pub idaes_name: Option<&'static str>,

@@ -5,7 +5,7 @@
 
 use super::declarations::{column, relation, structure};
 use crate::builder::RegistryBuilder;
-use crate::model::{LogicalType as T, Namespace as N, SnapshotClass as S};
+use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
 /// Declares the §7.3 operator contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
@@ -91,29 +91,32 @@ fn declare_reference_operator_specs(builder: &mut RegistryBuilder) {
         vec![
             column("opcode", T::enumeration("Opcode")),
             column("arity", T::enumeration("Arity")),
-            column("fixed_arity", T::U8).optional(),
+            column("fixed_arity", T::native(arrow_schema::DataType::UInt8)).optional(),
             column("quantity_operation_ids", T::list(T::id())),
-            column("shape_rule", T::Text),
-            column("derivative_rule", T::Text),
+            column("shape_rule", T::native(arrow_schema::DataType::Utf8)),
+            column("derivative_rule", T::native(arrow_schema::DataType::Utf8)),
             column("argument_evaluation", T::enumeration("ArgumentEvaluation")),
             column("failure_classes", T::list(T::enumeration("KernelFailure"))),
             column(
                 "domain_restrictions",
                 T::list(structure(vec![
-                    ("argument", T::U16),
+                    ("argument", T::native(arrow_schema::DataType::UInt16)),
                     ("relation", T::enumeration("RelationOp")),
-                    ("bound", T::F64),
+                    ("bound", T::native(arrow_schema::DataType::Float64)),
                 ])),
             ),
-            column("domain_rule", T::Text),
+            column("domain_rule", T::native(arrow_schema::DataType::Utf8)),
             column("smoothness", T::enumeration("Differentiability")),
-            column("convexity_rule", T::Text),
-            column("monotonicity_rule", T::Text),
-            column("sparsity_rule", T::Text),
-            column("rewrite_conditions", T::list(T::Text)),
+            column("convexity_rule", T::native(arrow_schema::DataType::Utf8)),
+            column("monotonicity_rule", T::native(arrow_schema::DataType::Utf8)),
+            column("sparsity_rule", T::native(arrow_schema::DataType::Utf8)),
+            column(
+                "rewrite_conditions",
+                T::list(T::native(arrow_schema::DataType::Utf8)),
+            ),
             column("lowering", T::list(T::enumeration("BackendBinding"))),
             column("family", T::enumeration("OperatorFamily")),
-            column("foldable", T::Bool),
+            column("foldable", T::native(arrow_schema::DataType::Boolean)),
         ],
         "blueprint §7.3 operator: operator_specs.",
     );

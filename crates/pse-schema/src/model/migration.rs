@@ -3,10 +3,10 @@
 
 //! Schema migrations (blueprint §4.1 `reference.schema_migrations`, §20.5).
 //!
-//! A migration is declared, not written: `pse-relations` generates
-//! `migrate_v1_to_v2(batch)` from these steps, so an artifact written under an older
-//! contract is read by code that knows exactly what changed rather than by code that
-//! guesses from the schema it finds.
+//! An explicit schema transformation is declared here and compiled by the catalog
+//! into native projections, checked defaults and nullability obligations. The caller
+//! selects both versions through this declaration; store opening never discovers
+//! or applies a conversion path.
 
 use crate::model::cell::Cell;
 

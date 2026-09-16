@@ -109,6 +109,21 @@ pub trait MathRelationSink {
         group: SemanticId,
         coordinates: &[(BoundIndexId, u16)],
     ) -> Result<(), MathIrError>;
+    /// Preserve an exact normalized source-relative path and its ordered index nodes.
+    /// # Errors
+    /// A sink without normalized path storage refuses the request.
+    fn pending_path(
+        &mut self,
+        node: NodeId,
+        _source_id: SemanticId,
+        _path_id: u64,
+        _indices: &[NodeId],
+    ) -> Result<(), MathIrError> {
+        Err(MathIrError::malformed_at(
+            node,
+            "sink cannot retain an unresolved instance path",
+        ))
+    }
     /// Preserve a normalized read's ordered actual index expressions.
     /// # Errors
     /// A compiled-only sink refuses the unresolved source request.
@@ -518,6 +533,11 @@ fn emit_payload(
         } => sink.implicit_ref(id, *implicit_system, *unknown_ordinal),
         Payload::PendingUnitConvert { to } => sink.pending_unit_convert(id, *to),
         Payload::PendingGather { group, indices } => sink.pending_gather(id, *group, indices),
+        Payload::PendingPath {
+            source_id,
+            path_id,
+            indices,
+        } => sink.pending_path(id, *source_id, *path_id, indices),
         Payload::UnitConvert(UnitConvertSpec {
             scale,
             offset,

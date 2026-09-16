@@ -1,14 +1,73 @@
 ---
 title: Wave 2 — semantic compilation and inspectable model graphs
-status: draft
+status: abandoned
 date: 2026-09-14
-adrs: [ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0009, ADR-0010, ADR-0013, ADR-0016, ADR-0024, ADR-0027, ADR-0031, ADR-0039, ADR-0040, ADR-0041, ADR-0042, ADR-0043, ADR-0044, ADR-0046, ADR-0047, ADR-0048, ADR-0050, ADR-0051, ADR-0052, ADR-0053, ADR-0054, ADR-0055, ADR-0056, ADR-0057, ADR-0058, ADR-0059]
+adrs: [ADR-0004, ADR-0005, ADR-0006, ADR-0007, ADR-0009, ADR-0010, ADR-0013, ADR-0016, ADR-0024, ADR-0027, ADR-0031, ADR-0039, ADR-0040, ADR-0041, ADR-0042, ADR-0043, ADR-0044, ADR-0046, ADR-0047, ADR-0048, ADR-0050, ADR-0051, ADR-0052, ADR-0053, ADR-0054, ADR-0055, ADR-0056, ADR-0057, ADR-0058, ADR-0059, ADR-0060, ADR-0061, ADR-0062, ADR-0063, ADR-0064, ADR-0065]
 phase: 1
 ---
 
 # Wave 2 — semantic compilation and inspectable model graphs
 
 ## Context
+
+### Execution superseded by the hard pivot — 2026-09-14
+
+[Plan 05](05-native-logical-plan-hard-pivot.md) replaces this execution plan while
+retaining its complete source-to-P10 graph, reference-package and immutable
+inspection scope. The maintainer selected a hard replacement of misaligned
+foundations and consumers, with deletion of the old implementation and
+first-principles target validation. `abandoned` marks this execution strategy as
+superseded, not the product scope as removed. Legacy-store compatibility,
+old-versus-new comparisons, old-profile comparisons and predecessor receipt
+reconciliation below are historical instructions and must not be resumed.
+
+As of 2026-09-15, [Plan 06](06-provider-contracts-hard-pivot.md) owns the remaining
+execution, including this complete source-to-P10 and inspection scope.
+
+### Logical-plan foundations follow-up — 2026-09-14
+
+**Proposed fundamental redesign; implementation remains paused for review:**
+[the Wave 1 follow-up](../design_review/reviews/design_review_wave1-logical-plan-foundations_2026-09-14.md)
+extends the capability review into the foundations. Its §11 LP0–LP7 is the combined
+recommended sequence, integrating the earlier C0–C7 corrections into native-plan
+construction, derived semantic properties and immutable execution completion.
+Use that sequence to remove causes of repeated validation and producer replay
+before finishing the original Wave 2 exits. Do not implement C1–C6 as a separate
+layer of retrospective checks. Existing Wave 1/Wave 2 work and receipts remain;
+the new architecture is not yet implemented. The review records G1 Pass scoped to
+authority and G2–G7 Unresolved for the redesigned implementation.
+
+### Full-capability review checkpoint — 2026-09-14
+
+**Proposed correction; implementation paused for design review:** the maintainer
+rejected the initial bounded-UNION implementation as an architectural ceiling and
+requested a comprehensive Arrow/DataFusion review. [The completed review](../design_review/reviews/design_review_full-arrow-datafusion-capabilities_2026-09-14.md)
+returns **Revise** for the current broad execution design, with a
+[capability deployment matrix](../design_review/reviews/full-arrow-datafusion-capability-matrix-2026-09-14.md)
+and dependency-ordered C0–C7 remediation in its §11. Blueprint revisions 34/36 and
+ADR-0065 make Arrow/DataFusion the default data and execution foundation and every
+facility eligible; they do not claim all are
+already supported by PSE. The follow-up LP0–LP7 sequence above now integrates C1–C6
+before the original W2 terminal exits (C7).
+
+**Tested, library characterization only:** the retained probe runs Rust 1.98.1,
+DataFusion 55.1.0 / Arrow 59.3.0, dev with Arrow force_validate, target partitions
+1/4 and batch size 2. It has 33 passing checks and 4 failing semantic expectations
+against baseline 0: raw INTERSECT ALL/EXCEPT ALL mishandle duplicate counts at this
+pin. The native occurrence-window/null-safe-join corrections pass. See the
+[receipt](../design_review/evidence/full-arrow-datafusion-2026-09-14/README.md).
+This is not a failing PSE regression run or a waiver; it is an upstream-behavior
+counterexample that the new lowering must address.
+
+**Implemented, incomplete qualification:** Wave 2 source and generated contracts
+are present in the shared tree. The most recent `just codegen-bootstrap --only
+relations` completed, but no full P0–P10 golden/derivation/invalidation/Python gate
+is claimed for this checkpoint. Exact producer/support completion and terminal
+qualification remain required. Preserve all existing implementation work when
+applying the review corrections. The review did not resume the semantic compiler implementation. Its policy-only
+compression-lint correction passed the four focused governance tests; the complete
+review receipt distinguishes that check from unfinished product qualification.
+
 
 **Proposed target:** turn committed engineering declarations into a complete, typed,
 indexed mathematical graph through the real P3–P10 production pipeline, then reopen
@@ -50,9 +109,9 @@ Read alongside this plan:
   [Arrow §8](../capability-maps/arrow-rust.md),
   [Python §2–§3](../capability-maps/python-libraries.md), and
   [supporting Rust §2, §5](../capability-maps/supporting-rust-libraries.md).
-  Their historical recommendations do not reopen decisions such as deferred custom
-  rule nodes or alternative memoization. Fetch current Context7 documentation and
-  inspect the pinned source before binding a previously unused library API.
+  Their historical feature exclusions are replaced by blueprint §3.3.1 / ADR-0065.
+  All Arrow/DataFusion facilities are eligible; actual use requires pinned-source
+  and semantic qualification. Alternative memoization remains a separate decision.
 
 **Interface-checked, source inspection:** `pse-templates/src/lib.rs` is still a
 declared boundary. `pse-rules/src/exec/mod.rs` executes one admitted rule and retains
@@ -110,8 +169,11 @@ leaf operation, but cannot satisfy the vertical workflow exit.
 
 This is a required implementation constraint for every packet, not an optional
 performance improvement. Blueprint D1/D6/D7/D10, §4.1–§4.4 and §14.2 govern placement.
-Typed Arrow relations are the authoritative facts and derived outputs; DataFusion
-executes the relational algebra that joins and transforms them. Adapters and Rust
+Arrow and DataFusion are the default foundation for data operations and execution
+throughout this wave: ingestion/normalization, validation queries, compilation,
+inference, dependency/incremental computation, provenance, batch evaluation and
+results processing. Typed Arrow relations are the authoritative facts and derived
+outputs; DataFusion plans and executes their relational transformations. Adapters and Rust
 workspaces must not accumulate a competing object model.
 
 | Work | Required mechanism | Boundary and design principle |
@@ -133,8 +195,9 @@ workspace with a demonstrated consumer and complete Arrow ingress/egress contrac
 They cannot own independent defaults, mutable engineering facts or hidden dependencies.
 Every proposed manual row loop must identify why the operation belongs in that native
 algorithm rather than the existing relational plan. Every new custom execution node
-or UDF must likewise establish why standard pinned operators cannot express its real
-consumer; R-02/custom rule nodes remain deferred.
+or UDF must establish its real consumer and why the selected extension improves
+the existing native route. R-02 records an initial attribution trigger, not a
+prohibition on logical extensions or other DataFusion capabilities.
 
 Hashes used internally by DataFusion for joins or deduplication are compatible with
 this plan when equality is checked against actual admitted typed keys/values. The
@@ -153,9 +216,11 @@ Additional pinned-source checks against the capability maps found:
 - DataFusion 55.1.0 exposes `join_detailed`, `aggregate`, `distinct`,
   `unnest_columns_with_options` and `to_recursive_query`; the last performs schema
   coercion. Platform exact head/quantity admission must still guard that coercion.
-  Native recursion supports a distinct mode, but the current platform RulePlan
-  deliberately admits only bounded UNION ALL. W2-04 must preserve that distinction;
-  library availability does not silently extend the platform contract.
+  Native recursion supports distinct mode. The initial RulePlan implementation
+  admits only bounded UNION ALL; this is an implementation gap, not a design ceiling.
+  W2-04 must support the native mechanisms needed by its finite closure contracts,
+  including distinct recursion where truth, termination and complete support fit.
+  All other native operators are likewise eligible under blueprint §3.3.1.
 - Existing SnapshotSession already calls the physical streaming execution route.
   Extend its admitted stream boundary for Python rather than adding a second
   SessionContext/query facade that bypasses the snapshot/provider restrictions.
@@ -342,7 +407,9 @@ eligible downstream winner.
 
 Use existing DataFusion relational operators for set-oriented work. The orchestration
 loop may manage rounds, cancellation, resources and provenance. Keep the existing
-bounded UNION ALL RulePlan semantics distinct from set closure. A resource/iteration
+bounded UNION ALL semantics distinct from set closure, while adding qualified native
+distinct/fixed-point routes and broader relational operations required by actual
+consumers. Apply the C1–C5 contracts in the full-capability review. A resource/iteration
 limit produces an explicit incomplete failure; neither exhausted work nor a digest
 matching a previous round proves convergence. Compare the actual admitted key/value
 sets. Preserve exact head conversions and ordered aggregate/unnest behavior.
@@ -609,3 +676,22 @@ substitute.
 ### A mistake made and corrected
 
 ### Deviations from the plan, deliberate
+
+## Execution checkpoint
+
+**Implemented, qualification in progress:** work began on the combined
+`wave2/semantic-compilation` branch from `eebc82e`. ADR-0060–0064 and blueprint
+§6.15 record the consumed contracts before their implementation. Formal ADR
+acceptance remains pending.
+
+**Tested:** `just test-package xtask codegen::tests::`, default nextest profile
+with force-validate, ran 10 tests: 10 passed, zero failed against the zero baseline;
+one unrelated test was filtered out. This covers the W2-00 cache-inventory fix,
+including 3.13/3.14 bytecode, stale/missing sources and unexpected files/symlinks.
+It does not close the full predecessor or Wave 2 qualification.
+
+**Proposed placement clarification:** named-table Python export may stream bounded
+slices directly from the catalog's already admitted LoadedRelation batches. There
+is no relational transformation in this operation; it preserves exact schema and
+final-buffer leases. Queries continue through SnapshotSession. This avoids a second
+query facade and unnecessary materialization.

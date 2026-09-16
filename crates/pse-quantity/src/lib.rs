@@ -4,9 +4,9 @@
 //! Dimensions, units, quantity kinds and types, bases, reference states and conversions
 //! (blueprint §3.2, §6.2, §8).
 //!
-//! Physical typing is data in the registry, never a Rust type parameter: `uom` is a banned
-//! dependency (blueprint §3.3). A quantity type is a row, resolved at compile time by a
-//! pass, and this crate is the in-memory shape of those rows plus the algebra over them.
+//! Physical typing is declared in the registry (blueprint §8.1). A quantity type is a
+//! row, resolved at compile time by a pass, and this crate holds the native contracts
+//! and algebra used by that computation. Full library eligibility follows §3.3.2.
 //!
 //! # Why a dimension vector is not a physical type
 //!
@@ -52,6 +52,10 @@ pub mod conversion;
 pub mod dimension;
 pub mod enums;
 pub mod error;
+/// Arrow-free projection of explicitly selected reference package documents.
+#[cfg(feature = "fixtures")]
+#[rustfmt::skip]
+pub mod generated;
 pub mod ids;
 pub mod index;
 pub mod infer;
@@ -59,6 +63,7 @@ pub mod kind;
 pub mod literal;
 pub mod numeric;
 pub mod operation;
+pub mod precondition;
 pub mod quantity_type;
 pub mod reference_state;
 pub mod registry;
@@ -84,6 +89,7 @@ pub use crate::ids::{
 pub use crate::index::{BinderConflict, BoundIndexRef, IndexSet};
 pub use crate::kind::QuantityKind;
 pub use crate::operation::{InputConversion, QuantityOperation};
+pub use crate::precondition::{PhysicalPrecondition, PhysicalRequirement};
 pub use crate::quantity_type::{QuantityType, QuantityTypeKey};
 pub use crate::reference_state::ReferenceState;
 pub use crate::registry::{QuantityRegistry, QuantityRegistryBuilder};

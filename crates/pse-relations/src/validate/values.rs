@@ -22,6 +22,15 @@ pub(super) fn validate_cell(
         }
         return;
     }
+    if let Ok(Some(range)) = pse_schema::model::IntegerRange::from_field(field)
+        && !matches!(cell, Cell::I64(value) if range.contains(*value))
+    {
+        errors.push(crate::cells::value_error(
+            path,
+            row,
+            "value outside declared integer domain",
+        ));
+    }
     match (field.data_type(), cell) {
         (DataType::Struct(children), Cell::Struct(values)) => {
             for (child, value) in children.iter().zip(values) {
@@ -63,9 +72,11 @@ fn bound(cell: &Cell) -> Option<&'static str> {
         return Some("bound requires its declared struct");
     };
     match values.as_slice() {
-        [Cell::Enum("finite"), Cell::F64(value)] if value.is_finite() => None,
-        [Cell::Enum("unbounded"), Cell::Null] => None,
-        _ => Some("finite bound requires a finite value; unbounded requires an absent value"),
+        [Cell::Enum(kind), Cell::F64(value)] if super::local_values::bound(kind, Some(*value)) => {
+            None
+        }
+        [Cell::Enum(kind), Cell::Null] if super::local_values::bound(kind, None) => None,
+        _ => Some(super::local_values::BOUND_ERROR),
     }
 }
 fn dimension(cell: &Cell) -> Option<&'static str> {
@@ -77,8 +88,8 @@ fn dimension(cell: &Cell) -> Option<&'static str> {
             return Some("dimension exponent requires numerator and denominator");
         };
         if let [Cell::I64(num), Cell::I64(den)] = pair.as_slice() {
-            if *den <= 0 || gcd(num.unsigned_abs(), den.unsigned_abs()) != 1 {
-                return Some("dimension exponent must be reduced with a positive denominator");
+            if !super::local_values::dimension_exponent(*num, *den) {
+                return Some(super::local_values::DIMENSION_ERROR);
             }
         } else {
             return Some("dimension exponent requires numerator and denominator");
@@ -86,21 +97,17 @@ fn dimension(cell: &Cell) -> Option<&'static str> {
     }
     None
 }
-fn gcd(mut one: u64, mut two: u64) -> u64 {
-    while two != 0 {
-        let rest = one % two;
-        one = two;
-        two = rest;
-    }
-    one
-}
 fn span(cell: &Cell) -> Option<&'static str> {
     let Cell::Struct(values) = cell else {
         return Some("source span requires its declared struct");
     };
     match values.as_slice() {
-        [Cell::Id(_), Cell::U64(start), Cell::U64(end)] if start <= end => None,
-        _ => Some("source span start exceeds end"),
+        [Cell::Id(_), Cell::I64(start), Cell::I64(end)]
+            if super::local_values::source_span(*start, *end) =>
+        {
+            None
+        }
+        _ => Some(super::local_values::SPAN_ERROR),
     }
 }
 fn quantity(cell: &Cell) -> Option<&'static str> {
@@ -108,10 +115,10 @@ fn quantity(cell: &Cell) -> Option<&'static str> {
         return Some("quantity value requires its declared struct");
     };
     match values.as_slice() {
-        [Cell::F64(value), Cell::Id(_), Cell::Id(_)] if value.is_finite() => None,
-        _ => {
-            Some("quantity value requires a finite value and explicit quantity and unit identities")
+        [Cell::F64(value), Cell::Id(_), Cell::Id(_)] if super::local_values::quantity(*value) => {
+            None
         }
+        _ => Some(super::local_values::QUANTITY_ERROR),
     }
 }
 
@@ -122,7 +129,7 @@ pub(super) fn validate_quantities(
     errors: &mut Vec<RelationError>,
 ) {
     for (index, column) in spec.columns.iter().enumerate() {
-        if column.quantity != QuantityContract::PerRow
+        if column.quantity() != QuantityContract::PerRow
             || matches!(values.get(index), None | Some(Cell::Null))
         {
             continue;
@@ -131,11 +138,11 @@ pub(super) fn validate_quantities(
         let value = spec
             .columns
             .iter()
-            .position(|candidate| candidate.name == sibling)
+            .position(|candidate| candidate.name() == sibling)
             .and_then(|index| values.get(index));
         if !matches!(value, Some(Cell::Id(_))) {
             errors.push(crate::cells::value_error(
-                column.name,
+                column.name(),
                 row,
                 "visible per-row quantity requires a non-null sibling quantity identity",
             ));

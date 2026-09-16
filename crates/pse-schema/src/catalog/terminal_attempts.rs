@@ -10,10 +10,10 @@ use crate::{
 
 const RELATION: &str = "provenance.pass_records";
 fn eq(name: &'static str, value: &'static str) -> E {
-    E::cmp(CmpOp::Eq, E::Col(name), E::Lit(Cell::Enum(value)))
+    E::cmp(CmpOp::Eq, E::col(name), E::Lit(Cell::Enum(value)))
 }
 fn null(name: &'static str) -> E {
-    E::IsNull(Box::new(E::Col(name)))
+    E::IsNull(Box::new(E::col(name)))
 }
 fn failed() -> E {
     E::Or(vec![eq("status", "failed"), eq("status", "cancelled")])
@@ -38,8 +38,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "check:terminal_count",
         E::cmp(
             CmpOp::NotEq,
-            E::Col("finding_count"),
-            E::ListLen(Box::new(E::Col("findings"))),
+            E::col("finding_count"),
+            E::ListLen(Box::new(E::col("findings"))),
         ),
         "The recorded finding count equals the actual complete typed finding list length.",
     );
@@ -66,7 +66,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "check:terminal_failed_output",
         E::And(vec![
             failed(),
-            E::IsNotNull(Box::new(E::Col("snapshot_out"))),
+            E::IsNotNull(Box::new(E::col("snapshot_out"))),
         ]),
         "A failed or cancelled attempt has no output snapshot.",
     );
@@ -75,19 +75,19 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "check:terminal_failure_finding",
         E::And(vec![
             failed(),
-            E::cmp(CmpOp::Eq, E::Col("finding_count"), E::Lit(Cell::U64(0))),
+            E::cmp(CmpOp::Eq, E::col("finding_count"), E::Lit(Cell::U64(0))),
         ]),
         "An unsuccessful attempt retains at least one actual execution or rule finding.",
     );
     check(
         builder,
         "check:terminal_duration",
-        E::cmp(CmpOp::Lt, E::Col("duration_ms"), E::Lit(Cell::F64(0.0))),
+        E::cmp(CmpOp::Lt, E::col("duration_ms"), E::Lit(Cell::F64(0.0))),
         "A terminal attempt duration is finite and nonnegative.",
     );
-    let element = |name| E::Field {
-        expr: Box::new(E::Col("finding")),
-        name,
+    let element = |name: &'static str| E::Field {
+        expr: Box::new(E::col("finding")),
+        name: name.into(),
     };
     let invalid_origin = E::And(vec![
         E::IsNull(Box::new(element("check_id"))),
@@ -102,8 +102,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     ]);
     let unnest = RulePlan::Unnest {
         input: Box::new(scan(RELATION, "subject")),
-        column: "findings",
-        value_name: "finding",
+        column: ("findings").into(),
+        value_name: ("finding").into(),
         null_list: NullListPolicy::Reject,
         empty_list: EmptyListPolicy::NoMembers,
     };

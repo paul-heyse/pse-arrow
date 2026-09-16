@@ -4,7 +4,7 @@
 use crate::RelationError;
 use arrow_array::RecordBatch;
 use pse_schema::Registry;
-use pse_schema::model::{Cell, ExtensionUse, LogicalType, RelationKey, RelationSpec};
+use pse_schema::model::{Cell, ExtensionUse, FieldContract, RelationKey, RelationSpec};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Admits each batch and then validates primary keys, declared foreign keys and nested
@@ -48,9 +48,9 @@ pub fn validate_bundle(
             for (column, value) in spec.columns.iter().zip(values) {
                 ordinal(
                     reg,
-                    &column.logical_type,
+                    &column.value_type(),
                     value,
-                    column.name,
+                    column.name(),
                     row,
                     &decoded,
                     &mut errors,
@@ -65,7 +65,11 @@ fn keys(spec: &RelationSpec, rows: &[Vec<Cell>], errors: &mut Vec<RelationError>
     let indices = spec
         .primary_key
         .iter()
-        .filter_map(|name| spec.columns.iter().position(|column| column.name == *name))
+        .filter_map(|name| {
+            spec.columns
+                .iter()
+                .position(|column| column.name() == *name)
+        })
         .collect::<Vec<_>>();
     let mut seen = BTreeSet::new();
     for (row, values) in rows.iter().enumerate() {
@@ -91,7 +95,7 @@ fn references(
     errors: &mut Vec<RelationError>,
 ) {
     for (index, column) in spec.columns.iter().enumerate() {
-        let Some(fk) = column.fk else {
+        let Some(fk) = column.fk() else {
             continue;
         };
         let target = reg.relation(fk.relation);
@@ -100,7 +104,7 @@ fn references(
                 target
                     .columns
                     .iter()
-                    .position(|candidate| candidate.name == fk.column),
+                    .position(|candidate| candidate.name() == fk.column),
             )
         });
         let Some((target_rows, target_index)) = context else {
@@ -119,7 +123,7 @@ fn references(
                 && !members.contains(&values[index].literal_spec())
             {
                 errors.push(crate::cells::value_error(
-                    column.name,
+                    column.name(),
                     row,
                     &format!("foreign key value is absent from {fk}"),
                 ));
@@ -129,25 +133,25 @@ fn references(
 }
 fn ordinal(
     reg: &Registry,
-    ty: &LogicalType,
+    ty: &FieldContract,
     value: &Cell,
     path: &str,
     row: usize,
     all: &BTreeMap<RelationKey, Vec<Vec<Cell>>>,
     errors: &mut Vec<RelationError>,
 ) {
-    match (ty, value) {
-        (LogicalType::Ext(ExtensionUse::OrdinalRef { target }), Cell::U64(ordinal)) => {
+    match (ty.extension(), ty.data_type(), value) {
+        (Some(ExtensionUse::OrdinalRef { target }), _, Cell::I64(ordinal)) => {
             let count = reg
                 .relation(target)
                 .and_then(|spec| all.get(&spec.key))
-                .and_then(|rows| u64::try_from(rows.len()).ok());
+                .and_then(|rows| i64::try_from(rows.len()).ok());
             match count {
-                Some(rows) if *ordinal < rows => {}
+                Some(rows) if (0..rows).contains(ordinal) => {}
                 Some(rows) => errors.push(RelationError::OrdinalRange {
                     field: format!("{path} row {row}"),
                     ordinal: *ordinal,
-                    target: (*target).to_owned(),
+                    target: target.to_owned(),
                     rows,
                 }),
                 None => errors.push(super::mismatch(
@@ -156,11 +160,15 @@ fn ordinal(
                 )),
             }
         }
-        (LogicalType::List(child) | LogicalType::FixedList(child, _), Cell::List(values)) => {
+        (
+            None,
+            arrow_schema::DataType::List(child) | arrow_schema::DataType::FixedSizeList(child, _),
+            Cell::List(values),
+        ) => {
             for (index, value) in values.iter().enumerate() {
                 ordinal(
                     reg,
-                    child,
+                    &FieldContract::from_field((*child).clone()),
                     value,
                     &format!("{path}[{index}]"),
                     row,
@@ -169,11 +177,13 @@ fn ordinal(
                 );
             }
         }
-        (LogicalType::Struct(children), Cell::Struct(values)) => {
-            for ((name, child, _), value) in children.iter().zip(values) {
+        (None, arrow_schema::DataType::Struct(children), Cell::Struct(values)) => {
+            for (field, value) in children.iter().zip(values) {
+                let name = field.name();
+                let child = field;
                 ordinal(
                     reg,
-                    child,
+                    &FieldContract::from_field((**child).clone()),
                     value,
                     &format!("{path}.{name}"),
                     row,

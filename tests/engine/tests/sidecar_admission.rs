@@ -13,7 +13,7 @@ use object_store::memory::InMemory;
 use pse_catalog::{
     Catalog, CatalogError, EncodingPolicy, ExecutionSettings, FixedClock, RelationContract,
     ThreadBudget, TrustLevel,
-    session::phase0_reference_profile,
+    session::{SessionFactory, native_engine_profile},
     store::{membership::SemanticValidator, publish::RelationDraft},
 };
 use pse_ids::{CancellationToken, ContentHash, MemoryReserver, SemanticId};
@@ -53,16 +53,21 @@ fn fixture() -> Fixture {
     })
     .expect("actual runtime");
     let reserver: Arc<dyn MemoryReserver> = runtime.reserver();
-    let invariant = pse_rules::validator::InvariantValidator::new(
-        Arc::clone(&registry),
-        runtime.runtime_env(),
-        Arc::clone(&reserver),
-        ExecutionSettings::default(),
-        threads,
-        phase0_reference_profile(),
+    let sessions = Arc::new(
+        SessionFactory::new(
+            runtime.runtime_env(),
+            Arc::clone(&reserver),
+            ExecutionSettings::default(),
+            threads,
+            native_engine_profile(),
+        )
+        .expect("sealed engine"),
     );
+    let invariant = pse_rules::validator::InvariantValidator::new(Arc::clone(&registry));
     let validator: Arc<dyn SemanticValidator> = Arc::new(
-        pse_compiler::validator::CompilerValidator::new(Arc::new(invariant)),
+        pse_compiler::validator::CompilerValidator::new(Arc::new(invariant), &registry)
+            .expect("registered producers")
+            .with_sessions(Arc::clone(&sessions)),
     );
     let checked_store: Arc<dyn object_store::ObjectStore> = Arc::<InMemory>::clone(&store);
     let checked = Catalog::open(
@@ -70,7 +75,7 @@ fn fixture() -> Fixture {
         Arc::clone(&registry),
         TrustLevel::Untrusted,
         Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        Arc::clone(&reserver),
+        Arc::clone(&sessions),
     )
     .with_semantic_validator(Arc::clone(&validator));
     let forged = Catalog::open(
@@ -78,7 +83,7 @@ fn fixture() -> Fixture {
         Arc::clone(&registry),
         TrustLevel::Untrusted,
         Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        reserver,
+        Arc::clone(&sessions),
     )
     .with_semantic_validator(Arc::new(ForgedLocalArtifact));
     Fixture {
@@ -99,6 +104,7 @@ impl SemanticValidator for ForgedLocalArtifact {
         &'a self,
         _: &'a Registry,
         _: &'a BTreeMap<RelationKey, RecordBatch>,
+        _session: &'a pse_catalog::session::SnapshotSession,
         _: &'a CancellationToken,
     ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
         Box::pin(async {
@@ -111,6 +117,7 @@ impl SemanticValidator for ForgedLocalArtifact {
         &'a self,
         _: &'a Registry,
         _: &'a BTreeMap<RelationKey, RecordBatch>,
+        _session: &'a pse_catalog::session::SnapshotSession,
         _: &'a CancellationToken,
     ) -> pse_catalog::BoxFut<'a, Result<(), CatalogError>> {
         Box::pin(async { Ok(()) })
@@ -180,7 +187,16 @@ async fn standalone_change_operation_admits_locally_but_not_as_complete_candidat
     let incomplete = BTreeMap::from([(spec.key, reopened.relation().batch().clone())]);
     let failure = fixture
         .validator
-        .validate(&fixture.registry, &incomplete, &cancel)
+        .validate(
+            &fixture.registry,
+            &incomplete,
+            &fixture
+                .checked
+                .session_factory()
+                .candidate(BTreeMap::new(), Arc::clone(&fixture.registry), &cancel)
+                .expect("actual native scope"),
+            &cancel,
+        )
         .await
         .expect_err("full candidate still requires its actual header relation");
     assert!(
@@ -204,6 +220,7 @@ fn success(registry: &Registry) -> Vec<Cell> {
         Cell::Enum("ok"),
         Cell::List(vec![]),
         Cell::Null,
+        Cell::List(vec![]),
     ]
 }
 fn failed(registry: &Registry) -> Vec<Cell> {

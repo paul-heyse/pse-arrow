@@ -6,7 +6,7 @@
 use arrow_schema::DataType;
 
 use crate::SchemaError;
-use crate::model::{ExtensionUse, LogicalType};
+use crate::model::{ExtensionUse, FieldContract};
 
 use super::pascal;
 
@@ -84,27 +84,48 @@ fn list(child: &Type, width: Option<i32>) -> Type {
 }
 
 pub(super) fn logical(
-    ty: &LogicalType,
+    ty: &FieldContract,
     stem: &str,
     declarations: &mut String,
 ) -> Result<Type, SchemaError> {
-    Ok(match ty {
-        LogicalType::List(child) => {
-            list(&logical(child, &format!("{stem}Item"), declarations)?, None)
-        }
-        LogicalType::FixedList(child, width) => list(
-            &logical(child, &format!("{stem}Item"), declarations)?,
-            Some(*width),
+    if let Some(range) = crate::model::IntegerRange::from_field(ty.field())? {
+        return Ok(integer_domain(range));
+    }
+    Ok(match (ty.extension(), ty.data_type()) {
+        (None, DataType::List(child)) => list(
+            &optional(
+                logical(
+                    &FieldContract::from_field((*child).clone()),
+                    &format!("{stem}Item"),
+                    declarations,
+                )?,
+                child.is_nullable(),
+            ),
+            None,
         ),
-        LogicalType::Struct(children) => {
+        (None, DataType::FixedSizeList(child, width)) => list(
+            &optional(
+                logical(
+                    &FieldContract::from_field((*child).clone()),
+                    &format!("{stem}Item"),
+                    declarations,
+                )?,
+                child.is_nullable(),
+            ),
+            Some(width),
+        ),
+        (None, DataType::Struct(children)) => {
             let fields = children
                 .iter()
-                .map(|(name, ty, nullable)| {
+                .map(|field| {
+                    let name = field.name();
+                    let ty = FieldContract::from_field((**field).clone());
+                    let nullable = field.is_nullable();
                     Ok((
-                        (*name).to_owned(),
+                        name.to_owned(),
                         optional(
-                            logical(ty, &format!("{stem}{}", pascal(name)), declarations)?,
-                            *nullable,
+                            logical(&ty, &format!("{stem}{}", pascal(name)), declarations)?,
+                            nullable,
                         ),
                     ))
                 })
@@ -112,8 +133,8 @@ pub(super) fn logical(
             declarations.push_str(&structure(stem, &fields));
             scalar(stem)
         }
-        LogicalType::Ext(ExtensionUse::Enum(name)) => scalar(&format!("e.{}", pascal(name))),
-        LogicalType::Ext(use_)
+        (Some(ExtensionUse::Enum(name)), _) => scalar(&format!("e.{}", pascal(name))),
+        (Some(use_), _)
             if matches!(
                 use_,
                 ExtensionUse::DimensionVector
@@ -128,6 +149,12 @@ pub(super) fn logical(
             } else {
                 scalar(&format!("v.{name}"))
             }
+        }
+        (None, DataType::FixedSizeBinary(_) | DataType::Dictionary(..)) => {
+            return Err(super::error(format!(
+                "no native language codec for {}; domain meaning requires an explicit declaration",
+                ty.data_type()
+            )));
         }
         _ => storage(&ty.data_type(), stem, declarations)?,
     })
@@ -161,7 +188,6 @@ pub(super) fn storage(
         },
         DataType::FixedSizeBinary(16) => scalar("v.SemanticId"),
         DataType::FixedSizeBinary(32) => scalar("v.ContentHash"),
-        DataType::Dictionary(..) => scalar("e.BoundKind"),
         DataType::List(child) => list(
             &storage(child.data_type(), &format!("{stem}Item"), declarations)?,
             None,
@@ -175,13 +201,19 @@ pub(super) fn storage(
                 .iter()
                 .map(|field| {
                     Ok((
-                        field.name().clone(),
+                        field.name().to_owned(),
                         optional(
-                            storage(
-                                field.data_type(),
-                                &format!("{stem}{}", pascal(field.name())),
-                                declarations,
-                            )?,
+                            if let Some(range) = crate::model::IntegerRange::from_field(field)? {
+                                integer_domain(range)
+                            } else if let Some(name) = super::super::enum_name(field) {
+                                scalar(&format!("e.{}", pascal(name)))
+                            } else {
+                                storage(
+                                    field.data_type(),
+                                    &format!("{stem}{}", pascal(field.name())),
+                                    declarations,
+                                )?
+                            },
                             field.is_nullable(),
                         ),
                     ))
@@ -192,6 +224,13 @@ pub(super) fn storage(
         }
         other => return Err(super::error(format!("no Python type for {other}"))),
     })
+}
+
+fn integer_domain(range: crate::model::IntegerRange) -> Type {
+    Type {
+        annotation: "b.int".to_owned(),
+        validator: format!("v.integer_range({}, {})", range.minimum, range.maximum),
+    }
 }
 
 #[cfg(test)]

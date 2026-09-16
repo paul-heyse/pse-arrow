@@ -6,7 +6,7 @@ use crate::{MathIrError, NodeId};
 use pse_ids::SemanticId;
 use pse_quantity::{BoundIndexId, BoundIndexRef, DomainId, DomainKind, IndexSet, UnitId};
 
-/// Actual domain declaration plus ordered members, supplied by the predecessor bundle.
+/// Actual domain declaration plus ordered members, supplied by the bound inputs.
 #[derive(Clone, Debug)]
 pub struct DomainFacts {
     /// Declared domain meaning.

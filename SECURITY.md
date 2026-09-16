@@ -85,8 +85,19 @@ Out of scope:
 
 ## How we handle dependencies
 
-Every dependency is version-pinned and the lockfiles are committed. `cargo deny check`
-and `cargo audit` run on every pull request (`rust / deny`) and fail on yanked crates,
-known advisories, and disallowed licenses; the advisory `ignore` list requires an id, a
-reason, an owner, and a review date. Dependabot opens grouped updates, and GitHub secret
-scanning with push protection is enabled on the repository.
+Every dependency is version-pinned (`=` for Rust, `==` for Python), the lockfiles are
+committed, and every gate runs `--locked`. `cargo deny check` (advisories, licences, bans,
+sources) and `cargo audit` run on every pull request as `rust / deny`, and `just policy`
+runs them strictly on demand.
+
+**Be precise about what that means today.** The project is pre-release: every crate is
+`publish = false` and nothing has been published to crates.io or PyPI. While that is true,
+`rust / deny` **reports and does not block** — it is `continue-on-error` and is not a
+required check — and no dependency or licence is refused on policy grounds (ADR-0066,
+[dependency policy](docs/dev/dependency-policy.md)). A known advisory in the graph is
+therefore visible on the pull request but does not stop a merge. Register row R-31 carries
+the dated obligation to run the strict audit before the first published release.
+
+The advisory `ignore` list still requires an id, a reason, an owner, and a review date.
+Dependabot opens grouped updates, and GitHub secret scanning with push protection is
+enabled on the repository.

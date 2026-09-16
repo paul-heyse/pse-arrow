@@ -1,8 +1,0 @@
-[package]
-id = "01991d6a-13a0-7000-8000-000000000001"
-name = "minimal"
-version = "1.0.0"
-kind = "model"
-id_policy = "explicit"
-dependencies = []
-doc = "Minimal explicit identity fixture."

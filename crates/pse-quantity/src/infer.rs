@@ -387,7 +387,18 @@ pub fn infer_with_evidence(
                 BuiltInRule::Broadcast,
             ))
         }
-        OpRequest::Reduce { kind, bound } => reduce(operands, *kind, *bound, registry),
+        OpRequest::Reduce { kind, bound } => {
+            validate_reduction(operands, *kind, *bound, registry)?;
+            if *kind == ReductionKind::Sum
+                && !match_rules(request, operands, registry, false)?.is_empty()
+            {
+                // An actual kind-matched contraction is authoritative, including a
+                // refusal or ambiguity. A failed contract must not fall back.
+                registered(request, operands, registry, checker)
+            } else {
+                reduce(operands, *kind, *bound, registry)
+            }
+        }
         OpRequest::UnitConvert { spec } => unit_convert(operands, *spec, registry),
         OpRequest::KernelCall {
             declared_inputs,
@@ -456,7 +467,10 @@ fn count(operands: &[Operand<'_>], expected: usize) -> Result<(), QuantityError>
 fn incompatible(reason: IncompatibilityReason, operands: &[Operand<'_>]) -> QuantityError {
     QuantityError::Incompatible {
         reason,
-        operands: operands.iter().map(|x| x.quantity_type).collect(),
+        operands: operands
+            .iter()
+            .map(|operand| (operand.quantity_type, operand.indices.clone()))
+            .collect(),
         hint: None,
     }
 }
@@ -584,12 +598,12 @@ fn weighted_mean(
         BuiltInRule::WeightedMean,
     ))
 }
-fn reduce(
+fn validate_reduction(
     operands: &[Operand<'_>],
     kind: ReductionKind,
     bound: BoundIndexRef,
     registry: &QuantityRegistry,
-) -> Result<Inferred, QuantityError> {
+) -> Result<(), QuantityError> {
     count(operands, 1)?;
     let ty = registry.quantity_type(operands[0].quantity_type)?;
     if operands[0].indices.get(bound.bound_index) != Some(&bound) {
@@ -607,6 +621,16 @@ fn reduce(
             "product requires a registered finite-cardinality rule or neutral dimensionless body",
         ));
     }
+    Ok(())
+}
+fn reduce(
+    operands: &[Operand<'_>],
+    kind: ReductionKind,
+    bound: BoundIndexRef,
+    registry: &QuantityRegistry,
+) -> Result<Inferred, QuantityError> {
+    validate_reduction(operands, kind, bound, registry)?;
+    let ty = registry.quantity_type(operands[0].quantity_type)?;
     let bound_set = IndexSet::try_from_iter([bound])
         .map_err(|_| invariant("reduction.index", "binder conflict"))?;
     let indices = operands[0].indices.difference(&bound_set);
@@ -691,13 +715,24 @@ struct Match<'a> {
     permutation: Vec<u16>,
 }
 fn match_rules<'a>(
-    opcode: Opcode,
+    request: &OpRequest<'_>,
     operands: &[Operand<'_>],
     registry: &'a QuantityRegistry,
     swapped: bool,
 ) -> Result<Vec<Match<'a>>, QuantityError> {
     let mut found = Vec::new();
-    for rule in registry.operations_for(opcode) {
+    for rule in registry.operations_for(request_opcode(request)) {
+        if let Some(required) = registry.reduction_domain(rule.id) {
+            let actual = match request {
+                OpRequest::Reduce { bound, .. } | OpRequest::Integral { bound, .. } => {
+                    Some(bound.kind)
+                }
+                _ => None,
+            };
+            if actual != Some(required) {
+                continue;
+            }
+        }
         if rule.input_kinds.len() != operands.len() {
             continue;
         }
@@ -748,9 +783,9 @@ fn registered(
     checker: &dyn InvariantChecker,
 ) -> Result<Inferred, QuantityError> {
     let opcode = request_opcode(request);
-    let ordered = match_rules(opcode, operands, registry, false)?;
+    let ordered = match_rules(request, operands, registry, false)?;
     let swapped = if ordered.is_empty() && opcode == Opcode::Mul && operands.len() == 2 {
-        match_rules(opcode, operands, registry, true)?
+        match_rules(request, operands, registry, true)?
     } else {
         vec![]
     };
@@ -773,9 +808,6 @@ fn registered(
             swapped_matches: swapped.len(),
         });
     };
-    for invariant in &selected.rule.precondition_invariants {
-        checker.check(*invariant, request, Some(selected.rule), operands, registry)?;
-    }
     let types = selected
         .types
         .iter()
@@ -792,8 +824,15 @@ fn registered(
     let aligned: Vec<_> = selected
         .permutation
         .iter()
-        .map(|position| operands[usize::from(*position)])
+        .zip(&selected.types)
+        .map(|(position, quantity_type)| Operand {
+            quantity_type: *quantity_type,
+            indices: operands[usize::from(*position)].indices,
+        })
         .collect();
+    for invariant in &selected.rule.precondition_invariants {
+        checker.check(*invariant, request, Some(selected.rule), &aligned, registry)?;
+    }
     let (key, indices) = compose_key(request, rule, &types, &aligned)?;
     let result = registry
         .resolve_key(&key)
@@ -917,10 +956,11 @@ fn compose_shape(
             (vec![], IndexSet::new())
         }
         QuantityShapeRule::ReduceBoundIndex => {
-            let OpRequest::Integral { bound, .. } = request else {
+            let (OpRequest::Integral { bound, .. } | OpRequest::Reduce { bound, .. }) = request
+            else {
                 return Err(invariant(
                     "operation.index_policy",
-                    "reduction policy needs an explicit integration binder",
+                    "reduction policy requires an explicit bound index",
                 ));
             };
             count(aligned, 1)?;
@@ -1048,6 +1088,13 @@ fn dimension_for(
                 .dimension
                 .pow(Ratio::new(i32::from(*order), 1)?)?,
         )?),
+        (
+            OpRequest::Reduce {
+                kind: ReductionKind::Sum,
+                ..
+            },
+            [body],
+        ) => Ok(*body),
         (OpRequest::Integral { domain_unit, .. }, [body]) => {
             Ok(body.mul(&registry.unit(*domain_unit)?.dimension)?)
         }

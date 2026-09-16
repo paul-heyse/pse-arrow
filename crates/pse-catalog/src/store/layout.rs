@@ -17,7 +17,7 @@
 //! overwrite the other (ADR-0045).
 
 use object_store::path::Path;
-use pse_ids::{ContentHash, EncodingChecksum, SchemaVersion, SemanticId};
+use pse_ids::{ContentHash, EncodingChecksum, SchemaVersion};
 
 use crate::error::CatalogError;
 
@@ -30,11 +30,12 @@ const DIR_RELATIONS: &str = "relations";
 /// The directory holding noncanonical plan and diagnostic evidence (ADR-0044).
 const DIR_EVIDENCE: &str = "evidence";
 /// The directory holding exact authored source bytes.
-const DIR_DOCUMENTS: &str = "documents";
 /// The directory holding the stage-key sidecar, which is never snapshot membership.
 const DIR_STAGES: &str = "stages";
 /// Complete durable change-set envelopes, outside semantic membership.
 const DIR_CHANGES: &str = "changes";
+/// Immutable exact physical parent bindings, excluded from semantic membership.
+const DIR_CONTEXTS: &str = "contexts";
 
 /// The suffix of the JSON-encoded objects.
 const EXT_JSON: &str = "json";
@@ -63,7 +64,13 @@ pub(super) fn is_local_temporary(name: &str) -> bool {
 /// Refs are mutable, manifests contain the membership being computed, and stages are
 /// pass-attempt bookkeeping. A member in any of these directories would make a snapshot ID
 /// depend on something the snapshot contains, which is the self-reference §5.3 forbids.
-pub const SIDECAR_DIRECTORIES: [&str; 4] = [DIR_REFS, DIR_MANIFESTS, DIR_STAGES, DIR_CHANGES];
+pub const SIDECAR_DIRECTORIES: [&str; 5] = [
+    DIR_REFS,
+    DIR_MANIFESTS,
+    DIR_STAGES,
+    DIR_CHANGES,
+    DIR_CONTEXTS,
+];
 
 /// The maximum length of a [`RefName`], including the first character.
 const REF_NAME_MAX: usize = 64;
@@ -239,16 +246,6 @@ pub fn evidence_path(checksum: &EncodingChecksum) -> Path {
     ))
 }
 
-/// `documents/<document_id>/<encoding_checksum>` — the exact authored source bytes.
-#[must_use]
-pub fn document_path(document_id: SemanticId, checksum: &EncodingChecksum) -> Path {
-    Path::from(format!(
-        "{DIR_DOCUMENTS}/{}/{}",
-        document_id.to_hex(),
-        checksum.content_hash().to_hex()
-    ))
-}
-
 /// `stages/<stage_key>.json` — the stage-key sidecar (blueprint §5.3 step 7, ADR-0041).
 ///
 /// A sidecar, never a member: it records which snapshot a stage key resolved to, so a
@@ -263,6 +260,15 @@ pub fn stage_path(key: &ContentHash) -> Path {
 pub fn change_set_path(checksum: &EncodingChecksum) -> Path {
     Path::from(format!(
         "{DIR_CHANGES}/{}.{EXT_JSON}",
+        checksum.content_hash().to_hex()
+    ))
+}
+
+/// `contexts/<encoding_checksum>.json`, immutable exact admission bindings selected by a manifest.
+#[must_use]
+pub fn context_path(checksum: &EncodingChecksum) -> Path {
+    Path::from(format!(
+        "{DIR_CONTEXTS}/{}.{EXT_JSON}",
         checksum.content_hash().to_hex()
     ))
 }
@@ -374,11 +380,6 @@ mod tests {
         assert_eq!(
             evidence_path(&checksum(0x03)).as_ref(),
             format!("evidence/{}", hex(0x03))
-        );
-
-        assert_eq!(
-            document_path(SemanticId::from_bytes([0x04; 16]), &checksum(0x05)).as_ref(),
-            format!("documents/{}/{}", "04".repeat(16), hex(0x05))
         );
 
         assert_eq!(

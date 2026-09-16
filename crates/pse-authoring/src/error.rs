@@ -15,6 +15,10 @@ use crate::span::SourceSpan;
 /// A document, identity, reference or package resolution that does not hold.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum AuthoringError {
+    /// Native planning/execution retains the platform's classified diagnostic.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Catalog(#[from] pse_catalog::CatalogError),
     /// Shared platform memory could not be reserved before construction.
     #[error(transparent)]
     #[diagnostic(transparent)]

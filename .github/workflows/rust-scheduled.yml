@@ -40,11 +40,6 @@ env:
   # The only nightly this repository names outside tooling/dfarrow-apiex. cargo-udeps
   # needs one; it is pinned so a nightly regression cannot silently change the result.
   NIGHTLY: nightly-2026-09-08
-  CARGO_NEXTEST_VERSION: 0.9.143
-  CARGO_HACK_VERSION: 0.6.45
-  CARGO_UDEPS_VERSION: 0.1.61
-  CARGO_MUTANTS_VERSION: 27.1.0
-  CARGO_GEIGER_VERSION: 0.13.0
 
 jobs:
   # Owner: maintainer. Response: a broken feature combination is a bug in the feature
@@ -63,7 +58,7 @@ jobs:
         with:
           shared-key: features
           save-if: "true"
-          tools: cargo-hack@${{ env.CARGO_HACK_VERSION }}
+          tools: cargo-hack
       - name: feature powerset
         # depth 2: pairwise. The full powerset over the optional backends and kernels
         # would not finish, and pairs catch essentially all of the real breakage.
@@ -84,7 +79,7 @@ jobs:
         with:
           shared-key: test-release
           save-if: "true"
-          tools: cargo-nextest@${{ env.CARGO_NEXTEST_VERSION }}
+          tools: cargo-nextest
       - name: nextest at the release profile
         run: |
           cargo nextest run --workspace --locked --profile ci \
@@ -108,7 +103,7 @@ jobs:
         with:
           shared-key: udeps
           save-if: "true"
-          tools: cargo-udeps@${{ env.CARGO_UDEPS_VERSION }}
+          tools: cargo-udeps
       - name: install the pinned nightly
         run: |
           set -euo pipefail
@@ -132,7 +127,7 @@ jobs:
         with:
           shared-key: mutants
           save-if: "true"
-          tools: cargo-mutants@${{ env.CARGO_MUTANTS_VERSION }}
+          tools: cargo-mutants
       - name: mutate the two crates whose correctness is pure logic
         # pse-ids (hashing and identity) and pse-mathir (the IR and its invariants) have
         # no I/O and no solver, so a surviving mutant there is a real gap in the tests.
@@ -164,7 +159,7 @@ jobs:
       - name: install cargo-geiger
         # Not available as a prebuilt binary from taiki-e/install-action, so it is built
         # here. Weekly, cached, and the only `cargo install` in this repository.
-        run: cargo install cargo-geiger --locked --version "${CARGO_GEIGER_VERSION}"
+        run: cargo install cargo-geiger --locked
       - name: count the unsafe surface
         run: cargo geiger --workspace --all-targets --output-format GitHubMarkdown | tee geiger.md
       - name: publish to the run summary
@@ -201,7 +196,7 @@ jobs:
         with:
           shared-key: floors
           save-if: "true"
-          tools: cargo-hack@${{ env.CARGO_HACK_VERSION }}
+          tools: cargo-hack
       - name: what would move
         run: cargo update --dry-run --workspace 2>&1 | tee "${RUNNER_TEMP}/update.log"
       - name: floors still hold against the latest resolvable set

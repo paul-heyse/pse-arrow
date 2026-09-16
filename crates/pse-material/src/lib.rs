@@ -32,6 +32,10 @@
 pub mod element;
 pub mod enums;
 pub mod error;
+/// Arrow-free projection of the admitted reference element package.
+#[cfg(feature = "fixtures")]
+#[rustfmt::skip]
+pub mod generated;
 pub mod ids;
 pub mod phase_validity;
 pub mod stoichiometry;

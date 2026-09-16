@@ -90,7 +90,7 @@ pub fn dictionary_expansion(data: &ArrayData) -> Result<usize, CanonError> {
 fn overflow() -> CanonError {
     CanonError::Envelope {
         what: EnvelopeBound::Bytes,
-        limit: Envelope::PHASE1.max_normalized_bytes,
+        limit: Envelope::DEFAULT.max_normalized_bytes,
         actual: u64::MAX,
     }
 }

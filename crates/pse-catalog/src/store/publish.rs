@@ -10,7 +10,8 @@ use bytes::Bytes;
 use datafusion::arrow::array::RecordBatch;
 use object_store::path::Path;
 use object_store::{PutMode, PutOptions};
-use pse_ids::{CancellationToken, CanonicalizeOptions, ReservationLease};
+use pse_ids::{CancellationToken, CanonicalizeOptions};
+use pse_relations::columnar::FieldCheckedBatch;
 
 use super::membership::{self, AdmissionContext};
 use super::open::{Catalog, infrastructure};
@@ -48,9 +49,17 @@ pub(super) struct PreparedRelation {
     pub(super) objects: Vec<(Path, Bytes)>,
 }
 
+/// Snapshot relations use canonical key order; staged operation ordinals address
+/// the encoded input order. Both compute identity using the canonical contract.
+#[derive(Clone, Copy)]
+pub(super) enum RowOrder {
+    CanonicalKeys,
+    OperationOrdinals,
+}
+
 impl Catalog {
     /// Admit actual rows, evaluate registered invariants, canonicalize, finish encodings,
-    /// verify their decoded values, then create immutable objects and the manifest.
+    /// then create immutable objects and the manifest.
     /// Moving a mutable ref is the separate conditional operation over this result.
     ///
     /// # Errors
@@ -60,8 +69,61 @@ impl Catalog {
         draft: BundleDraft,
         cancel: &CancellationToken,
     ) -> Result<Arc<Snapshot>, CatalogError> {
+        Ok(self
+            .prepare_bundle_publication(draft, cancel)?
+            .execute(cancel)
+            .await?
+            .into_value())
+    }
+
+    /// Capture candidate ports, exact declarations and publication policy without writing.
+    /// Complete value and cross-port obligations execute in the native publication body.
+    /// # Errors
+    /// Incompatible declaration/schema, native preparation, policy or resource failure.
+    pub fn prepare_bundle_publication(
+        &self,
+        draft: BundleDraft,
+        cancel: &CancellationToken,
+    ) -> Result<super::operation::PreparedStoreOperation<Arc<Snapshot>>, CatalogError> {
+        use datafusion::common::TableReference;
+        use pse_schema::model::provider::{OperationPurpose, ProviderScope};
+        let mut session = self.context_session(&draft.context, cancel)?;
+        for (port, relation) in &draft.relations {
+            cancel.checkpoint()?;
+            self.bind_draft(
+                &mut session,
+                TableReference::full("publication", "inputs", port.clone()),
+                relation,
+            )?;
+        }
+        self.prepare_store_operation_in(
+            &session,
+            crate::store::operation::StoreCommand {
+                name: "store.publish_bundle",
+                scope: ProviderScope::Schema("store".into(), "manifests".into()),
+                purpose: OperationPurpose::Publish,
+                arguments: vec![datafusion::logical_expr::lit(
+                    draft.manifest.snapshot_kind.as_str(),
+                )],
+            },
+            Box::new(move |catalog, _session, cancel| {
+                Box::pin(async move {
+                    let snapshot = catalog.publish_bundle_inner(draft, &cancel).await?;
+                    let count = u64::try_from(snapshot.relations().len())
+                        .map_err(|_| super::encode::overflow())?;
+                    Ok((snapshot, count))
+                })
+            }),
+            cancel,
+        )
+    }
+
+    async fn publish_bundle_inner(
+        &self,
+        draft: BundleDraft,
+        cancel: &CancellationToken,
+    ) -> Result<Arc<Snapshot>, CatalogError> {
         cancel.checkpoint()?;
-        let metadata = self.publication_metadata(&draft)?;
         let inventory = membership::inventory(
             &self.registry,
             &draft.manifest,
@@ -88,6 +150,10 @@ impl Catalog {
             let batch = combine(self, relation, spec, cancel)?;
             candidates.insert(port.clone(), batch);
         }
+        let raw = candidates
+            .iter()
+            .map(|(port, batch)| (port.clone(), batch.batch().clone()))
+            .collect();
         self.admit_ports(
             draft.manifest.snapshot_kind,
             &candidates,
@@ -96,8 +162,26 @@ impl Catalog {
             cancel,
         )
         .await?;
-        self.admit_stage(&candidates, &draft.context, cancel)
-            .await?;
+        self.admit_stage(&raw, &draft.context, cancel).await?;
+        self.publish_admitted_bundle(draft, candidates, cancel)
+            .await
+    }
+
+    // Only admission and the registered producer executor can reach this boundary.
+    pub(crate) async fn publish_admitted_bundle(
+        &self,
+        draft: BundleDraft,
+        candidates: BTreeMap<String, FieldCheckedBatch>,
+        cancel: &CancellationToken,
+    ) -> Result<Arc<Snapshot>, CatalogError> {
+        cancel.checkpoint()?;
+        let metadata = self.publication_metadata(&draft)?;
+        let inventory = membership::inventory(
+            &self.registry,
+            &draft.manifest,
+            &draft.context,
+            &self.admission,
+        )?;
         let mut manifest = draft.manifest;
         manifest.created_at = self.clock.now_rfc3339_utc();
         manifest.schema_registry_fingerprint = self.registry.fingerprint();
@@ -105,8 +189,14 @@ impl Catalog {
         let mut loaded = BTreeMap::new();
         for (port, relation) in draft.relations {
             let spec = inventory[&port];
-            let prepared =
-                self.prepare_relation(port.clone(), relation, spec, &candidates[&port], cancel)?;
+            let prepared = self.prepare_relation(
+                port.clone(),
+                relation,
+                spec,
+                &candidates[&port],
+                RowOrder::CanonicalKeys,
+                cancel,
+            )?;
             manifest
                 .relations
                 .push(prepared.relation.member.as_ref().clone());
@@ -115,6 +205,10 @@ impl Catalog {
             objects.extend(prepared.objects);
         }
         manifest.snapshot_id = pse_ids::snapshot_id(&manifest.frame())?;
+        manifest.admission_binding = self
+            .publish_admission_binding(&draft.context, cancel)
+            .await?
+            .map(|encoding_checksum| super::manifest::AdmissionBindingRef { encoding_checksum });
         manifest.validate(self.registry.fingerprint())?;
         let bytes = super::encode::control(
             &manifest,
@@ -142,6 +236,7 @@ impl Catalog {
             relations: Arc::new(loaded),
             parents: Arc::new(draft.context.parents),
             stage_pass: draft.context.stage_pass,
+            invocation: draft.context.invocation,
             admission: Arc::clone(&self.admission),
         }))
     }
@@ -184,7 +279,8 @@ impl Catalog {
         port: String,
         relation: RelationDraft,
         spec: &pse_schema::model::RelationSpec,
-        candidate: &RecordBatch,
+        candidate: &FieldCheckedBatch,
+        order: RowOrder,
         cancel: &CancellationToken,
     ) -> Result<PreparedRelation, CatalogError> {
         let mut metadata = self.reserver.open("store:relation-metadata");
@@ -195,60 +291,37 @@ impl Catalog {
         )?)?;
         let mut objects = Vec::new();
         cancel.checkpoint()?;
-        let canonical = pse_ids::canonicalize(
-            &relation.contract.canonical,
-            std::slice::from_ref(candidate),
+        let (sorted, canonical) = candidate.canonicalize(
+            &self.registry,
+            spec,
             self.reserver.as_ref(),
             CanonicalizeOptions {
                 keep_sorted: true,
-                keep_preimage: true,
+                keep_preimage: false,
                 envelope: self.limits.envelope,
                 cancel: Some(cancel.clone()),
             },
         )?;
-        let sorted = canonical
-            .sorted
-            .ok_or_else(|| admission(&port, "canonical sorted content is absent"))?;
+        let stored = match order {
+            RowOrder::CanonicalKeys => sorted,
+            RowOrder::OperationOrdinals => candidate.clone(),
+        };
         let mut encodings = vec![super::encode::ipc_file(
-            &sorted,
+            stored.batch(),
             self.reserver.as_ref(),
             cancel,
         )?];
         if relation.contract.encodings == EncodingPolicy::IpcFileAndParquet {
             encodings.push(super::encode::parquet_file(
-                &sorted,
+                stored.batch(),
                 self.reserver.as_ref(),
                 cancel,
             )?);
         }
         let mut records = Vec::new();
         for encoded in encodings {
-            let decoded = super::verify::decode_file(
-                encoded.format,
-                &encoded.bytes,
-                &self.registry,
-                spec,
-                self.reserver.as_ref(),
-                cancel,
-                self.limits.envelope,
-            )?;
-            let roundtrip = pse_ids::canonicalize(
-                &relation.contract.canonical,
-                &[decoded],
-                self.reserver.as_ref(),
-                CanonicalizeOptions {
-                    keep_preimage: true,
-                    envelope: self.limits.envelope,
-                    cancel: Some(cancel.clone()),
-                    ..Default::default()
-                },
-            )?;
-            if canonical.preimage != roundtrip.preimage {
-                return Err(admission(
-                    &port,
-                    "finished encoding changes actual normalized logical values",
-                ));
-            }
+            // The native writer consumes the admitted Arrow values in the artifact order.
+            // Decode/admission belongs to external reopen, not a local replay.
             let path = super::layout::relation_path(
                 spec.key.namespace.as_str(),
                 spec.key.name,
@@ -279,7 +352,7 @@ impl Catalog {
         Ok(PreparedRelation {
             relation: LoadedRelation {
                 contract: relation.contract,
-                batch: sorted,
+                batch: stored,
                 member,
             },
             objects,
@@ -299,17 +372,16 @@ impl Catalog {
                 "encoded object exceeds supported extent",
             ));
         }
-        let outcome = self
-            .store
-            .put_opts(
+        let outcome = cancel
+            .until_cancelled(self.store.put_opts(
                 path,
                 bytes.clone().into(),
                 PutOptions {
                     mode: PutMode::Create,
                     ..Default::default()
                 },
-            )
-            .await;
+            ))
+            .await?;
         cancel.checkpoint()?;
         match outcome {
             Ok(_) => self.synchronize_immutable(path, cancel).await,
@@ -333,7 +405,7 @@ pub(super) fn combine(
     draft: &RelationDraft,
     spec: &pse_schema::model::RelationSpec,
     cancel: &CancellationToken,
-) -> Result<RecordBatch, CatalogError> {
+) -> Result<FieldCheckedBatch, CatalogError> {
     let mut extent = 4096usize;
     for batch in &draft.batches {
         let concat = pse_ids::owned_buffer::retained_buffer_bytes(batch)?
@@ -348,30 +420,20 @@ pub(super) fn combine(
     // validation_extent already includes temporary value/index copies. Concat adds
     // one output allocation and a growth margin, not three simultaneous validators.
     reservation.try_grow(extent)?;
+    let mut inputs = Vec::with_capacity(draft.batches.len());
     for batch in &draft.batches {
         cancel.checkpoint()?;
-        pse_relations::validate::validate_batch(&catalog.registry, spec, batch).map_err(
-            |errors| {
-                admission(
-                    &spec.key.to_string(),
-                    &errors
-                        .iter()
-                        .map(ToString::to_string)
-                        .collect::<Vec<_>>()
-                        .join("; "),
-                )
-            },
-        )?;
+        inputs.push(FieldCheckedBatch::admit(
+            &catalog.registry,
+            spec,
+            batch.clone(),
+        )?);
     }
-    let batch = datafusion::arrow::compute::concat_batches(
-        &draft.contract.canonical.schema,
-        &draft.batches,
-    )
-    .map_err(super::encode::arrow)?;
-    let retained = pse_ids::owned_buffer::retained_buffer_bytes(&batch)?;
+    let batch = FieldCheckedBatch::concat(&catalog.registry, spec, &inputs)?;
+    let retained = pse_ids::owned_buffer::retained_buffer_bytes(batch.batch())?;
     reservation.shrink(reservation.size().saturating_sub(retained));
-    Ok(pse_ids::owned_buffer::attach_reservation(
-        batch,
-        ReservationLease::new(reservation),
-    )?)
+    // Retain the native concat allocation in the checked owner.
+    let batch = batch.retained(catalog.reserver.as_ref(), cancel)?;
+    drop(reservation);
+    Ok(batch)
 }

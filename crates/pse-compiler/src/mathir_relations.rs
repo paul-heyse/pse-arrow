@@ -3,18 +3,12 @@
 
 //! Registry-admitted math relation adapters shared by normalization and physical typing.
 
-mod sink;
+pub(crate) mod sink;
 mod source;
 pub use sink::{Family, RelationSink};
-pub use source::RelationSource;
+pub use source::{RelationSource, SourceFamily};
 
 use pse_mathir::MathIrError;
-use pse_schema::model::{Cell, RelationKey};
-use std::collections::BTreeMap;
-
-/// Actual ordered values under registered mathematical relation identities.
-pub type MathRows = BTreeMap<RelationKey, Vec<Vec<Cell>>>;
-
 pub(crate) fn malformed(detail: impl Into<String>) -> MathIrError {
     MathIrError::Malformed {
         node: None,

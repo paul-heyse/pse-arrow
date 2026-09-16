@@ -7,6 +7,9 @@
     reason = "shared integration factories with fixed valid declarations"
 )]
 
+#[path = "../../../support/session_factory.rs"]
+pub(crate) mod session_factory;
+
 use pse_catalog::store::{
     membership::AdmissionContext,
     open::Catalog,
@@ -18,7 +21,7 @@ use pse_catalog::{
 use pse_ids::{CancellationToken, MemoryReserver, SnapshotKind};
 use pse_schema::{
     Registry, RegistryBuilder,
-    model::{Authority, Cell, ColumnSpec, LogicalType, Namespace, RelationDecl, SnapshotClass},
+    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 use std::collections::BTreeMap;
 use std::num::NonZeroUsize;
@@ -26,6 +29,7 @@ use std::sync::Arc;
 
 pub(crate) fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
+    pse_schema::catalog::declare_diagnostics(&mut builder);
     builder.declare_relation(
         RelationDecl::new(
             Namespace::Authored,
@@ -37,8 +41,16 @@ pub(crate) fn registry() -> Arc<Registry> {
         )
         .pk(&["id"])
         .columns(vec![
-            ColumnSpec::key("id", LogicalType::U64, "Key"),
-            ColumnSpec::payload("value", LogicalType::U64, "Value"),
+            FieldContract::key(
+                "id",
+                FieldContract::native(arrow::datatypes::DataType::UInt64),
+                "Key",
+            ),
+            FieldContract::payload(
+                "value",
+                FieldContract::native(arrow::datatypes::DataType::UInt64),
+                "Value",
+            ),
         ]),
     );
     Arc::new(builder.build().expect("registry"))
@@ -48,13 +60,17 @@ pub(crate) fn catalog(
     reg: Arc<Registry>,
     reserver: Arc<dyn MemoryReserver>,
 ) -> Catalog {
-    Catalog::open(
+    with_invariants(Catalog::open(
         store,
         reg,
         TrustLevel::Untrusted,
         Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        reserver,
-    )
+        session_factory::factory(reserver),
+    ))
+}
+pub(crate) fn with_invariants(catalog: Catalog) -> Catalog {
+    let validator = pse_rules::validator::InvariantValidator::new(Arc::clone(catalog.registry()));
+    catalog.with_semantic_validator(Arc::new(validator))
 }
 pub(crate) fn draft(
     catalog: &Catalog,

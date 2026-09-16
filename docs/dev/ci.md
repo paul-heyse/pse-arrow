@@ -26,7 +26,6 @@ comment, kept current by Dependabot and `pinact`.
 | `rust / test` | test (solver container) | `cargo nextest run --workspace --locked --profile ci --features pse-relations/force-validate`; `cargo test --doc --workspace --locked --features pse-relations/force-validate`; `cargo test --benches -p pse-benches -p pse-relations --locked --features pse-relations/force-validate`; JUnit artifact |
 | `rust / codegen-diff` | codegen-diff (container: Ipopt headers + libclang) | `cargo xtask codegen --check` |
 | `rust / family-check` | family-check | `cargo xtask family-check --evidence docs/capability-maps/evidence/rust/*.lock`; `cargo metadata --locked` |
-| `rust / deny` | deny | `cargo deny check`; `cargo audit`; `cargo shear` |
 | `python / lint` | lint | `uv sync --locked --group quality --no-install-project`; ruff format/check, pyrefly, import-linter, `reuse lint`, typos, taplo, `uv lock --check`, `scripts/check_generated.py` |
 | `python / test` | test (3.11 and 3.14) | maturin-backed `uv sync`; `pytest -m "unit or component" -n auto --cov` |
 | `python / parity` | parity (container `ci` stage; 3.13 on PRs, 3.11–3.13 nightly) | editable native dev build, `uv run --no-sync pytest --parity` |
@@ -41,6 +40,9 @@ A newly declared check must report before its ruleset is activated.
 
 ## Run on pull requests, not required
 
+`rust / deny` (`cargo deny check`; `cargo audit` — advisory by decision since ADR-0066:
+no library and no licence is refused during phases 0-1, and this job reports rather than
+gates; see [dependency policy](dependency-policy.md)),
 `rust / docs` (`RUSTDOCFLAGS=-Dwarnings cargo doc --no-deps`), `rust / doc-lint`
 (paths-filtered), `rust / coverage` (`cargo llvm-cov nextest … --lcov`, artifact upload),
 `rust / coverage-upload` (host-runner Codecov OIDC, informational in phase 0), `rust / semver` (from the first tag; gating
@@ -95,7 +97,8 @@ uploads; coverage never blocks a merge in phase 0.
 | CI tier | Local recipe | What it proves |
 |---|---|---|
 | fast feedback | `just ci-fast` (fmt-check, check, clippy, test, doctest) | The workspace compiles and the unit and component tests pass at `dev`. |
-| pull-request gate | `just ci-pr` (adds governance, policy, docs, bench-smoke, quality, adr-lint, py-test) | Local Rust/Python and repository checks; container parity is separate. |
+| pull-request gate | `just ci-pr` (adds governance, docs, bench-smoke, quality, adr-lint, py-test) | Local Rust/Python and repository checks; container parity is separate. |
+| dependency report | `just deps-report` (advisory) or `just policy` (strict, opt-in) | What is in the dependency graph and under what licences. Neither blocks a merge; see [dependency policy](dependency-policy.md). |
 | parity preflight | `just parity-container` | Existing IDAES/solver preflight cases in the pinned dev image, using a separate Python 3.13 environment. |
 | scheduled | `just features-powerset`, `just test-release`, `just udeps`, `just mutants-file`, `just unsafe-surface`, `just floors-latest` | Individually reproduces one weekly job. |
 

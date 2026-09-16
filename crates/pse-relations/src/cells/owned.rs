@@ -50,7 +50,7 @@ pub fn batch_from_columns_owned(
     cancel: &CancellationToken,
 ) -> Result<RecordBatch, RelationError> {
     cancel.checkpoint()?;
-    bound(rows.len(), Envelope::PHASE1.max_rows, EnvelopeBound::Rows)?;
+    bound(rows.len(), Envelope::DEFAULT.max_rows, EnvelopeBound::Rows)?;
     let mut count = Count::default();
     for field in schema.fields() {
         crate::validate::validate_field(reg, field)
@@ -75,7 +75,7 @@ pub fn batch_from_columns_owned(
     }
     bound(
         count.storage,
-        Envelope::PHASE1.max_normalized_bytes,
+        Envelope::DEFAULT.max_normalized_bytes,
         EnvelopeBound::Bytes,
     )?;
     let mut reservation = reserver.open("relations:cell-construction");
@@ -183,7 +183,7 @@ impl Count {
                 }
             }
             (DataType::Utf8, Some(Cell::Text(value))) => self.text(value.len(), depth)?,
-            (DataType::Dictionary(_, _), Some(Cell::Enum(value))) => {
+            (DataType::Utf8 | DataType::Dictionary(_, _), Some(Cell::Enum(value))) => {
                 self.text(value.len(), depth)?;
             }
             (_, Some(Cell::List(_) | Cell::Struct(_) | Cell::Text(_) | Cell::Enum(_)))
@@ -214,7 +214,7 @@ fn invalid(field: &Field) -> RelationError {
 fn overflow() -> CanonError {
     CanonError::Envelope {
         what: EnvelopeBound::Bytes,
-        limit: Envelope::PHASE1.max_normalized_bytes,
+        limit: Envelope::DEFAULT.max_normalized_bytes,
         actual: u64::MAX,
     }
 }

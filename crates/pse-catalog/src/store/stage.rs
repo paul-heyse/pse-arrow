@@ -3,14 +3,18 @@
 
 //! Durable stage lookup hints. Matching keys never authorize reuse or admission.
 
+mod operation;
+pub use operation::OpenedStageHint;
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use object_store::UpdateVersion;
 
 use super::local::ObservedControl;
+use datafusion::arrow::array::Array;
 use pse_ids::{CancellationToken, ContentHash, ReservationLease, SemanticId, SnapshotKind};
-use pse_schema::model::Cell;
+use pse_relations::generated::provenance::pass_records;
 use serde::{Deserialize, Serialize};
 
 use super::membership::AdmissionContext;
@@ -27,7 +31,7 @@ pub type StageInputs = BTreeMap<String, Option<Arc<Snapshot>>>;
 /// Caller-owned untrusted wire data, containing exact physical input/output references.
 /// Catalog reads/writes return [`OwnedStageHint`], whose immutable clones retain memory.
 /// Reopening establishes content validity; the compiler separately compares its complete
-/// actual declarations, rows, source bytes, policies and engine semantics before reuse.
+/// actual admitted inputs and invocation bindings before reuse.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StageHint {
@@ -40,10 +44,8 @@ pub struct StageHint {
     pub output: ManifestRef,
     /// Exact typed pass-attempt record.
     pub pass_record: SidecarRef,
-    /// Complete semantic input values. A legacy absent context never authorizes reuse.
-    #[serde(default)]
-    pub context: Option<super::stage_context::StageContext>,
 }
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StageIndex<T> {
@@ -52,6 +54,7 @@ struct StageIndex<T> {
     entries: Vec<T>,
 }
 const MAX_ENTRIES: usize = 1024;
+const STAGE_INDEX_VERSION: u32 = 4;
 
 impl Catalog {
     /// Read lookup hints, never a validity or reuse certificate. Unknown/malformed
@@ -59,7 +62,7 @@ impl Catalog {
     ///
     /// # Errors
     /// Malformed control encoding, resource limits, cancellation or backend failures.
-    pub async fn stage_hints(
+    async fn stage_hints_inner(
         &self,
         key: ContentHash,
         cancel: &CancellationToken,
@@ -72,27 +75,12 @@ impl Catalog {
     ///
     /// # Errors
     /// Invalid stage/pass ties, exhausted control bounds, a CAS conflict or backend failure.
-    pub async fn write_stage_hint(
+    async fn write_stage_hint_inner(
         &self,
         key: ContentHash,
         inputs: &StageInputs,
         output: &Snapshot,
         pass_record: &SidecarArtifact,
-        cancel: &CancellationToken,
-    ) -> Result<OwnedStageHint, CatalogError> {
-        self.write_stage_hint_with_context(key, inputs, output, pass_record, None, cancel)
-            .await
-    }
-    /// Write an admitted stage hint with complete actual semantic input values.
-    /// # Errors
-    /// Invalid stage/record/context, bounded encoding, resource or conditional-write failure.
-    pub async fn write_stage_hint_with_context(
-        &self,
-        key: ContentHash,
-        inputs: &StageInputs,
-        output: &Snapshot,
-        pass_record: &SidecarArtifact,
-        context_values: Option<&super::stage_context::StageContext>,
         cancel: &CancellationToken,
     ) -> Result<OwnedStageHint, CatalogError> {
         let pass_id = output.stage_pass().ok_or_else(|| {
@@ -115,7 +103,7 @@ impl Catalog {
             ));
         }
         self.check_pass_record(pass_record, pass_id, output.snapshot_id())?;
-        let hint = self.owned_hint(pass_id, inputs, output, pass_record, context_values)?;
+        let hint = self.owned_hint(pass_id, inputs, output, pass_record)?;
         let (mut index, observed) = self.stage_index(key, cancel).await?;
         if index.entries.contains(&hint) {
             return Ok(hint);
@@ -135,7 +123,6 @@ impl Catalog {
                 .and_then(|len| len.checked_mul(size_of::<OwnedStageHint>() * 2))
                 .ok_or_else(super::encode::overflow)?,
         )?;
-        index.version = 2;
         index.entries.push(hint.clone());
         let bytes = super::encode::control(
             &index,
@@ -161,9 +148,8 @@ impl Catalog {
         inputs: &StageInputs,
         output: &Snapshot,
         pass_record: &SidecarArtifact,
-        context_values: Option<&super::stage_context::StageContext>,
     ) -> Result<OwnedStageHint, CatalogError> {
-        let mut reservation = self.reserver.open("store:stage-context-clone");
+        let mut reservation = self.reserver.open("store:stage-hint-header");
         let mut extent = super::stage_owned::add(
             4096,
             super::stage_owned::map_extent::<String, Option<ManifestRef>>(inputs.len())?,
@@ -175,9 +161,6 @@ impl Catalog {
             extent,
             super::stage_owned::member_extent(pass_record.reference().member())?,
         )?;
-        if let Some(value) = context_values {
-            extent = super::stage_owned::add(extent, super::stage_owned::context_extent(value)?)?;
-        }
         reservation.try_grow(extent.checked_mul(2).ok_or_else(super::encode::overflow)?)?;
         let hint = StageHint {
             pass_id,
@@ -192,7 +175,6 @@ impl Catalog {
                 .collect(),
             output: output.manifest_ref(),
             pass_record: pass_record.reference().clone(),
-            context: context_values.cloned(),
         };
         let retained = super::stage_owned::hint_extent(&hint)?;
         if retained > reservation.size() {
@@ -211,7 +193,7 @@ impl Catalog {
     ///
     /// # Errors
     /// Missing/foreign input context, corrupt references or semantic admission failures.
-    pub async fn open_stage_hint(
+    async fn open_stage_hint_inner(
         &self,
         hint: &StageHint,
         inputs: &StageInputs,
@@ -233,7 +215,21 @@ impl Catalog {
                 "explicit input references differ from the lookup receipt",
             ));
         }
-        let output = self.read_manifest(hint.output, &context, cancel).await?;
+        let output = self.read_pinned_manifest(hint.output, cancel).await?;
+        if output.stage_pass() != context.stage_pass
+            || output.parents().len() != context.parents.len()
+            || output.parents().iter().any(|(role, parent)| {
+                context
+                    .parents
+                    .get(role)
+                    .is_none_or(|input| input.manifest_ref() != parent.manifest_ref())
+            })
+        {
+            return Err(admission(
+                "stage index",
+                "output binding differs from selected inputs",
+            ));
+        }
         let record = self.read_sidecar(&hint.pass_record, cancel).await?;
         self.check_pass_record(&record, hint.pass_id, output.snapshot_id())?;
         Ok((output, record))
@@ -272,6 +268,8 @@ impl Catalog {
             }
         }
         Ok(AdmissionContext {
+            traversal: Arc::default(),
+            invocation: None,
             parents,
             stage_pass: Some(pass_id),
         })
@@ -295,7 +293,7 @@ impl Catalog {
             {
                 return Ok((
                     StageIndex {
-                        version: 2,
+                        version: STAGE_INDEX_VERSION,
                         stage_key: key,
                         entries: vec![],
                     },
@@ -307,11 +305,11 @@ impl Catalog {
         let reservation = super::control::decode_reservation(
             &bytes,
             self.reserver.as_ref(),
-            "store:stage-context-decode",
+            "store:stage-index-decode",
         )?;
         let index: StageIndex<StageHint> = serde_json::from_slice(&bytes)
             .map_err(|error| admission("stage index", &error.to_string()))?;
-        if !matches!(index.version, 1 | 2)
+        if index.version != STAGE_INDEX_VERSION
             || index.stage_key != key
             || index.entries.len() > MAX_ENTRIES
         {
@@ -357,7 +355,7 @@ impl Catalog {
         }
         // The decoded Vec allocation coexists with the explicitly allocated wrapper
         // Vec while DTOs move without cloning. Keep that transition charged separately.
-        let mut moving = self.reserver.open("store:stage-context-wrap");
+        let mut moving = self.reserver.open("store:stage-index-wrap");
         moving.try_grow(
             index
                 .entries
@@ -404,24 +402,15 @@ impl Catalog {
             .iter()
             .find(|pass| pass.id == pass_id)
             .ok_or_else(|| admission("stage index", "pass is not declared"))?;
-        let batch = record.relation().batch();
-        let mut reservation = self.reserver.open("store:pass-record-check");
-        reservation.try_grow(super::membership::validation_extent(batch)?)?;
-        let rows = pse_relations::cells::cells_from_batch(&self.registry, spec, batch)
+        let rows = pass_records::View::from_checked(record.relation().checked())
             .map_err(|error| admission("stage index", &error.to_string()))?;
-        let schema = batch.schema();
-        let id = schema.index_of("pass_id").map_err(super::encode::arrow)?;
-        let version = schema.index_of("version").map_err(super::encode::arrow)?;
-        let target = schema
-            .index_of("snapshot_out")
-            .map_err(super::encode::arrow)?;
-        let status = schema.index_of("status").map_err(super::encode::arrow)?;
+        let status = rows.status_column();
         if rows.len() != 1
-            || rows[0][id] != Cell::Id(pass_id)
-            || rows[0][version] != Cell::text(pass.version)
-            || rows[0][target] != Cell::Hash(output.0)
-            || !(matches!(&rows[0][status], Cell::Enum("ok" | "reused"))
-                || matches!(&rows[0][status], Cell::Text(value) if value == "ok" || value == "reused"))
+            || rows.pass_id_column().value(0) != pass_id.as_bytes()
+            || rows.version_column().value(0) != pass.version
+            || rows.snapshot_out_column().is_null(0)
+            || rows.snapshot_out_column().value(0) != output.0.as_bytes()
+            || !matches!(status.value(0), "ok" | "reused")
         {
             return Err(admission(
                 "stage index",
@@ -429,5 +418,48 @@ impl Catalog {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use object_store::{ObjectStoreExt, memory::InMemory};
+
+    #[tokio::test]
+    async fn stage_lookup_accepts_only_the_current_reference_format() {
+        let store = Arc::new(InMemory::new());
+        let catalog = Catalog::open(
+            store.clone(),
+            Arc::new(pse_schema::RegistryBuilder::new().build().unwrap()),
+            crate::TrustLevel::Untrusted,
+            Arc::new(crate::FixedClock("2026-09-15T00:00:00Z".to_owned())),
+            Arc::new(
+                crate::session::SessionFactory::new(
+                    Arc::new(datafusion::execution::runtime_env::RuntimeEnv::default()),
+                    pse_ids::FixedBudget::new(1 << 20),
+                    crate::ExecutionSettings::default(),
+                    crate::ThreadBudget {
+                        pool_threads: std::num::NonZeroUsize::MIN,
+                        target_partitions: std::num::NonZeroUsize::MIN,
+                    },
+                    crate::session::native_engine_profile(),
+                )
+                .unwrap(),
+            ),
+        );
+        let key = ContentHash::from_bytes([7; 32]);
+        let path = super::super::layout::stage_path(&key);
+        for version in [1, 2, 3, STAGE_INDEX_VERSION, STAGE_INDEX_VERSION + 1] {
+            let bytes = serde_json::to_vec(&StageIndex::<StageHint> {
+                version,
+                stage_key: key,
+                entries: vec![],
+            })
+            .unwrap();
+            store.put(&path, bytes.into()).await.unwrap();
+            let result = catalog.stage_hints(key, &CancellationToken::new()).await;
+            assert_eq!(result.is_ok(), version == STAGE_INDEX_VERSION);
+        }
     }
 }

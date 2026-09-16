@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# The Rust pull-request gate. Six of these jobs are required checks on `main`
-# (fmt, clippy, test, codegen-diff, family-check, deny); the rest run on every pull
-# request but do not block: docs, doc-lint, coverage, semver, msrv-floors.
+# The Rust pull-request gate. Five of these jobs are required checks on `main`
+# (fmt, clippy, test, codegen-diff, family-check); the rest run on every pull request
+# but do not block: deny, docs, doc-lint, coverage, semver, msrv-floors.
+#
+# `deny` is advisory by decision, not by omission -- see ADR-0066 and
+# docs/dev/dependency-policy.md. `family-check` is the required check that carries the
+# one-type-universe invariant `deny`'s `multiple-versions` used to stand in for.
 #
 # Conventions that apply to every workflow in this directory:
 #   * `permissions: contents: read` at the top, widened only on the job that needs it.
@@ -38,12 +42,6 @@ env:
   # strings below to `ci-<tree-hash>@sha256:<digest>`. Until then every container job
   # here fails to pull, which is deliberate and visible rather than silently skipped.
   SOLVER_IMAGE: ghcr.io/paul-heyse/pse-solvers:ci-e84fdce84e2f@sha256:6fea124b830fbd233c30ec8a28d50f108c55cd2fa6e88c2391dc58e4aa7f3798
-  CARGO_NEXTEST_VERSION: 0.9.143
-  CARGO_DENY_VERSION: 0.20.2
-  CARGO_AUDIT_VERSION: 0.22.2
-  CARGO_HACK_VERSION: 0.6.45
-  CARGO_LLVM_COV_VERSION: 0.9.0
-  TAPLO_VERSION: 0.10.0
 
 jobs:
   # --- required ----------------------------------------------------------------------
@@ -58,7 +56,7 @@ jobs:
         with:
           shared-key: lint
           save-if: ${{ github.ref == 'refs/heads/main' }}
-          tools: taplo@${{ env.TAPLO_VERSION }}
+          tools: taplo
       - name: cargo fmt
         run: cargo fmt --all --check
       - name: taplo fmt
@@ -99,7 +97,7 @@ jobs:
         with:
           shared-key: test
           save-if: ${{ github.ref == 'refs/heads/main' }}
-          tools: cargo-nextest@${{ env.CARGO_NEXTEST_VERSION }}
+          tools: cargo-nextest
       - name: nextest
         # `force-validate` turns on arrow's own invariant checks. It is named explicitly
         # rather than hidden behind an alias so that what CI runs is readable here.
@@ -171,9 +169,14 @@ jobs:
       - name: lockfile is complete and current
         run: cargo metadata --locked --format-version 1 > /dev/null
 
+  # --- informational -----------------------------------------------------------------
   deny:
     name: rust / deny
     runs-on: ubuntu-24.04
+    # Advisory since ADR-0066. No library and no licence is refused during phases 0-1;
+    # this job reports what is in the graph on every pull request so the pre-release
+    # review has something to read. `deny.toml` is the report's configuration, not a gate.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -183,19 +186,18 @@ jobs:
           shared-key: policy
           save-if: ${{ github.ref == 'refs/heads/main' }}
           tools: |
-            cargo-deny@${{ env.CARGO_DENY_VERSION }}
-            cargo-audit@${{ env.CARGO_AUDIT_VERSION }}
+            cargo-deny
+            cargo-audit
       - name: cargo deny
         # advisories + licenses + bans + sources, all configured in deny.toml.
         run: cargo deny --all-features --locked check
       - name: cargo audit
         # .cargo/audit.toml carries the dated acceptances.
         run: cargo audit --deny warnings
-      # cargo shear / cargo machete are advisory in phase 0 (`just deps-unused`): the
+      # cargo shear / cargo machete are advisory in phase 0 (`just deps-report`): the
       # skeleton declares its blueprint dependencies before using them. Register row R-18
-      # promotes them to this gate once every crate has code.
+      # promotes them to a gate once every crate has code.
 
-  # --- informational -----------------------------------------------------------------
   docs:
     name: rust / docs
     runs-on: ubuntu-24.04
@@ -279,8 +281,8 @@ jobs:
           shared-key: coverage
           save-if: ${{ github.ref == 'refs/heads/main' }}
           tools: |
-            cargo-llvm-cov@${{ env.CARGO_LLVM_COV_VERSION }}
-            cargo-nextest@${{ env.CARGO_NEXTEST_VERSION }}
+            cargo-llvm-cov
+            cargo-nextest
       - name: cargo llvm-cov
         run: |
           cargo llvm-cov nextest --workspace --locked --profile ci \
@@ -356,7 +358,7 @@ jobs:
         with:
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
-          tools: cargo-hack@${{ env.CARGO_HACK_VERSION }}
+          tools: cargo-hack
       - name: every dependency's rust-version floor is at or below ours
         if: steps.changed.outputs.lock == 'true'
         # Pre-1.0 crates raise their own MSRV in patch releases; the blueprint requires

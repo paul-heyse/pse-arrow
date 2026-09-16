@@ -4,8 +4,8 @@
 
 This is the one module allowed to import :mod:`pse._native` (ast-grep rule
 ``no-direct-native-import``): every other consumer goes through
-:func:`build_info` or :func:`native_version`, so the extension's surface has a
-single typed gate.
+the typed build and immutable inspection adapters, so the extension's surface
+has a single typed gate.
 
 The extension embeds the two lockfiles as bytes (``pse-buildinfo``); this module
 hashes them with :mod:`hashlib` so the sha256 twins can be checked against the
@@ -19,6 +19,17 @@ import hashlib
 import msgspec
 
 from pse import _native
+
+# The same native import gateway carries the immutable inspection capabilities.
+EngineSettings = _native.EngineSettings
+InspectionError = _native.InspectionError
+_NativeStore = _native.Store
+_NativeSnapshot = _native.Snapshot
+_NativeTableStream = _native.TableStream
+
+
+def _open_store(path: str, settings: EngineSettings) -> _NativeStore:
+    return _native.open_store(path, settings)
 
 
 class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True):

@@ -109,6 +109,23 @@ fn power_is_right_associative_and_ambiguous_unary_power_is_refused() {
 }
 
 #[test]
+fn explicit_broadcast_preserves_its_value_and_lexical_index() {
+    let text = "sum(k in j | h[k] - broadcast(0{J/mol}, k))";
+    let ast = parse_expr(text).unwrap();
+    let rendered = render_expr(&ast);
+    assert!(ast.structural_eq(&parse_expr(&rendered).unwrap()));
+    for invalid in [
+        "broadcast()",
+        "broadcast(1)",
+        "broadcast(1, k, j)",
+        "broadcast(1, k+1)",
+        "broadcast(1, group[k])",
+    ] {
+        assert!(parse_expr(invalid).is_err(), "{invalid}");
+    }
+}
+
+#[test]
 fn hostile_or_incomplete_forms_fail_with_offsets_without_panicking() {
     for text in [
         "weighted_mean()",

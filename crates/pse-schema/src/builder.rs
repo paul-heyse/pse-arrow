@@ -22,11 +22,15 @@ use pse_ids::{ContentHash, SemanticId, named_id};
 use crate::error::SchemaError;
 use crate::ext_metadata;
 use crate::model::{
-    Cell, ColumnSpec, DocumentSpec, EnumDecl, EnumSpec, ExtensionUse, InvariantDecl, InvariantSpec,
-    LogicalType, LogicalTypeRow, ManifestSpec, MigrationSpec, NON_DERIVABLE_NAMESPACES, Namespace,
+    Cell, DocumentSpec, EnumDecl, EnumSpec, ExtensionUse, FieldContract, FieldTypeRow,
+    InvariantDecl, InvariantSpec, ManifestSpec, MigrationSpec, NON_DERIVABLE_NAMESPACES, Namespace,
     PassDecl, PassSpec, PortSource, QuantityContract, RelationDecl, RelationKey, RelationSpec,
     RuleDecl, RuleDependency, RulePlan, RuleSpec, render_data_type,
 };
+
+mod integrity;
+
+type SchemaRows = Vec<(RelationKey, Vec<Vec<Cell>>)>;
 
 /// The registry package's qualified name (ADR-0050).
 pub const REGISTRY_PACKAGE_NAME: &str = "pse.schema";
@@ -66,7 +70,7 @@ pub fn quantity_type_id(qualified_name: &str) -> SemanticId {
 /// silent equality between two different schemas, which is the failure mode a fingerprint
 /// exists to prevent. A declared relation supplies its own key, so a future version bump
 /// is picked up rather than overridden.
-const SELF_DESCRIBING_RELATIONS: [&str; 21] = [
+const SELF_DESCRIBING_RELATIONS: [&str; 22] = [
     "reference.schema_relations",
     "reference.schema_columns",
     "reference.schema_logical_types",
@@ -85,6 +89,7 @@ const SELF_DESCRIBING_RELATIONS: [&str; 21] = [
     "reference.rule_dependencies",
     "reference.rule_expr_nodes",
     "reference.rule_expr_edges",
+    "reference.rule_expr_calls",
     "reference.operator_specs",
     "reference.schema_documents",
     "reference.schema_document_sections",
@@ -110,7 +115,7 @@ pub struct Registry {
     /// Sorted by name.
     enums: Vec<EnumSpec>,
     /// Sorted by name.
-    logical_types: Vec<LogicalTypeRow>,
+    logical_types: Vec<FieldTypeRow>,
     /// Sorted by `<relation>:<name>`.
     invariants: Vec<InvariantSpec>,
     /// Sorted by `<relation>@<from>-><to>`.
@@ -127,6 +132,8 @@ pub struct Registry {
     manifest: Option<ManifestSpec>,
     /// Immutable projection of the completed declarations, materialized during assembly.
     self_description: Vec<(RelationKey, Vec<Vec<Cell>>)>,
+    /// Exact compiled declaration projection, aligned with the immutable relations.
+    compiled_declarations: Vec<String>,
 }
 
 impl Registry {
@@ -165,6 +172,38 @@ impl Registry {
             .and_then(|index| self.relations.get(*index))
     }
 
+    /// The complete compiled declaration of this actual relation. Registry-owned
+    /// declarations borrow the assembly projection; external values are reconstructed
+    /// and compared independently, even when their identity and fingerprint match.
+    ///
+    /// # Errors
+    /// A referenced declaration is absent or its Arrow storage is unsupported.
+    pub fn compiled_declaration(
+        &self,
+        spec: &RelationSpec,
+    ) -> Result<std::borrow::Cow<'_, str>, SchemaError> {
+        if let Some(index) = self.relation_by_id.get(&spec.id)
+            && self
+                .relations
+                .get(*index)
+                .is_some_and(|actual| std::ptr::eq(actual, spec))
+            && let Some(value) = self.compiled_declarations.get(*index)
+        {
+            return Ok(std::borrow::Cow::Borrowed(value));
+        }
+        Ok(std::borrow::Cow::Owned(
+            crate::compiled_contract::relation(self, spec)?.literal_spec(),
+        ))
+    }
+
+    /// The exact declared relation version, without selecting the current alias.
+    pub fn relation_by_key(&self, key: RelationKey) -> Option<&RelationSpec> {
+        self.relations
+            .binary_search_by_key(&key, |relation| relation.key)
+            .ok()
+            .and_then(|index| self.relations.get(index))
+    }
+
     /// Every declared enumeration, sorted by name.
     pub fn enums(&self) -> &[EnumSpec] {
         &self.enums
@@ -179,12 +218,12 @@ impl Registry {
     }
 
     /// The logical-type catalog, sorted by name (blueprint §4.5).
-    pub fn logical_types(&self) -> &[LogicalTypeRow] {
+    pub fn logical_types(&self) -> &[FieldTypeRow] {
         &self.logical_types
     }
 
     /// The logical type of that registry name, for example `enum:Namespace`.
-    pub fn logical_type(&self, name: &str) -> Option<&LogicalTypeRow> {
+    pub fn logical_type(&self, name: &str) -> Option<&FieldTypeRow> {
         self.logical_types
             .binary_search_by(|candidate| candidate.name.as_str().cmp(name))
             .ok()
@@ -273,13 +312,13 @@ impl Registry {
         &self.self_description
     }
 
-    fn materialize_schema_rows(&self) -> Vec<(RelationKey, Vec<Vec<Cell>>)> {
+    fn materialize_schema_rows(&self) -> Result<SchemaRows, SchemaError> {
         let mut out = Vec::new();
         for qualified in SELF_DESCRIBING_RELATIONS {
             let spec = self.relation(qualified);
             let rows = match qualified {
                 "reference.schema_relations" => self.schema_relations_rows(),
-                "reference.schema_columns" => self.schema_columns_rows(),
+                "reference.schema_columns" => self.schema_columns_rows()?,
                 "reference.schema_logical_types" => self.schema_logical_types_rows(),
                 "reference.schema_enums" => self.schema_enums_rows(),
                 "reference.schema_invariants" => self.schema_invariants_rows(),
@@ -294,8 +333,9 @@ impl Registry {
                 "reference.rule_unnest" => self.rule_unnest_rows(),
                 "reference.rule_plan_edges" => self.rule_plan_edges_rows(),
                 "reference.rule_dependencies" => self.rule_dependencies_rows(),
-                "reference.rule_expr_nodes" => self.rule_expression_rows().0,
-                "reference.rule_expr_edges" => self.rule_expression_rows().1,
+                "reference.rule_expr_nodes" => self.rule_expression_rows().nodes,
+                "reference.rule_expr_edges" => self.rule_expression_rows().edges,
+                "reference.rule_expr_calls" => self.rule_expression_rows().calls,
                 "reference.schema_documents" => self.document_rows(),
                 "reference.schema_document_sections" => self.document_section_rows(),
                 _ => crate::catalog::s7_operators::rows(),
@@ -306,7 +346,7 @@ impl Registry {
             );
             out.push((key, sort_by_primary_key(spec, rows)));
         }
-        out
+        Ok(out)
     }
 
     fn document_rows(&self) -> Vec<Vec<Cell>> {
@@ -346,6 +386,9 @@ impl Registry {
                             section
                                 .expression_owner_column
                                 .map_or(Cell::Null, Cell::text),
+                            section
+                                .expression_owner_kind
+                                .map_or(Cell::Null, |owner| Cell::Enum(owner.as_str())),
                             Cell::text(section.doc),
                             Cell::List(
                                 section
@@ -398,53 +441,58 @@ impl Registry {
     }
 
     /// The `reference.schema_columns` rows of one relation.
-    pub(crate) fn schema_columns_rows_of(&self, spec: &RelationSpec) -> Vec<Vec<Cell>> {
+    pub(crate) fn schema_columns_rows_of(
+        &self,
+        spec: &RelationSpec,
+    ) -> Result<Vec<Vec<Cell>>, SchemaError> {
         spec.columns
             .iter()
             .enumerate()
             .map(|(ordinal, column)| {
                 let logical_type_id = self
-                    .logical_type(&column.logical_type.name())
+                    .logical_type(&column.value_type().type_name()?)
                     .map(|row| row.id);
-                vec![
+                Ok(vec![
                     Cell::Id(spec.id),
                     Cell::U64(count(ordinal)),
-                    Cell::text(column.name),
+                    Cell::text(column.name()),
                     Cell::opt_id(logical_type_id),
-                    Cell::Bool(column.nullable),
-                    Cell::opt_id(match column.quantity {
+                    Cell::Bool(column.nullable()),
+                    Cell::opt_id(match column.quantity() {
                         QuantityContract::Column(name) => Some(quantity_type_id(name)),
                         QuantityContract::None | QuantityContract::PerRow => None,
                     }),
-                    Cell::Bool(matches!(column.quantity, QuantityContract::PerRow)),
+                    Cell::Bool(matches!(column.quantity(), QuantityContract::PerRow)),
                     Cell::opt_id(
                         column
-                            .fk
+                            .fk()
                             .and_then(|fk| self.relation(fk.relation).map(|target| target.id)),
                     ),
-                    Cell::opt_text(column.fk.map(|fk| fk.column)),
-                    Cell::Enum(column.role.as_str()),
-                    Cell::text(column.doc),
-                ]
+                    Cell::opt_text(column.fk().map(|fk| fk.column)),
+                    Cell::Enum(column.role().as_str()),
+                    Cell::text(column.doc()),
+                    Cell::text(column.canonical_json()?),
+                ])
             })
             .collect()
     }
 
     /// Every `reference.schema_columns` row.
-    fn schema_columns_rows(&self) -> Vec<Vec<Cell>> {
-        self.relations
-            .iter()
-            .flat_map(|spec| self.schema_columns_rows_of(spec))
-            .collect()
+    fn schema_columns_rows(&self) -> Result<Vec<Vec<Cell>>, SchemaError> {
+        let mut rows = Vec::new();
+        for spec in &self.relations {
+            rows.extend(self.schema_columns_rows_of(spec)?);
+        }
+        Ok(rows)
     }
 
     /// One `reference.schema_logical_types` row.
-    pub(crate) fn schema_logical_types_row(row: &LogicalTypeRow) -> Vec<Cell> {
+    pub(crate) fn schema_logical_types_row(row: &FieldTypeRow) -> Vec<Cell> {
         vec![
             Cell::Id(row.id),
             Cell::text(row.name.clone()),
             Cell::text(row.arrow_storage.clone()),
-            Cell::opt_text(row.extension_name),
+            Cell::opt_text(row.extension_name.as_deref()),
             Cell::opt_text(row.metadata_schema.as_deref()),
         ]
     }
@@ -539,7 +587,12 @@ impl Registry {
                     ),
                     Cell::Enum(pass.determinism.as_str()),
                     Cell::List(pass.diagnostics.iter().copied().map(Cell::Enum).collect()),
-                    Cell::Bool(pass.executes_plans),
+                    Cell::List(
+                        pass.effects
+                            .iter()
+                            .map(|effect| Cell::Enum(effect.as_str()))
+                            .collect(),
+                    ),
                 ]
             })
             .collect()
@@ -598,6 +651,12 @@ impl Registry {
                     Cell::text(rule.version),
                     Cell::U64(u64::from(rule.stratum)),
                     Cell::opt_id(self.relation(rule.head.relation()).map(|spec| spec.id)),
+                    Cell::opt_id(
+                        rule.assertion_relation
+                            .as_deref()
+                            .and_then(|name| self.relation(name))
+                            .map(|spec| spec.id),
+                    ),
                     Cell::Id(rule_node_id(rule, ROOT_NODE_PATH)),
                     Cell::Enum(rule.negation.as_str()),
                     Cell::Bool(rule.monotonic),
@@ -629,7 +688,9 @@ impl Registry {
                     _ => None,
                 };
                 let predicate = match node {
-                    RulePlan::Filter { .. } => Some(rule_expr_id(rule, &path, "predicate")),
+                    RulePlan::Filter { .. } | RulePlan::Assert { .. } => {
+                        Some(rule_expr_id(rule, &path, "predicate"))
+                    }
                     _ => None,
                 };
                 let projection = match node {
@@ -639,7 +700,7 @@ impl Registry {
                             .enumerate()
                             .map(|(index, (name, _))| {
                                 Cell::Struct(vec![
-                                    Cell::text(*name),
+                                    Cell::text(name.as_ref()),
                                     Cell::Id(rule_expr_id(
                                         rule,
                                         &path,
@@ -665,7 +726,10 @@ impl Registry {
                         Cell::List(
                             keys.iter()
                                 .map(|(left, right)| {
-                                    Cell::Struct(vec![Cell::text(*left), Cell::text(*right)])
+                                    Cell::Struct(vec![
+                                        Cell::text(left.as_ref()),
+                                        Cell::text(right.as_ref()),
+                                    ])
                                 })
                                 .collect(),
                         )
@@ -724,13 +788,16 @@ impl Registry {
                                 rule_expr_id(rule, &path, &format!("aggregate:{ordinal}"))
                             }),
                         ),
-                        Cell::text(aggregate.output_name),
+                        Cell::text(aggregate.output_name.as_ref()),
                         Cell::List(
                             aggregate
                                 .order_by
                                 .iter()
                                 .map(|(column, ascending)| {
-                                    Cell::Struct(vec![Cell::text(*column), Cell::Bool(*ascending)])
+                                    Cell::Struct(vec![
+                                        Cell::text(column.as_ref()),
+                                        Cell::Bool(*ascending),
+                                    ])
                                 })
                                 .collect(),
                         ),
@@ -755,7 +822,7 @@ impl Registry {
                     rows.push(vec![
                         Cell::Id(rule_node_id(rule, &path)),
                         Cell::U64(count(ordinal)),
-                        Cell::text(*column),
+                        Cell::text(column.as_ref()),
                     ]);
                 }
             }
@@ -780,8 +847,8 @@ impl Registry {
                 };
                 rows.push(vec![
                     Cell::Id(rule_node_id(rule, &path)),
-                    Cell::text(*column),
-                    Cell::text(*value_name),
+                    Cell::text(column.as_ref()),
+                    Cell::text(value_name.as_ref()),
                     Cell::Enum(null_list.as_str()),
                     Cell::Enum(empty_list.as_str()),
                 ]);
@@ -833,13 +900,16 @@ impl Registry {
             .collect()
     }
 
-    fn rule_expression_rows(&self) -> (Vec<Vec<Cell>>, Vec<Vec<Cell>>) {
+    fn rule_expression_rows(&self) -> RuleExpressionRows {
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
+        let mut calls = Vec::new();
         for rule in &self.rules {
             for (path, node) in walk_plan(&rule.plan) {
                 let expressions: Vec<(String, &crate::model::RuleExpr)> = match node {
-                    RulePlan::Filter { predicate, .. } => vec![("predicate".to_owned(), predicate)],
+                    RulePlan::Filter { predicate, .. } | RulePlan::Assert { predicate, .. } => {
+                        vec![("predicate".to_owned(), predicate)]
+                    }
                     RulePlan::Project { columns, .. } => columns
                         .iter()
                         .enumerate()
@@ -865,11 +935,16 @@ impl Registry {
                         ExpressionNode::Expr(expression),
                         &mut nodes,
                         &mut edges,
+                        &mut calls,
                     );
                 }
             }
         }
-        (nodes, edges)
+        RuleExpressionRows {
+            nodes,
+            edges,
+            calls,
+        }
     }
 
     /// The identity of the invariant named `<relation>:<name>`.
@@ -879,6 +954,12 @@ impl Registry {
             .find(|invariant| invariant.qualified_name() == qualified_name)
             .map(|invariant| invariant.id)
     }
+}
+
+struct RuleExpressionRows {
+    nodes: Vec<Vec<Cell>>,
+    edges: Vec<Vec<Cell>>,
+    calls: Vec<Vec<Cell>>,
 }
 
 fn recursive_target(rule: &RuleSpec, path: &str, node: &RulePlan) -> Option<SemanticId> {
@@ -908,6 +989,7 @@ fn emit_expression(
     node: ExpressionNode<'_>,
     nodes: &mut Vec<Vec<Cell>>,
     edges: &mut Vec<Vec<Cell>>,
+    calls: &mut Vec<Vec<Cell>>,
 ) {
     use crate::model::RuleExpr as E;
     let node = match node {
@@ -925,9 +1007,22 @@ fn emit_expression(
     ];
     row.extend(std::iter::repeat_n(Cell::Null, 11));
     match node {
-        ExpressionNode::Expr(E::Col(name)) => row[3] = Cell::text(*name),
+        ExpressionNode::Expr(E::Col(name)) => row[3] = Cell::text(name.as_ref()),
         ExpressionNode::Expr(E::Cmp { op, .. }) => row[4] = Cell::Enum(op.as_str()),
-        ExpressionNode::Expr(E::Field { name, .. }) => row[5] = Cell::text(*name),
+        ExpressionNode::Expr(E::Field { name, .. }) => row[5] = Cell::text(name.as_ref()),
+        ExpressionNode::Expr(E::Call {
+            function,
+            result,
+            nullable,
+            ..
+        }) => {
+            calls.push(vec![
+                Cell::Id(id),
+                Cell::text(function),
+                Cell::text(result.to_string()),
+                Cell::Bool(*nullable),
+            ]);
+        }
         ExpressionNode::Literal(value) => {
             row[6] = Cell::Enum(value.literal_kind().as_str());
             match value {
@@ -952,7 +1047,7 @@ fn emit_expression(
             Cell::U64(count(ordinal)),
             Cell::Id(rule_expr_id(rule, path, &child_slot)),
         ]);
-        emit_expression(rule, path, &child_slot, child, nodes, edges);
+        emit_expression(rule, path, &child_slot, child, nodes, edges, calls);
     }
 }
 
@@ -963,7 +1058,7 @@ fn expression_children(node: ExpressionNode<'_>) -> Vec<ExpressionNode<'_>> {
             values.iter().map(ExpressionNode::Literal).collect()
         }
         ExpressionNode::Literal(_) | ExpressionNode::Expr(E::Col(_) | E::Lit(_)) => Vec::new(),
-        ExpressionNode::Expr(E::And(values) | E::Or(values)) => {
+        ExpressionNode::Expr(E::And(values) | E::Or(values) | E::Call { args: values, .. }) => {
             values.iter().map(ExpressionNode::Expr).collect()
         }
         ExpressionNode::Expr(
@@ -1041,7 +1136,11 @@ fn sort_by_primary_key(spec: Option<&RelationSpec>, mut rows: Vec<Vec<Cell>>) ->
     let key_positions: Vec<usize> = spec.map_or_else(Vec::new, |spec| {
         spec.primary_key
             .iter()
-            .filter_map(|name| spec.columns.iter().position(|column| column.name == *name))
+            .filter_map(|name| {
+                spec.columns
+                    .iter()
+                    .position(|column| column.name() == *name)
+            })
             .collect()
     });
     rows.sort_by_cached_key(|row| {
@@ -1150,6 +1249,11 @@ pub struct RegistryBuilder {
 }
 
 impl RegistryBuilder {
+    /// Project declared field/relation integrity into the same executable rule catalog.
+    /// Exact existing projections are retained; conflicting declarations remain errors.
+    pub(crate) fn derive_integrity(&mut self) {
+        integrity::declare(self);
+    }
     /// Read the authoritative declarations while deriving additional catalog contracts.
     pub fn declared_relations(&self) -> &[RelationDecl] {
         &self.relations
@@ -1158,6 +1262,10 @@ impl RegistryBuilder {
     /// Read declared invariants while deriving pass preconditions and postconditions.
     pub fn declared_invariants(&self) -> &[InvariantDecl] {
         &self.invariants
+    }
+    /// Read exact registered rule declarations when projecting their producer pass ports.
+    pub fn declared_rules(&self) -> &[RuleDecl] {
+        &self.rules
     }
 
     /// Read the sole document-to-relation inventory when declaring authoring pass ports.
@@ -1229,7 +1337,7 @@ impl RegistryBuilder {
     /// [`SchemaError::StageGraph`] for a duplicate output port, an unresolved derived
     /// input port, or a compiler output port targeting `authored` or `reference`;
     /// [`SchemaError::RuleFloatKey`] for a rule that keys on an `f64` column.
-    pub fn build(self) -> Result<Registry, SchemaError> {
+    pub fn build(mut self) -> Result<Registry, SchemaError> {
         if self.duplicate_manifest {
             return Err(SchemaError::DuplicateDeclaration {
                 kind: "manifest",
@@ -1237,6 +1345,7 @@ impl RegistryBuilder {
             });
         }
         let relations = self.resolve_relations()?;
+        self.derive_integrity();
         let relation_index = index_relations(&relations);
         let relation_by_id = relations
             .iter()
@@ -1262,6 +1371,7 @@ impl RegistryBuilder {
             documents: Vec::new(),
             manifest: self.manifest,
             self_description: Vec::new(),
+            compiled_declarations: Vec::new(),
         };
 
         check_relation_references(&registry)?;
@@ -1283,12 +1393,20 @@ impl RegistryBuilder {
             .relations
             .iter()
             .map(|spec| crate::fingerprint::relation(&registry, spec))
-            .collect();
+            .collect::<Result<_, _>>()?;
         for (spec, fingerprint) in registry.relations.iter_mut().zip(fingerprints) {
             spec.fingerprint = fingerprint;
         }
-        registry.self_description = registry.materialize_schema_rows();
+        registry.self_description = registry.materialize_schema_rows()?;
         registry.fingerprint = crate::fingerprint::registry(registry.schema_rows_ref());
+        registry.compiled_declarations = registry
+            .relations
+            .iter()
+            .map(|spec| {
+                crate::compiled_contract::relation(&registry, spec)
+                    .map(|value| value.literal_spec())
+            })
+            .collect::<Result<_, _>>()?;
         Ok(registry)
     }
 
@@ -1384,12 +1502,16 @@ fn index_relations(relations: &[RelationSpec]) -> BTreeMap<String, usize> {
 }
 
 /// Records `ty` and every type reachable from it in the catalog under construction.
-fn record_logical_type(ty: &LogicalType, types: &mut BTreeMap<String, LogicalType>) {
+fn record_logical_type(
+    ty: &FieldContract,
+    types: &mut BTreeMap<String, FieldContract>,
+) -> Result<(), SchemaError> {
     let mut reachable = Vec::new();
     ty.walk(&mut reachable);
     for child in reachable {
-        types.insert(child.name(), child);
+        types.insert(child.type_name()?, child.value_type());
     }
+    Ok(())
 }
 
 /// The logical-type catalog: the §4.5 scalars, the §4.4 extension types, every declared
@@ -1401,21 +1523,21 @@ fn record_logical_type(ty: &LogicalType, types: &mut BTreeMap<String, LogicalTyp
 fn collect_logical_types(
     relations: &[RelationSpec],
     enums: &[EnumSpec],
-) -> Result<Vec<LogicalTypeRow>, SchemaError> {
-    let mut types: BTreeMap<String, LogicalType> = BTreeMap::new();
+) -> Result<Vec<FieldTypeRow>, SchemaError> {
+    let mut types: BTreeMap<String, FieldContract> = BTreeMap::new();
     for scalar in [
-        LogicalType::F64,
-        LogicalType::I64,
-        LogicalType::I32,
-        LogicalType::U8,
-        LogicalType::U16,
-        LogicalType::U32,
-        LogicalType::U64,
-        LogicalType::Bool,
-        LogicalType::Text,
-        LogicalType::Timestamp,
+        FieldContract::native(arrow_schema::DataType::Float64),
+        FieldContract::native(arrow_schema::DataType::Int64),
+        FieldContract::native(arrow_schema::DataType::Int32),
+        FieldContract::native(arrow_schema::DataType::UInt8),
+        FieldContract::native(arrow_schema::DataType::UInt16),
+        FieldContract::native(arrow_schema::DataType::UInt32),
+        FieldContract::native(arrow_schema::DataType::UInt64),
+        FieldContract::native(arrow_schema::DataType::Boolean),
+        FieldContract::native(arrow_schema::DataType::Utf8),
+        FieldContract::native(crate::model::extension::timestamp_storage()),
     ] {
-        record_logical_type(&scalar, &mut types);
+        record_logical_type(&scalar, &mut types)?;
     }
     for use_ in [
         ExtensionUse::SemanticId,
@@ -1428,34 +1550,41 @@ fn collect_logical_types(
         ExtensionUse::ExprDsl,
         ExtensionUse::TargetPath,
     ] {
-        record_logical_type(&LogicalType::Ext(use_), &mut types);
+        record_logical_type(&FieldContract::extended(use_), &mut types)?;
     }
     for spec in enums {
-        record_logical_type(&LogicalType::enumeration(spec.name), &mut types);
+        record_logical_type(&FieldContract::enumeration(spec.name), &mut types)?;
     }
     for relation in relations {
         for column in &relation.columns {
-            record_logical_type(&column.logical_type, &mut types);
+            record_logical_type(&column.value_type(), &mut types)?;
         }
     }
 
     let mut rows = Vec::with_capacity(types.len());
     for (name, ty) in types {
         let extension = ty.extension();
-        rows.push(LogicalTypeRow {
+        rows.push(FieldTypeRow {
             id: registry_id(&format!("logical_type:{name}")),
             arrow_storage: render_data_type(&ty.data_type())?,
-            extension_name: extension.map(ExtensionUse::extension_name),
+            extension_name: extension
+                .map(|use_| use_.extension_name().to_owned())
+                .or_else(|| {
+                    ty.field()
+                        .metadata()
+                        .get(crate::arrow::KEY_EXTENSION_NAME)
+                        .cloned()
+                }),
             metadata_schema: extension.map(|use_| {
                 let spec = use_.spec();
                 let resolved = match use_ {
                     ExtensionUse::Enum(name) => enums
                         .iter()
-                        .find(|enumeration| enumeration.name == *name)
+                        .find(|enumeration| enumeration.name == name)
                         .map(|enumeration| enumeration.id),
                     ExtensionUse::OrdinalRef { target } => relations
                         .iter()
-                        .filter(|relation| relation.qualified_name() == *target)
+                        .filter(|relation| relation.qualified_name() == target)
                         .max_by_key(|relation| relation.key.version)
                         .map(|relation| relation.id),
                     _ => None,
@@ -1508,10 +1637,36 @@ fn check_relation_references(registry: &Registry) -> Result<(), SchemaError> {
 fn check_column(
     registry: &Registry,
     spec: &RelationSpec,
-    column: &ColumnSpec,
+    column: &FieldContract,
 ) -> Result<(), SchemaError> {
-    let context = format!("column {}.{}", spec.key, column.name);
-    if let Some(fk) = column.fk {
+    for name in column.enum_domains() {
+        if registry.enum_spec(&name).is_none() {
+            return Err(SchemaError::UnknownReference {
+                context: format!("column {}.{}", spec.key, column.name()),
+                reference: format!("enum:{name}"),
+            });
+        }
+    }
+    check_field(
+        registry,
+        column,
+        &spec.columns,
+        &format!("column {}.{}", spec.key, column.name()),
+    )?;
+    let field = crate::arrow::field_for(registry, column)?;
+    crate::field_contract::declaration(&arrow_schema::Schema::new(vec![field]))
+}
+
+fn check_field(
+    registry: &Registry,
+    column: &FieldContract,
+    siblings: &[FieldContract],
+    context: &str,
+) -> Result<(), SchemaError> {
+    column.validate_facets(context)?;
+    crate::model::IntegerRange::from_field(column.field())?;
+    let context = context.to_owned();
+    if let Some(fk) = column.fk() {
         let target =
             registry
                 .relation(fk.relation)
@@ -1525,28 +1680,36 @@ fn check_column(
                 reference: fk.to_string(),
             });
         };
-        if column.logical_type != target_column.logical_type {
+        if column.value_type() != target_column.value_type() {
             return Err(crate::checks::invalid(
                 &context,
                 format!(
                     "foreign key {} has type {}, expected {}",
-                    fk, column.logical_type, target_column.logical_type
+                    fk,
+                    column.value_type(),
+                    target_column.value_type()
                 ),
             ));
         }
     }
-    if column.quantity == QuantityContract::PerRow
-        && spec.column(&column.per_row_quantity_sibling()).is_none()
+    if column.quantity() == QuantityContract::PerRow
+        && siblings
+            .iter()
+            .find(|field| field.name() == column.per_row_quantity_sibling())
+            .is_none()
     {
         return Err(SchemaError::UnknownReference {
             context: context.clone(),
             reference: column.per_row_quantity_sibling(),
         });
     }
-    if column.quantity == QuantityContract::PerRow {
-        let sibling = spec.column(&column.per_row_quantity_sibling());
+    if column.quantity() == QuantityContract::PerRow {
+        let sibling = siblings
+            .iter()
+            .find(|field| field.name() == column.per_row_quantity_sibling());
         if sibling.is_some_and(|sibling| {
-            sibling.logical_type != LogicalType::id() || (sibling.nullable && !column.nullable)
+            sibling.value_type() != FieldContract::id()
+                || (sibling.nullable() && !column.nullable())
         }) {
             return Err(crate::checks::invalid(
                 &context,
@@ -1554,23 +1717,30 @@ fn check_column(
             ));
         }
     }
-    let mut reachable = Vec::new();
-    column.logical_type.walk(&mut reachable);
-    for ty in reachable {
-        match ty.extension() {
-            Some(ExtensionUse::Enum(name)) if registry.enum_spec(name).is_none() => {
-                return Err(SchemaError::UnknownReference {
-                    context: context.clone(),
-                    reference: format!("enum:{name}"),
-                });
-            }
-            Some(ExtensionUse::OrdinalRef { target }) if registry.relation(target).is_none() => {
-                return Err(SchemaError::UnknownReference {
-                    context: context.clone(),
-                    reference: (*target).to_owned(),
-                });
-            }
-            _ => {}
+    match column.extension() {
+        Some(ExtensionUse::Enum(name)) if registry.enum_spec(name).is_none() => {
+            return Err(SchemaError::UnknownReference {
+                context: context.clone(),
+                reference: format!("enum:{name}"),
+            });
+        }
+        Some(ExtensionUse::OrdinalRef { target }) if registry.relation(target).is_none() => {
+            return Err(SchemaError::UnknownReference {
+                context: context.clone(),
+                reference: target.to_owned(),
+            });
+        }
+        _ => {}
+    }
+    if column.extension().is_none() {
+        let children = column.children();
+        for child in &children {
+            check_field(
+                registry,
+                child,
+                &children,
+                &format!("{context}.{}", child.name()),
+            )?;
         }
     }
     Ok(())
@@ -1621,6 +1791,7 @@ fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSp
             version: decl.version,
             stratum: decl.stratum,
             head: decl.head,
+            assertion_relation: decl.assertion_relation,
             plan: decl.plan,
             negation: decl.negation,
             monotonic: decl.monotonic,
@@ -1763,7 +1934,7 @@ fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassS
             postconditions: decl.postconditions,
             determinism: decl.determinism,
             diagnostics: decl.diagnostics,
-            executes_plans: decl.executes_plans,
+            effects: decl.effects,
         });
     }
     check_derived_ports(&out)?;
@@ -1940,9 +2111,9 @@ mod tests {
             "a fixture relation",
         )
         .pk(&["id"])
-        .columns(vec![ColumnSpec::key(
+        .columns(vec![FieldContract::key(
             "id",
-            LogicalType::id(),
+            FieldContract::id(),
             "the identity",
         )])
     }
@@ -1989,8 +2160,8 @@ mod tests {
     fn a_dangling_foreign_key_is_rejected() {
         let mut builder = RegistryBuilder::new();
         builder.declare_relation(simple("a").columns(vec![
-            ColumnSpec::key("id", LogicalType::id(), "the identity"),
-            ColumnSpec::reference("other_id", LogicalType::id(), "a reference")
+            FieldContract::key("id", FieldContract::id(), "the identity"),
+            FieldContract::reference("other_id", FieldContract::id(), "a reference")
                 .with_fk("authored.nowhere", "id"),
         ]));
         assert!(matches!(
@@ -2005,8 +2176,8 @@ mod tests {
         builder
             .declare_relation(simple("a"))
             .declare_relation(simple("b").columns(vec![
-                ColumnSpec::key("id", LogicalType::id(), "the identity"),
-                ColumnSpec::reference("a_id", LogicalType::id(), "a reference")
+                FieldContract::key("id", FieldContract::id(), "the identity"),
+                FieldContract::reference("a_id", FieldContract::id(), "a reference")
                     .with_fk("authored.a", "not_a_column"),
             ]));
         assert!(matches!(
@@ -2019,8 +2190,8 @@ mod tests {
     fn an_undeclared_enum_is_rejected() {
         let mut builder = RegistryBuilder::new();
         builder.declare_relation(simple("a").columns(vec![
-            ColumnSpec::key("id", LogicalType::id(), "the identity"),
-            ColumnSpec::label("kind", LogicalType::enumeration("Nowhere"), "a label"),
+            FieldContract::key("id", FieldContract::id(), "the identity"),
+            FieldContract::label("kind", FieldContract::enumeration("Nowhere"), "a label"),
         ]));
         assert!(matches!(
             builder.build().unwrap_err(),
@@ -2032,10 +2203,10 @@ mod tests {
     fn a_per_row_quantity_without_its_sibling_is_rejected() {
         let mut builder = RegistryBuilder::new();
         builder.declare_relation(simple("a").columns(vec![
-            ColumnSpec::key("id", LogicalType::id(), "the identity"),
-            ColumnSpec::new(
+            FieldContract::key("id", FieldContract::id(), "the identity"),
+            FieldContract::new(
                 "value",
-                LogicalType::F64,
+                FieldContract::native(arrow_schema::DataType::Float64),
                 false,
                 ColumnRole::Measure,
                 "a measure",
@@ -2053,18 +2224,18 @@ mod tests {
     fn a_per_row_quantity_with_its_sibling_is_accepted() {
         let mut builder = RegistryBuilder::new();
         builder.declare_relation(simple("a").columns(vec![
-            ColumnSpec::key("id", LogicalType::id(), "the identity"),
-            ColumnSpec::new(
+            FieldContract::key("id", FieldContract::id(), "the identity"),
+            FieldContract::new(
                 "value",
-                LogicalType::F64,
+                FieldContract::native(arrow_schema::DataType::Float64),
                 false,
                 ColumnRole::Measure,
                 "a measure",
             )
             .with_per_row_quantity(),
-            ColumnSpec::reference(
+            FieldContract::reference(
                 "value_quantity_type_id",
-                LogicalType::id(),
+                FieldContract::id(),
                 "the per-row contract",
             ),
         ]));
@@ -2102,7 +2273,11 @@ mod tests {
             )
             .granularity(DerivationGranularity::Row)
             .pk(&["id"])
-            .columns(vec![ColumnSpec::key("id", LogicalType::id(), "identity")]),
+            .columns(vec![FieldContract::key(
+                "id",
+                FieldContract::id(),
+                "identity",
+            )]),
         );
         assert!(builder.build().is_ok());
     }
@@ -2132,7 +2307,7 @@ mod tests {
             registry
                 .logical_type("semantic_id")
                 .map(|row| row.arrow_storage.as_str()),
-            Some("FixedSizeBinary(16)")
+            Some(r#"{"FixedSizeBinary":16}"#)
         );
     }
 }

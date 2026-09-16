@@ -1,0 +1,411 @@
+{
+  "evidence": "Interface-checked",
+  "command": "cargo metadata --locked --offline --format-version 1",
+  "mode": "workspace default feature resolution; no force_validate feature requested",
+  "packages": [
+    {
+      "name": "arrow",
+      "version": "59.3.0",
+      "features": [
+        "arrow-csv",
+        "arrow-ipc",
+        "arrow-json",
+        "canonical_extension_types",
+        "chrono-tz",
+        "csv",
+        "default",
+        "ffi",
+        "ipc",
+        "json",
+        "prettyprint"
+      ]
+    },
+    {
+      "name": "arrow-arith",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "arrow-array",
+      "version": "59.3.0",
+      "features": [
+        "chrono-tz",
+        "ffi"
+      ]
+    },
+    {
+      "name": "arrow-buffer",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "arrow-cast",
+      "version": "59.3.0",
+      "features": [
+        "comfy-table",
+        "prettyprint"
+      ]
+    },
+    {
+      "name": "arrow-csv",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "arrow-data",
+      "version": "59.3.0",
+      "features": [
+        "ffi"
+      ]
+    },
+    {
+      "name": "arrow-ipc",
+      "version": "59.3.0",
+      "features": [
+        "default",
+        "lz4",
+        "lz4_flex",
+        "zstd"
+      ]
+    },
+    {
+      "name": "arrow-json",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "arrow-ord",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "arrow-row",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "arrow-schema",
+      "version": "59.3.0",
+      "features": [
+        "bitflags",
+        "canonical_extension_types",
+        "ffi"
+      ]
+    },
+    {
+      "name": "arrow-select",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "arrow-string",
+      "version": "59.3.0",
+      "features": []
+    },
+    {
+      "name": "datafusion",
+      "version": "55.1.0",
+      "features": [
+        "bzip2",
+        "compression",
+        "crypto_expressions",
+        "datafusion-datasource-parquet",
+        "datafusion-functions-nested",
+        "datafusion-sql",
+        "datetime_expressions",
+        "default",
+        "encoding_expressions",
+        "flate2",
+        "liblzma",
+        "nested_expressions",
+        "parquet",
+        "recursive_protection",
+        "regex_expressions",
+        "sql",
+        "sqlparser",
+        "string_expressions",
+        "unicode_expressions",
+        "zstd"
+      ]
+    },
+    {
+      "name": "datafusion-catalog",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-catalog-listing",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-common",
+      "version": "55.1.0",
+      "features": [
+        "object_store",
+        "parquet",
+        "recursive_protection",
+        "sql",
+        "sqlparser"
+      ]
+    },
+    {
+      "name": "datafusion-common-runtime",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-datasource",
+      "version": "55.1.0",
+      "features": [
+        "async-compression",
+        "bzip2",
+        "compression",
+        "flate2",
+        "liblzma",
+        "proto",
+        "tokio-util",
+        "zstd"
+      ]
+    },
+    {
+      "name": "datafusion-datasource-arrow",
+      "version": "55.1.0",
+      "features": [
+        "compression",
+        "proto"
+      ]
+    },
+    {
+      "name": "datafusion-datasource-csv",
+      "version": "55.1.0",
+      "features": [
+        "proto"
+      ]
+    },
+    {
+      "name": "datafusion-datasource-json",
+      "version": "55.1.0",
+      "features": [
+        "proto"
+      ]
+    },
+    {
+      "name": "datafusion-datasource-parquet",
+      "version": "55.1.0",
+      "features": [
+        "proto"
+      ]
+    },
+    {
+      "name": "datafusion-doc",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-execution",
+      "version": "55.1.0",
+      "features": [
+        "default",
+        "sql"
+      ]
+    },
+    {
+      "name": "datafusion-expr",
+      "version": "55.1.0",
+      "features": [
+        "default",
+        "proto",
+        "recursive_protection",
+        "sql",
+        "sqlparser"
+      ]
+    },
+    {
+      "name": "datafusion-expr-common",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-functions",
+      "version": "55.1.0",
+      "features": [
+        "base64",
+        "blake2",
+        "blake3",
+        "chrono-tz",
+        "crypto_expressions",
+        "datetime_expressions",
+        "default",
+        "encoding_expressions",
+        "hex",
+        "math_expressions",
+        "md-5",
+        "regex",
+        "regex_expressions",
+        "sha2",
+        "string_expressions",
+        "unicode_expressions",
+        "uuid"
+      ]
+    },
+    {
+      "name": "datafusion-functions-aggregate",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-functions-aggregate-common",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-functions-nested",
+      "version": "55.1.0",
+      "features": [
+        "sql"
+      ]
+    },
+    {
+      "name": "datafusion-functions-table",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-functions-window",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-functions-window-common",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-macros",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-optimizer",
+      "version": "55.1.0",
+      "features": [
+        "recursive_protection"
+      ]
+    },
+    {
+      "name": "datafusion-physical-expr",
+      "version": "55.1.0",
+      "features": [
+        "proto",
+        "recursive_protection"
+      ]
+    },
+    {
+      "name": "datafusion-physical-expr-adapter",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-physical-expr-common",
+      "version": "55.1.0",
+      "features": [
+        "proto"
+      ]
+    },
+    {
+      "name": "datafusion-physical-optimizer",
+      "version": "55.1.0",
+      "features": [
+        "recursive_protection"
+      ]
+    },
+    {
+      "name": "datafusion-physical-plan",
+      "version": "55.1.0",
+      "features": [
+        "proto"
+      ]
+    },
+    {
+      "name": "datafusion-proto",
+      "version": "55.1.0",
+      "features": [
+        "datafusion-datasource-parquet",
+        "default",
+        "parquet"
+      ]
+    },
+    {
+      "name": "datafusion-proto-common",
+      "version": "55.1.0",
+      "features": [
+        "default"
+      ]
+    },
+    {
+      "name": "datafusion-proto-models",
+      "version": "55.1.0",
+      "features": [
+        "default"
+      ]
+    },
+    {
+      "name": "datafusion-pruning",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-session",
+      "version": "55.1.0",
+      "features": []
+    },
+    {
+      "name": "datafusion-sql",
+      "version": "55.1.0",
+      "features": [
+        "default",
+        "recursive_protection",
+        "unicode_expressions",
+        "unparser"
+      ]
+    },
+    {
+      "name": "object_store",
+      "version": "0.13.2",
+      "features": [
+        "default",
+        "fs",
+        "tokio",
+        "walkdir"
+      ]
+    },
+    {
+      "name": "parquet",
+      "version": "59.3.0",
+      "features": [
+        "arrow",
+        "arrow-array",
+        "arrow-buffer",
+        "arrow-data",
+        "arrow-ipc",
+        "arrow-schema",
+        "arrow-select",
+        "async",
+        "base64",
+        "brotli",
+        "default",
+        "flate2",
+        "flate2-zlib-rs",
+        "futures",
+        "lz4",
+        "lz4_flex",
+        "object_store",
+        "simdutf8",
+        "snap",
+        "tokio",
+        "zstd"
+      ]
+    }
+  ]
+}

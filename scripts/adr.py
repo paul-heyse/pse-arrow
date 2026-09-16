@@ -440,7 +440,10 @@ def supersede(old_ref: str, new_ref: str) -> int:
     )
     set_field(old, "status", "superseded")
     set_field(old, "superseded-by", str(new_front["id"]))
-    set_field(new_path, "supersedes", f"[{old_front['id']}]")
+    predecessors = sorted(
+        set(as_list(new_front.get("supersedes"))) | {str(old_front["id"])}
+    )
+    set_field(new_path, "supersedes", f"[{', '.join(predecessors)}]")
     today = datetime.date.today().isoformat()
     with old.open("a", encoding="utf-8") as handle:
         handle.write(f"- {today} — superseded by {new_front['id']}.\n")

@@ -50,7 +50,7 @@ pub struct RelationContract {
     pub namespace: String,
     /// The relation's declared name.
     pub name: String,
-    /// Ordinals of the dictionary-encoded enum columns, ascending.
+    /// Ordinals of the declared enum columns, ascending.
     pub enum_columns: Vec<usize>,
     /// Column ordinals of each validated `unique` invariant, in declaration order.
     pub unique_sets: Vec<Vec<usize>>,
@@ -87,7 +87,7 @@ impl RelationContract {
             if !matches!(canonical.layouts.get(ordinal), Some(Layout::Enum { .. })) {
                 return Err(mismatch(
                     ordinal,
-                    "a dictionary-encoded enum column with a declared domain",
+                    "a declared enum column with a declared domain",
                     &describe_layout(canonical.layouts.get(ordinal)),
                 ));
             }
@@ -271,7 +271,7 @@ mod tests {
 
     use super::*;
 
-    /// A schema with a text key, an integer, a float and a dictionary-encoded enum.
+    /// A schema with a text key, an integer, a float and a declared enum.
     fn contract() -> CanonicalContract {
         let schema = Arc::new(Schema::new(vec![
             Field::new("unit_id", DataType::Utf8, false),

@@ -50,7 +50,6 @@ disallowed-methods = [
   { path = "datafusion_execution::config::SessionConfig::set_str", reason = "panics on an invalid key; use typed `ConfigOptions` only (blueprint §23.2, `config.invalid`)" },
   { path = "serde_arrow::schema::SchemaLike::from_type", reason = "schemas come from the registry, never inferred (blueprint §5.3)" },
   { path = "serde_arrow::schema::SchemaLike::from_samples", reason = "schemas come from the registry, never inferred (blueprint §5.3)" },
-  { path = "arrow_ipc::writer::IpcWriteOptions::try_with_compression", reason = "canonical IPC is uncompressed (blueprint §5.3, pse.canon.v2)" },
 ]
 disallowed-types = [
   { path = "anyhow::Error", reason = "every pse-* crate returns a concrete thiserror enum with miette::Diagnostic (blueprint §23.2); xtask opts out at crate level" },

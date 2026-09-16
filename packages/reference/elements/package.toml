@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+[package]
+package_id = "13ede9023d9f4dd7ae5caf5e9b319b8c"
+name = "pse.elements"
+version = "1.0.0"
+kind = "reference"
+id_policy = "explicit"
+dependencies = []
+doc = "CIAAW 2024 abridged engineering subset; see sources.md."

@@ -1,0 +1,1717 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+{
+  "templates": [
+    {
+      "template_id": "e3f9d5f552ee4e4ca0fb00408a597cef",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "Flowsheet",
+      "version": "1.0.0",
+      "kind": "flowsheet",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "LumpedControlVolume",
+      "version": "1.0.0",
+      "kind": "control_volume",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "Heater",
+      "version": "1.0.0",
+      "kind": "unit",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "Feed",
+      "version": "1.0.0",
+      "kind": "unit",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "Product",
+      "version": "1.0.0",
+      "kind": "unit",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "StateJunction",
+      "version": "1.0.0",
+      "kind": "unit",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "EqualityConnection",
+      "version": "1.0.0",
+      "kind": "connection_rule",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "package_id": "df905102f26b4e32a8978ee25184962f",
+      "name": "Mixer",
+      "version": "1.0.0",
+      "kind": "unit",
+      "default_initializer_template_id": null,
+      "default_scaler_template_id": null,
+      "idaes_class": null,
+      "doc": "Steady single-phase reusable template; actual selected state declarations supply the material interface."
+    }
+  ],
+  "template_scopes": [
+    {
+      "template_id": "e3f9d5f552ee4e4ca0fb00408a597cef",
+      "name": "self",
+      "scope_id": "6b483e9c05dc431b87a7c9be1872ddfa"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "self",
+      "scope_id": "9bd5b8d5d7624397a405432221c3b34f"
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "self",
+      "scope_id": "d56d54d837a840a3b9ed4d06c2fd5244"
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "self",
+      "scope_id": "8a43641e281748649d056fce800918bd"
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "self",
+      "scope_id": "a48c4bdef5c243519993d2ce70a87ac3"
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "self",
+      "scope_id": "0d2a983b28e9435581bfb20d4723844a"
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "self",
+      "scope_id": "a2a31b06159e4fdabd11974de220643f"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "self",
+      "scope_id": "9a083edae37f4eef968155e38d432918"
+    }
+  ],
+  "template_features": [
+    {
+      "template_id": "e3f9d5f552ee4e4ca0fb00408a597cef",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "has_holdup",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "has_heat_transfer",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "has_work_transfer",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "has_pressure_change",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "material_balance_type",
+      "kind": "enum",
+      "enum_id": "ec25568117107d9c0445af04f18376bf",
+      "default": "useDefault",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "energy_balance_type",
+      "kind": "enum",
+      "enum_id": "290c5aece709971026ad20276f691ae0",
+      "default": "useDefault",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "momentum_balance_type",
+      "kind": "enum",
+      "enum_id": "5145173e37a8ed1e2587be500f9ee5e6",
+      "default": "pressureTotal",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "has_pressure_change",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "dynamic",
+      "kind": "bool",
+      "enum_id": null,
+      "default": "false",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "material_balance_type",
+      "kind": "enum",
+      "enum_id": "ec25568117107d9c0445af04f18376bf",
+      "default": "useDefault",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "energy_balance_type",
+      "kind": "enum",
+      "enum_id": "290c5aece709971026ad20276f691ae0",
+      "default": "enthalpyTotal",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "momentum_balance_type",
+      "kind": "enum",
+      "enum_id": "5145173e37a8ed1e2587be500f9ee5e6",
+      "default": "pressureTotal",
+      "inherit_from": null,
+      "doc": "Declared balance policy or physical feature; evaluated from typed configuration."
+    }
+  ],
+  "template_feature_rules": [
+    {
+      "template_id": "e3f9d5f552ee4e4ca0fb00408a597cef",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "rule": "requires",
+      "antecedent": "true",
+      "consequent": "not dynamic"
+    }
+  ],
+  "template_params": [
+    {
+      "template_id": "e3f9d5f552ee4e4ca0fb00408a597cef",
+      "name": "default_property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": false,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "source",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "target",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "property_package",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": "is_property_package",
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "inlet_domain",
+      "logical_type_id": "e7c5168b9b8f1354d980e06f6ffa7776",
+      "enum_id": null,
+      "default": null,
+      "required": true,
+      "domain_spec": null,
+      "doc": "Declared configuration; no symbol-name inference or arbitrary predicate callback."
+    }
+  ],
+  "template_material_constraints": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "min_phases": 1,
+      "max_phases": 1,
+      "min_species": 1,
+      "max_species": null
+    }
+  ],
+  "template_domains": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "p",
+      "kind": "phase",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "j",
+      "kind": "species",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "n",
+      "kind": "port_set",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "e",
+      "kind": "element",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "e",
+      "kind": "element",
+      "continuous": false,
+      "members_from": null,
+      "bounds": null,
+      "unit_id": null
+    }
+  ],
+  "template_domain_bindings": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "p",
+      "source": "phase",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "j",
+      "source": "species",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "n",
+      "source": "parameter",
+      "domain_id": null,
+      "parameter_name": "inlet_domain"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "e",
+      "source": "element",
+      "domain_id": null,
+      "parameter_name": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "e",
+      "source": "element",
+      "domain_id": null,
+      "parameter_name": null
+    }
+  ],
+  "template_submodels": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "properties_in",
+      "child_template_id": null,
+      "child_from_param": "property_package",
+      "multiplicity_domain": null,
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "defined_state",
+          "value": "true"
+        }
+      ],
+      "guard_id": null
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "properties_out",
+      "child_template_id": null,
+      "child_from_param": "property_package",
+      "multiplicity_domain": null,
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "defined_state",
+          "value": "false"
+        }
+      ],
+      "guard_id": null
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "control_volume",
+      "child_template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "child_from_param": null,
+      "multiplicity_domain": null,
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "has_heat_transfer",
+          "value": "true"
+        },
+        {
+          "child_param": "has_pressure_change",
+          "value": "parent.has_pressure_change"
+        }
+      ],
+      "guard_id": null
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "properties",
+      "child_template_id": null,
+      "child_from_param": "property_package",
+      "multiplicity_domain": null,
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "defined_state",
+          "value": "true"
+        }
+      ],
+      "guard_id": null
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "properties",
+      "child_template_id": null,
+      "child_from_param": "property_package",
+      "multiplicity_domain": null,
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "defined_state",
+          "value": "false"
+        }
+      ],
+      "guard_id": null
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "properties",
+      "child_template_id": null,
+      "child_from_param": "property_package",
+      "multiplicity_domain": null,
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "defined_state",
+          "value": "true"
+        }
+      ],
+      "guard_id": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "inlets",
+      "child_template_id": null,
+      "child_from_param": "property_package",
+      "multiplicity_domain": "n",
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "defined_state",
+          "value": "true"
+        }
+      ],
+      "guard_id": null
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "mixed_state",
+      "child_template_id": null,
+      "child_from_param": "property_package",
+      "multiplicity_domain": null,
+      "bindings": [
+        {
+          "child_param": "property_package",
+          "value": "parent.property_package"
+        },
+        {
+          "child_param": "defined_state",
+          "value": "false"
+        }
+      ],
+      "guard_id": null
+    }
+  ],
+  "template_ports": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "inlet",
+      "kind": "material",
+      "direction": "inlet",
+      "bound_to": "properties_in",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "name": "outlet",
+      "kind": "material",
+      "direction": "outlet",
+      "bound_to": "properties_out",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "inlet",
+      "kind": "material",
+      "direction": "inlet",
+      "bound_to": "control_volume.properties_in",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "name": "outlet",
+      "kind": "material",
+      "direction": "outlet",
+      "bound_to": "control_volume.properties_out",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
+      "name": "outlet",
+      "kind": "material",
+      "direction": "outlet",
+      "bound_to": "properties",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "3414cba5df7f494aa697637e0e620a84",
+      "name": "inlet",
+      "kind": "material",
+      "direction": "inlet",
+      "bound_to": "properties",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "inlet",
+      "kind": "material",
+      "direction": "inlet",
+      "bound_to": "properties",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "ae816e50c8794aea9d656b78b229fb70",
+      "name": "outlet",
+      "kind": "material",
+      "direction": "outlet",
+      "bound_to": "properties",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "inlet",
+      "kind": "material",
+      "direction": "inlet",
+      "bound_to": "inlets",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "name": "outlet",
+      "kind": "material",
+      "direction": "outlet",
+      "bound_to": "mixed_state",
+      "guard_id": null,
+      "doc": "Members come from the actual selected state declaration, including expression members."
+    }
+  ],
+  "template_requirements": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "requirement": "material_flow_terms",
+      "detail": "properties_in and properties_out"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "requirement": "enthalpy_flow_terms",
+      "detail": "properties_in and properties_out"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "requirement": "material_density_terms",
+      "detail": "properties_in and properties_out"
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "requirement": "energy_density_terms",
+      "detail": "properties_in and properties_out"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "requirement": "material_flow_terms",
+      "detail": "inlets and mixed_state"
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "requirement": "enthalpy_flow_terms",
+      "detail": "inlets and mixed_state"
+    }
+  ],
+  "template_contributions": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "contribution_decl_id": "17e6a1849235412e8c12f767e9d4c0d7",
+      "name": "material_in",
+      "law_family": "material",
+      "expression": "properties_in.material_flow_terms[p,j]",
+      "orientation": "into_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "contribution_decl_id": "eeefec9cb6874bf0afca79ec5f92f30c",
+      "name": "enthalpy_in",
+      "law_family": "energy",
+      "expression": "properties_in.enthalpy_flow_terms[p]",
+      "orientation": "into_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "contribution_decl_id": "32bdece76b5744e9980349a9df206258",
+      "name": "material_out",
+      "law_family": "material",
+      "expression": "properties_out.material_flow_terms[p,j]",
+      "orientation": "out_of_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "contribution_decl_id": "f19d536168f743c98147654f000837f7",
+      "name": "enthalpy_out",
+      "law_family": "energy",
+      "expression": "properties_out.enthalpy_flow_terms[p]",
+      "orientation": "out_of_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "contribution_decl_id": "e9d1805b10fa4b9a809cd91e1fab73d6",
+      "name": "heat_transfer",
+      "law_family": "energy",
+      "expression": "heat",
+      "orientation": "generation",
+      "scope": "self",
+      "guard_id": "eef626ee29034738b0f7dde28444e544",
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "contribution_decl_id": "cfb8684436b54e6fa04ef524d6145872",
+      "name": "work_transfer",
+      "law_family": "energy",
+      "expression": "work",
+      "orientation": "generation",
+      "scope": "self",
+      "guard_id": "c26af4c1109440fa900d38f275638627",
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "contribution_decl_id": "617226101f574c8d8dd10c1070d830c4",
+      "name": "inlet_material",
+      "law_family": "material",
+      "expression": "inlets[n].material_flow_terms[p,j]",
+      "orientation": "into_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "contribution_decl_id": "ee4baf4da32543da9366b3581e073c7b",
+      "name": "outlet_material",
+      "law_family": "material",
+      "expression": "mixed_state.material_flow_terms[p,j]",
+      "orientation": "out_of_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "contribution_decl_id": "0ac0784d0f634e28a40db7095c3105a4",
+      "name": "inlet_enthalpy",
+      "law_family": "energy",
+      "expression": "inlets[n].enthalpy_flow_terms[p]",
+      "orientation": "into_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "contribution_decl_id": "0c2b523bc87844f88e376783eaa3d658",
+      "name": "outlet_enthalpy",
+      "law_family": "energy",
+      "expression": "mixed_state.enthalpy_flow_terms[p]",
+      "orientation": "out_of_scope",
+      "scope": "self",
+      "guard_id": null,
+      "doc": "Indexed contribution with explicit subject/phase ordinals and source scope; no whole-group scalar coercion."
+    }
+  ],
+  "template_guards": [
+    {
+      "guard_id": "eef626ee29034738b0f7dde28444e544",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "has_heat_transfer",
+      "doc": "heat transfer enabled"
+    },
+    {
+      "guard_id": "c26af4c1109440fa900d38f275638627",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "has_work_transfer",
+      "doc": "work transfer enabled"
+    },
+    {
+      "guard_id": "9131275d896948f29886dbebe879ff4f",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "has_pressure_change",
+      "doc": "pressure change enabled"
+    },
+    {
+      "guard_id": "65f8aa15ec3b4bacaefe2bce9fa1b74d",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "momentum_balance_type == pressureTotal and not has_pressure_change",
+      "doc": "pressure equality"
+    },
+    {
+      "guard_id": "0ee06f311cf94c2c9bf5b0965471d612",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "momentum_balance_type == pressureTotal and has_pressure_change",
+      "doc": "pressure drop"
+    },
+    {
+      "guard_id": "070dc3e2e01a4ede86b6d679f63cc684",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "energy_balance_type == isothermal",
+      "doc": "isothermal policy"
+    },
+    {
+      "guard_id": "e6684211f6b24c03a7a23b56b8aee54e",
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "predicate": "momentum_balance_type == pressureTotal",
+      "doc": "pressure equalities"
+    },
+    {
+      "guard_id": "aa5fd56111da43a69d34a37953050e66",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "material_balance_type == componentTotal or (material_balance_type == useDefault and properties_in.default_material_balance_type == MaterialBalanceType.componentTotal)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "b8d7e9d5d14c4d5c848472b66fc8ed47",
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "predicate": "material_balance_type == componentTotal or (material_balance_type == useDefault and mixed_state.default_material_balance_type == MaterialBalanceType.componentTotal)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "3c0dd9f4283e45109d8b9e28bf5cf246",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "material_balance_type == componentPhase or (material_balance_type == useDefault and properties_in.default_material_balance_type == MaterialBalanceType.componentPhase)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "270b499b82cd4de6a0e52925a69c1084",
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "predicate": "material_balance_type == componentPhase or (material_balance_type == useDefault and mixed_state.default_material_balance_type == MaterialBalanceType.componentPhase)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "1805a65fff5a4fa8b4407f6f15860654",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "material_balance_type == elementTotal or (material_balance_type == useDefault and properties_in.default_material_balance_type == MaterialBalanceType.elementTotal)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "bfa31be00e9c4b6691e12ad40de1ad6b",
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "predicate": "material_balance_type == elementTotal or (material_balance_type == useDefault and mixed_state.default_material_balance_type == MaterialBalanceType.elementTotal)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "c1371ef6ef2145b2bd7b5ca51836fb1d",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "energy_balance_type == enthalpyTotal or (energy_balance_type == useDefault and properties_in.default_energy_balance_type == EnergyBalanceType.enthalpyTotal)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "53619d3400824eeab6d7d2daee0a848d",
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "predicate": "energy_balance_type == enthalpyTotal or (energy_balance_type == useDefault and mixed_state.default_energy_balance_type == EnergyBalanceType.enthalpyTotal)",
+      "doc": "Declared supported balance route; useDefault follows the selected state default."
+    },
+    {
+      "guard_id": "eaa424d4bcc54648a9b287bcaa30cc6d",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "predicate": "has_holdup",
+      "doc": "Finite steady inventory is present when actual inherited holdup is enabled."
+    },
+    {
+      "guard_id": "ee808043b5004f5bbf9305a67f5ba8fe",
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "predicate": "material_balance_type == total or (material_balance_type == useDefault and mixed_state.default_material_balance_type == MaterialBalanceType.total)",
+      "doc": "Total material conservation is explicitly scoped to the mixer."
+    }
+  ],
+  "template_symbols": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "symbol_decl_id": "e0d5feb4f68748d6850f57f74b4b2b7f",
+      "name": "heat",
+      "role": "variable",
+      "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": 0.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": "eef626ee29034738b0f7dde28444e544",
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "symbol_decl_id": "cb57f6f755e04164ad6a9f5a7200f596",
+      "name": "work",
+      "role": "variable",
+      "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": 0.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": "c26af4c1109440fa900d38f275638627",
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "symbol_decl_id": "ca583148b35e410ba0a7c6172c9ac328",
+      "name": "deltaP",
+      "role": "variable",
+      "quantity_type_id": "d3e8173d5c454d8b94388323bb7f05c2",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": 0.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": "9131275d896948f29886dbebe879ff4f",
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "symbol_decl_id": "7a7c9aacc1604603add544cf1f6a2b47",
+      "name": "heat_duty",
+      "role": "reference",
+      "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "indexed_by": [],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": "control_volume.heat",
+      "wrt_domain": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "symbol_decl_id": "0b77b73c169547eda8ebcb2ca28b840f",
+      "name": "volume",
+      "role": "variable",
+      "quantity_type_id": "0a5c3c4563964c8389c72e4344aed80e",
+      "indexed_by": [],
+      "default_lower": {
+        "kind": "finite",
+        "value": 1e-20
+      },
+      "default_upper": null,
+      "default_initial": 1.0,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": "eaa424d4bcc54648a9b287bcaa30cc6d",
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "symbol_decl_id": "74956c12439743b3a2d084915cbc3094",
+      "name": "material_holdup",
+      "role": "expression",
+      "quantity_type_id": "e6e2f64162b844a0b05d123cdef1da4e",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": "eaa424d4bcc54648a9b287bcaa30cc6d",
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "symbol_decl_id": "44f5c0b3c50a464e99c87e7c9fbe5a27",
+      "name": "energy_holdup",
+      "role": "expression",
+      "quantity_type_id": "e4933342ffd3482db51acac58a9b5263",
+      "indexed_by": [
+        "p"
+      ],
+      "default_lower": null,
+      "default_upper": null,
+      "default_initial": null,
+      "reference_to": null,
+      "wrt_domain": null,
+      "guard_id": "eaa424d4bcc54648a9b287bcaa30cc6d",
+      "idaes_name": null,
+      "doc": "Explicit complete quantity and solver role; reference values are supplied by actual package parameter rows."
+    }
+  ],
+  "template_symbol_contracts": [
+    {
+      "symbol_decl_id": "e0d5feb4f68748d6850f57f74b4b2b7f",
+      "solver_type": "continuous",
+      "semantic_role": "aux_reformulation"
+    },
+    {
+      "symbol_decl_id": "cb57f6f755e04164ad6a9f5a7200f596",
+      "solver_type": "continuous",
+      "semantic_role": "aux_reformulation"
+    },
+    {
+      "symbol_decl_id": "ca583148b35e410ba0a7c6172c9ac328",
+      "solver_type": "continuous",
+      "semantic_role": "aux_reformulation"
+    },
+    {
+      "symbol_decl_id": "7a7c9aacc1604603add544cf1f6a2b47",
+      "solver_type": "continuous",
+      "semantic_role": "aux_reformulation"
+    },
+    {
+      "symbol_decl_id": "0b77b73c169547eda8ebcb2ca28b840f",
+      "solver_type": "continuous",
+      "semantic_role": "design_capacity"
+    },
+    {
+      "symbol_decl_id": "74956c12439743b3a2d084915cbc3094",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    },
+    {
+      "symbol_decl_id": "44f5c0b3c50a464e99c87e7c9fbe5a27",
+      "solver_type": "continuous",
+      "semantic_role": "reporting_only"
+    }
+  ],
+  "template_equations": [
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "equation_decl_id": "7075234cdb2c4a86868e9e93b4974fc3",
+      "name": "pressure_equality",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "properties_out.pressure == properties_in.pressure",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": "65f8aa15ec3b4bacaefe2bce9fa1b74d",
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "equation_decl_id": "85eedc866a5a406183e8c5d5c9e2445f",
+      "name": "pressure_drop",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "properties_out.pressure == properties_in.pressure + deltaP",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": "0ee06f311cf94c2c9bf5b0965471d612",
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    },
+    {
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "equation_decl_id": "d21198887b734bdaa6d975d784eb6001",
+      "name": "isothermal_balance",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "properties_out.temperature == properties_in.temperature",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": "070dc3e2e01a4ede86b6d679f63cc684",
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "equation_decl_id": "87c99aa2c85f4e1ba1b0c21a63e7d418",
+      "name": "temperature",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "source.temperature == target.temperature",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "equation_decl_id": "894205a5a43b43c28878bcc315449245",
+      "name": "pressure",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "source.pressure == target.pressure",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "equation_decl_id": "5f9ce08415fa46a9961696994f5dd33c",
+      "name": "flow_mol",
+      "indexed_by": [],
+      "filter": null,
+      "expression": "source.flow_mol == target.flow_mol",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    },
+    {
+      "template_id": "b85e948565bb46db98cddceae395febc",
+      "equation_decl_id": "008fbf5329974de5a08c14557f520e74",
+      "name": "composition",
+      "indexed_by": [
+        "j"
+      ],
+      "filter": null,
+      "expression": "source.mole_frac_comp[j] == target.mole_frac_comp[j]",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": null,
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    },
+    {
+      "template_id": "26a0c885415b4cda8f3628f5fc75030b",
+      "equation_decl_id": "805b27eb8d654b70bc5e5f7bd8f1f9c3",
+      "name": "inlet_pressure",
+      "indexed_by": [
+        "n"
+      ],
+      "filter": null,
+      "expression": "inlets[n].pressure == broadcast(mixed_state.pressure, n)",
+      "sense": "eq",
+      "family_hint": null,
+      "role_hint": null,
+      "guard_id": "e6684211f6b24c03a7a23b56b8aee54e",
+      "idaes_name": null,
+      "doc": "Explicit algebraic balance condition with actual child/state bindings."
+    }
+  ],
+  "template_display": [
+    {
+      "template_id": "242af871dd464fcb82edcad1991b0f13",
+      "kind": "performance",
+      "label": "Heat duty",
+      "expression": "heat_duty",
+      "display_unit_id": "34207cdbb6fab2ee10002e057595c758",
+      "format": null
+    }
+  ],
+  "template_contribution_contracts": [
+    {
+      "contribution_decl_id": "17e6a1849235412e8c12f767e9d4c0d7",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "subject_kind": "phase_species",
+      "subject_axis": 1,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "eeefec9cb6874bf0afca79ec5f92f30c",
+      "indexed_by": [
+        "p"
+      ],
+      "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
+      "subject_kind": "energy",
+      "subject_axis": null,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "32bdece76b5744e9980349a9df206258",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "subject_kind": "phase_species",
+      "subject_axis": 1,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "f19d536168f743c98147654f000837f7",
+      "indexed_by": [
+        "p"
+      ],
+      "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
+      "subject_kind": "energy",
+      "subject_axis": null,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "e9d1805b10fa4b9a809cd91e1fab73d6",
+      "indexed_by": [],
+      "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "subject_kind": "energy",
+      "subject_axis": null,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "cfb8684436b54e6fa04ef524d6145872",
+      "indexed_by": [],
+      "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
+      "subject_kind": "energy",
+      "subject_axis": null,
+      "phase_axis": null,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "617226101f574c8d8dd10c1070d830c4",
+      "indexed_by": [
+        "n",
+        "p",
+        "j"
+      ],
+      "quantity_type_id": "ff5edf50941d442fbcef8ad392f53185",
+      "subject_kind": "phase_species",
+      "subject_axis": 2,
+      "phase_axis": 1,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "ee4baf4da32543da9366b3581e073c7b",
+      "indexed_by": [
+        "p",
+        "j"
+      ],
+      "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
+      "subject_kind": "phase_species",
+      "subject_axis": 1,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "0ac0784d0f634e28a40db7095c3105a4",
+      "indexed_by": [
+        "n",
+        "p"
+      ],
+      "quantity_type_id": "85da4749daed4d6e8a88ed6221e886ad",
+      "subject_kind": "energy",
+      "subject_axis": null,
+      "phase_axis": 1,
+      "subject_id": null,
+      "phase_id": null
+    },
+    {
+      "contribution_decl_id": "0c2b523bc87844f88e376783eaa3d658",
+      "indexed_by": [
+        "p"
+      ],
+      "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
+      "subject_kind": "energy",
+      "subject_axis": null,
+      "phase_axis": 0,
+      "subject_id": null,
+      "phase_id": null
+    }
+  ],
+  "template_symbol_expressions": [
+    {
+      "symbol_decl_id": "74956c12439743b3a2d084915cbc3094",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "expression": "volume * properties_out.material_density_terms[p,j]"
+    },
+    {
+      "symbol_decl_id": "44f5c0b3c50a464e99c87e7c9fbe5a27",
+      "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
+      "expression": "volume * properties_out.energy_density_terms[p]"
+    }
+  ],
+  "connection_bindings": [
+    {
+      "rule_template_id": "b85e948565bb46db98cddceae395febc",
+      "expansion": "equality"
+    }
+  ]
+}

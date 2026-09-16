@@ -42,9 +42,10 @@ is. Say what you did NOT verify too.
 - [ ] Lockfiles (`Cargo.lock`, `uv.lock`) changed only deliberately, by a targeted
       `cargo update -p … --precise …` / `uv lock --upgrade-package …`, and the reason is
       in the summary — no bare `cargo update` / `uv lock`.
-- [ ] If a dependency family moved (arrow, datafusion, pyo3, object_store): the ADR
-      exists, the capability map under `docs/capability-maps/` was regenerated, and
-      `just family-check` passes.
+- [ ] If one of the four pinned families was **majored** (arrow, datafusion, pyo3,
+      object_store): the ADR exists, the capability map under `docs/capability-maps/` was
+      regenerated, and `just family-check` passes. *Adding a dependency needs none of
+      this — see `docs/dev/dependency-policy.md`.*
 - [ ] If the IDAES parity pin moved: GOVERNANCE.md §5 was followed and every tolerance
       change is called out individually above.
 - [ ] No edits under `docs/generated/`, `crates/*/src/generated/`,
