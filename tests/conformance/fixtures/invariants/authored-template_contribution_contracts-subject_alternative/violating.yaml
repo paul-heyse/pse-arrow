@@ -1,0 +1,24 @@
+{
+  "invariant": "authored.template_contribution_contracts:subject_alternative",
+  "rows": {
+    "authored.template_contribution_contracts": [
+      {
+        "contribution_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "indexed_by": "[\"list\",[]]",
+        "phase_axis": "[\"null\",null]",
+        "phase_id": "[\"null\",null]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "subject_axis": "[\"null\",null]",
+        "subject_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "subject_kind": "[\"enum\",\"total\"]",
+        "transfer_member_ordinal": "[\"u64\",1]",
+        "transfer_port_name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

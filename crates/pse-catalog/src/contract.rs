@@ -134,7 +134,11 @@ impl RelationContract {
     #[must_use]
     pub fn constraints(&self) -> Constraints {
         let mut declared: Vec<Constraint> = Vec::with_capacity(1 + self.unique_sets.len());
-        declared.push(Constraint::PrimaryKey(self.canonical.primary_key.clone()));
+        // Singleton cardinality is enforced by admission. A column-key declaration
+        // is unnecessary when there are no key columns to advertise.
+        if !self.canonical.primary_key.is_empty() {
+            declared.push(Constraint::PrimaryKey(self.canonical.primary_key.clone()));
+        }
         for set in &self.unique_sets {
             declared.push(Constraint::Unique(set.clone()));
         }
@@ -195,9 +199,6 @@ fn ordinal_of(canonical: &CanonicalContract, column: &str) -> Result<usize, Cata
 
 /// Check key declarations even when a caller constructed a canonical contract directly.
 fn validate_primary_key(canonical: &CanonicalContract) -> Result<(), CatalogError> {
-    if canonical.primary_key.is_empty() {
-        return Err(invalid_key("", "a relation requires a primary key"));
-    }
     let mut seen = Vec::with_capacity(canonical.primary_key.len());
     for &ordinal in &canonical.primary_key {
         let Some(field) = canonical.schema.fields().get(ordinal) else {
@@ -386,20 +387,20 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_primary_key_is_refused() {
+    fn an_explicit_singleton_has_no_column_key_constraint() {
         let mut canonical = contract();
         canonical.primary_key.clear();
-        assert!(matches!(
-            RelationContract::try_new(
-                canonical,
-                "authored",
-                "unit_stages",
-                &[],
-                &[],
-                EncodingPolicy::IpcFile
-            ),
-            Err(CatalogError::Canon(CanonError::InvalidKey { .. }))
-        ));
+        let singleton = RelationContract::try_new(
+            canonical,
+            "authored",
+            "unit_stages",
+            &[],
+            &[],
+            EncodingPolicy::IpcFile,
+        )
+        .expect("explicit singleton contract");
+        assert!(singleton.canonical.primary_key.is_empty());
+        assert!(singleton.constraints().is_empty());
     }
 
     #[test]

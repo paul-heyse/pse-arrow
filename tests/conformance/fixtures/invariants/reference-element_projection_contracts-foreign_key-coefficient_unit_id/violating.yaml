@@ -1,0 +1,36 @@
+{
+  "invariant": "reference.element_projection_contracts:foreign_key:coefficient_unit_id",
+  "rows": {
+    "reference.element_projection_contracts": [
+      {
+        "coefficient_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "coefficient_unit_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "formula": "[\"enum\",\"molar_count\"]",
+        "law_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "multiplication_operation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.units": [
+      {
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "is_affine": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "offset_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "symbol": "[\"text\",\"value-1\"]",
+        "system": "[\"text\",\"value-1\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

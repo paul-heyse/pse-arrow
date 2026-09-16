@@ -1,0 +1,16 @@
+{
+  "invariant": "compiled.predicate_mask_members:unique:pk",
+  "rows": {
+    "compiled.predicate_mask_members": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "group_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "node_id": "[\"u64\",1]",
+        "symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "value": "[\"bool\",true]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

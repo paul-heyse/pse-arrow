@@ -1,0 +1,22 @@
+{
+  "invariant": "inferred.state_method_selection_keys:unique:pk",
+  "rows": {
+    "inferred.state_method_selection_keys": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

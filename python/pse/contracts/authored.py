@@ -36,6 +36,7 @@ class AuthoredCaseActivationsRow:
     case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     active: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    source_span: v.SourceSpan = attrs.field(validator=attrs.validators.instance_of(v.SourceSpan))
 
 
 @attrs.frozen(kw_only=True)
@@ -133,6 +134,7 @@ class AuthoredCaseSpecsRow:
     upper: v.Bound | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.Bound)))
     scaling_factor: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     priority: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
+    source_span: v.SourceSpan = attrs.field(validator=attrs.validators.instance_of(v.SourceSpan))
 
 
 @attrs.frozen(kw_only=True)
@@ -445,6 +447,7 @@ class AuthoredObservationsRow:
     std_dev: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
     timestamp: datetime | None = attrs.field(validator=attrs.validators.optional(v.utc_timestamp))
     tag: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    source_span: v.SourceSpan = attrs.field(validator=attrs.validators.instance_of(v.SourceSpan))
 
 
 @attrs.frozen(kw_only=True)

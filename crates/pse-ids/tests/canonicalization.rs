@@ -25,6 +25,52 @@ use std::collections::{BTreeMap, HashMap};
 use std::io::Cursor;
 use std::sync::Arc;
 
+#[test]
+fn explicit_singleton_canonicalization_preserves_zero_and_one_row() {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "payload",
+        DataType::Int32,
+        false,
+    )]));
+    let contract = CanonicalContract::try_new(
+        SemanticId::NIL,
+        SchemaVersion(1),
+        ContentHash::from_bytes([1; 32]),
+        Arc::clone(&schema),
+        &[],
+        &BTreeMap::new(),
+    )
+    .unwrap();
+    let batch = |values| {
+        RecordBatch::try_new(
+            Arc::clone(&schema),
+            vec![Arc::new(Int32Array::from(values))],
+        )
+        .unwrap()
+    };
+    let budget = FixedBudget::new(1 << 20);
+    let zero = canonicalize(
+        &contract,
+        &[batch(Vec::<i32>::new())],
+        budget.as_ref(),
+        options(),
+    )
+    .unwrap();
+    let one = canonicalize(&contract, &[batch(vec![7])], budget.as_ref(), options()).unwrap();
+    assert_eq!(zero.row_count, 0);
+    assert_eq!(one.row_count, 1);
+    assert_ne!(zero.logical_hash, one.logical_hash);
+    assert!(matches!(
+        canonicalize(
+            &contract,
+            &[batch(vec![7]), batch(vec![8])],
+            budget.as_ref(),
+            options()
+        ),
+        Err(CanonError::DuplicateKey { .. })
+    ));
+}
+
 fn fixture(alternate: bool) -> (CanonicalContract, RecordBatch) {
     let list_child = Arc::new(Field::new("item", DataType::Int32, true));
     let struct_child = Arc::new(Field::new("hidden", DataType::Int32, true));

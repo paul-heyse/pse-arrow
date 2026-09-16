@@ -1,0 +1,30 @@
+{
+  "invariant": "provenance.method_compatibility_assertions:unique:pk",
+  "rows": {
+    "provenance.method_compatibility_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "compatible": "[\"bool\",true]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"enum\",\"applicable\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      },
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "compatible": "[\"bool\",true]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"enum\",\"applicable\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

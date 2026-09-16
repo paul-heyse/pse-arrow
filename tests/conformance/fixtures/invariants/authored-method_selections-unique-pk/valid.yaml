@@ -4,12 +4,14 @@
     "authored.method_selections": [
       {
         "family": "[\"enum\",\"state_definition\"]",
+        "is_default": "[\"bool\",true]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "options": "[\"list\",[]]",
         "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "scope_ids": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
-        "scope_kind": "[\"enum\",\"package\"]"
+        "scope_kind": "[\"enum\",\"package\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]
   },

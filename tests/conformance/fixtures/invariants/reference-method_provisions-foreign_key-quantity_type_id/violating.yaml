@@ -1,0 +1,37 @@
+{
+  "invariant": "reference.method_provisions:foreign_key:quantity_type_id",
+  "rows": {
+    "reference.method_provisions": [
+      {
+        "indexed_by": "[\"list\",[]]",
+        "kernel_output_ordinal": "[\"u64\",1]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "natural_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "output_kind": "[\"enum\",\"template_symbol\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.quantity_types": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "canonical_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "nominal_magnitude": "[\"f64\",\"3ff0000000000000\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale_kind": "[\"enum\",\"point\"]",
+        "shape": "[\"list\",[]]",
+        "subject_kind": "[\"enum\",\"species\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

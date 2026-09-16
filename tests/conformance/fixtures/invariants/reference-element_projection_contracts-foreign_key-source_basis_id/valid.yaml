@@ -1,0 +1,26 @@
+{
+  "invariant": "reference.element_projection_contracts:foreign_key:source_basis_id",
+  "rows": {
+    "reference.bases": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "composition_basis": "[\"enum\",\"mole_fraction\"]",
+        "kind": "[\"enum\",\"molar\"]",
+        "rate_basis": "[\"enum\",\"per_volume\"]",
+        "reference_conditions_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.element_projection_contracts": [
+      {
+        "coefficient_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "coefficient_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "formula": "[\"enum\",\"molar_count\"]",
+        "law_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "multiplication_operation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

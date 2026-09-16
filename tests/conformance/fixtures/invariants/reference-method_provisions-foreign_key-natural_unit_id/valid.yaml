@@ -1,0 +1,32 @@
+{
+  "invariant": "reference.method_provisions:foreign_key:natural_unit_id",
+  "rows": {
+    "reference.method_provisions": [
+      {
+        "indexed_by": "[\"list\",[]]",
+        "kernel_output_ordinal": "[\"u64\",1]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "natural_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "output_kind": "[\"enum\",\"template_symbol\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.units": [
+      {
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "is_affine": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "offset_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "symbol": "[\"text\",\"value-1\"]",
+        "system": "[\"text\",\"value-1\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

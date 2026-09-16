@@ -355,14 +355,14 @@ fn declare_inferred_undecided(builder: &mut RegistryBuilder) {
             column("undecided_id", T::id()),
             column("rule_id", T::id()),
             column("head_relation_id", T::id()),
-            column("key", T::native(arrow_schema::DataType::Utf8)),
+            column("key", T::row_key()),
             column("truth", T::enumeration("TruthValue")),
             column("reason", T::native(arrow_schema::DataType::Utf8)),
             column(
                 "supporting",
                 T::list(structure(vec![
                     ("relation_id", T::id()),
-                    ("row_key", T::native(arrow_schema::DataType::Utf8)),
+                    ("row_key", T::row_key()),
                 ])),
             ),
             column("derivation_id", T::id()),

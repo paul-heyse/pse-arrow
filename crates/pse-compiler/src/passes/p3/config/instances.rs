@@ -19,6 +19,7 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub(super) struct Prospective {
     pub(super) row: authored::instances::Row,
+    pub(super) origins: Origins,
     submodel_template: Option<SemanticId>,
     submodel_name: Option<String>,
     index: Vec<SemanticId>,
@@ -49,7 +50,7 @@ struct Pending {
     index: Vec<SemanticId>,
     chain: Vec<SemanticId>,
     source_relation: SemanticId,
-    source_key: String,
+    source_key: pse_ids::ContentHash,
     origins: Origins,
     bindings: BTreeMap<String, super::Value>,
 }
@@ -108,9 +109,18 @@ pub(super) async fn expand(
                     pending.row.reaction_package_id,
                 ),
             );
-            result
-                .instance_origins
-                .insert(pending.row.instance_id, pending.origins.clone());
+            result.instances.insert(
+                pending.row.instance_id,
+                Prospective {
+                    submodel_template: pending.submodel.as_ref().map(|row| row.template_id),
+                    submodel_name: pending.submodel.as_ref().map(|row| row.name.clone()),
+                    guard: pending.submodel.as_ref().and_then(|row| row.guard_id),
+                    row: pending.row.clone(),
+                    origins: pending.origins.clone(),
+                    index: pending.index.clone(),
+                    path,
+                },
+            );
             result
                 .bind_values(
                     &pending.row,
@@ -130,14 +140,6 @@ pub(super) async fn expand(
                     .retain_generated(pending.row.clone(), pending.origins.clone())
                     .await?;
             }
-            result.instances.push(Prospective {
-                submodel_template: pending.submodel.as_ref().map(|row| row.template_id),
-                submodel_name: pending.submodel.as_ref().map(|row| row.name.clone()),
-                guard: pending.submodel.as_ref().and_then(|row| row.guard_id),
-                row: pending.row,
-                index: pending.index,
-                path,
-            });
             progressed = true;
         }
         if !progressed {
@@ -171,7 +173,7 @@ async fn root_queue(
     for root in selected {
         queue.push_back(Pending {
             row: root.instance.clone(),
-            source_key: root.source_key.clone(),
+            source_key: root.source_key,
             source_relation: root.source_relation,
             submodel: None,
             index: vec![],
@@ -302,7 +304,7 @@ async fn enqueue_children(
                 index,
                 chain: parent.chain.clone(),
                 source_relation: authored::template_submodels::RELATION_ID,
-                source_key: source.key.clone(),
+                source_key: source.key,
                 origins: child_origins,
                 bindings,
             });
@@ -323,9 +325,10 @@ async fn child_members(
         let domain = binding(result, parent.instance_id, name)?;
         origins.extend(
             result
-                .domain_origins
+                .domains
                 .get(&(parent.instance_id, name.clone()))
                 .ok_or_else(|| invalid("multiplicity domain omitted its source correspondence"))?
+                .sources
                 .clone(),
         );
         let declaration = result
@@ -399,14 +402,8 @@ async fn bind_child(
             super::syntax::Binding::Parent(name) => {
                 match result.values.get(&(parent.instance_id, name.to_owned())) {
                     Some(value) => {
-                        origins.extend(
-                            result
-                                .value_origins
-                                .get(&(parent.instance_id, name.to_owned()))
-                                .ok_or_else(|| invalid("parent parameter omitted its sources"))?
-                                .clone(),
-                        );
-                        bindings.insert(assignment.child_param.clone(), value.clone());
+                        origins.extend(value.sources.clone());
+                        bindings.insert(assignment.child_param.clone(), value.value.clone());
                         continue;
                     }
                     None if !is_param && name == assignment.child_param => "inherit".to_owned(),
@@ -487,19 +484,20 @@ async fn bind_domains(
                 "bound domain does not match declared kind and continuity",
             ));
         }
-        result
-            .domains
-            .insert((instance.instance_id, domain.name.clone()), actual);
-        result
-            .domain_origins
-            .insert((instance.instance_id, domain.name.clone()), origins.clone());
-        result.push(
+        result.domains.insert(
+            (instance.instance_id, domain.name.clone()),
+            super::Sourced {
+                value: actual,
+                sources: origins.clone(),
+            },
+        );
+        result.columns.push(
             normalized::instance_domain_bindings::Row {
                 instance_id: instance.instance_id,
                 domain_name: domain.name,
                 domain_id: actual,
             },
-            origins,
+            &origins,
         )?;
     }
     Ok(())
@@ -552,17 +550,16 @@ async fn domain_candidates(
                     .parameter_name
                     .as_ref()
                     .ok_or_else(|| invalid("domain parameter name absent"))?;
-                origins.extend(
-                    result
-                        .value_origins
-                        .get(&(instance.instance_id, name.clone()))
-                        .ok_or_else(|| invalid("domain parameter omitted its sources"))?
-                        .clone(),
-                );
-                result
+                let value = result
                     .values
                     .get(&(instance.instance_id, name.clone()))
-                    .and_then(|value| value.semantic_id.as_ref().map(|arm| arm.value))
+                    .ok_or_else(|| invalid("domain parameter omitted its sources"))?;
+                origins.extend(value.sources.clone());
+                value
+                    .value
+                    .semantic_id
+                    .as_ref()
+                    .map(|arm| arm.value)
                     .ok_or_else(|| invalid("domain parameter lacks actual identity"))?
             }
             _ => {
@@ -580,9 +577,10 @@ async fn domain_candidates(
             candidates.insert(binding(result, parent, name)?);
             origins.extend(
                 result
-                    .domain_origins
+                    .domains
                     .get(&(parent, name.to_owned()))
                     .ok_or_else(|| invalid("inherited domain omitted its sources"))?
+                    .sources
                     .clone(),
             );
         } else if let Some(id) = source.strip_prefix("domain:") {
@@ -602,7 +600,7 @@ fn binding(
     result
         .domains
         .get(&(instance, name.to_owned()))
-        .copied()
+        .map(|binding| binding.value)
         .ok_or_else(|| invalid("finite instance domain binding missing"))
 }
 async fn select_child_template(
@@ -610,15 +608,16 @@ async fn select_child_template(
     parent: &authored::instances::Row,
     name: &str,
 ) -> Result<(SemanticId, Option<SemanticId>, Origins), CompilerError> {
-    let mut origins = result
-        .value_origins
-        .get(&(parent.instance_id, name.to_owned()))
-        .ok_or_else(|| invalid("selected child parameter omitted its sources"))?
-        .clone();
-    let selected = result
+    let value = result
         .values
         .get(&(parent.instance_id, name.to_owned()))
-        .and_then(|value| value.semantic_id.as_ref().map(|arm| arm.value))
+        .ok_or_else(|| invalid("selected child parameter omitted its sources"))?;
+    let mut origins = value.sources.clone();
+    let selected = value
+        .value
+        .semantic_id
+        .as_ref()
+        .map(|arm| arm.value)
         .ok_or_else(|| {
             invalid("parameter-selected child requires an actual typed semantic identity")
         })?;

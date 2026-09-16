@@ -1,0 +1,27 @@
+{
+  "invariant": "normalized.material_domain_members:foreign_key:material_system_id",
+  "rows": {
+    "authored.material_systems": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_ids": "[\"list\",[]]",
+        "species_ids": "[\"list\",[]]"
+      }
+    ],
+    "normalized.material_domain_members": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "element_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

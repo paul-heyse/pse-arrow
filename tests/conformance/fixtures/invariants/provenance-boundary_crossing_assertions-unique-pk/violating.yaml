@@ -1,0 +1,28 @@
+{
+  "invariant": "provenance.boundary_crossing_assertions:unique:pk",
+  "rows": {
+    "provenance.boundary_crossing_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "classification": "[\"enum\",\"internal\"]",
+        "connection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      },
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "classification": "[\"enum\",\"internal\"]",
+        "connection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

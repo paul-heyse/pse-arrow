@@ -3,13 +3,10 @@
 
 //! Exact scalar guard binding reused for port declarations and state members.
 use super::{
-    CompilerError, Expr, JoinType, LogicalPlan, LogicalPlanBuilder, Plans, append, array_length, c,
-    col, error, filter, join, lit, project,
+    CompilerError, Expr, JoinType, LogicalPlan, Plans, array_length, c, col, error, filter, join,
+    lit, project,
 };
-use datafusion::{
-    common::UnnestOptions,
-    functions::{core::expr_fn::get_field, string::expr_fn::ends_with},
-};
+use datafusion::functions::string::expr_fn::ends_with;
 
 pub(super) async fn settle(
     plans: &mut Plans<'_>,
@@ -39,21 +36,16 @@ pub(super) async fn settle(
                 lit("/predicate"),
             )),
     )?;
-    let source = append(source, [c("guard_source", "source_key").alias("guard_key")])?;
-    let source = LogicalPlanBuilder::from(source)
-        .unnest_column_with_options("guard_key", UnnestOptions::new().with_preserve_nulls(false))
-        .and_then(LogicalPlanBuilder::build)
-        .map_err(error)?;
-    let source = plans.session.derive_plan_fields(source, plans.cancel)?;
-    let source = filter(
-        source,
-        get_field(col("guard_key"), "column_name").eq(lit("guard_id")),
-    )?;
     let joined = join(
         joined,
         source,
         JoinType::Left,
-        [c("guard_declaration", "guard_id").eq(get_field(col("guard_key"), "semantic_id"))],
+        [
+            c("guard_source", "source_key").eq(pse_catalog::session::scalar::key(
+                pse_relations::generated::authored::template_guards::RELATION_ID,
+                vec![("guard_id", c("guard_declaration", "guard_id"))],
+            )),
+        ],
     )?;
     let outcomes = plans.scan("inferred.predicate_outcomes", "guard_value")?;
     let joined = join(

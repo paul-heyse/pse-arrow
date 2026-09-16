@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    229u8, 194u8, 43u8, 64u8, 230u8, 50u8, 92u8, 236u8, 245u8, 184u8, 166u8, 36u8, 24u8,
-    246u8, 125u8, 35u8, 69u8, 156u8, 144u8, 192u8, 88u8, 45u8, 106u8, 162u8, 225u8, 38u8,
-    32u8, 189u8, 36u8, 255u8, 127u8, 240u8,
+    148u8, 123u8, 141u8, 66u8, 147u8, 50u8, 229u8, 224u8, 221u8, 40u8, 246u8, 147u8,
+    211u8, 12u8, 159u8, 122u8, 98u8, 141u8, 165u8, 38u8, 154u8, 201u8, 173u8, 39u8, 44u8,
+    172u8, 126u8, 244u8, 21u8, 2u8, 124u8, 67u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -35,6 +35,8 @@ pub struct AuthoredCaseActivationsRow {
     pub r#target: String,
     ///active
     pub r#active: bool,
+    ///source_span
+    pub r#source_span: crate::generated::extension_values::SourceSpan,
 }
 impl crate::typed::CellCodec for AuthoredCaseActivationsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -44,6 +46,7 @@ impl crate::typed::CellCodec for AuthoredCaseActivationsRow {
                 crate::typed::CellCodec::into_cell(self.r#case_id),
                 crate::typed::CellCodec::into_cell(self.r#target),
                 crate::typed::CellCodec::into_cell(self.r#active),
+                crate::typed::CellCodec::into_cell(self.r#source_span),
             ],
         )
     }
@@ -51,7 +54,7 @@ impl crate::typed::CellCodec for AuthoredCaseActivationsRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(AuthoredCaseActivationsRow)));
         };
-        if values.len() != 4usize {
+        if values.len() != 5usize {
             return Err(crate::typed::mismatch(stringify!(AuthoredCaseActivationsRow)));
         }
         let mut values = values.into_iter();
@@ -84,6 +87,13 @@ impl crate::typed::CellCodec for AuthoredCaseActivationsRow {
                         stringify!(AuthoredCaseActivationsRow),
                     ))?,
             )?,
+            r#source_span: <crate::generated::extension_values::SourceSpan as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(AuthoredCaseActivationsRow),
+                    ))?,
+            )?,
         })
     }
 }
@@ -103,6 +113,10 @@ impl crate::columnar::ArrowValue for AuthoredCaseActivationsRow {
         crate::columnar::ArrowValue::append(&self.r#case_id, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#target, children[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#active, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#source_span,
+            children[4usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -121,6 +135,9 @@ impl crate::columnar::ArrowValue for AuthoredCaseActivationsRow {
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <crate::generated::extension_values::SourceSpan as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -147,6 +164,10 @@ impl crate::columnar::ArrowValue for AuthoredCaseActivationsRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
+            r#source_span: <crate::generated::extension_values::SourceSpan as crate::columnar::ArrowValue>::read(
+                input.column(4usize).as_ref(),
+                index,
+            )?,
         })
     }
 }
@@ -164,6 +185,7 @@ impl AuthoredCaseActivationsRow {
             crate::typed::CellCodec::into_cell(self.r#case_id),
             crate::typed::CellCodec::into_cell(self.r#target),
             crate::typed::CellCodec::into_cell(self.r#active),
+            crate::typed::CellCodec::into_cell(self.r#source_span),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -177,7 +199,7 @@ impl AuthoredCaseActivationsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"eb50378c9dff91fd2a86003bf694c65f\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"case_activations\"],[\"u64\",1]]],[\"text\",\"authored\"],[\"text\",\"case\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"activation_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"activation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"activation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"activation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"case_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"case_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"case_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"target\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"target\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.target_path\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"target\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.target_path\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"target_path\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"target_path\"],[\"text\",\"pse.target_path\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"An authored selector path; P1 resolves it to identities at commit (§6.10).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"active\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.10 case: case_activations.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"eb50378c9dff91fd2a86003bf694c65f\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"eb50378c9dff91fd2a86003bf694c65f\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"case_activations\"],[\"u64\",1]]],[\"text\",\"authored\"],[\"text\",\"case\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"activation_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"activation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"activation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"activation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"case_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"case_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"case_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"target\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"target\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.target_path\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"target\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.target_path\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"target_path\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"target_path\"],[\"text\",\"pse.target_path\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"An authored selector path; P1 resolves it to identities at commit (§6.10).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"active\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"source_span\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"document_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,4294967295]\\\"},\\\"name\\\":\\\"start\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,4294967295]\\\"},\\\"name\\\":\\\"end\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"source_span\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.source_span\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"source_span\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"document_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,4294967295]\\\"},\\\"name\\\":\\\"start\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,4294967295]\\\"},\\\"name\\\":\\\"end\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.source_span\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"source_span\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"source_span\"],[\"text\",\"pse.source_span\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"document_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,4294967295]\\\"},\\\"name\\\":\\\"start\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,4294967295]\\\"},\\\"name\\\":\\\"end\\\",\\\"nullable\\\":false}]}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"Authoring provenance: a document and a byte range (blueprint §11).\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"document_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[]]]],[\"null\",null],[\"list\",[]]]],[\"struct\",[[\"struct\",[[\"text\",\"start\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]]]]]],[\"null\",null],[\"list\",[]]]],[\"struct\",[[\"struct\",[[\"text\",\"end\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]]]]]],[\"null\",null],[\"list\",[]]]]]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.10 case: case_activations.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"eb50378c9dff91fd2a86003bf694c65f\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -253,10 +275,10 @@ impl crate::columnar::RelationRow for AuthoredCaseActivationsRow {
         AuthoredCaseActivationsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        41_472_usize + size_of::<Self::Builder>()
+        72_920_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        80usize
+        144usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -276,6 +298,25 @@ impl crate::columnar::RelationRow for AuthoredCaseActivationsRow {
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(16usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -286,7 +327,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "activation_id",
@@ -307,6 +348,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
         name: "active",
         position: 3usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "source_span",
+        position: 4usize,
+    },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -317,6 +363,7 @@ pub struct AuthoredCaseActivationsView<'a> {
     case_id_column: &'a arrow_array::FixedSizeBinaryArray,
     target_column: &'a arrow_array::StringArray,
     active_column: &'a arrow_array::BooleanArray,
+    source_span_column: &'a arrow_array::StructArray,
 }
 impl<'a> AuthoredCaseActivationsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -366,6 +413,9 @@ impl<'a> AuthoredCaseActivationsView<'a> {
             active_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
             >(batch.column(3usize).as_ref())?,
+            source_span_column: crate::columnar::array::<
+                arrow_array::StructArray,
+            >(batch.column(4usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -428,6 +478,18 @@ impl<'a> AuthoredCaseActivationsView<'a> {
     pub fn active_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[3usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "source_span",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn source_span_column(&self) -> &'a arrow_array::StructArray {
+        self.source_span_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "source_span", "`.")]
+    pub fn source_span_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -447,6 +509,10 @@ impl<'a> AuthoredCaseActivationsView<'a> {
             r#case_id: crate::columnar::ArrowValue::read(self.case_id_column, index)?,
             r#target: crate::columnar::ArrowValue::read(self.target_column, index)?,
             r#active: crate::columnar::ArrowValue::read(self.active_column, index)?,
+            r#source_span: crate::columnar::ArrowValue::read(
+                self.source_span_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
@@ -511,6 +577,19 @@ impl AuthoredCaseActivationsBuilder {
         &mut self,
         row: AuthoredCaseActivationsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !(crate::validate::local_values::source_span(
+            (row.r#source_span).start,
+            (row.r#source_span).end,
+        )) {
+            return Err(
+                crate::columnar::value_error(
+                    "source_span",
+                    row_index,
+                    crate::validate::local_values::SPAN_ERROR,
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -529,6 +608,10 @@ impl AuthoredCaseActivationsBuilder {
                 crate::columnar::ArrowValue::append(
                     &row.r#active,
                     columns[3usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#source_span,
+                    columns[4usize].as_mut(),
                 )?;
                 Ok(())
             })

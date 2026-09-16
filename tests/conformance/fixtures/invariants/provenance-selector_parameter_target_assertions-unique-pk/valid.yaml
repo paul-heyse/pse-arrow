@@ -1,0 +1,16 @@
+{
+  "invariant": "provenance.selector_parameter_target_assertions:unique:pk",
+  "rows": {
+    "provenance.selector_parameter_target_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

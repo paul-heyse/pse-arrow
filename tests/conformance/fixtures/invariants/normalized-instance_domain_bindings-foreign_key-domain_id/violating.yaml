@@ -1,7 +1,7 @@
 {
   "invariant": "normalized.instance_domain_bindings:foreign_key:domain_id",
   "rows": {
-    "authored.domains": [
+    "normalized.domains": [
       {
         "continuous": "[\"bool\",true]",
         "doc": "[\"text\",\"value-1\"]",

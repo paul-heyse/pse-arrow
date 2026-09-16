@@ -123,16 +123,10 @@ impl Realizer<'_> {
                     .iter()
                     .find(|decl| decl.source_id == source)
                     .ok_or_else(|| invalid("source declaration absent for outer binder"))?;
-                let owner = declaration
-                    .source_key
-                    .iter()
-                    .find(|part| {
-                        matches!(
-                            part.column_name.as_str(),
-                            "equation_decl_id" | "symbol_decl_id"
-                        )
-                    })
-                    .and_then(|part| part.semantic_id)
+                let owner = self
+                    .inventory
+                    .source_index
+                    .owner(declaration.source_relation_id, declaration.source_key)
                     .unwrap_or(source);
                 identity::free_index_id(instance.instance_id, owner, position)
             } else {

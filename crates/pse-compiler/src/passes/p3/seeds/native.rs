@@ -190,10 +190,6 @@ async fn validate_references(
 async fn opaque(plans: &mut Plans<'_>) -> Result<LogicalPlan, CompilerError> {
     let requirements = plans.scan("authored.template_property_requirements", "requirement")?;
     let expressions = plans.scan("normalized.expression_sources", "guard")?;
-    let requirement_key = get_field(
-        array_element(c("guard", "source_key"), lit(1_i64)),
-        "semantic_id",
-    );
     let guarded = join(
         requirements,
         expressions,
@@ -201,7 +197,7 @@ async fn opaque(plans: &mut Plans<'_>) -> Result<LogicalPlan, CompilerError> {
         [
             c("guard", "source_relation_id")
                 .eq(plans.sid(authored::template_property_requirements::RELATION_ID)?),
-            requirement_key.eq(c("requirement", "requirement_id")),
+            c("guard", "source_key").eq(c("requirement", "source_token")),
         ],
     )?;
     plans
@@ -294,7 +290,7 @@ async fn opaque(plans: &mut Plans<'_>) -> Result<LogicalPlan, CompilerError> {
         .and_then(LogicalPlanBuilder::build)
         .map_err(error)?;
     let complete = filter(closure, col("cursor").eq(col("axis_count")))?;
-    let identity = scalar::key(vec![("index", col("index"))]);
+    let identity = scalar::key(pse_ids::SemanticId::NIL, vec![("index", col("index"))]);
     project(
         complete,
         [

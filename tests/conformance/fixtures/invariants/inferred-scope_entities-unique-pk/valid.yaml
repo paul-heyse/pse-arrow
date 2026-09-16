@@ -1,0 +1,13 @@
+{
+  "invariant": "inferred.scope_entities:unique:pk",
+  "rows": {
+    "inferred.scope_entities": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"package\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -1,0 +1,27 @@
+{
+  "invariant": "normalized.template_domain_bindings:unique:pk",
+  "rows": {
+    "normalized.template_domain_bindings": [
+      {
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "parameter_name": "[\"text\",\"value-1\"]",
+        "source": "[\"enum\",\"domain\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "parameter_name": "[\"text\",\"value-1\"]",
+        "source": "[\"enum\",\"domain\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

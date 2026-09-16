@@ -44,9 +44,10 @@ pub(super) fn plan(
         .get(trace.source.port)
         .ok_or_else(|| internal("support port absent"))?;
     let source_key = if trace.source.absence {
-        lit(ScalarValue::Utf8(None))
+        lit(ScalarValue::FixedSizeBinary(32, None))
     } else {
         scalar::key(
+            source.id,
             source
                 .primary_key
                 .iter()

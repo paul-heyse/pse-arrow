@@ -1,0 +1,42 @@
+{
+  "invariant": "inferred.math_indexed_equations:unique:pk",
+  "rows": {
+    "inferred.math_indexed_equations": [
+      {
+        "body_node_id": "[\"u64\",1]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "filter_node_id": "[\"u64\",1]",
+        "indexed_equation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "law_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "lower_node_id": "[\"u64\",1]",
+        "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "residual_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "upper_node_id": "[\"u64\",1]"
+      },
+      {
+        "body_node_id": "[\"u64\",1]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "filter_node_id": "[\"u64\",1]",
+        "indexed_equation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "law_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "lower_node_id": "[\"u64\",1]",
+        "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "residual_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "upper_node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

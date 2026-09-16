@@ -1,0 +1,34 @@
+{
+  "invariant": "reference.law_bindings:unique:pk",
+  "rows": {
+    "reference.law_bindings": [
+      {
+        "balance_enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "balance_member": "[\"text\",\"value-1\"]",
+        "expansion": "[\"enum\",\"conservation\"]",
+        "family": "[\"enum\",\"material\"]",
+        "law_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_family": "[\"enum\",\"material\"]",
+        "subject_kind": "[\"enum\",\"total\"]",
+        "subject_projection": "[\"enum\",\"identity\"]"
+      },
+      {
+        "balance_enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "balance_member": "[\"text\",\"value-1\"]",
+        "expansion": "[\"enum\",\"conservation\"]",
+        "family": "[\"enum\",\"material\"]",
+        "law_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_family": "[\"enum\",\"material\"]",
+        "subject_kind": "[\"enum\",\"total\"]",
+        "subject_projection": "[\"enum\",\"identity\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

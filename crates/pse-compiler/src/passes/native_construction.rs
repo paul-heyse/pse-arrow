@@ -237,14 +237,12 @@ impl<'a> Plans<'a> {
         )
         .and_then(LogicalPlanBuilder::build)
         .map_err(error)?;
-        let token = concat(
-            lit(format!("{}:{name}:", name.len())),
-            scalar::key(
-                spec.primary_key
-                    .iter()
-                    .map(|name| (*name, col(*name)))
-                    .collect(),
-            ),
+        let token = scalar::key(
+            spec.id,
+            spec.primary_key
+                .iter()
+                .map(|name| (*name, col(*name)))
+                .collect(),
         );
         prefix(
             append(
@@ -319,32 +317,37 @@ impl<'a> Plans<'a> {
     fn source_columns(
         &self,
         mut plan: LogicalPlan,
-        keys: Vec<Expr>,
+        mut keys: Vec<Expr>,
         ids: Vec<(Expr, Expr)>,
     ) -> Result<LogicalPlan, CompilerError> {
         let mut field =
             FieldContract::payload("id", FieldContract::id(), "Unmatched source identity.");
         field = field.optional();
-        let mut source_id = checked_literal(
+        let absent_id = checked_literal(
             self.session.registry(),
             &field,
             ScalarValue::FixedSizeBinary(16, None),
         )
         .map_err(error)?;
-        for (condition, id) in ids.into_iter().rev() {
-            source_id = pse_catalog::session::output::same_field_case(
-                plan.schema(),
-                condition,
-                id,
-                source_id,
-            )
-            .map_err(error)?;
-        }
+        let source_id =
+            pse_catalog::session::output::same_field_cases(plan.schema(), ids, absent_id)
+                .map_err(error)?;
+        let last_key = keys
+            .pop()
+            .ok_or_else(|| invalid("construction has no exact source key"))?;
+        let source_key = pse_catalog::session::output::same_field_cases(
+            plan.schema(),
+            keys.into_iter()
+                .map(|key| (key.clone().is_not_null(), key))
+                .collect(),
+            last_key,
+        )
+        .map_err(error)?;
         plan = append(
             plan,
             [
                 self.present(source_id)?.alias("source_relation_id"),
-                self.present(coalesce(keys))?.alias("source_key"),
+                self.present(source_key)?.alias("source_key"),
             ],
         )?;
         Ok(plan)
@@ -389,35 +392,24 @@ impl<'a> Plans<'a> {
             )?;
             let when = c(&alias, "source_token").is_not_null();
             found.push(when.clone());
-            keys.push(
-                datafusion::logical_expr::when(
-                    when.clone(),
-                    scalar::key(
-                        relation
-                            .primary_key
-                            .iter()
-                            .map(|name| (*name, c(&alias, name)))
-                            .collect(),
-                    ),
-                )
-                .otherwise(lit(ScalarValue::Utf8(None)))
-                .map_err(error)?,
-            );
+            keys.push(c(&alias, "source_token"));
             ids.push((when.clone(), self.sid(relation.id)?));
             witnesses.push(NativeWitness {
                 port: port.clone(),
                 input: input.clone(),
-                key_columns: relation
-                    .primary_key
-                    .iter()
-                    .map(|name| format!("{alias}:{name}"))
-                    .collect(),
+                key_columns: Some(
+                    relation
+                        .primary_key
+                        .iter()
+                        .map(|name| format!("{alias}:{name}"))
+                        .collect(),
+                ),
                 when: Some(when),
             });
             witnesses.push(NativeWitness {
                 port,
                 input,
-                key_columns: vec![],
+                key_columns: None,
                 when: None,
             });
         }

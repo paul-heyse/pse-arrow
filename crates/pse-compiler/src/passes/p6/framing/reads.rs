@@ -202,9 +202,9 @@ pub(super) async fn build(
             let assignments =
                 coordinates::assignments(&mut evaluator, &extra, &context, ctx.cancel).await?;
             for (bindings, mut support) in assignments {
-                support.insert(read.origin.clone());
+                support.insert(read.origin);
                 support.insert(evaluator.inventory.origin(&instance)?);
-                support.extend(outer_support.iter().cloned());
+                support.extend(outer_support.iter().copied());
                 if let Some(source) = &source {
                     support.insert(evaluator.inventory.origin(source)?);
                 }
@@ -244,12 +244,12 @@ pub(super) async fn build(
                 };
                 for target in targets {
                     let mut support = support.clone();
-                    support.extend(target.support.iter().cloned());
+                    support.extend(target.support.iter().copied());
                     support.extend(
                         target
                             .axes
                             .iter()
-                            .flat_map(|axis| axis.support.iter().cloned()),
+                            .flat_map(|axis| axis.support.iter().copied()),
                     );
                     let index = target
                         .axes
@@ -281,7 +281,7 @@ pub(super) async fn build(
                             outer_guard_node_id: outer.map(|(_, node)| node),
                             derivation_id: SemanticId::NIL,
                         },
-                        &plans.sources.locate(support.iter().cloned())?,
+                        &plans.sources.locate(support.iter().copied())?,
                     )?;
                     map_targets(
                         plans,

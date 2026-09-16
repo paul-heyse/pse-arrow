@@ -1,0 +1,22 @@
+{
+  "invariant": "inferred.math_kernel_calls:unique:pk",
+  "rows": {
+    "inferred.math_kernel_calls": [
+      {
+        "kernel_binding_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"u64\",1]",
+        "output_ordinal": "[\"u64\",1]"
+      },
+      {
+        "kernel_binding_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"u64\",1]",
+        "output_ordinal": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"u64\",1]"
+    ]
+  ]
+}

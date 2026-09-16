@@ -95,7 +95,7 @@ fn declare_sources(builder: &mut RegistryBuilder) {
         builder,
         N::Normalized,
         "expression_sources",
-        3,
+        4,
         S::Derived,
         &["source_id"],
         vec![
@@ -103,7 +103,7 @@ fn declare_sources(builder: &mut RegistryBuilder) {
             column("family", T::enumeration("ExpressionFamily")),
             column("source_relation_id", T::id())
                 .with_fk("reference.schema_relations", "relation_id"),
-            column("source_key", source_key_type()),
+            column("source_key", T::row_key()),
             column("field_path", T::native(arrow_schema::DataType::Utf8)),
             column("owner_template_id", T::id())
                 .optional()
@@ -123,32 +123,6 @@ fn declare_sources(builder: &mut RegistryBuilder) {
         ],
         "Complete source key and field to exact normalized syntax root.",
     );
-}
-
-fn source_key_type() -> T {
-    T::list(T::structure(vec![
-        T::native(arrow_schema::DataType::Utf8)
-            .with_name("column_name")
-            .with_nullable(false),
-        T::id().with_name("logical_type_id").with_nullable(false),
-        T::id().with_name("semantic_id").with_nullable(true),
-        T::hash().with_name("content_hash").with_nullable(true),
-        T::native(arrow_schema::DataType::Utf8)
-            .with_name("text")
-            .with_nullable(true),
-        T::native(arrow_schema::DataType::Int64)
-            .with_name("signed_integer")
-            .with_nullable(true),
-        T::native(arrow_schema::DataType::UInt64)
-            .with_name("unsigned_integer")
-            .with_nullable(true),
-        T::native(arrow_schema::DataType::Boolean)
-            .with_name("boolean")
-            .with_nullable(true),
-        T::extended(ExtensionUse::IndexTuple)
-            .with_name("index_tuple")
-            .with_nullable(true),
-    ]))
 }
 
 fn declare_predicates(builder: &mut RegistryBuilder) {

@@ -80,11 +80,19 @@ impl<'a> Sources<'a> {
             .iter()
             .map(|key| name(alias, key))
             .collect::<Vec<_>>();
+        let mut presence = name(alias, "__native_row_present");
+        while spec
+            .columns
+            .iter()
+            .any(|field| name(alias, field.name()) == presence)
+        {
+            presence.push('_');
+        }
         let present = keys
             .iter()
             .map(|key| Expr::Column(Column::from_name(key)).is_not_null())
             .reduce(Expr::and)
-            .ok_or_else(|| invalid("native source lacks a declared key"))?;
+            .unwrap_or_else(|| col(&presence).is_not_null());
         if self
             .witnesses
             .insert(
@@ -92,7 +100,7 @@ impl<'a> Sources<'a> {
                 NativeWitness {
                     port: port.to_owned(),
                     input: input.clone(),
-                    key_columns: keys,
+                    key_columns: Some(keys),
                     when: Some(present),
                 },
             )
@@ -105,7 +113,7 @@ impl<'a> Sources<'a> {
             .or_insert_with(|| NativeWitness {
                 port: port.to_owned(),
                 input,
-                key_columns: Vec::new(),
+                key_columns: None,
                 when: None,
             });
         let source = LogicalPlanBuilder::scan(
@@ -115,12 +123,16 @@ impl<'a> Sources<'a> {
         )
         .and_then(LogicalPlanBuilder::build)
         .map_err(super::native_rows::engine)?;
+        let mut columns = spec
+            .columns
+            .iter()
+            .map(|field| col(field.name()).alias(name(alias, field.name())))
+            .collect::<Vec<_>>();
+        if spec.primary_key.is_empty() {
+            columns.push(lit(true).alias(presence));
+        }
         LogicalPlanBuilder::from(source)
-            .project(
-                spec.columns
-                    .iter()
-                    .map(|field| col(field.name()).alias(name(alias, field.name()))),
-            )
+            .project(columns)
             .and_then(LogicalPlanBuilder::build)
             .map_err(super::native_rows::engine)
     }
@@ -131,7 +143,14 @@ impl<'a> Sources<'a> {
                 witness
                     .key_columns
                     .iter()
+                    .flatten()
                     .all(|name| plan.schema().field_with_unqualified_name(name).is_ok())
+                    && witness.when.as_ref().is_none_or(|predicate| {
+                        predicate
+                            .column_refs()
+                            .iter()
+                            .all(|column| plan.schema().qualified_field_from_column(column).is_ok())
+                    })
             })
             .cloned()
             .collect()

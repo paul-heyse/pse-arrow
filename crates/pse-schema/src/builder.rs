@@ -1455,7 +1455,9 @@ impl RegistryBuilder {
                 snapshot_class: decl.snapshot_class,
                 derivation_granularity: decl.derivation_granularity,
                 stability: decl.stability,
-                primary_key: decl.primary_key.clone(),
+                primary_key: decl.primary_key.clone().ok_or_else(|| {
+                    crate::checks::invalid(&name, "missing primary key declaration")
+                })?,
                 columns: decl.columns.clone(),
                 checks: decl.checks.clone(),
                 doc: decl.doc,
@@ -1553,6 +1555,7 @@ fn collect_logical_types(
         FieldContract::native(arrow_schema::DataType::Boolean),
         FieldContract::native(arrow_schema::DataType::Utf8),
         FieldContract::native(crate::model::extension::timestamp_storage()),
+        FieldContract::source_support(),
     ] {
         record_logical_type(&scalar, &mut types)?;
     }
@@ -1714,30 +1717,32 @@ fn check_field(
     crate::model::CollectionContract::from_field(column.field())?;
     check_alternative(registry, column, context)?;
     let context = context.to_owned();
-    if let Some(fk) = column.fk() {
-        let target =
-            registry
-                .relation(fk.relation)
-                .ok_or_else(|| SchemaError::UnknownReference {
-                    context: context.clone(),
-                    reference: fk.relation.to_owned(),
-                })?;
-        let Some(target_column) = target.column(fk.column) else {
-            return Err(SchemaError::UnknownReference {
+    if let Some(reference) = crate::model::ReferenceContract::for_contract(column)? {
+        let target = registry.relation(&reference.relation).ok_or_else(|| {
+            SchemaError::UnknownReference {
                 context: context.clone(),
-                reference: fk.to_string(),
-            });
-        };
-        if column.value_type() != target_column.value_type() {
-            return Err(crate::checks::invalid(
-                &context,
-                format!(
-                    "foreign key {} has type {}, expected {}",
-                    fk,
-                    column.value_type(),
-                    target_column.value_type()
-                ),
-            ));
+                reference: reference.relation.clone(),
+            }
+        })?;
+        for mapping in &reference.columns {
+            let source = crate::model::reference::source_field(column.field(), &mapping.source)?;
+            let target_column =
+                target
+                    .column(&mapping.target)
+                    .ok_or_else(|| SchemaError::UnknownReference {
+                        context: context.clone(),
+                        reference: format!("{}.{}", reference.relation, mapping.target),
+                    })?;
+            if FieldContract::from_field(source.clone()).value_type() != target_column.value_type()
+            {
+                return Err(crate::checks::invalid(
+                    &context,
+                    format!(
+                        "foreign key {}.{} has incompatible component types",
+                        reference.relation, mapping.target
+                    ),
+                ));
+            }
         }
     }
     match column.extension() {

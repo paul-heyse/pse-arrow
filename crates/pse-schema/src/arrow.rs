@@ -43,6 +43,8 @@ pub const KEY_ROLE: &str = "pse.semantic.role";
 pub const KEY_FK: &str = "pse.semantic.fk";
 /// `pse.semantic.enum`: the enumeration identity as 32 lowercase hexadecimal digits.
 pub const KEY_ENUM: &str = "pse.semantic.enum";
+/// Versioned native row-key encoding, distinct from an ordinary content hash.
+pub const KEY_ROW_KEY_ENCODING: &str = "pse.semantic.key_encoding";
 /// `ARROW:extension:name`, Arrow's canonical extension key.
 pub const KEY_EXTENSION_NAME: &str = "ARROW:extension:name";
 /// `ARROW:extension:metadata`, mandatory beside the name when the type has metadata.

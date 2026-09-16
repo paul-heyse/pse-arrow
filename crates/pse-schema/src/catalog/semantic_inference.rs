@@ -141,7 +141,7 @@ fn postconditions(builder: &mut RegistryBuilder) {
             .declared_relations()
             .iter()
             .find(|spec| spec.key.qualified_name() == relation)
-            .map(|spec| spec.primary_key.clone())
+            .and_then(|spec| spec.primary_key.clone())
         {
             let plan = super::inv::project(
                 super::inv::filter(

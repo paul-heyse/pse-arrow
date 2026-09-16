@@ -8,7 +8,7 @@
         "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "idaes_name": "[\"text\",\"value-1\"]",
         "member": "[\"text\",\"value-1\"]",
-        "member_ordinal": "[\"u64\",1]"
+        "member_ordinal": "[\"i64\",1]"
       },
       {
         "deprecated": "[\"bool\",true]",
@@ -16,14 +16,14 @@
         "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "idaes_name": "[\"text\",\"value-1\"]",
         "member": "[\"text\",\"value-1\"]",
-        "member_ordinal": "[\"u64\",1]"
+        "member_ordinal": "[\"i64\",1]"
       }
     ]
   },
   "expected_keys": [
     [
       "[\"id\",\"01010101010101010101010101010101\"]",
-      "[\"u64\",1]"
+      "[\"i64\",1]"
     ]
   ]
 }

@@ -16,6 +16,13 @@ const QUANTITY: &str = "pse.domain.quantity";
 const FK_RELATION: &str = "pse.domain.fk.relation";
 const FK_COLUMN: &str = "pse.domain.fk.column";
 
+/// Frozen row-key framing contract, including the qualified native row format.
+/// A changed Arrow row format requires a new contract, never silent reuse.
+pub const ROW_KEY_ENCODING: &str = "pse:row-key:arrow-row-59.3:v1";
+
+/// Co-located source association column for specialized native algorithms.
+pub const SOURCE_SUPPORT_COLUMN: &str = "algorithm_support";
+
 /// An exact native field with named domain facets. No separate physical type tree exists.
 #[derive(Clone, Debug)]
 pub struct FieldContract(Field);
@@ -180,7 +187,19 @@ impl FieldContract {
     pub fn without_fk(mut self) -> Self {
         self.0.metadata_mut().remove(FK_RELATION);
         self.0.metadata_mut().remove(FK_COLUMN);
+        self.0
+            .metadata_mut()
+            .remove(super::reference::KEY_REFERENCE);
         self
+    }
+    /// Attach a correlated reference at this exact value occurrence.
+    /// # Errors
+    /// An invalid mapping or a second reference declaration on the same field.
+    pub fn with_reference(
+        self,
+        reference: &super::ReferenceContract,
+    ) -> Result<Self, crate::SchemaError> {
+        reference.annotate(self.0).map(Self)
     }
     /// Declare a named field from an existing native value contract.
     pub fn new(name: &str, value: Self, nullable: bool, role: ColumnRole, doc: &str) -> Self {
@@ -251,6 +270,31 @@ impl FieldContract {
     pub fn hash() -> Self {
         Self::extended(ExtensionUse::ContentHash)
     }
+    /// Typed token over an ordered primary-key tuple, independent of row payload.
+    /// Relation and selected revision belong to the containing reference.
+    pub fn row_key() -> Self {
+        Self::hash().facet(crate::arrow::KEY_ROW_KEY_ENCODING, ROW_KEY_ENCODING)
+    }
+    /// One association to an exact immutable input role and typed source key.
+    /// The association itself does not prove membership in that source.
+    pub fn source_support_member() -> Self {
+        Self::structure(vec![
+            Self::native(DataType::Utf8).with_name("source_port"),
+            Self::id()
+                .with_name("source_relation_id")
+                .with_fk("reference.schema_relations", "relation_id"),
+            Self::row_key().with_name("source_key"),
+        ])
+    }
+    /// Required, nonempty source set stored beside each specialized algorithm row.
+    pub fn source_support() -> Self {
+        Self::list(Self::source_support_member())
+            .with_collection(super::CollectionContract {
+                minimum: 1,
+                ..super::CollectionContract::SET
+            })
+            .with_name(SOURCE_SUPPORT_COLUMN)
+    }
     /// Named enumeration value.
     pub fn enumeration(name: &str) -> Self {
         Self::extended(ExtensionUse::Enum(name))
@@ -318,7 +362,11 @@ impl FieldContract {
             .filter(|(key, _)| {
                 !matches!(
                     key.as_str(),
-                    ROLE | DOC | QUANTITY | FK_RELATION | FK_COLUMN
+                    ROLE | DOC
+                        | QUANTITY
+                        | FK_RELATION
+                        | FK_COLUMN
+                        | super::reference::KEY_REFERENCE
                 )
             })
             .map(|(k, v)| (k.clone(), v.clone()))

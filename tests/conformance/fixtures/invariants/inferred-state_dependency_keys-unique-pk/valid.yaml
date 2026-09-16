@@ -1,0 +1,17 @@
+{
+  "invariant": "inferred.state_dependency_keys:unique:pk",
+  "rows": {
+    "inferred.state_dependency_keys": [
+      {
+        "dependency_ordinal": "[\"u64\",1]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

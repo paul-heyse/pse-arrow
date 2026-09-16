@@ -164,7 +164,7 @@ fn check(
         .declared_relations()
         .iter()
         .find(|spec| spec.key.qualified_name() == relation)
-        .map(|spec| spec.primary_key.clone())
+        .and_then(|spec| spec.primary_key.clone())
         .unwrap_or_default();
     invariant(
         builder,
@@ -285,7 +285,7 @@ fn target_port_owner(builder: &mut RegistryBuilder, relation: &str) {
         .declared_relations()
         .iter()
         .find(|spec| spec.key.qualified_name() == relation)
-        .map(|spec| spec.primary_key.clone())
+        .and_then(|spec| spec.primary_key.clone())
         .unwrap_or_default();
     let subject = filter(
         scan(relation, "subject"),
@@ -353,7 +353,7 @@ fn target_owner(
         .declared_relations()
         .iter()
         .find(|spec| spec.key.qualified_name() == relation)
-        .map(|spec| spec.primary_key.clone())
+        .and_then(|spec| spec.primary_key.clone())
         .unwrap_or_default();
     let owners = RulePlan::Project {
         input: Box::new(scan("authored.instances", "owners")),

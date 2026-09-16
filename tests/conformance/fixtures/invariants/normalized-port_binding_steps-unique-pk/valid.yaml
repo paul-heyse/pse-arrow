@@ -1,0 +1,15 @@
+{
+  "invariant": "normalized.port_binding_steps:unique:pk",
+  "rows": {
+    "normalized.port_binding_steps": [
+      {
+        "child_name": "[\"text\",\"value-1\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "position": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

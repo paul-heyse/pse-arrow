@@ -8,9 +8,9 @@
         "fk_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "logical_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "name": "[\"text\",\"value-1\"]",
+        "native_field": "[\"text\",\"value-1\"]",
         "nullable": "[\"bool\",true]",
-        "ordinal": "[\"u64\",1]",
-        "per_row_quantity": "[\"bool\",true]",
+        "ordinal": "[\"i64\",1]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "role": "[\"enum\",\"key\"]"
@@ -19,6 +19,7 @@
     "reference.schema_relations": [
       {
         "authority": "[\"enum\",\"authored\"]",
+        "checks": "[\"list\",[]]",
         "derivation_granularity": "[\"enum\",\"row\"]",
         "doc": "[\"text\",\"value-1\"]",
         "name": "[\"text\",\"value-1\"]",
@@ -27,7 +28,7 @@
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "snapshot_class": "[\"enum\",\"model\"]",
         "stability": "[\"enum\",\"stable\"]",
-        "version": "[\"u64\",1]"
+        "version": "[\"i64\",1]"
       }
     ]
   },

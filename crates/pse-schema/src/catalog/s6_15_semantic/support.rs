@@ -30,11 +30,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("rule_id", T::id()).with_fk("reference.rule_specs", "rule_id"),
             column("head_relation_id", T::id())
                 .with_fk("reference.schema_relations", "relation_id"),
-            column("head_key", T::native(arrow_schema::DataType::Utf8)),
+            column("head_key", T::row_key()),
             column("truth", T::enumeration("TruthValue")),
             column("reason", T::enumeration("RuleOutcomeReason")),
         ],
-        "Four-valued per-rule outcome; head keys use the validated reversible key codec.",
+        "Four-valued per-rule outcome; head keys use the versioned typed key contract.",
     );
     relation(
         builder,
@@ -50,13 +50,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("assertion_id", T::id()),
             column("head_relation_id", T::id())
                 .with_fk("reference.schema_relations", "relation_id"),
-            column("head_key", T::native(arrow_schema::DataType::Utf8)),
+            column("head_key", T::row_key()),
             column("input_port", T::native(arrow_schema::DataType::Utf8)),
             column("input_relation_id", T::id())
                 .with_fk("reference.schema_relations", "relation_id"),
             column("input_selection", super::super::publication::member()).optional(),
             column("support_kind", T::enumeration("RuleSupportKind")),
-            column("input_key", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("input_key", T::row_key()).optional(),
             column("truth", T::enumeration("TruthValue")),
         ],
         "Exact assertion-to-input support; absence names an entire completed binding.",
@@ -70,12 +70,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("mapping_id", T::id()),
             column("output_relation_id", T::id()),
-            column("output_key", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("output_key", T::row_key()).optional(),
             column("input_port", T::native(arrow_schema::DataType::Utf8)),
             column("input_relation_id", T::id()),
             column("input_selection", super::super::publication::member()).optional(),
             column("support_kind", T::enumeration("RuleSupportKind")),
-            column("input_key", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("input_key", T::row_key()).optional(),
         ],
         "Actual constructor witnesses. A null output key names the complete input binding scope; Delta selections name exact table versions and revision slices, while transient facts have no invented durable identity.",
     );

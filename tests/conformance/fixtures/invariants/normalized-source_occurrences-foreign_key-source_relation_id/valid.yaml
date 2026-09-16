@@ -1,0 +1,34 @@
+{
+  "invariant": "normalized.source_occurrences:foreign_key:source_relation_id",
+  "rows": {
+    "normalized.source_occurrences": [
+      {
+        "document_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "field_path": "[\"text\",\"value-1\"]",
+        "lookup_name": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "owner_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "owner_kind": "[\"enum\",\"template\"]",
+        "source_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_row_ordinal": "[\"u64\",1]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]"
+      }
+    ],
+    "reference.schema_relations": [
+      {
+        "authority": "[\"enum\",\"authored\"]",
+        "checks": "[\"list\",[]]",
+        "derivation_granularity": "[\"enum\",\"row\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"enum\",\"reference\"]",
+        "primary_key": "[\"list\",[]]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "snapshot_class": "[\"enum\",\"model\"]",
+        "stability": "[\"enum\",\"stable\"]",
+        "version": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

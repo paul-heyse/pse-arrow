@@ -506,7 +506,7 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
 ///
 /// The member spelling is the diagnostic code, so a `pass_specs.diagnostics` row and a
 /// `#[diagnostic(code(...))]` are the same string rather than two spellings of one idea.
-fn declare_failure_classes(builder: &mut RegistryBuilder) {
+pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
     builder.declare_enum(EnumDecl::platform(
         "FailureClass",
         vec![

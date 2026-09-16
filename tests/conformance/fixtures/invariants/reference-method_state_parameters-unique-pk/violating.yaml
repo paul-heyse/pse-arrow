@@ -1,0 +1,20 @@
+{
+  "invariant": "reference.method_state_parameters:unique:pk",
+  "rows": {
+    "reference.method_state_parameters": [
+      {
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parameter_name": "[\"text\",\"value-1\"]"
+      },
+      {
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parameter_name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

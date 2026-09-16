@@ -1,0 +1,25 @@
+{
+  "invariant": "normalized.port_binding_lengths:unique:pk",
+  "rows": {
+    "normalized.port_binding_lengths": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "length": "[\"u64\",1]",
+        "name": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "length": "[\"u64\",1]",
+        "name": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

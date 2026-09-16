@@ -1,0 +1,29 @@
+{
+  "invariant": "reference.method_dependencies:unique:pk",
+  "rows": {
+    "reference.method_dependencies": [
+      {
+        "index_map": "[\"list\",[]]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]",
+        "scope_map": "[\"enum\",\"same_state\"]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_kind": "[\"enum\",\"property\"]"
+      },
+      {
+        "index_map": "[\"list\",[]]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"u64\",1]",
+        "scope_map": "[\"enum\",\"same_state\"]",
+        "target_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_kind": "[\"enum\",\"property\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "invariant": "inferred.math_conditionals:unique:pk",
+  "rows": {
+    "inferred.math_conditionals": [
+      {
+        "guard_node_id": "[\"u64\",1]",
+        "node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

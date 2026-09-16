@@ -1,0 +1,15 @@
+{
+  "invariant": "inferred.method_compatibility:selection_compatible",
+  "rows": {
+    "inferred.method_compatibility": [
+      {
+        "compatible": "[\"bool\",true]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"enum\",\"applicable\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

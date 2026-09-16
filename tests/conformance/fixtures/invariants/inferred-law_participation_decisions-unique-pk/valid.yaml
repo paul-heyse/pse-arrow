@@ -1,0 +1,16 @@
+{
+  "invariant": "inferred.law_participation_decisions:unique:pk",
+  "rows": {
+    "inferred.law_participation_decisions": [
+      {
+        "application_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "contribution_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "decision": "[\"enum\",\"included\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"enum\",\"matched\"]",
+        "sign": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

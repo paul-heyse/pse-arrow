@@ -1,0 +1,16 @@
+{
+  "invariant": "inferred.method_resolutions:demanded_method_resolved",
+  "rows": {
+    "inferred.method_resolutions": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "realization": "[\"enum\",\"equation_template\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "status": "[\"enum\",\"resolved\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

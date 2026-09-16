@@ -3,16 +3,13 @@
 
 use super::*;
 use crate::passes::native_rows::keyed_rows;
-use datafusion::execution::runtime_env::RuntimeEnv;
+use datafusion::{arrow::array::Array, execution::runtime_env::RuntimeEnv};
 use pse_catalog::session::{
     ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
 };
 use pse_ids::{FixedBudget, MemoryReserver};
 use pse_relations::columnar::FieldCheckedBatch;
-use pse_relations::generated::{
-    enums::{Direction, PortKind},
-    provenance::algorithm_source_occurrences,
-};
+use pse_relations::generated::enums::{Direction, PortKind};
 use std::{num::NonZeroUsize, sync::Arc};
 
 fn session() -> SnapshotSession {
@@ -106,7 +103,12 @@ async fn port_grammar_captures_actual_selected_keys_and_source_roles() {
     parse(ports, &mut output, &cancel).unwrap();
     let output = output.finish().unwrap();
     let lengths = port_binding_lengths::View::from_checked(
-        &output.columns[&port_binding_lengths::RELATION_KEY],
+        &output.columns[&port_binding_lengths::RELATION_KEY]
+            .payload(
+                session.registry(),
+                port_binding_lengths::spec(session.registry()).unwrap(),
+            )
+            .unwrap(),
     )
     .unwrap()
     .rows()
@@ -118,11 +120,17 @@ async fn port_grammar_captures_actual_selected_keys_and_source_roles() {
             .collect::<Vec<_>>(),
         vec![("feed", 2), ("own", 0)]
     );
-    let steps =
-        port_binding_steps::View::from_checked(&output.columns[&port_binding_steps::RELATION_KEY])
-            .unwrap()
-            .rows()
-            .unwrap();
+    let steps = port_binding_steps::View::from_checked(
+        &output.columns[&port_binding_steps::RELATION_KEY]
+            .payload(
+                session.registry(),
+                port_binding_steps::spec(session.registry()).unwrap(),
+            )
+            .unwrap(),
+    )
+    .unwrap()
+    .rows()
+    .unwrap();
     assert_eq!(
         steps
             .iter()
@@ -132,23 +140,54 @@ async fn port_grammar_captures_actual_selected_keys_and_source_roles() {
     );
     // This tests syntax-to-column correspondence. Shared NativeInput tests separately
     // exercise source membership and derivation construction against published inputs.
-    let occurrences = algorithm_source_occurrences::View::from_checked(&output.occurrences)
-        .unwrap()
-        .rows()
-        .unwrap();
-    assert_eq!(occurrences.len(), 4);
-    for row in occurrences {
-        let ordinal = usize::try_from(row.constructed_row_ordinal).unwrap();
-        let name = if row.output_relation_id == port_binding_lengths::RELATION_ID {
-            &lengths[ordinal].name
-        } else {
-            assert_eq!(row.output_relation_id, port_binding_steps::RELATION_ID);
-            &steps[ordinal].name
-        };
-        assert_eq!(row.source_relation_id, template_ports::RELATION_ID);
-        assert_eq!(row.source_key, keys[name].key);
-        assert_eq!(row.source_port, keys[name].port);
+    let mut count = 0;
+    for supported in output.columns.values() {
+        let names = supported
+            .data
+            .column_by_name("name")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<datafusion::arrow::array::StringArray>()
+            .unwrap();
+        let supports = supported
+            .data
+            .column_by_name(crate::passes::native_outputs::support::COLUMN)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<datafusion::arrow::array::ListArray>()
+            .unwrap();
+        for (row, name) in names.iter().enumerate() {
+            let list = supports.value(row);
+            let source = list
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::StructArray>()
+                .unwrap();
+            let key = source
+                .column_by_name("source_key")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                .unwrap();
+            let port = source
+                .column_by_name("source_port")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::StringArray>()
+                .unwrap();
+            let relation = source
+                .column_by_name("source_relation_id")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                .unwrap();
+            assert_eq!(key.len(), 1);
+            assert_eq!(relation.value(0), template_ports::RELATION_ID.as_bytes());
+            assert_eq!(key.value(0), keys[name.unwrap()].key.as_bytes());
+            assert_eq!(port.value(0), keys[name.unwrap()].port);
+            count += 1;
+        }
     }
+    assert_eq!(count, 4);
 }
 
 #[tokio::test]

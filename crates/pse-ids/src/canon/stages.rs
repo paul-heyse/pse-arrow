@@ -18,6 +18,16 @@ pub(super) fn admit_and_order(
     batches: &[RecordBatch],
 ) -> Result<RecordBatch, CanonError> {
     let source = concat_batches(&contract.schema, batches)?;
+    if contract.primary_key.is_empty() {
+        return if source.num_rows() > 1 {
+            Err(CanonError::DuplicateKey {
+                first: 0,
+                second: 1,
+            })
+        } else {
+            Ok(source)
+        };
+    }
     let fields = contract
         .primary_key
         .iter()

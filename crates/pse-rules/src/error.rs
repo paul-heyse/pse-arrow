@@ -97,8 +97,8 @@ pub enum RuleError {
         stratum: u16,
         /// Declared head relation.
         relation: String,
-        /// Complete reversible key, not a value digest.
-        key: String,
+        /// Typed row token; actual conflicting assertions accompany it.
+        key: pse_ids::ContentHash,
         /// Up to three actual conflicting assertions with producer and truth.
         assertions: Vec<String>,
     },

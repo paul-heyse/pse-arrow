@@ -222,7 +222,7 @@ pub fn diagnostic_columns(execution_finding: bool) -> Vec<FieldContract> {
         column("check_id", T::id()),
         column("severity", T::enumeration("FindingSeverity")),
         column("subjects", T::list(T::id())),
-        column("values", T::native(arrow_schema::DataType::Utf8)),
+        column("evidence", diagnostic_evidence()),
         column("message", T::native(arrow_schema::DataType::Utf8)),
         column(
             "next_steps",
@@ -235,6 +235,34 @@ pub fn diagnostic_columns(execution_finding: bool) -> Vec<FieldContract> {
 
 fn diagnostic_type() -> T {
     T::structure(diagnostic_columns(true))
+}
+
+fn diagnostic_evidence() -> T {
+    T::structure(vec![
+        T::native(arrow_schema::DataType::Utf8).with_name("kind"),
+        T::structure(vec![
+            T::id().with_name("relation_id"),
+            T::row_key().with_name("row_key"),
+        ])
+        .with_name("row")
+        .optional(),
+        T::structure(vec![
+            T::enumeration("FailureClass").with_name("failure_class"),
+            T::native(arrow_schema::DataType::Utf8)
+                .with_name("diagnostic_code")
+                .optional(),
+            T::native(arrow_schema::DataType::Utf8).with_name("attempt_error"),
+        ])
+        .with_name("execution")
+        .optional(),
+    ])
+    .with_alternative(&crate::model::TaggedAlternative::new(
+        "kind",
+        [
+            ("row".into(), "row".into()),
+            ("execution".into(), "execution".into()),
+        ],
+    ))
 }
 
 fn declare_diagnostics_findings(builder: &mut RegistryBuilder) {
@@ -377,14 +405,14 @@ fn declare_provenance(builder: &mut RegistryBuilder) {
         vec![
             column("derivation_id", T::id()),
             column("relation_id", T::id()),
-            column("row_key", T::native(arrow_schema::DataType::Utf8)),
+            column("row_key", T::row_key()),
             column("rule_id", T::id()).optional(),
             column("pass_id", T::id()).optional(),
             column(
                 "supporting",
                 T::list(structure(vec![
                     ("relation_id", T::id()),
-                    ("row_key", T::native(arrow_schema::DataType::Utf8)),
+                    ("row_key", T::row_key()),
                 ])),
             ),
             column("snapshot_id", T::hash()).optional(),

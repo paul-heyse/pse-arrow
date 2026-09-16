@@ -268,7 +268,7 @@ impl Realizer<'_> {
     pub(super) fn source_position(
         &self,
         relation: RelationKey,
-        key: &str,
+        key: &pse_ids::ContentHash,
     ) -> Result<Support, CompilerError> {
         self.inventory
             .source_keys

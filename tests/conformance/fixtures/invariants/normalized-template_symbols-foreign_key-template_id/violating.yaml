@@ -25,7 +25,7 @@
         "indexed_by": "[\"list\",[]]",
         "name": "[\"text\",\"value-1\"]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "reference_to": "[\"text\",\"value-1\"]",
+        "reference_to": "[\"text\",\"1\"]",
         "role": "[\"enum\",\"variable\"]",
         "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "template_id": "[\"id\",\"02020202020202020202020202020202\"]",

@@ -1,0 +1,30 @@
+{
+  "invariant": "reference.method_parameters:foreign_key:quantity_type_id",
+  "rows": {
+    "reference.method_parameters": [
+      {
+        "indexed_by": "[\"list\",[]]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "natural_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "required": "[\"bool\",true]"
+      }
+    ],
+    "reference.quantity_types": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "canonical_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "nominal_magnitude": "[\"f64\",\"3ff0000000000000\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale_kind": "[\"enum\",\"point\"]",
+        "shape": "[\"list\",[]]",
+        "subject_kind": "[\"enum\",\"species\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

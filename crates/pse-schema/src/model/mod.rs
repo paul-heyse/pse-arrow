@@ -34,11 +34,14 @@ pub mod migration;
 pub mod pass;
 pub mod pass_status;
 pub mod provider;
+pub mod reference;
 pub mod relation;
 pub mod rule;
 pub mod rule_expr;
 pub(crate) mod rule_validation;
 pub mod tagged_alternative;
+
+pub use field::ROW_KEY_ENCODING;
 
 pub use crate::model::cell::{Cell, RuleLiteralKind};
 pub use crate::model::document::{
@@ -71,4 +74,5 @@ pub use expression_path::ExpressionPathSegmentKind;
 pub use collection::{CollectionContract, CollectionOrder};
 pub use field::FieldContract;
 pub use integer_range::IntegerRange;
+pub use reference::{ReferenceColumn, ReferenceContract, ReferenceNullPolicy};
 pub use tagged_alternative::TaggedAlternative;

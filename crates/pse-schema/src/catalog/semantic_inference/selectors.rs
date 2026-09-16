@@ -79,7 +79,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("product_id", T::id()),
             column("source_relation_id", T::id()),
-            column("source_key", T::native(arrow_schema::DataType::Utf8)),
+            column("source_key", T::row_key()),
             provenance(),
         ],
         "Actual declaration and binding rows behind each finite prospective ordered product.",

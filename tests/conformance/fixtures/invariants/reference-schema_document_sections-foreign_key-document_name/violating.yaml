@@ -8,11 +8,12 @@
         "entity_kind": "[\"text\",\"value-1\"]",
         "expression_fields": "[\"list\",[]]",
         "expression_owner_column": "[\"text\",\"value-1\"]",
+        "expression_owner_kind": "[\"enum\",\"template\"]",
         "identity_column": "[\"text\",\"value-1\"]",
         "key": "[\"text\",\"value-1\"]",
         "name_column": "[\"text\",\"value-1\"]",
         "naming_scope_column": "[\"text\",\"value-1\"]",
-        "ordinal": "[\"u64\",1]",
+        "ordinal": "[\"i64\",1]",
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "repeated": "[\"bool\",true]"
       }
@@ -29,7 +30,7 @@
   "expected_keys": [
     [
       "[\"text\",\"value-2\"]",
-      "[\"u64\",1]"
+      "[\"i64\",1]"
     ]
   ]
 }

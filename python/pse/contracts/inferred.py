@@ -1224,7 +1224,7 @@ class InferredRuleOutcomesRow:
 
     rule_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     head_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    head_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    head_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
     reason: e.RuleOutcomeReason = attrs.field(validator=attrs.validators.instance_of(e.RuleOutcomeReason))
 
@@ -1434,7 +1434,7 @@ class InferredUndecidedFieldSupportingItem:
     """Declared relation row or nested value."""
 
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
 
 
 @attrs.frozen(kw_only=True)
@@ -1444,7 +1444,7 @@ class InferredUndecidedRow:
     undecided_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     rule_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     head_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
     reason: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     supporting: b.tuple[InferredUndecidedFieldSupportingItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(InferredUndecidedFieldSupportingItem), iterable_validator=attrs.validators.instance_of(b.tuple)))

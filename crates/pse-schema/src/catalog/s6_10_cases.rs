@@ -71,6 +71,10 @@ fn declare_authored_case_specs(builder: &mut RegistryBuilder) {
             column("upper", T::extended(crate::model::ExtensionUse::Bound)).optional(),
             column("scaling_factor", T::native(arrow_schema::DataType::Float64)).optional(),
             column("priority", T::native(arrow_schema::DataType::Int32)),
+            column(
+                "source_span",
+                T::extended(crate::model::ExtensionUse::SourceSpan),
+            ),
         ],
         "blueprint §6.10 case: case_specs.",
     );
@@ -172,6 +176,10 @@ fn declare_authored_case_activations(builder: &mut RegistryBuilder) {
                 T::extended(crate::model::ExtensionUse::TargetPath),
             ),
             column("active", T::native(arrow_schema::DataType::Boolean)),
+            column(
+                "source_span",
+                T::extended(crate::model::ExtensionUse::SourceSpan),
+            ),
         ],
         "blueprint §6.10 case: case_activations.",
     );
@@ -253,6 +261,10 @@ fn declare_authored_observations(builder: &mut RegistryBuilder) {
             )
             .optional(),
             column("tag", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column(
+                "source_span",
+                T::extended(crate::model::ExtensionUse::SourceSpan),
+            ),
         ],
         "blueprint §6.10 case: observations.",
     );

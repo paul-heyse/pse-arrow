@@ -7,6 +7,7 @@
         "doc": "[\"text\",\"value-1\"]",
         "include_enthalpy_of_formation": "[\"bool\",true]",
         "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
         "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "pressure_ref": "[\"f64\",\"3ff0000000000000\"]",
         "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",

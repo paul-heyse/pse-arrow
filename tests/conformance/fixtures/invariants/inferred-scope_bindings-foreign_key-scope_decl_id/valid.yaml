@@ -1,0 +1,20 @@
+{
+  "invariant": "inferred.scope_bindings:foreign_key:scope_decl_id",
+  "rows": {
+    "authored.scopes": [
+      {
+        "root_term_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "inferred.scope_bindings": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

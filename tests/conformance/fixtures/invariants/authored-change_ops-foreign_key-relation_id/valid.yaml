@@ -5,16 +5,17 @@
       {
         "change_set_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "op": "[\"enum\",\"insert\"]",
-        "ordinal": "[\"u64\",1]",
+        "ordinal": "[\"i64\",1]",
         "precondition": "[\"text\",\"value-1\"]",
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "row": "[\"struct\",[[\"text\",\"value-1\"],[\"u64\",1]]]",
-        "row_key": "[\"struct\",[[\"text\",\"value-1\"],[\"u64\",1]]]"
+        "row": "[\"struct\",[[\"text\",\"value-1\"],[\"i64\",1]]]",
+        "row_key": "[\"struct\",[[\"text\",\"value-1\"],[\"i64\",1]]]"
       }
     ],
     "reference.schema_relations": [
       {
         "authority": "[\"enum\",\"authored\"]",
+        "checks": "[\"list\",[]]",
         "derivation_granularity": "[\"enum\",\"row\"]",
         "doc": "[\"text\",\"value-1\"]",
         "name": "[\"text\",\"value-1\"]",
@@ -23,7 +24,7 @@
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "snapshot_class": "[\"enum\",\"model\"]",
         "stability": "[\"enum\",\"stable\"]",
-        "version": "[\"u64\",1]"
+        "version": "[\"i64\",1]"
       }
     ]
   },

@@ -1,0 +1,26 @@
+{
+  "invariant": "reference.method_parameter_axes:unique:pk",
+  "rows": {
+    "reference.method_parameter_axes": [
+      {
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parameter_kind": "[\"text\",\"value-1\"]",
+        "position": "[\"u64\",1]",
+        "source_coordinate": "[\"enum\",\"member\"]"
+      },
+      {
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parameter_kind": "[\"text\",\"value-1\"]",
+        "position": "[\"u64\",1]",
+        "source_coordinate": "[\"enum\",\"member\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

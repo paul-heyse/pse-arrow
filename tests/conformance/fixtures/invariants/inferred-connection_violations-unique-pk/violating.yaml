@@ -1,0 +1,23 @@
+{
+  "invariant": "inferred.connection_violations:unique:pk",
+  "rows": {
+    "inferred.connection_violations": [
+      {
+        "connection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"text\",\"value-1\"]"
+      },
+      {
+        "connection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

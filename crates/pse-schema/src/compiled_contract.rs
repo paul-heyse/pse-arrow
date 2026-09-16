@@ -82,9 +82,8 @@ fn column(reg: &Registry, column: &FieldContract) -> Result<Cell, SchemaError> {
         field_value(column.field())?,
         field_value(&crate::arrow::field_for(reg, column)?)?,
         logical(reg, column)?,
-        column
-            .fk()
-            .map(|fk| target(reg, fk.relation))
+        crate::model::ReferenceContract::for_contract(column)?
+            .map(|reference| target(reg, &reference.relation))
             .transpose()?
             .unwrap_or(Cell::Null),
     ]))

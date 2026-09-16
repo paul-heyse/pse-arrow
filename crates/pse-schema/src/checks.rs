@@ -124,12 +124,12 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
             "native check names and expressions must be nonempty",
         ));
     }
-    if decl.primary_key.is_empty() {
-        return Err(invalid(
+    let primary_key = decl.primary_key.as_ref().ok_or_else(|| {
+        invalid(
             &context,
-            "a relation requires a nonempty primary key",
-        ));
-    }
+            "a relation requires an explicit primary key declaration",
+        )
+    })?;
     let mut columns = BTreeSet::new();
     for column in &decl.columns {
         if !columns.insert(column.name()) {
@@ -144,7 +144,7 @@ pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaErro
         )?;
     }
     let mut keys = BTreeSet::new();
-    for key in &decl.primary_key {
+    for key in primary_key {
         if !keys.insert(*key) {
             return Err(SchemaError::DuplicateDeclaration {
                 kind: "primary key column",

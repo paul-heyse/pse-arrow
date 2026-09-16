@@ -119,7 +119,7 @@ class NormalizedConfigValuesRow:
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     value: NormalizedConfigValuesFieldValue = attrs.field(validator=attrs.validators.instance_of(NormalizedConfigValuesFieldValue))
     source_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -671,7 +671,7 @@ class NormalizedDomainProductSourcesRow:
 
     product_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     source_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -760,28 +760,13 @@ class NormalizedExpressionPathsRow:
 
 
 @attrs.frozen(kw_only=True)
-class NormalizedExpressionSourcesFieldSourceKeyItem:
-    """Declared relation row or nested value."""
-
-    column_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    logical_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    content_hash: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    signed_integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
-    unsigned_integer: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    index_tuple: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-
-
-@attrs.frozen(kw_only=True)
 class NormalizedExpressionSourcesRow:
     """Declared relation row or nested value."""
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     family: e.ExpressionFamily = attrs.field(validator=attrs.validators.instance_of(e.ExpressionFamily))
     source_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_key: b.tuple[NormalizedExpressionSourcesFieldSourceKeyItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(NormalizedExpressionSourcesFieldSourceKeyItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    source_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     field_path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     owner_template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     owner_instance_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
@@ -801,7 +786,7 @@ class NormalizedFeatureInheritanceRow:
     source_instance_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     source_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     source_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -1655,7 +1640,7 @@ class NormalizedResolvedSourceOccurrencesRow:
     field_path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     match_ordinal: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    source_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     kind: e.SourceBindingKind = attrs.field(validator=attrs.validators.instance_of(e.SourceBindingKind))
     owner_template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))

@@ -58,6 +58,7 @@ pub(super) fn declared_literal(
 
 pub(super) fn key(spec: &RelationSpec) -> Expr {
     scalar::key(
+        spec.id,
         spec.primary_key
             .iter()
             .map(|name| (*name, col(*name)))

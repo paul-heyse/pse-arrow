@@ -73,10 +73,11 @@ pub fn declare(builder: &mut RegistryBuilder) {
     s14_semantic_passes::declare(builder);
 }
 
-/// Add only the canonical diagnostic relation and its severity vocabulary.
+/// Add only the canonical diagnostic relation and its severity/failure vocabularies.
 /// Custom registries use this before native integrity execution; the complete
 /// platform catalog already includes it. Duplicate declarations remain errors.
 pub fn declare_diagnostics(builder: &mut RegistryBuilder) {
+    enums_platform::declare_failure_classes(builder);
     s6_13_runtime::declare_diagnostics(builder);
 }
 

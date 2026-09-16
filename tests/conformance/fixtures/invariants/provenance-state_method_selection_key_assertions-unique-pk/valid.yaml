@@ -1,0 +1,15 @@
+{
+  "invariant": "provenance.state_method_selection_key_assertions:unique:pk",
+  "rows": {
+    "provenance.state_method_selection_key_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -230,7 +230,7 @@ fn collect_findings(
                     class,
                     observation.input,
                     error,
-                ));
+                )?);
             } else {
                 findings.extend(supplied);
             }
@@ -282,25 +282,33 @@ fn execution_finding(
     class: &'static str,
     input: Option<SnapshotId>,
     context: &CompilerError,
-) -> Cell {
-    let values = serde_json::json!({"failure_class": class, "diagnostic_code": error.code().map(|code| code.to_string()), "attempt_error": context.to_string()});
-    Cell::Struct(vec![
-        Cell::Id(pse_authoring::ids::uuid_v7()),
-        input.map_or(Cell::Null, |id| Cell::Hash(id.content_hash())),
-        Cell::Null,
-        Cell::Null,
-        Cell::Enum("error"),
-        Cell::List(vec![]),
-        Cell::text(values.to_string()),
-        Cell::text(error.to_string()),
-        Cell::List(
-            error
-                .help()
-                .map(|help| Cell::text(help.to_string()))
-                .into_iter()
-                .collect(),
+) -> Result<Cell, CompilerError> {
+    use pse_relations::{
+        generated::{enums::FindingSeverity, provenance::pass_records as record},
+        typed::CellCodec,
+    };
+    Ok(record::ProvenancePassRecordsFieldFindingsItem {
+        finding_id: pse_authoring::ids::uuid_v7(),
+        subject_snapshot: input.as_ref().map(SnapshotId::content_hash),
+        run_id: None,
+        check_id: None,
+        severity: FindingSeverity::Error,
+        subjects: vec![],
+        evidence: record::ProvenancePassRecordsFieldFindingsItemEvidence::from_execution(
+            record::ProvenancePassRecordsFieldFindingsItemEvidenceExecution {
+                failure_class: class.parse()?,
+                diagnostic_code: error.code().map(|code| code.to_string()),
+                attempt_error: context.to_string(),
+            },
         ),
-    ])
+        message: error.to_string(),
+        next_steps: error
+            .help()
+            .map(|help| help.to_string())
+            .into_iter()
+            .collect(),
+    }
+    .into_cell())
 }
 fn plans(plans: &[PlanObservation]) -> Result<(Vec<Cell>, Vec<Cell>), CompilerError> {
     let explain = plans

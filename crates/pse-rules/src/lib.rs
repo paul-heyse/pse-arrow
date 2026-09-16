@@ -18,7 +18,6 @@
 //! - [`derivations`] — `provenance.derivations` rows.
 //! - [`errmap`] — `DataFusionError` into the taxonomy, at one place.
 
-pub mod derivations;
 pub mod errmap;
 pub mod error;
 pub mod exec;

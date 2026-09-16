@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+mod source_index;
 use super::{Inputs, invalid};
 use crate::{
     CompilerError,
     passes::native_rows::{self, AlgorithmInputs},
 };
 use datafusion::{
-    arrow::array::{Array, StringArray},
+    arrow::array::{Array, FixedSizeBinaryArray},
     logical_expr::{LogicalPlanBuilder, col},
 };
 use pse_catalog::session::SnapshotSession;
@@ -21,6 +22,7 @@ use pse_schema::{
     Registry,
     model::{RelationKey, RelationSpec},
 };
+use source_index::SourceIndex;
 use std::collections::BTreeMap;
 
 pub(super) fn decode<T: RelationRow>(
@@ -43,7 +45,7 @@ struct Loader<'a> {
     session: &'a SnapshotSession,
     cancel: &'a CancellationToken,
     arguments: AlgorithmInputs,
-    keys: BTreeMap<RelationKey, Vec<String>>,
+    keys: BTreeMap<RelationKey, Vec<pse_ids::ContentHash>>,
 }
 impl Loader<'_> {
     async fn capture_keys(&mut self) -> Result<(), CompilerError> {
@@ -61,6 +63,7 @@ impl Loader<'_> {
             )?;
             let plan = LogicalPlanBuilder::from(session.scan_role("realization_source_keys")?)
                 .project([scalar::key(
+                    spec.id,
                     spec.primary_key
                         .iter()
                         .map(|name| (*name, col(*name)))
@@ -75,13 +78,13 @@ impl Loader<'_> {
                 let values = batch
                     .column(0)
                     .as_any()
-                    .downcast_ref::<StringArray>()
-                    .ok_or_else(|| invalid("source keys are not Utf8"))?;
+                    .downcast_ref::<FixedSizeBinaryArray>()
+                    .ok_or_else(|| invalid("source keys are not typed keys"))?;
                 for row in 0..batch.num_rows() {
                     if values.is_null(row) {
                         return Err(invalid("source key is null"));
                     }
-                    keys.push(values.value(row).to_owned());
+                    keys.push(native_rows::key_value(values.value(row))?);
                 }
             }
             self.keys.insert(*key, keys);
@@ -126,6 +129,7 @@ impl Loader<'_> {
     }
 }
 pub(super) struct Inventory {
+    pub source_index: SourceIndex,
     pub parameter_bindings: Vec<c::method_parameter_bindings::Row>,
     pub parameter_values: Vec<n::parameter_values::Row>,
     pub method_realizations: Vec<c::method_realizations::Row>,
@@ -134,7 +138,7 @@ pub(super) struct Inventory {
     pub method_provisions: Vec<r::method_provisions::Row>,
     pub property_requirements: Vec<i::property_requirements::Row>,
     pub arguments: AlgorithmInputs,
-    pub source_keys: BTreeMap<RelationKey, Vec<String>>,
+    pub source_keys: BTreeMap<RelationKey, Vec<pse_ids::ContentHash>>,
     pub instances: Vec<i::instances::Row>,
     pub prospective: Vec<n::instance_bindings::Row>,
     pub templates: Vec<n::templates::Row>,
@@ -191,7 +195,10 @@ impl Inventory {
             arguments: AlgorithmInputs::new(reserver, "P7:typed-arguments"),
             keys: BTreeMap::new(),
         };
+        let sources = loader.rows::<n::expression_sources::Row>().await?;
+        let source_index = SourceIndex::load(&mut loader, &sources).await?;
         let result = Self {
+            source_index,
             parameter_bindings: loader.optional().await?,
             parameter_values: loader.optional().await?,
             method_realizations: loader.optional().await?,
@@ -225,7 +232,7 @@ impl Inventory {
             tuples: loader.rows::<i::valid_index_tuples::Row>().await?,
             configuration: loader.rows::<n::config_values::Row>().await?,
             feature_values: loader.rows::<i::instance_features::Row>().await?,
-            sources: loader.rows::<n::expression_sources::Row>().await?,
+            sources,
             indices: loader.rows::<n::expression_index_bindings::Row>().await?,
             equation_nodes: loader.rows::<n::equation_nodes::Row>().await?,
             predicates: loader.rows::<i::predicate_outcomes::Row>().await?,

@@ -42,6 +42,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         else {
             continue;
         };
+        let Some(keys) = &source.primary_key else {
+            continue;
+        };
         let mut columns = source.columns.clone();
         if candidate == "port_candidates" {
             columns.push(column("guard_outcome", T::enumeration("TruthValue")));
@@ -52,7 +55,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             N::Inferred,
             candidate,
             S::Derived,
-            &source.primary_key,
+            keys,
             columns,
             "Replayed prospective port declaration and exact finite state/member context; RulePlans decide actual membership.",
         );

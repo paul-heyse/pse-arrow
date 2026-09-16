@@ -1,0 +1,32 @@
+{
+  "invariant": "authored.template_port_members:foreign_key:template_id",
+  "rows": {
+    "authored.template_port_members": [
+      {
+        "ordinal": "[\"u64\",1]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "symbol_group": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"02020202020202020202020202020202\"]"
+      }
+    ],
+    "authored.templates": [
+      {
+        "default_initializer_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "default_scaler_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_class": "[\"text\",\"value-1\"]",
+        "kind": "[\"enum\",\"unit\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"02020202020202020202020202020202\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

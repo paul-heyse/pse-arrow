@@ -187,8 +187,8 @@ impl Sources {
                     .rows()?
                 {
                     messages.push(format!(
-                        "{}: {} ({})",
-                        row.check_id, row.message, row.values
+                        "{}: {} ({:?})",
+                        row.check_id, row.message, row.evidence
                     ));
                 }
             }

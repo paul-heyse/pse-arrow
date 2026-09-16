@@ -148,7 +148,7 @@ impl Fixture {
                     .rows()
                     .unwrap()
                 })
-                .map(|row| (row.values, row.message))
+                .map(|row| (row.evidence, row.message))
                 .collect::<Vec<_>>()
         );
         report.tip.unwrap()

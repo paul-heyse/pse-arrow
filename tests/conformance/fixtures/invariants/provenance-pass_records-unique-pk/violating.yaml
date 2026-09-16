@@ -3,10 +3,11 @@
   "rows": {
     "provenance.pass_records": [
       {
+        "derivations": "[\"list\",[]]",
         "duration_ms": "[\"f64\",\"3ff0000000000000\"]",
         "engine_profile_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "failure_class": "[\"enum\",\"authoring.parse\"]",
-        "finding_count": "[\"u64\",1]",
+        "finding_count": "[\"i64\",1]",
         "findings": "[\"list\",[]]",
         "pass_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "pass_run_id": "[\"id\",\"01010101010101010101010101010101\"]",
@@ -19,10 +20,11 @@
         "version": "[\"text\",\"value-1\"]"
       },
       {
+        "derivations": "[\"list\",[]]",
         "duration_ms": "[\"f64\",\"3ff0000000000000\"]",
         "engine_profile_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "failure_class": "[\"enum\",\"authoring.parse\"]",
-        "finding_count": "[\"u64\",1]",
+        "finding_count": "[\"i64\",1]",
         "findings": "[\"list\",[]]",
         "pass_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "pass_run_id": "[\"id\",\"01010101010101010101010101010101\"]",

@@ -4,25 +4,25 @@
     "runtime.diagnostics_findings": [
       {
         "check_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "evidence": "[\"struct\",[[\"text\",\"execution\"],[\"null\",null],[\"struct\",[[\"enum\",\"authoring.parse\"],[\"text\",\"value-1\"],[\"text\",\"value-1\"]]]]]",
         "finding_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "message": "[\"text\",\"value-1\"]",
         "next_steps": "[\"list\",[]]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "severity": "[\"enum\",\"error\"]",
         "subject_snapshot": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
-        "subjects": "[\"list\",[]]",
-        "values": "[\"text\",\"value-1\"]"
+        "subjects": "[\"list\",[]]"
       },
       {
         "check_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "evidence": "[\"struct\",[[\"text\",\"execution\"],[\"null\",null],[\"struct\",[[\"enum\",\"authoring.parse\"],[\"text\",\"value-1\"],[\"text\",\"value-1\"]]]]]",
         "finding_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "message": "[\"text\",\"value-1\"]",
         "next_steps": "[\"list\",[]]",
         "run_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "severity": "[\"enum\",\"error\"]",
         "subject_snapshot": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
-        "subjects": "[\"list\",[]]",
-        "values": "[\"text\",\"value-1\"]"
+        "subjects": "[\"list\",[]]"
       }
     ]
   },

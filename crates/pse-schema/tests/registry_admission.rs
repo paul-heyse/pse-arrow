@@ -41,6 +41,27 @@ fn registry_with(decl: RelationDecl) -> Result<Registry, SchemaError> {
 }
 
 #[test]
+fn singleton_key_is_explicit_and_distinct_from_an_omitted_key() {
+    let declaration = relation("singleton", 1, vec![]).pk(&[]);
+    let registry = registry_with(declaration.clone()).unwrap();
+    assert!(
+        registry
+            .relation("authored.singleton")
+            .unwrap()
+            .primary_key
+            .is_empty()
+    );
+    let mut omitted = declaration;
+    omitted.primary_key = None;
+    assert!(
+        registry_with(omitted)
+            .unwrap_err()
+            .to_string()
+            .contains("explicit primary key")
+    );
+}
+
+#[test]
 fn native_sql_checks_are_part_of_exact_contract_identity() {
     let declaration = relation("checked", 1, vec![]);
     let old = registry_with(declaration.clone()).unwrap();
@@ -155,7 +176,6 @@ fn rows(registry: &Registry, name: &str) -> Vec<Vec<Cell>> {
 #[test]
 fn malformed_keys_and_duplicate_columns_are_rejected_before_identity() {
     for decl in [
-        relation("a", 1, vec![]).pk(&[]),
         relation("a", 1, vec![]).pk(&["id", "id"]),
         relation("a", 1, vec![]).columns(vec![
             FieldContract::key("id", FieldContract::id(), "id").optional(),

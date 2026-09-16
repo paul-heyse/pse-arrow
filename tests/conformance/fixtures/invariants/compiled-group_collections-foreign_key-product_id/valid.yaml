@@ -1,0 +1,23 @@
+{
+  "invariant": "compiled.group_collections:foreign_key:product_id",
+  "rows": {
+    "compiled.group_collections": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "group_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "path_id": "[\"u64\",1]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "root_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "normalized.domain_products": [
+      {
+        "domain_ids": "[\"list\",[]]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

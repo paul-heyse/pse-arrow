@@ -66,6 +66,7 @@ fn unique_fields(
             crate::model::IntegerRange::from_field(field)?;
             crate::model::TaggedAlternative::from_field(field)?;
             crate::model::CollectionContract::from_field(field)?;
+            crate::model::ReferenceContract::from_field(field)?;
         }
         if !names.insert(field.name()) {
             return Err(mismatch(path, &format!("duplicate field {}", field.name())));

@@ -1,0 +1,14 @@
+{
+  "invariant": "inferred.material_member_counts:unique:pk",
+  "rows": {
+    "inferred.material_member_counts": [
+      {
+        "count": "[\"u64\",1]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"time\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -5,8 +5,9 @@
       {
         "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "entity_kind": "[\"enum\",\"package\"]",
-        "op": "[\"enum\",\"descendant_of\"]",
+        "op": "[\"enum\",\"self\"]",
         "ordinal": "[\"u64\",1]",
+        "parameter_name": "[\"text\",\"value-1\"]",
         "parent_term_id": "[\"id\",\"02020202020202020202020202020202\"]",
         "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "tag": "[\"text\",\"value-1\"]",

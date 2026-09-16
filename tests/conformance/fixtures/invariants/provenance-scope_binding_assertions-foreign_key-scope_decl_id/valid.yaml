@@ -1,0 +1,22 @@
+{
+  "invariant": "provenance.scope_binding_assertions:foreign_key:scope_decl_id",
+  "rows": {
+    "authored.scopes": [
+      {
+        "root_term_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "provenance.scope_binding_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

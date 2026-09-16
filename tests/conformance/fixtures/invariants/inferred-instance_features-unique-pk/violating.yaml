@@ -6,13 +6,13 @@
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "name": "[\"text\",\"value-1\"]",
-        "value": "[\"text\",\"value-1\"]"
+        "value": "[\"struct\",[[\"text\",\"boolean\"],[\"struct\",[[\"bool\",true]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]"
       },
       {
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "name": "[\"text\",\"value-1\"]",
-        "value": "[\"text\",\"value-1\"]"
+        "value": "[\"struct\",[[\"text\",\"boolean\"],[\"struct\",[[\"bool\",true]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]"
       }
     ]
   },

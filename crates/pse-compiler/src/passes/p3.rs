@@ -128,8 +128,15 @@ pub async fn normalize(
     let mut construction = provenance::Construction::new(&checked, inputs, registry)?;
     construction.replace(primitives::emit(&construction.sources, pass, session, cancel).await?);
 
-    let configuration =
-        config::Configuration::build(&batches, documents, session, physical, cancel).await?;
+    let configuration = config::Configuration::build(
+        &batches,
+        &construction.sources,
+        documents,
+        session,
+        physical,
+        cancel,
+    )
+    .await?;
     let bindings =
         bind_sources_owned(documents, configuration.binding_batches(), session, cancel).await?;
     let syntax = source::emit(
@@ -147,11 +154,11 @@ pub async fn normalize(
         .output
         .get(&pse_relations::generated::normalized::expression_sources::RELATION_KEY)
         .ok_or_else(|| invalid("P3 expression source producer omitted its declaration"))?;
-    let configured = configuration.emit(expressions.checked()).await?;
-    let generated =
-        configured.captured(&construction.sources, registry, session.reserver(), cancel)?;
+    let configured = configuration
+        .emit(expressions.checked(), &construction.sources)
+        .await?;
     let configured =
-        provenance::materialize(generated, &construction, pass, session, cancel).await?;
+        provenance::materialize(configured.output, &construction, pass, session, cancel).await?;
     construction.replace(configured);
 
     construction.replace(selectors::emit(&construction.sources, pass, session, cancel).await?);
@@ -185,36 +192,20 @@ pub async fn normalize(
 
     // Empty normalized families are explicit members of this complete invocation.
     // Any nonempty construction must have supplied its own source occurrences.
-    let empty = pass
-        .outputs
-        .iter()
-        .filter_map(|port| {
-            registry
-                .relation(&port.relation)
-                .filter(|spec| !construction.output.contains_key(&spec.key))
-        })
-        .map(|spec| {
-            Ok((
-                spec.key,
-                FieldCheckedBatch::concat_reserved(
-                    registry,
-                    spec,
-                    &[],
-                    session.reserver(),
-                    cancel,
-                )?,
-            ))
-        })
-        .collect::<Result<BTreeMap<_, _>, CompilerError>>()?;
-    let empty = provenance::capture(
-        empty,
-        |_, _| Err(invalid("empty output unexpectedly has a row")),
-        registry,
-        session.reserver(),
-        cancel,
-    )?;
-    construction
-        .replace(provenance::materialize(empty, &construction, pass, session, cancel).await?);
+    let mut empty = super::native_outputs::OutputRows::new(registry, session.reserver(), cancel)?;
+    for spec in pass.outputs.iter().filter_map(|port| {
+        registry
+            .relation(&port.relation)
+            .filter(|spec| !construction.output.contains_key(&spec.key))
+    }) {
+        empty.append_checked(
+            &FieldCheckedBatch::concat_reserved(registry, spec, &[], session.reserver(), cancel)?,
+            |_, _| Err(invalid("empty output unexpectedly has a row")),
+        )?;
+    }
+    construction.replace(
+        provenance::materialize(empty.finish()?, &construction, pass, session, cancel).await?,
+    );
     let derivations = construction.evidence(registry, session.reserver(), cancel)?;
     Ok(NormalizationOutput {
         rows: construction.checked(),

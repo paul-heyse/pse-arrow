@@ -11,9 +11,7 @@ use crate::{
 use datafusion::arrow::array::builder::{ListBuilder, make_builder};
 use datafusion::arrow::datatypes::DataType;
 use datafusion::common::ScalarValue;
-use datafusion::logical_expr::{
-    Expr, LogicalPlan, LogicalPlanBuilder, Operator, col, expr::BinaryExpr, lit,
-};
+use datafusion::logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, col, lit};
 use pse_catalog::session::{
     SnapshotSession,
     output::{checked_literal, declare_relation_output},
@@ -198,23 +196,18 @@ fn finding(
     let target = registry
         .relation("runtime.diagnostics_findings")
         .ok_or_else(|| internal("diagnostic output is undeclared"))?;
-    let (key, subjects) = finding_values(&input, registry, target)?;
+    let relation = registry
+        .relation(&invariant.relation)
+        .ok_or_else(|| internal("finding relation absent"))?
+        .id;
+    let (key, subjects) = finding_values(&input, registry, target, relation)?;
     let check_id = constant(
         registry,
         target,
         "check_id",
         ScalarValue::FixedSizeBinary(16, Some(invariant.id.as_bytes().to_vec())),
     )?;
-    let finding_id = scalar::named_id(
-        check_id.clone(),
-        // Native concatenation is total for these two non-null operands. The
-        // general CONCAT UDF conservatively declares nullable output at this pin.
-        Expr::BinaryExpr(BinaryExpr::new(
-            Box::new(lit(format!("{status}:"))),
-            Operator::StringConcat,
-            Box::new(key.clone()),
-        )),
-    );
+    let finding_id = scalar::named_id(scalar::named_id(check_id.clone(), lit(status)), key.clone());
     let output = vec![
         finding_id.alias("finding_id"),
         constant(
@@ -243,7 +236,7 @@ fn finding(
         )?
         .alias("severity"),
         subjects.alias("subjects"),
-        key.alias("values"),
+        row_evidence(registry, target, relation, key)?.alias("evidence"),
         constant(
             registry,
             target,
@@ -261,10 +254,49 @@ fn finding(
     declare_relation_output(plan, registry, target).map_err(engine)
 }
 
+fn row_evidence(
+    registry: &Registry,
+    target: &RelationSpec,
+    relation: pse_ids::SemanticId,
+    key: Expr,
+) -> Result<Expr, RuleError> {
+    let evidence = target
+        .column("evidence")
+        .ok_or_else(|| internal("diagnostic evidence absent"))?;
+    let execution = evidence
+        .children()
+        .into_iter()
+        .find(|field| field.name() == "execution")
+        .ok_or_else(|| internal("execution evidence arm absent"))?;
+    let field = pse_schema::arrow::field_for(registry, &execution)
+        .map_err(pse_relations::RelationError::from)?;
+    let absent = checked_literal(
+        registry,
+        &execution,
+        ScalarValue::try_from(field.data_type()).map_err(engine)?,
+    )
+    .map_err(engine)?;
+    let identity = checked_literal(
+        registry,
+        &pse_schema::model::FieldContract::id(),
+        ScalarValue::FixedSizeBinary(16, Some(relation.as_bytes().to_vec())),
+    )
+    .map_err(engine)?;
+    Ok(scalar::named_fields(vec![
+        lit("kind"),
+        lit("row"),
+        lit("row"),
+        scalar::named_fields(vec![lit("relation_id"), identity, lit("row_key"), key]),
+        lit("execution"),
+        absent,
+    ]))
+}
+
 fn finding_values(
     input: &LogicalPlan,
     registry: &Registry,
     target: &RelationSpec,
+    relation: pse_ids::SemanticId,
 ) -> Result<(Expr, Expr), RuleError> {
     let columns = input.schema().columns();
     let names = columns
@@ -278,6 +310,7 @@ fn finding_values(
         .map(Expr::Column)
         .collect::<Vec<_>>();
     let key = scalar::key(
+        relation,
         names
             .iter()
             .zip(&expressions)

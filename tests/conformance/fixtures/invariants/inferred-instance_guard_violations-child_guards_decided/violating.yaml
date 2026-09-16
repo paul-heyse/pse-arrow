@@ -1,0 +1,18 @@
+{
+  "invariant": "inferred.instance_guard_violations:child_guards_decided",
+  "rows": {
+    "inferred.instance_guard_violations": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reason": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

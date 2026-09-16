@@ -1,0 +1,19 @@
+{
+  "invariant": "inferred.selector_contexts:kind_has_actual_universe",
+  "rows": {
+    "inferred.selector_contexts": [
+      {
+        "constant": "[\"bool\",true]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "left_node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "op": "[\"enum\",\"kind_is\"]",
+        "right_node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "target_kind": "[\"enum\",\"instance\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

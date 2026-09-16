@@ -18,7 +18,7 @@ use pse_relations::{
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub(crate) type Origin = (RelationKey, String);
+pub(crate) type Origin = (RelationKey, pse_ids::ContentHash);
 pub(crate) type Support = BTreeSet<Origin>;
 pub(crate) type Inputs = BTreeMap<RelationKey, FieldCheckedBatch>;
 
@@ -102,7 +102,7 @@ impl<'a> Inventory<'a> {
         Ok(result)
     }
     pub(crate) fn origin<T: RelationRow>(&self, row: &Keyed<T>) -> Result<Origin, CompilerError> {
-        Ok((T::relation(self.registry)?.key, row.key.clone()))
+        Ok((T::relation(self.registry)?.key, row.key))
     }
     pub(crate) fn source(
         &self,
@@ -215,7 +215,7 @@ impl<'a> Inventory<'a> {
             .node_origins
             .get(&(family.as_str().to_owned(), node))
             .ok_or_else(|| invalid("scalar node lacks actual native source occurrences"))?;
-        support.extend(origins.iter().cloned());
+        support.extend(origins.iter().copied());
         Ok(())
     }
 }

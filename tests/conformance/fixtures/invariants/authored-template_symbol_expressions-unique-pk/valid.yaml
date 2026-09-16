@@ -1,0 +1,13 @@
+{
+  "invariant": "authored.template_symbol_expressions:unique:pk",
+  "rows": {
+    "authored.template_symbol_expressions": [
+      {
+        "expression": "[\"text\",\"1\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -5,7 +5,7 @@
       {
         "determinism": "[\"enum\",\"deterministic\"]",
         "diagnostics": "[\"list\",[]]",
-        "executes_plans": "[\"bool\",true]",
+        "effects": "[\"list\",[]]",
         "name": "[\"text\",\"value-1\"]",
         "pass_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "postconditions": "[\"list\",[]]",

@@ -8,4 +8,4 @@ from pse.contracts.manifest import Manifest
 
 __all__ = ["EXTENSION_NAMES", "REGISTRY_FINGERPRINT", "Manifest", "register_all"]
 
-REGISTRY_FINGERPRINT = "blake3:bd4cdd02e4ff81f55102426104c280b478e1278ae41eb3f82adc71341a8a04fd"
+REGISTRY_FINGERPRINT = "blake3:93d9c882646e6fe036bb5c1bd27a900f7d415175c8ddb9eda45b566a6c5f4f85"

@@ -6,8 +6,8 @@
     reason = "test factories use fixed valid declarations and fixture objects"
 )]
 
-#[path = "../../support/session_factory.rs"]
-pub(crate) mod session_factory;
+#[path = "../../support/native_catalog.rs"]
+mod native_catalog;
 
 use pse_catalog::store::{
     membership::AdmissionContext,
@@ -25,6 +25,7 @@ use std::sync::Arc;
 
 fn fixture(version: u32) -> (Catalog, Arc<Registry>) {
     let mut builder = RegistryBuilder::new();
+    pse_schema::catalog::declare_diagnostics(&mut builder);
     for (name, class) in [
         ("values", SnapshotClass::Model),
         ("empty", SnapshotClass::Model),
@@ -49,13 +50,13 @@ fn fixture(version: u32) -> (Catalog, Arc<Registry>) {
         );
     }
     let reg = Arc::new(builder.build().expect("registry"));
-    let catalog = Catalog::open(
+    let catalog = native_catalog::with_invariants(Catalog::open(
         Arc::new(object_store::memory::InMemory::new()),
         Arc::clone(&reg),
         TrustLevel::Untrusted,
         Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        session_factory::factory(FixedBudget::new(64 << 20)),
-    );
+        native_catalog::from_reserver(FixedBudget::new(64 << 20)),
+    ));
     (catalog, reg)
 }
 fn relation(reg: &Registry, name: &str, rows: &[Vec<Cell>]) -> RelationDraft {

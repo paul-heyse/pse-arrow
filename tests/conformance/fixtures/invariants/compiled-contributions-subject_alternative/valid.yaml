@@ -1,0 +1,28 @@
+{
+  "invariant": "compiled.contributions:subject_alternative",
+  "rows": {
+    "compiled.contributions": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "contribution_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "contribution_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression_root": "[\"u64\",1]",
+        "law_family": "[\"enum\",\"material\"]",
+        "orientation": "[\"enum\",\"into_scope\"]",
+        "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_axis": "[\"null\",null]",
+        "phase_id": "[\"null\",null]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "subject_axis": "[\"null\",null]",
+        "subject_id": "[\"null\",null]",
+        "subject_kind": "[\"enum\",\"total\"]",
+        "transfer_connection_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

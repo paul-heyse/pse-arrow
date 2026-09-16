@@ -75,11 +75,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         .pk(&["label_id"])
         .columns(vec![
             FieldContract::key("label_id", FieldContract::id(), "Identity only."),
-            FieldContract::payload(
-                "key",
-                FieldContract::native(datafusion::arrow::datatypes::DataType::Utf8),
-                "Exact key.",
-            ),
+            FieldContract::payload("key", FieldContract::row_key(), "Exact key."),
             FieldContract::payload(
                 "literal",
                 FieldContract::native(datafusion::arrow::datatypes::DataType::Utf8),
@@ -154,7 +150,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         source_values,
         "metadata transport retains the original values allocation"
     );
-    let encoded = scalar::key(vec![("id", col("id")), ("label", col("label"))]);
+    let encoded = scalar::key(source.id, vec![("id", col("id")), ("label", col("label"))]);
     let plan = LogicalPlanBuilder::from(scan.clone())
         .project(vec![
             scalar::named_id(col("namespace"), encoded.clone()).alias("label_id"),
@@ -201,17 +197,15 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
     let keys = batch
         .column(1)
         .as_any()
-        .downcast_ref::<StringArray>()
+        .downcast_ref::<FixedSizeBinaryArray>()
         .unwrap();
     let literals = batch
         .column(2)
         .as_any()
         .downcast_ref::<StringArray>()
         .unwrap();
-    assert_eq!(
-        keys.value(0),
-        "[\"pse.rule-key.v1\",[[\"id\",[\"u64\",18446744073709551615]],[\"label\",[\"text\",\"quoted\\\"\\n\"]]]]"
-    );
+    assert_eq!(keys.value(0).len(), 32);
+    assert_ne!(keys.value(0), keys.value(1));
     assert_eq!(literals.value(0), "[\"f64\",\"8000000000000000\"]");
     assert_eq!(literals.value(1), "[\"f64\",\"7ff800000000002a\"]");
     let ids = batch
@@ -221,7 +215,11 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         .unwrap();
     assert_eq!(
         ids.value(0),
-        pse_ids::named_id(namespace, keys.value(0)).as_bytes()
+        pse_ids::derive_id(
+            pse_ids::derive::context::NAMED,
+            &[namespace.as_bytes(), keys.value(0)]
+        )
+        .as_bytes()
     );
 
     let repeated = LogicalPlanBuilder::from(completed.prepared().original_plan().clone())
@@ -270,7 +268,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         &registry,
         source,
         vec![
-            scalar::key(vec![("id", col("id"))]).alias("actual_key"),
+            scalar::key(source.id, vec![("id", col("id"))]).alias("actual_key"),
             col("label").alias("selected_override"),
         ],
     )
@@ -305,7 +303,7 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         let keys = batch
             .column(4)
             .as_any()
-            .downcast_ref::<StringArray>()
+            .downcast_ref::<FixedSizeBinaryArray>()
             .unwrap();
         let overrides = batch
             .column(5)
@@ -313,8 +311,8 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
             .downcast_ref::<StringArray>()
             .unwrap();
         for index in 0..batch.num_rows() {
-            let key: serde_json::Value = serde_json::from_str(keys.value(index)).unwrap();
-            assert_eq!(key[1][0][1][1], serde_json::json!(actual_ids.value(index)));
+            assert_eq!(keys.value(index).len(), 32);
+            assert!(matches!(actual_ids.value(index), 2 | u64::MAX));
             assert_eq!(labels.value(index), overrides.value(index));
         }
         let retained = checked.retained(budget.as_ref(), &cancel).unwrap();
@@ -442,11 +440,14 @@ async fn conditional_enum_literals_keep_the_declared_string_domain_and_values() 
         .build()
         .unwrap();
     let condition = Expr::Column(input.schema().columns()[0].clone());
-    let expression = pse_catalog::session::output::same_field_case(
+    let expression = pse_catalog::session::output::same_field_cases(
         input.schema(),
-        condition,
-        value("true"),
-        value("false"),
+        vec![
+            (lit(false), value("unknown")),
+            (condition, value("true")),
+            (lit(true), value("false")),
+        ],
+        value("unknown"),
     )
     .unwrap();
     let plan = LogicalPlanBuilder::from(input)

@@ -1,0 +1,16 @@
+{
+  "invariant": "normalized.property_path_demands:unique:pk",
+  "rows": {
+    "normalized.property_path_demands": [
+      {
+        "demand_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "guard_predicate_id": "[\"u64\",1]",
+        "path_id": "[\"u64\",1]",
+        "read_node_id": "[\"u64\",1]",
+        "source_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

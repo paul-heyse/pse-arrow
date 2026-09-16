@@ -9,7 +9,7 @@ the architecture of the existing codebase, with no additional simulator function
 execution sequence: exact recursive field contracts, typed alternatives/quantities,
 keys/references/provenance, coherent expression and numerical values, native checks
 and durable declarations, then complete replacement of provider/compiler/store/Python
-callers, native change/retention and architecture qualification. SP00/SP01/SP02 and the
+callers, native change/retention and architecture qualification. SP00/SP01/SP02/SP03 and the
 local-check foundations of SP06/SP07 are active
 under proposed ADR-0069 and blueprint revision 40. No package or terminal gate is
 certified complete.
@@ -91,12 +91,62 @@ equal unknown/equation cardinality. Focused catalog tests pass 130 cases with fo
 validation, baseline 0. See the [native reference/predicate receipt](docs/plans/08-schema-first-native-data-pivot.md#native-nested-references-and-row-predicates--2026-09-16)
 for scope and verification. Complete caller replacement and legacy deletion remain open.
 
-**Tested, baseline 0 — latest continuation:** the four-package force-validation run
+**Tested, baseline 0 — preceding continuation:** the four-package force-validation run
 passes **446 tests**; the final Delta suite passes **24**, governance **69**, and
 Python unit/component **86**. The exact-source CI journey passes. Scoped Clippy,
 workspace compilation, generation and `just quality` pass; the final editable rebuild
 passes `just doctor`. Exact commands and conditions are in the receipt above.
 Full workspace Clippy and the plan's terminal gates remain open.
+
+**Implemented — typed keys, composite references and diagnostic evidence:** explicit
+singleton keys, correlated nested references and typed row tokens now share native
+admission. Presence constraints also survive a cold Delta writer. The JSON key UDF,
+reversible key decoder and expression source's per-type key-part structure are deleted.
+Source/support/guard consumers compare native relation-scoped tokens. Diagnostics use
+generated tagged row/execution evidence instead of JSON payloads and the positional
+nine-cell finding constructor. Conformance generation covers every registered invariant
+and removes obsolete fixture directories. See the
+[typed identity receipt](docs/plans/08-schema-first-native-data-pivot.md#typed-keys-composite-references-and-diagnostic-evidence--2026-09-16).
+
+**Tested, baseline 0:** the final eight-package force-validation run passes **651 tests**;
+the complete invariant-fixture suite passes **2**, governance **69**, and the final
+editable Python unit/component run **86**. Workspace compilation, scoped contract/
+authoring/rule/conformance Clippy and repository quality pass. The source construction
+heater regression passes; the broader expression-source workflow qualification is
+still in progress. Exact commands, source boundaries and limitations are in the receipt.
+
+**Implemented — source location cut:** target source rows now carry generated
+`source_span` fields. `Document.row_spans` and P1's ordinal lookup are deleted. Native
+output admission also refuses to annotate an ordinary hash as a typed row key.
+See the [source-location and field-proof receipt](docs/plans/08-schema-first-native-data-pivot.md#source-locations-and-native-field-proofs--2026-09-16).
+
+**Tested, baseline 0:** the final eight-package default/force-validation run passes
+**654 tests, 0 failed/skipped**. The source-location/rename tests pass **13** and native
+key/output tests **11**. Expanded source qualification previously passed **12** tests
+and timed out on the template workflow at 360 seconds. A stage-timed diagnostic passed
+in **395.369 seconds**; the checked-in timeout for this binary is now 600 seconds.
+The duplicate run under the new timeout was stopped as redundant. The 395.369-second
+run is the functional receipt; the larger timeout prevents premature termination of
+future runs and establishes no performance improvement.
+
+**Implemented — co-located support:** algorithm values now carry a declared nonempty
+source list in the same Arrow row. Configuration output uses that representation too.
+The ordinal occurrence relation/provider/joins, output-origin vectors and separate
+instance/value/domain origin maps and package-graph provenance vector are deleted.
+Native joins establish actual source membership, including singleton row support
+distinct from a whole-table read scope; derived finite-algorithm lookups remain.
+**Tested, baseline 0:** catalog/compiler/native-construction tests pass **169**, governance
+passes **69**, full conformance passes **12**, Python unit/component passes **86**, and
+engine support qualification passes **16** (4 other engineering workflows filtered).
+Generation/family checks, workspace compilation and repository quality pass. See the
+[support continuation](docs/plans/08-schema-first-native-data-pivot.md#co-located-algorithm-and-configuration-support--2026-09-16).
+
+**Completion remains partial.** Complete E02 caller replacement, remaining signed ordinals
+and alternatives, coherent math/numerical rows, common rule/domain transfer, full
+provider/compiler/store/Python replacement, member-attempt reconciliation, native
+change/reuse/retention and terminal deletion/measurement gates remain open. The latest
+workspace Clippy attempt still reports 63 compiler findings, baseline 0. No predecessor
+graph authority is preserved by the allowance for useful derived graph algorithms.
 
 The plan covers every finding in the schema engineering review and eight additional
 opportunities grounded in current code and the pinned DataFusion/Delta skills. It

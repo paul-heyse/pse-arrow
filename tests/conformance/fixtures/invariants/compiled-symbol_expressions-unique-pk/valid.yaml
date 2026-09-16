@@ -1,0 +1,13 @@
+{
+  "invariant": "compiled.symbol_expressions:unique:pk",
+  "rows": {
+    "compiled.symbol_expressions": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"u64\",1]",
+        "symbol_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

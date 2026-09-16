@@ -1,0 +1,14 @@
+{
+  "invariant": "inferred.math_complementarity:unique:pk",
+  "rows": {
+    "inferred.math_complementarity": [
+      {
+        "expr_a_node_id": "[\"u64\",1]",
+        "expr_b_node_id": "[\"u64\",1]",
+        "formulation": "[\"enum\",\"smooth_eps\"]",
+        "pair_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

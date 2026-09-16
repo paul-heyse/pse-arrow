@@ -1,0 +1,45 @@
+{
+  "invariant": "reference.element_projection_contracts:foreign_key:multiplication_operation_id",
+  "rows": {
+    "reference.element_projection_contracts": [
+      {
+        "coefficient_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "coefficient_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "formula": "[\"enum\",\"molar_count\"]",
+        "law_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "multiplication_operation_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "source_basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.quantity_operations": [
+      {
+        "basis_rule": "[\"enum\",\"preserve\"]",
+        "basis_source": "[\"u64\",1]",
+        "input_conversions": "[\"list\",[]]",
+        "input_kind_ids": "[\"list\",[]]",
+        "opcode": "[\"enum\",\"Const\"]",
+        "operation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "precondition_invariant_ids": "[\"list\",[]]",
+        "reference_rule": "[\"enum\",\"preserve\"]",
+        "reference_source": "[\"u64\",1]",
+        "result_basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "result_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "result_reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "result_subject_kind": "[\"enum\",\"species\"]",
+        "scale_rule": "[\"enum\",\"preserve\"]",
+        "scale_source": "[\"u64\",1]",
+        "shape_rule": "[\"enum\",\"scalar\"]",
+        "shape_source": "[\"u64\",1]",
+        "subject_rule": "[\"enum\",\"preserve\"]",
+        "subject_source": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

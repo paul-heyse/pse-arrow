@@ -1,0 +1,13 @@
+{
+  "invariant": "inferred.math_gathers:unique:pk",
+  "rows": {
+    "inferred.math_gathers": [
+      {
+        "coordinate_map": "[\"list\",[]]",
+        "group_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

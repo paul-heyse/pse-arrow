@@ -5,7 +5,7 @@
 
 use super::relational;
 use crate::{RuleError, errmap::internal};
-use datafusion::arrow::array::{RecordBatch, StringArray};
+use datafusion::arrow::array::{FixedSizeBinaryArray, RecordBatch, StringArray};
 use datafusion_expr::{LogicalPlan, LogicalPlanBuilder};
 use pse_catalog::session::{PlanObservation, PreparedComputation, SnapshotSession};
 use pse_ids::CancellationToken;
@@ -327,9 +327,10 @@ impl State {
                     let keys = batch
                         .column(0)
                         .as_any()
-                        .downcast_ref::<StringArray>()
-                        .ok_or_else(|| internal("conflict diagnostic is not text"))?;
-                    let key = keys.value(0).to_owned();
+                        .downcast_ref::<FixedSizeBinaryArray>()
+                        .ok_or_else(|| internal("conflict key is not a typed token"))?;
+                    let key = pse_ids::ContentHash::try_from_slice(keys.value(0))
+                        .map_err(|error| internal(error.to_string()))?;
                     let assertions = self
                         .conflict_assertions(head, &key, &current, cancel)
                         .await?;
@@ -370,12 +371,14 @@ impl State {
     async fn conflict_assertions(
         &mut self,
         head: &RelationSpec,
-        key: &str,
+        key: &pse_ids::ContentHash,
         session: &SnapshotSession,
         cancel: &CancellationToken,
     ) -> Result<Vec<String>, RuleError> {
         let plan = LogicalPlanBuilder::from(session.scan_role(&role("assertions", head.key))?)
-            .filter(relational::key(head).eq(datafusion_expr::lit(key)))
+            .filter(relational::key(head).eq(datafusion_expr::lit(
+                datafusion_common::ScalarValue::FixedSizeBinary(32, Some(key.as_bytes().to_vec())),
+            )))
             .and_then(|builder| {
                 builder.sort(vec![datafusion_expr::col("assertion_id").sort(true, true)])
             })

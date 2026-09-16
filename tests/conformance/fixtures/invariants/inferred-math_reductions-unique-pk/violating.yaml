@@ -1,0 +1,26 @@
+{
+  "invariant": "inferred.math_reductions:unique:pk",
+  "rows": {
+    "inferred.math_reductions": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "filter_node_id": "[\"u64\",1]",
+        "kind": "[\"enum\",\"sum\"]",
+        "node_id": "[\"u64\",1]"
+      },
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "filter_node_id": "[\"u64\",1]",
+        "kind": "[\"enum\",\"sum\"]",
+        "node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"u64\",1]"
+    ]
+  ]
+}

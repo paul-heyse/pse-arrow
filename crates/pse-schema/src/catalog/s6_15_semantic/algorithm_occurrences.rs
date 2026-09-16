@@ -36,30 +36,4 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ],
         "Transient actual MathIR graph-import mapping, scoped to one exact graph/family argument role. Native joins apply this mapping to carrier columns. It cannot replace root-environment-specific canonicalization correspondence.",
     );
-    relation(
-        builder,
-        N::Provenance,
-        "algorithm_source_occurrences",
-        S::Sidecar,
-        &[
-            "output_relation_id",
-            "constructed_row_ordinal",
-            "source_port",
-            "source_relation_id",
-            "source_key",
-        ],
-        vec![
-            column("output_relation_id", T::id())
-                .with_fk("reference.schema_relations", "relation_id"),
-            column(
-                "constructed_row_ordinal",
-                T::native(arrow_schema::DataType::UInt64),
-            ),
-            column("source_port", T::native(arrow_schema::DataType::Utf8)),
-            column("source_relation_id", T::id())
-                .with_fk("reference.schema_relations", "relation_id"),
-            column("source_key", T::native(arrow_schema::DataType::Utf8)),
-        ],
-        "Transient occurrences in retained generated algorithm output batches. The ordinal is construction bookkeeping, never a semantic key. The port selects one exact immutable source role; a relation identity alone cannot distinguish two roles using that declaration. Native plans calculate output keys from actual output columns and join source keys to exact bound sources before producing support. This declaration does not require publication of the transient batch.",
-    );
 }

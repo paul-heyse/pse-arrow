@@ -52,7 +52,7 @@ impl Realizer<'_> {
             let nodes = &self.node_support;
             let equations = &self.equation_support;
             let kernels = &self.kernel_support;
-            self.output.append_checked(input, |input, row| {
+            self.output.append_checked(&input, |input, row| {
                 let mut support = BTreeSet::new();
                 for name in ["node_id", "parent_node_id"] {
                     if let Some(node) = ordinal(input, name, row)? {
@@ -84,7 +84,7 @@ impl Realizer<'_> {
                 self.reserver,
                 self.cancel,
             )?;
-            self.output.append_checked(empty, |_, _| {
+            self.output.append_checked(&empty, |_, _| {
                 Err(invalid("declared empty output unexpectedly has a row"))
             })?;
         }
@@ -112,7 +112,7 @@ impl Realizer<'_> {
 }
 
 fn located(
-    keys: &BTreeMap<RelationKey, Vec<String>>,
+    keys: &BTreeMap<RelationKey, Vec<pse_ids::ContentHash>>,
     sources: &Sources,
     support: &BTreeSet<Support>,
 ) -> Result<BTreeSet<SourceKey>, CompilerError> {
@@ -122,7 +122,7 @@ fn located(
             .map(|(relation, index)| {
                 keys.get(relation)
                     .and_then(|rows| rows.get(*index))
-                    .cloned()
+                    .copied()
                     .map(|key| (*relation, key))
                     .ok_or_else(|| {
                         invalid("algorithm source ordinal is outside its actual coupled projection")

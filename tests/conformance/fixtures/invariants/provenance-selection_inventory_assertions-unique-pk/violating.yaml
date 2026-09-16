@@ -1,0 +1,40 @@
+{
+  "invariant": "provenance.selection_inventory_assertions:unique:pk",
+  "rows": {
+    "provenance.selection_inventory_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "family": "[\"enum\",\"state_definition\"]",
+        "is_default": "[\"bool\",true]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_ids": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "scope_kind": "[\"enum\",\"package\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_kind": "[\"text\",\"value-1\"]",
+        "truth": "[\"enum\",\"true\"]"
+      },
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "family": "[\"enum\",\"state_definition\"]",
+        "is_default": "[\"bool\",true]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_ids": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
+        "scope_kind": "[\"enum\",\"package\"]",
+        "selection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_kind": "[\"text\",\"value-1\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

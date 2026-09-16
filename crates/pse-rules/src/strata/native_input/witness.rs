@@ -32,7 +32,11 @@ impl NativeWitness {
             .relation(&self.input.relation.qualified_name())
             .filter(|spec| spec.key == self.input.relation)
             .ok_or_else(|| internal("native source declaration absent"))?;
-        if !self.key_columns.is_empty() && self.key_columns.len() != spec.primary_key.len() {
+        if self
+            .key_columns
+            .as_ref()
+            .is_some_and(|keys| keys.len() != spec.primary_key.len())
+        {
             return Err(internal(
                 "native witness does not carry the complete source key",
             ));
@@ -64,9 +68,6 @@ pub(super) fn duplicate_keys(
     plan: LogicalPlan,
     target: &RelationSpec,
 ) -> Result<LogicalPlan, RuleError> {
-    if target.primary_key.is_empty() {
-        return Err(internal("native source needs a declared key"));
-    }
     let alias = unused_name(
         plan.schema()
             .fields()
@@ -103,7 +104,12 @@ fn require_key_values(
     session: &SnapshotSession,
 ) -> Result<LogicalPlan, RuleError> {
     let mut required = std::collections::BTreeSet::new();
-    for (actual, expected) in witness.key_columns.iter().zip(&source.primary_key) {
+    for (actual, expected) in witness
+        .key_columns
+        .iter()
+        .flatten()
+        .zip(&source.primary_key)
+    {
         if plan
             .schema()
             .field_with_unqualified_name(actual)
@@ -180,7 +186,7 @@ pub(super) async fn mapping(
         let source_plan = session.scan_role(&role)?;
         let plan = select_witness(&raw, witness, source_plan, source, &session, cancel).await?;
         let direct = direct_mapping(plan, output, columns, witness, source, registry, false)?;
-        let direct = if witness.key_columns.is_empty() {
+        let direct = if witness.key_columns.is_none() {
             let global = direct_mapping(
                 LogicalPlanBuilder::empty(true).build().map_err(engine)?,
                 output,
@@ -253,7 +259,7 @@ async fn select_witness(
     } else {
         raw.clone()
     };
-    let plan = if witness.key_columns.is_empty() {
+    let plan = if witness.key_columns.is_none() {
         LogicalPlanBuilder::from(selected)
             .alias("__native_values")
             .map_err(engine)?
@@ -261,7 +267,12 @@ async fn select_witness(
             .map_err(engine)?
     } else {
         let selected = require_key_values(selected, &source_plan, witness, source, session)?;
-        for (actual, expected) in witness.key_columns.iter().zip(&source.primary_key) {
+        for (actual, expected) in witness
+            .key_columns
+            .iter()
+            .flatten()
+            .zip(&source.primary_key)
+        {
             let actual = selected
                 .schema()
                 .field_with_unqualified_name(actual)
@@ -286,6 +297,7 @@ async fn select_witness(
             witness
                 .key_columns
                 .iter()
+                .flatten()
                 .map(|name| Column::new(Some("__native_values"), name))
                 .collect::<Vec<_>>(),
             source
@@ -299,7 +311,10 @@ async fn select_witness(
                 source_plan,
                 JoinType::LeftAnti,
                 keys,
-                None,
+                // An empty declared key denotes a singleton, so membership is
+                // existence of a source row. The native anti join needs an
+                // explicit true condition when there are no equality columns.
+                source.primary_key.is_empty().then(|| lit(true)),
                 NullEquality::NullEqualsNull,
             )
             .map_err(engine)?
@@ -329,18 +344,19 @@ fn direct_mapping(
     let target = registry
         .relation("provenance.constructed_supports")
         .ok_or_else(|| internal("native support mapping schema absent"))?;
-    let scope = witness.key_columns.is_empty();
+    let scope = witness.key_columns.is_none();
     let key = |names: Vec<(&str, Expr)>| {
         if scope {
-            lit(ScalarValue::Utf8(None))
+            lit(ScalarValue::FixedSizeBinary(32, None))
         } else {
-            scalar::key(names)
+            scalar::key(source.id, names)
         }
     };
     let output_key = if global {
-        lit(ScalarValue::Utf8(None))
+        lit(ScalarValue::FixedSizeBinary(32, None))
     } else {
         scalar::key(
+            output.id,
             output
                 .primary_key
                 .iter()
@@ -361,7 +377,7 @@ fn direct_mapping(
     let input_key = key(source
         .primary_key
         .iter()
-        .zip(&witness.key_columns)
+        .zip(witness.key_columns.iter().flatten())
         .map(|(name, source)| {
             (
                 *name,

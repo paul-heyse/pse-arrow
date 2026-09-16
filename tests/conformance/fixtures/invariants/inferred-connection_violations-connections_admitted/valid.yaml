@@ -1,0 +1,7 @@
+{
+  "invariant": "inferred.connection_violations:connections_admitted",
+  "rows": {
+    "inferred.connection_violations": []
+  },
+  "expected_keys": []
+}

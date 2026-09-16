@@ -1,0 +1,33 @@
+{
+  "invariant": "normalized.source_occurrences:foreign_key:document_id",
+  "rows": {
+    "authored.documents": [
+      {
+        "document_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "path": "[\"text\",\"value-1\"]",
+        "source_text": "[\"text\",\"value-1\"]"
+      }
+    ],
+    "normalized.source_occurrences": [
+      {
+        "document_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "field_path": "[\"text\",\"value-1\"]",
+        "lookup_name": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "owner_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "owner_kind": "[\"enum\",\"template\"]",
+        "source_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_row_ordinal": "[\"u64\",1]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"02020202020202020202020202020202\"]",
+      "[\"text\",\"value-1\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

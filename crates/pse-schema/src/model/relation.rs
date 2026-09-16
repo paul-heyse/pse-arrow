@@ -171,8 +171,9 @@ pub struct RelationDecl {
     pub derivation_granularity: Option<DerivationGranularity>,
     /// See [`RelationSpec::stability`].
     pub stability: Stability,
-    /// See [`RelationSpec::primary_key`].
-    pub primary_key: Vec<&'static str>,
+    /// Explicit ordered key declaration. `None` is undeclared; `Some(vec![])`
+    /// declares a singleton relation with at most one row.
+    pub primary_key: Option<Vec<&'static str>>,
     /// See [`RelationSpec::columns`].
     pub columns: Vec<FieldContract>,
     /// See [`RelationSpec::checks`].
@@ -198,7 +199,7 @@ impl RelationDecl {
             snapshot_class,
             derivation_granularity: None,
             stability: Stability::Evolving,
-            primary_key: Vec::new(),
+            primary_key: None,
             columns: Vec::new(),
             checks: std::collections::BTreeMap::new(),
             doc,
@@ -208,7 +209,7 @@ impl RelationDecl {
     /// The same declaration with `primary_key` set.
     #[must_use]
     pub fn pk(mut self, columns: &[&'static str]) -> Self {
-        self.primary_key = columns.to_vec();
+        self.primary_key = Some(columns.to_vec());
         self
     }
 

@@ -15,7 +15,15 @@ pub(super) fn populate(
     invalid: &mut Rows,
 ) {
     let relation = invariant.relation.as_str();
+    if super::alternatives::populate(invariant, valid, invalid)
+        || super::inference::populate(registry, invariant, valid, invalid)
+    {
+        return;
+    }
     match invariant.name.as_str() {
+        "connections_admitted" => {
+            valid.insert(relation.to_owned(), vec![]);
+        }
         "cardinality:continuous_detail" => {
             put(registry, valid, "authored.continuous_domains", 1);
             *invalid = valid.clone();
@@ -45,6 +53,11 @@ pub(super) fn populate(
         name if name.starts_with("check:terminal_") => terminal(invariant, valid, invalid),
         "check:positive_scale" => positive(invariant, "scale_to_canonical", valid, invalid),
         "check:positive_nominal" => positive(invariant, "nominal_magnitude", valid, invalid),
+        "nonnegative_cost" => {
+            set(valid, relation, "cost", Cell::F64(0.0));
+            *invalid = valid.clone();
+            set(invalid, relation, "cost", Cell::F64(-1.0));
+        }
         "check:ordered_bounds" => {
             set(valid, relation, "lower", Cell::F64(1.0));
             set(valid, relation, "upper", Cell::F64(2.0));
@@ -85,33 +98,43 @@ pub(super) fn populate(
         ),
         "closure:packages.dependencies_resolved" => packages(registry, valid, invalid),
         "closure:stoichiometry_species_in_phase" => stoichiometry(registry, valid, invalid),
-        "acyclic:parents" => {
-            let parent = match relation {
-                "authored.entities" => "parent_entity_id",
-                "authored.instances" => "parent_instance_id",
-                "authored.cases" => "parent_case_id",
-                "authored.model_revisions" => "parent_revision_id",
-                _ => panic!("uncovered parent relation {relation}"),
-            };
-            set(valid, relation, parent, Cell::Null);
-            *invalid = valid.clone();
-            set(invalid, relation, parent, id(1));
-        }
+        "acyclic:parents" => parents(relation, valid, invalid),
         name if name.starts_with("closure:target_owner:") => {
-            let column = name.strip_prefix("closure:target_owner:").unwrap();
-            let declarations = match column {
-                "symbol_decl_id" => "authored.template_symbols",
-                "equation_decl_id" => "authored.template_equations",
-                _ => panic!("uncovered target owner {column}"),
-            };
-            put(registry, valid, "authored.instances", 1);
-            put(registry, valid, declarations, 1);
-            *invalid = valid.clone();
-            set(invalid, declarations, "template_id", id(2));
+            target_owner(
+                registry,
+                name.strip_prefix("closure:target_owner:").unwrap(),
+                valid,
+                invalid,
+            );
         }
         name => panic!("missing explicit semantic fixture: {relation}:{name}"),
     }
 }
+fn parents(relation: &str, valid: &mut Rows, invalid: &mut Rows) {
+    let parent = match relation {
+        "authored.entities" => "parent_entity_id",
+        "authored.instances" => "parent_instance_id",
+        "authored.cases" => "parent_case_id",
+        "authored.model_revisions" => "parent_revision_id",
+        _ => panic!("uncovered parent relation {relation}"),
+    };
+    set(valid, relation, parent, Cell::Null);
+    *invalid = valid.clone();
+    set(invalid, relation, parent, id(1));
+}
+
+fn target_owner(registry: &Registry, column: &str, valid: &mut Rows, invalid: &mut Rows) {
+    let declarations = match column {
+        "symbol_decl_id" => "authored.template_symbols",
+        "equation_decl_id" => "authored.template_equations",
+        _ => panic!("uncovered target owner {column}"),
+    };
+    put(registry, valid, "authored.instances", 1);
+    put(registry, valid, declarations, 1);
+    *invalid = valid.clone();
+    set(invalid, declarations, "template_id", id(2));
+}
+
 fn positive(invariant: &InvariantSpec, column: &str, valid: &mut Rows, invalid: &mut Rows) {
     set(valid, &invariant.relation, column, Cell::F64(1.0));
     *invalid = valid.clone();
@@ -215,28 +238,41 @@ fn stoichiometry(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
 }
 
 fn terminal(invariant: &InvariantSpec, valid: &mut Rows, invalid: &mut Rows) {
+    use pse_relations::{
+        generated::{
+            enums::{FailureClass, FindingSeverity},
+            provenance::pass_records as record,
+        },
+        typed::CellCodec,
+    };
     let relation = invariant.relation.as_str();
     for (column, value) in [
         ("status", Cell::Enum("ok")),
         ("failure_class", Cell::Null),
-        ("finding_count", Cell::U64(0)),
+        ("finding_count", Cell::I64(0)),
         ("findings", Cell::List(vec![])),
         ("snapshot_out", Cell::Null),
         ("duration_ms", Cell::F64(1.0)),
     ] {
         set(valid, relation, column, value);
     }
-    let error = vec![
-        id(3),
-        Cell::Null,
-        Cell::Null,
-        Cell::Null,
-        Cell::Enum("error"),
-        Cell::List(vec![]),
-        Cell::text("{}"),
-        Cell::text("actual execution failure"),
-        Cell::List(vec![]),
-    ];
+    let error = record::ProvenancePassRecordsFieldFindingsItem {
+        finding_id: pse_ids::SemanticId::from_bytes([3; 16]),
+        subject_snapshot: None,
+        run_id: None,
+        check_id: None,
+        severity: FindingSeverity::Error,
+        subjects: vec![],
+        evidence: record::ProvenancePassRecordsFieldFindingsItemEvidence::from_execution(
+            record::ProvenancePassRecordsFieldFindingsItemEvidenceExecution {
+                failure_class: FailureClass::RuntimeInfrastructure,
+                diagnostic_code: None,
+                attempt_error: "actual execution failure".into(),
+            },
+        ),
+        message: "actual execution failure".into(),
+        next_steps: vec![],
+    };
     if matches!(
         invariant.name.as_str(),
         "check:terminal_cancel_class"
@@ -251,17 +287,17 @@ fn terminal(invariant: &InvariantSpec, valid: &mut Rows, invalid: &mut Rows) {
             "failure_class",
             Cell::Enum("runtime.infrastructure"),
         );
-        set(valid, relation, "finding_count", Cell::U64(1));
+        set(valid, relation, "finding_count", Cell::I64(1));
         set(
             valid,
             relation,
             "findings",
-            Cell::List(vec![Cell::Struct(error.clone())]),
+            Cell::List(vec![error.clone().into_cell()]),
         );
     }
     *invalid = valid.clone();
     match invariant.name.as_str() {
-        "check:terminal_count" => set(invalid, relation, "finding_count", Cell::U64(1)),
+        "check:terminal_count" => set(invalid, relation, "finding_count", Cell::I64(1)),
         "check:terminal_failure_class" => set(
             invalid,
             relation,
@@ -276,18 +312,18 @@ fn terminal(invariant: &InvariantSpec, valid: &mut Rows, invalid: &mut Rows) {
             Cell::Hash(pse_ids::ContentHash::from_bytes([9; 32])),
         ),
         "check:terminal_failure_finding" => {
-            set(invalid, relation, "finding_count", Cell::U64(0));
+            set(invalid, relation, "finding_count", Cell::I64(0));
             set(invalid, relation, "findings", Cell::List(vec![]));
         }
         "check:terminal_duration" => set(invalid, relation, "duration_ms", Cell::F64(-1.0)),
         "check:terminal_finding_origin" => {
             let mut warning = error;
-            warning[4] = Cell::Enum("warning");
+            warning.severity = FindingSeverity::Warning;
             set(
                 invalid,
                 relation,
                 "findings",
-                Cell::List(vec![Cell::Struct(warning)]),
+                Cell::List(vec![warning.into_cell()]),
             );
         }
         name => panic!("missing terminal witness: {name}"),

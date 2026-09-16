@@ -9,8 +9,9 @@ use crate::{
     mathir_relations::{RelationSource, SourceFamily},
     passes::native_construction::{append, c, error, join, prefix, project},
 };
+use datafusion::arrow::array::FixedSizeBinaryArray;
 use datafusion::{
-    arrow::array::{Array, StringArray},
+    arrow::array::Array,
     logical_expr::{JoinType, LogicalPlan, col},
 };
 use pse_catalog::session::{output::declare_relation_output, scalar};
@@ -139,6 +140,7 @@ impl Realizer<'_> {
             let mut plan = append(
                 plan,
                 [scalar::key(
+                    spec.id,
                     spec.primary_key
                         .iter()
                         .map(|name| (*name, col(*name)))
@@ -210,14 +212,17 @@ impl Realizer<'_> {
                     .batch()
                     .column(spec.columns.len())
                     .as_any()
-                    .downcast_ref::<StringArray>()
+                    .downcast_ref::<FixedSizeBinaryArray>()
                     .ok_or_else(|| invalid("input_graph source key storage differs"))?;
                 let mut support = Vec::new();
                 for row in 0..values.batch().num_rows() {
                     if keys.is_null(row) {
                         return Err(invalid("input_graph source key is null"));
                     }
-                    let origin = self.source_position(*key, keys.value(row))?;
+                    let origin = self.source_position(
+                        *key,
+                        &crate::passes::native_rows::key_value(keys.value(row))?,
+                    )?;
                     support.push(origin);
                     if graph {
                         for name in ["node_id", "parent_node_id"] {
@@ -274,7 +279,7 @@ impl Realizer<'_> {
                         .into_iter()
                         .map(|source| self.source_keys(&BTreeSet::from([source])))
                         .collect::<Result<Vec<_>, _>>()?;
-                    self.output.append_checked(values, |_, row| {
+                    self.output.append_checked(&values, |_, row| {
                         actual.get(row).cloned().ok_or_else(|| {
                             invalid("input_graph source/result correspondence absent")
                         })

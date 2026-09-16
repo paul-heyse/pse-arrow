@@ -6,7 +6,7 @@ use super::{Origins, invalid};
 use crate::{
     CompilerError,
     passes::{
-        native_outputs::SourceKey,
+        native_outputs::{GeneratedOutputs, OutputRows, SourceKey},
         native_rows::{AlgorithmInputs, Keyed, engine, keyed_rows, scan},
     },
 };
@@ -43,7 +43,11 @@ impl<'a> Support<'a> {
             arguments: AlgorithmInputs::new(session.reserver(), "P3:source-declarations"),
         }
     }
-    fn key(&self, spec: &RelationSpec, key: String) -> Result<SourceKey, CompilerError> {
+    fn key(
+        &self,
+        spec: &RelationSpec,
+        key: pse_ids::ContentHash,
+    ) -> Result<SourceKey, CompilerError> {
         let (port, _) = self
             .construction
             .sources
@@ -103,6 +107,7 @@ impl<'a> Support<'a> {
         }
         let plan = plan
             .project([scalar::key(
+                spec.id,
                 spec.primary_key
                     .iter()
                     .map(|name| (*name, col(*name)))
@@ -112,7 +117,7 @@ impl<'a> Support<'a> {
             .and_then(LogicalPlanBuilder::build)
             .map_err(engine)?;
         self.arguments
-            .strings(plan, self.session, self.cancel)
+            .keys(plan, self.session, self.cancel)
             .await?
             .into_iter()
             .map(|key| {
@@ -305,7 +310,7 @@ impl<'a> Support<'a> {
     pub(super) async fn packages(
         &mut self,
         output: &FieldCheckedBatch,
-    ) -> Result<Vec<Origins>, CompilerError> {
+    ) -> Result<GeneratedOutputs, CompilerError> {
         let spec = authored::packages::spec(self.session.registry())?;
         let headers = self.select::<authored::packages::Row>(Vec::new()).await?;
         let headers = headers
@@ -317,7 +322,12 @@ impl<'a> Support<'a> {
                 ))
             })
             .collect::<Result<BTreeMap<_, _>, CompilerError>>()?;
-        let mut result = Vec::new();
+        let mut result = OutputRows::new(
+            self.session.registry(),
+            self.session.reserver(),
+            self.cancel,
+        )?;
+        result.ensure::<normalized::package_graph::Row>()?;
         for row in normalized::package_graph::Row::rows(output)? {
             let mut seen = BTreeSet::new();
             let mut pending = vec![row.package_id];
@@ -338,8 +348,8 @@ impl<'a> Support<'a> {
                         .map(|dependency| dependency.package_id),
                 );
             }
-            result.push(origins);
+            result.push(row, &origins)?;
         }
-        Ok(result)
+        result.finish()
     }
 }

@@ -17,7 +17,15 @@ Version: 1. Snapshot class: `derived`. Primary key: `finding_id`.
 | `severity` | `enum:FindingSeverity` | false | `payload` | — | — |
 | `subjects` | `List` | false | `payload` | — | — |
 | `subjects.item` | `semantic_id` | false | `payload` | — | — |
-| `values` | `Utf8` | false | `payload` | — | — |
+| `evidence` | `Struct` | false | `payload` | — | — |
+| `evidence.kind` | `Utf8` | false | `payload` | — | — |
+| `evidence.row` | `Struct` | true | `payload` | — | — |
+| `evidence.row.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `evidence.row.row_key` | `content_hash` | false | `payload` | — | — |
+| `evidence.execution` | `Struct` | true | `payload` | — | — |
+| `evidence.execution.failure_class` | `enum:FailureClass` | false | `payload` | — | — |
+| `evidence.execution.diagnostic_code` | `Utf8` | true | `payload` | — | — |
+| `evidence.execution.attempt_error` | `Utf8` | false | `payload` | — | — |
 | `message` | `Utf8` | false | `payload` | — | — |
 | `next_steps` | `List` | false | `payload` | — | — |
 | `next_steps.item` | `Utf8` | false | `payload` | — | — |

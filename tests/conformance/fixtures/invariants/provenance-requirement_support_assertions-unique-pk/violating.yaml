@@ -1,0 +1,28 @@
+{
+  "invariant": "provenance.requirement_support_assertions:unique:pk",
+  "rows": {
+    "provenance.requirement_support_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requester_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_kind": "[\"enum\",\"seed\"]",
+        "truth": "[\"enum\",\"true\"]"
+      },
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requester_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_kind": "[\"enum\",\"seed\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

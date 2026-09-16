@@ -1,0 +1,32 @@
+{
+  "invariant": "authored.property_packages:closure:entity_fields",
+  "rows": {
+    "authored.entities": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"property_package\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_entity_id": "[\"null\",null]",
+        "qualified_name": "[\"text\",\"value-1\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]"
+      }
+    ],
+    "authored.property_packages": [
+      {
+        "bubble_dew_method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "include_enthalpy_of_formation": "[\"bool\",true]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "pressure_ref": "[\"f64\",\"3ff0000000000000\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_definition_method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "temperature_ref": "[\"f64\",\"3ff0000000000000\"]",
+        "unit_set_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -18,6 +18,64 @@ use pse_ids::CancellationToken;
 use std::{collections::BTreeMap, sync::Arc};
 
 impl SnapshotSession {
+    /// Bind an owned Arrow argument without advertising relation validity or keys.
+    /// Native field predicates check actual values under the caller's session. This
+    /// accepts co-located algorithm values and support without a positional side table.
+    /// # Errors
+    /// Empty/repeated role, invalid local fields/values, or cancellation.
+    pub async fn with_columnar_argument(
+        &self,
+        role: impl Into<String>,
+        batch: pse_ids::owned_buffer::OwnedRecordBatch,
+        cancel: &CancellationToken,
+    ) -> Result<Self, CatalogError> {
+        cancel.checkpoint()?;
+        let role = role.into();
+        if role.is_empty() || self.bindings.computation(&role).is_some() {
+            return Err(invalid("columnar argument role is empty or already bound"));
+        }
+        let mut scratch = self.reserver.open("session:columnar-argument-admission");
+        scratch.try_grow(pse_ids::validation_extent(&batch)?)?;
+        for field in batch.schema().fields() {
+            cancel.checkpoint()?;
+            super::admission::admit_field(&self.registry, field)
+                .map_err(super::snapshot_session::engine)?;
+        }
+        drop(scratch);
+        let table: Arc<dyn TableProvider> = Arc::new(super::materialized::MaterializedTable {
+            schema: batch.schema(),
+            batches: vec![batch],
+            defaults: BTreeMap::new(),
+            constraints: Constraints::default(),
+        });
+        let mut result = self.clone();
+        result
+            .bindings
+            .insert(
+                BindingKey::Computation(role.clone()),
+                TableBinding::new(
+                    TableReference::full("arguments", "columnar", role.clone()),
+                    table,
+                    None,
+                    None,
+                ),
+            )
+            .map_err(super::snapshot_session::engine)?;
+        let violations = crate::delta::admission::local_field_violations(
+            &self.registry,
+            result.scan_computation_role(&role)?,
+        )
+        .map_err(super::snapshot_session::engine)?;
+        let checked = result
+            .prepare_rule_plan(violations, cancel)?
+            .execute(cancel)
+            .await?;
+        if checked.batches().iter().any(|batch| batch.num_rows() != 0) {
+            return Err(invalid("columnar argument violates local field contracts"));
+        }
+        Ok(result)
+    }
+
     /// Bind complete native computations under explicit, non-replacing source roles.
     /// Their actual prepared schemas remain native intermediate schemas. This does
     /// not invent registry relations or claim PK/FK constraints for temporary data.

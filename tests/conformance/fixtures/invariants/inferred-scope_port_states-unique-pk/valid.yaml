@@ -1,0 +1,14 @@
+{
+  "invariant": "inferred.scope_port_states:unique:pk",
+  "rows": {
+    "inferred.scope_port_states": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "port_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "state_index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

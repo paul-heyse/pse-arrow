@@ -64,7 +64,7 @@ fn fixture() -> Fixture {
     Fixture::new(registry, vec![vec![Cell::U64(1)], vec![Cell::U64(2)]], 1)
 }
 
-fn witness(fixture: &Fixture, keys: Vec<String>) -> NativeWitness {
+fn witness(fixture: &Fixture, keys: Option<Vec<String>>) -> NativeWitness {
     NativeWitness {
         when: None,
         port: "actual_source".to_owned(),
@@ -103,6 +103,93 @@ fn source(fixture: &Fixture, bad_key: bool, conflict: bool) -> LogicalPlan {
 }
 
 #[tokio::test]
+async fn singleton_witness_requires_a_row_and_scope_remains_explicit() {
+    use datafusion::arrow::array::{Array, FixedSizeBinaryArray, StringArray};
+
+    for (source_rows, positive, output_rows, succeeds) in [
+        (0, true, 1, false),
+        (1, true, 1, true),
+        (0, false, 1, true),
+        (1, true, 2, false),
+        (1, true, 0, true),
+    ] {
+        let mut registry = builder();
+        let fields = vec![FieldContract::payload(
+            "value",
+            FieldContract::native(datafusion::arrow::datatypes::DataType::UInt32),
+            "Singleton value",
+        )];
+        input(&mut registry, fields.clone(), &[]);
+        head(
+            &mut registry,
+            "singleton",
+            "singleton_assertions",
+            &[],
+            fields,
+        );
+        let fixture = Fixture::new(registry, vec![vec![Cell::U64(7)]; source_rows], 1);
+        let target = fixture.registry.relation("inferred.singleton").unwrap();
+        let mut plan = LogicalPlanBuilder::empty(output_rows > 0)
+            .project([lit(9_u32).alias("value")])
+            .unwrap()
+            .build()
+            .unwrap();
+        if output_rows == 2 {
+            let second = LogicalPlanBuilder::empty(true)
+                .project([lit(10_u32).alias("value")])
+                .unwrap()
+                .build()
+                .unwrap();
+            plan = LogicalPlanBuilder::from(plan)
+                .union(second)
+                .unwrap()
+                .build()
+                .unwrap();
+        }
+        let result = NativeInput::build(
+            plan,
+            target.key,
+            SemanticId::NIL,
+            vec![("value".into(), "value".into())],
+            vec![witness(&fixture, positive.then(Vec::new))],
+            &fixture.session,
+            &CancellationToken::new(),
+        )
+        .await;
+        assert_eq!(
+            result.is_ok(),
+            succeeds,
+            "source={source_rows}, positive={positive}, output={output_rows}: {result:?}"
+        );
+        if let Ok(native) = result {
+            assert_eq!(native.batch().num_rows(), output_rows);
+            let mapping = native.support_mapping().batch();
+            let keys = mapping
+                .column_by_name("input_key")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .unwrap();
+            let kinds = mapping
+                .column_by_name("support_kind")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap();
+            if positive {
+                assert_eq!(mapping.num_rows(), output_rows);
+            } else {
+                assert!(mapping.num_rows() > 0);
+            }
+            for row in 0..mapping.num_rows() {
+                assert_eq!(keys.is_valid(row), positive);
+                assert_eq!(kinds.value(row) == "absence", !positive);
+            }
+        }
+    }
+}
+
+#[tokio::test]
 async fn native_output_without_embedded_derivation_retains_each_actual_source() {
     let fixture = fixture();
     let target = fixture.registry.relation("inferred.selected").unwrap();
@@ -111,7 +198,7 @@ async fn native_output_without_embedded_derivation_retains_each_actual_source() 
         target.key,
         SemanticId::NIL,
         vec![("id".into(), "id".into())],
-        vec![witness(&fixture, vec!["source:key".into()])],
+        vec![witness(&fixture, Some(vec!["source:key".into()]))],
         &fixture.session,
         &CancellationToken::new(),
     )
@@ -165,8 +252,8 @@ async fn native_construction_retains_exact_row_and_explicit_absence_support() {
             ("derivation_id".to_owned(), "ignored_placeholder".to_owned()),
         ],
         vec![
-            witness(&fixture, vec!["source:key".to_owned()]),
-            witness(&fixture, Vec::new()),
+            witness(&fixture, Some(vec!["source:key".to_owned()])),
+            witness(&fixture, None),
         ],
         &fixture.session,
         &CancellationToken::new(),
@@ -239,7 +326,7 @@ async fn native_construction_refuses_false_witnesses_and_conflicting_complete_ke
                     ("value".to_owned(), "value".to_owned()),
                     ("derivation_id".to_owned(), "ignored_placeholder".to_owned())
                 ],
-                vec![witness(&fixture, vec!["source:key".to_owned()])],
+                vec![witness(&fixture, Some(vec!["source:key".to_owned()]))],
                 &fixture.session,
                 &CancellationToken::new()
             )
@@ -264,7 +351,7 @@ async fn optional_witnesses_check_only_selected_rows_and_union_retains_all_branc
             .unwrap()
             .build()
             .unwrap();
-        let mut source = witness(&fixture, vec!["source:key".to_owned()]);
+        let mut source = witness(&fixture, Some(vec!["source:key".to_owned()]));
         source.when = Some(col("id").eq(lit(selected)));
         let native = NativeInput::build(
             plan,
@@ -275,7 +362,7 @@ async fn optional_witnesses_check_only_selected_rows_and_union_retains_all_branc
                 ("value".into(), "value".into()),
                 ("derivation_id".into(), "ignored".into()),
             ],
-            vec![source, witness(&fixture, Vec::new())],
+            vec![source, witness(&fixture, None)],
             &fixture.session,
             &CancellationToken::new(),
         )
@@ -291,7 +378,7 @@ async fn optional_witnesses_check_only_selected_rows_and_union_retains_all_branc
     assert!(predecessors.iter().all(|input| input.upgrade().is_none()));
     assert_eq!(union.batch().num_rows(), 2);
     assert_eq!(union.derivations().batch().num_rows(), 2);
-    let mut false_source = witness(&fixture, vec!["source:key".to_owned()]);
+    let mut false_source = witness(&fixture, Some(vec!["source:key".to_owned()]));
     false_source.when = Some(col("id").eq(lit(1_u32)));
     assert!(
         NativeInput::build(
@@ -332,9 +419,9 @@ async fn conditional_witness_ignores_unmatched_placeholder_and_checks_matched_va
         .unwrap()
         .build()
         .unwrap();
-    let mut first = witness(&fixture, vec!["choice_key".into()]);
+    let mut first = witness(&fixture, Some(vec!["choice_key".into()]));
     first.when = Some(col("id").eq(lit(1_u32)));
-    let mut second = witness(&fixture, vec!["value".into()]);
+    let mut second = witness(&fixture, Some(vec!["value".into()]));
     second.when = Some(col("id").eq(lit(2_u32)));
     let columns = vec![
         ("id".into(), "id".into()),
@@ -387,7 +474,7 @@ async fn distinct_native_source_roles_retain_their_actual_row_membership() {
                 target.key,
                 SemanticId::NIL,
                 vec![("id".into(), "id".into())],
-                vec![witness(&fixture, vec!["source:key".into()])],
+                vec![witness(&fixture, Some(vec!["source:key".into()]))],
                 &fixture.session,
                 &cancel,
             )
@@ -430,7 +517,7 @@ async fn distinct_native_source_roles_retain_their_actual_row_membership() {
                     relation: target.key,
                     location: RuleInputLocation::Native(Arc::clone(source)),
                 },
-                key_columns: vec!["id".into()],
+                key_columns: Some(vec!["id".into()]),
                 when: Some(col("branch").eq(lit(if false_witness {
                     2 - u32::try_from(index).unwrap()
                 } else {

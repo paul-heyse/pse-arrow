@@ -37,15 +37,14 @@ pub(super) async fn materialize(
         cancel,
     )?;
     let raw = session.scan_role("__native_derivation_values")?;
-    let derivation = if source
-        .columns
-        .iter()
-        .any(|column| column.role() == ColumnRole::Provenance && column.name() == "derivation_id")
-    {
-        col("derivation_id")
-    } else {
-        derivation_id(source, relational::key(source), pass_id, registry)?.alias("derivation_id")
-    };
+    let derivation =
+        if source.columns.iter().any(|column| {
+            column.role() == ColumnRole::Provenance && column.name() == "derivation_id"
+        }) {
+            col("derivation_id")
+        } else {
+            derivation_id(relational::key(source), pass_id, registry)?.alias("derivation_id")
+        };
     let null_rule = relational::declared_literal(
         registry,
         target

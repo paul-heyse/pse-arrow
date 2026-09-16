@@ -7,16 +7,14 @@ mod walk;
 use crate::{
     CompilerError,
     passes::{
-        native_construction::{
-            Plans, append, c, concat, error, filter, join, prefix, project, union,
-        },
+        native_construction::{Plans, c, concat, error, filter, join, prefix, project, union},
         native_outputs::Sources,
     },
 };
 use datafusion::{
     common::ScalarValue,
     functions_nested::expr_fn::array_length,
-    logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder, col, lit},
+    logical_expr::{Expr, JoinType, LogicalPlan, col, lit},
 };
 use pse_catalog::session::{SnapshotSession, scalar};
 use pse_ids::CancellationToken;

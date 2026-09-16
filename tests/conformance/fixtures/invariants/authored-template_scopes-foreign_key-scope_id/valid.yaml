@@ -1,0 +1,19 @@
+{
+  "invariant": "authored.template_scopes:foreign_key:scope_id",
+  "rows": {
+    "authored.scopes": [
+      {
+        "root_term_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.template_scopes": [
+      {
+        "name": "[\"text\",\"value-1\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

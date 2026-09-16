@@ -26,7 +26,7 @@ pub(super) fn documents(
     package: &authored::packages::Row,
     registry: &Registry,
 ) -> Result<Vec<authored::entities::Row>, AuthoringError> {
-    let mut rows = collect(documents, registry)?;
+    let mut rows = collect(documents)?;
     for row in &mut rows {
         context(row, package, registry)?;
     }
@@ -91,10 +91,7 @@ pub(super) fn documents(
     Ok(entities.into_values().collect())
 }
 
-fn collect(
-    documents: &mut [Document],
-    registry: &Registry,
-) -> Result<Vec<Pending>, AuthoringError> {
+fn collect(documents: &mut [Document]) -> Result<Vec<Pending>, AuthoringError> {
     let mut rows = Vec::new();
     for (index, document) in documents.iter_mut().enumerate() {
         let Value::Map(keys) = &document.value else {
@@ -128,9 +125,6 @@ fn collect(
             let Some(value) = document.value.get(section.key) else {
                 continue;
             };
-            let spec = registry
-                .relation(section.relation)
-                .ok_or_else(|| contract(None, "unregistered document relation"))?;
             let values = if section.repeated {
                 let Value::List(values) = value else {
                     return Err(contract(
@@ -157,7 +151,6 @@ fn collect(
                             .flatten()
                     })
                     .ok_or_else(|| contract(None, "parser did not retain a row span"))?;
-                document.row_spans.entry(spec.id).or_default().push(at);
                 rows.push(Pending {
                     document: index,
                     section: *section,

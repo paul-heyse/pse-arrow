@@ -88,7 +88,7 @@ impl<'a> Output<'a> {
         let mut sink = RelationSink::new(ctx.registry, Family::Inferred, ctx.reserver, ctx.cancel);
         pse_mathir::relations::emit_loaded(loaded, &mut sink)?;
         for batch in sink.into_batches()?.into_values() {
-            self.columns.append_checked(batch, |batch, row| {
+            self.columns.append_checked(&batch, |batch, row| {
                 let mut support = Support::new();
                 for field in ["node_id", "parent_node_id"] {
                     if let Some(id) = ordinal(batch, field, row)? {

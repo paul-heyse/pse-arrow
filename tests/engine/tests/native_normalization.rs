@@ -7,6 +7,7 @@ mod native_pipeline;
 #[path = "../../support/physical_source.rs"]
 mod physical_source;
 
+use datafusion::arrow::array::FixedSizeBinaryArray;
 use pse_authoring::{
     ParseBudget,
     document::{DocumentBundle, load_package_texts},
@@ -85,8 +86,32 @@ async fn conditional_equations_keep_declared_senses_branches_and_source_key() {
         sources[0].source_relation_id,
         authored::template_equations::RELATION_ID
     );
-    assert_eq!(sources[0].source_key.len(), 1);
-    assert_eq!(sources[0].source_key[0].semantic_id, Some(id(94)));
+    let authored = source(&fixture.registry, "if x > 0 then x <= 3 else x >= -2");
+    let declared = &authored.batches[&authored::template_equations::RELATION_ID];
+    assert_eq!(
+        authored::template_equations::Row::rows(declared).unwrap()[0].equation_decl_id,
+        id(94)
+    );
+    let keys = datafusion::execution::context::SessionContext::new()
+        .read_batch(declared.batch().clone())
+        .unwrap()
+        .select(vec![pse_catalog::session::scalar::key(
+            authored::template_equations::RELATION_ID,
+            vec![(
+                "equation_decl_id",
+                datafusion::logical_expr::col("equation_decl_id"),
+            )],
+        )])
+        .unwrap()
+        .collect()
+        .await
+        .unwrap();
+    let keys = keys[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<FixedSizeBinaryArray>()
+        .unwrap();
+    assert_eq!(sources[0].source_key.as_bytes(), keys.value(0));
     let equations = rows::<normalized::equation_nodes::Row>(&output, &fixture.registry);
     assert_eq!(equations.len(), 3);
     assert!(equations.iter().any(|row| row.sense == Some(Sense::Le)));

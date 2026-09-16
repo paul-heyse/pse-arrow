@@ -400,6 +400,11 @@ codegen-bootstrap *args:
     cargo xtask codegen {{ args }}
 
 [group('mutating')]
+[doc('Regenerate concrete invariant fixtures from the declared typed contracts')]
+conformance-fixtures:
+    cargo run --package pse-tests-conformance --example invariant_fixtures --locked {{ validate }}
+
+[group('mutating')]
 [doc('Accept pending insta snapshots')]
 snapshots-accept:
     cargo insta accept

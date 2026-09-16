@@ -1,0 +1,35 @@
+{
+  "invariant": "reference.method_parameters:foreign_key:natural_unit_id",
+  "rows": {
+    "reference.method_parameters": [
+      {
+        "indexed_by": "[\"list\",[]]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "natural_unit_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "required": "[\"bool\",true]"
+      }
+    ],
+    "reference.units": [
+      {
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "is_affine": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "offset_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale_to_canonical": "[\"f64\",\"3ff0000000000000\"]",
+        "symbol": "[\"text\",\"value-1\"]",
+        "system": "[\"text\",\"value-1\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "invariant": "reference.law_bindings:foreign_key:law_template_id",
+  "rows": {
+    "authored.templates": [
+      {
+        "default_initializer_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "default_scaler_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "idaes_class": "[\"text\",\"value-1\"]",
+        "kind": "[\"enum\",\"unit\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ],
+    "reference.law_bindings": [
+      {
+        "balance_enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "balance_member": "[\"text\",\"value-1\"]",
+        "expansion": "[\"enum\",\"conservation\"]",
+        "family": "[\"enum\",\"material\"]",
+        "law_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_family": "[\"enum\",\"material\"]",
+        "subject_kind": "[\"enum\",\"total\"]",
+        "subject_projection": "[\"enum\",\"identity\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

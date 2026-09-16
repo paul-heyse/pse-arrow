@@ -4,13 +4,9 @@
     "runtime.kernel_evaluation_outcomes": [
       {
         "evaluation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "outcome": "[\"enum\",\"success\"]",
-        "output_ordinal": "[\"u64\",1]",
-        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "reason_code": "[\"enum\",\"domain_violation\"]",
-        "row_ordinal": "[\"u64\",1]",
-        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "value": "[\"f64\",\"3ff0000000000000\"]"
+        "output_ordinal": "[\"i64\",1]",
+        "result": "[\"struct\",[[\"text\",\"domain_failure\"],[\"null\",null],[\"struct\",[[\"enum\",\"domain_violation\"],[\"id\",\"01010101010101010101010101010101\"],[\"id\",\"01010101010101010101010101010101\"]]]]]",
+        "row_ordinal": "[\"i64\",1]"
       }
     ]
   },

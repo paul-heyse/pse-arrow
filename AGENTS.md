@@ -32,7 +32,10 @@ outside this plan. Replace callers and delete predecessor code/data objects toge
 No compatibility path, historical-object migration, dual authority or transition
 period is required. Earlier plans and receipts are historical inputs. Full library
 eligibility remains in force. The maintainer works through Codex in one implementation
-stream. See [STATUS.md](STATUS.md).
+stream. Useful graph algorithms, including petgraph, remain eligible through typed
+Arrow inputs/results, native DataFusion execution and Delta publication. Graph
+materialization and reuse carry the same ownership and dependency contracts as
+other prepared algorithms. See [STATUS.md](STATUS.md).
 
 ## Start here, every session
 

@@ -1,0 +1,20 @@
+{
+  "invariant": "reference.quantity_operation_reductions:unique:pk",
+  "rows": {
+    "reference.quantity_operation_reductions": [
+      {
+        "domain_kind": "[\"enum\",\"time\"]",
+        "operation_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "domain_kind": "[\"enum\",\"time\"]",
+        "operation_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

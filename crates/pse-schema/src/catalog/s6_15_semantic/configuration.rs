@@ -183,9 +183,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("value", config_value_type()),
             column("source_relation_id", T::id())
                 .with_fk("reference.schema_relations", "relation_id"),
-            column("source_key", T::native(arrow_schema::DataType::Utf8)),
+            column("source_key", T::row_key()),
         ],
-        "Typed admitted assignment and exact reversible source key, including declaration defaults.",
+        "Typed admitted assignment and typed source key, including declaration defaults.",
     );
     derived(
         builder,
@@ -198,7 +198,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("source_instance_id", T::id()).optional(),
             column("source_name", T::native(arrow_schema::DataType::Utf8)),
             column("source_relation_id", T::id()),
-            column("source_key", T::native(arrow_schema::DataType::Utf8)),
+            column("source_key", T::row_key()),
         ],
         "Explicit same-instance or parent feature reference; an absent parent remains unknown.",
     );

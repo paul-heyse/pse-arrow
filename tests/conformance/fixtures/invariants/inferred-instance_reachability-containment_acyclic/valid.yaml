@@ -1,0 +1,13 @@
+{
+  "invariant": "inferred.instance_reachability:containment_acyclic",
+  "rows": {
+    "inferred.instance_reachability": [
+      {
+        "ancestor_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "descendant_id": "[\"id\",\"02020202020202020202020202020202\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

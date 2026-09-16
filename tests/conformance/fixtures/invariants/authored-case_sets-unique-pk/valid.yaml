@@ -7,7 +7,7 @@
         "case_set_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "generator_kind": "[\"enum\",\"grid\"]",
         "generator_params": "[\"list\",[]]",
-        "sample_count": "[\"u64\",1]",
+        "sample_count": "[\"i64\",1]",
         "seed": "[\"u64\",1]"
       }
     ]

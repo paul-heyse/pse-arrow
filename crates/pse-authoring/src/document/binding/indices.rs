@@ -7,7 +7,7 @@ use crate::{
     document::{Batches, load::contract},
 };
 use datafusion::{
-    arrow::array::{Array, BooleanArray, ListArray, StringArray},
+    arrow::array::{Array, BooleanArray, FixedSizeBinaryArray, ListArray, StringArray},
     common::Column,
     logical_expr::{Expr, JoinType, LogicalPlanBuilder, col, lit},
 };
@@ -15,7 +15,7 @@ use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, SemanticId};
 use std::collections::BTreeMap;
 
-pub(super) type IndexCompanions = BTreeMap<SemanticId, BTreeMap<String, Vec<String>>>;
+pub(super) type IndexCompanions = BTreeMap<SemanticId, BTreeMap<pse_ids::ContentHash, Vec<String>>>;
 fn field(alias: &str, name: &str) -> Expr {
     Expr::Column(Column::new(Some(alias), name))
 }
@@ -75,7 +75,7 @@ pub(super) async fn load(
             let keys = batch
                 .column(0)
                 .as_any()
-                .downcast_ref::<StringArray>()
+                .downcast_ref::<FixedSizeBinaryArray>()
                 .ok_or_else(|| contract(None, "companion key storage"))?;
             let matched = batch
                 .column(1)
@@ -99,7 +99,14 @@ pub(super) async fn load(
                 } else {
                     string_list(axes, row)?
                 };
-                if values.insert(keys.value(row).to_owned(), indices).is_some() {
+                if values
+                    .insert(
+                        pse_ids::ContentHash::try_from_slice(keys.value(row))
+                            .map_err(|error| contract(None, &error.to_string()))?,
+                        indices,
+                    )
+                    .is_some()
+                {
                     return Err(contract(None, "ambiguous source index companion"));
                 }
             }
@@ -133,6 +140,7 @@ fn companion_join(
     companion: &pse_schema::model::RelationSpec,
 ) -> Result<datafusion::logical_expr::LogicalPlan, AuthoringError> {
     let key = pse_catalog::session::scalar::key(
+        source.id,
         source
             .primary_key
             .iter()

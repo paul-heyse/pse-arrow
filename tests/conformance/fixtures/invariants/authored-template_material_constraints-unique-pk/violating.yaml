@@ -1,0 +1,26 @@
+{
+  "invariant": "authored.template_material_constraints:unique:pk",
+  "rows": {
+    "authored.template_material_constraints": [
+      {
+        "max_phases": "[\"u64\",1]",
+        "max_species": "[\"u64\",1]",
+        "min_phases": "[\"u64\",1]",
+        "min_species": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "max_phases": "[\"u64\",1]",
+        "max_species": "[\"u64\",1]",
+        "min_phases": "[\"u64\",1]",
+        "min_species": "[\"u64\",1]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

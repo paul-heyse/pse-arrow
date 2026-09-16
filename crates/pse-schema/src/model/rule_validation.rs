@@ -37,12 +37,12 @@ pub(crate) fn validate(
     let names: Vec<_> = match head {
         RuleHead::Relation(_) => target.columns.iter().map(FieldContract::name).collect(),
         RuleHead::Violations { key_columns, .. } => {
-            if key_columns.is_empty()
+            if (key_columns.is_empty() && !target.primary_key.is_empty())
                 || key_columns.iter().copied().collect::<BTreeSet<_>>().len() != key_columns.len()
             {
                 return Err(invalid(
                     rule,
-                    "a violations head needs distinct, nonempty key columns",
+                    "a violations head needs distinct keys; an empty key requires a singleton target",
                 ));
             }
             key_columns.clone()

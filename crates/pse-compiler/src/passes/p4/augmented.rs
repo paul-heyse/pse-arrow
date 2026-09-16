@@ -173,11 +173,13 @@ async fn merge_evidence(
                 relation: key,
                 location: RuleInputLocation::Completed(input),
             },
-            key_columns: target
-                .primary_key
-                .iter()
-                .map(|name| (*name).to_owned())
-                .collect(),
+            key_columns: Some(
+                target
+                    .primary_key
+                    .iter()
+                    .map(|name| (*name).to_owned())
+                    .collect(),
+            ),
             when: Some(col("__evidence_branch").eq(lit(index as u64))),
         });
     }

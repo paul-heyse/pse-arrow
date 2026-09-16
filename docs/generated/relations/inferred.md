@@ -1338,7 +1338,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `scope_id`.
 
 ## `rule_outcomes`
 
-Four-valued per-rule outcome; head keys use the validated reversible key codec.
+Four-valued per-rule outcome; head keys use the versioned typed key contract.
 
 Version: 1. Snapshot class: `derived`. Primary key: `rule_id, head_relation_id, head_key`.
 
@@ -1346,7 +1346,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `rule_id, head_relation_id, 
 |---|---|---|---|---|---|
 | `rule_id` | `semantic_id` | false | `key` | `reference.rule_specs.rule_id` | — |
 | `head_relation_id` | `semantic_id` | false | `key` | `reference.schema_relations.relation_id` | — |
-| `head_key` | `Utf8` | false | `key` | — | — |
+| `head_key` | `content_hash` | false | `key` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `reason` | `enum:RuleOutcomeReason` | false | `payload` | — | — |
 
@@ -1618,13 +1618,13 @@ Version: 1. Snapshot class: `derived`. Primary key: `undecided_id`.
 | `undecided_id` | `semantic_id` | false | `key` | — | — |
 | `rule_id` | `semantic_id` | false | `payload` | — | — |
 | `head_relation_id` | `semantic_id` | false | `payload` | — | — |
-| `key` | `Utf8` | false | `payload` | — | — |
+| `key` | `content_hash` | false | `payload` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `reason` | `Utf8` | false | `payload` | — | — |
 | `supporting` | `List` | false | `payload` | — | — |
 | `supporting.item` | `Struct` | false | `payload` | — | — |
 | `supporting.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `supporting.item.row_key` | `Utf8` | false | `payload` | — | — |
+| `supporting.item.row_key` | `content_hash` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `valid_index_tuples`

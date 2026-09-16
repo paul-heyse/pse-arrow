@@ -33,8 +33,6 @@ pub struct Document {
     pub content_hash: ContentHash,
     /// Exact original syntax node locations.
     pub spans: SpanIndex,
-    /// Original row spans in emitted relation row order.
-    pub row_spans: BTreeMap<SemanticId, Vec<SourceSpan>>,
     pub(super) declaration: DocumentSpec,
     pub(super) value: value::Value,
     pub(super) syntax: Arc<value::Value>,
@@ -257,7 +255,6 @@ pub(super) fn load_reusing(
             content_hash: pse_ids::encoding_checksum(text.as_bytes()).content_hash(),
             text,
             spans,
-            row_spans: BTreeMap::new(),
             declaration,
             value,
             syntax,

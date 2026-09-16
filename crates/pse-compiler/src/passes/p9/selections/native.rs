@@ -23,7 +23,7 @@ use crate::{
 pub(super) struct Candidate {
     pub requirement: inferred::property_requirements::Row,
     pub resolution: inferred::method_resolutions::Row,
-    pub resolution_key: String,
+    pub resolution_key: pse_ids::ContentHash,
     pub scope: inferred::state_scopes::Row,
     pub state: inferred::instances::Row,
     pub method: reference::method_specs::Row,
@@ -164,9 +164,10 @@ pub(super) async fn candidates(
     )
     .await?;
     let resolution_keys = owner
-        .strings(
+        .keys(
             LogicalPlanBuilder::from(joined.clone())
                 .project([pse_catalog::session::scalar::key(
+                    inferred::method_resolutions::RELATION_ID,
                     inferred::method_resolutions::spec(registry)?
                         .primary_key
                         .iter()

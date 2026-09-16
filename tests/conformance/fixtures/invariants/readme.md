@@ -14,7 +14,7 @@ validation, including explicit empty dependency relations.
 Refresh reviewed fixtures with:
 
 ```sh
-cargo run -p pse-tests-conformance --example invariant_fixtures --features pse-relations/force-validate
+just conformance-fixtures
 ```
 
 Verify with `just test-package pse-tests-conformance -p pse-relations --test invariant_fixtures`.

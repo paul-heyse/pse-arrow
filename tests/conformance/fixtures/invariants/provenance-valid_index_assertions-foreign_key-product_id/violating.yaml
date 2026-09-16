@@ -1,0 +1,25 @@
+{
+  "invariant": "provenance.valid_index_assertions:foreign_key:product_id",
+  "rows": {
+    "normalized.domain_products": [
+      {
+        "domain_ids": "[\"list\",[]]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "provenance.valid_index_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "product_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]",
+        "tuple": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

@@ -2,20 +2,6 @@
 
 # provenance relations
 
-## `algorithm_source_occurrences`
-
-Transient occurrences in retained generated algorithm output batches. The ordinal is construction bookkeeping, never a semantic key. The port selects one exact immutable source role; a relation identity alone cannot distinguish two roles using that declaration. Native plans calculate output keys from actual output columns and join source keys to exact bound sources before producing support. This declaration does not require publication of the transient batch.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `output_relation_id, constructed_row_ordinal, source_port, source_relation_id, source_key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `output_relation_id` | `semantic_id` | false | `key` | `reference.schema_relations.relation_id` | — |
-| `constructed_row_ordinal` | `UInt64` | false | `key` | — | — |
-| `source_port` | `Utf8` | false | `key` | — | — |
-| `source_relation_id` | `semantic_id` | false | `key` | `reference.schema_relations.relation_id` | — |
-| `source_key` | `Utf8` | false | `key` | — | — |
-
 ## `assertions`
 
 blueprint §6.13 authored expected evidence; excluded from semantic membership.
@@ -69,7 +55,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `mapping_id`.
 |---|---|---|---|---|---|
 | `mapping_id` | `semantic_id` | false | `key` | — | — |
 | `output_relation_id` | `semantic_id` | false | `payload` | — | — |
-| `output_key` | `Utf8` | true | `payload` | — | — |
+| `output_key` | `content_hash` | true | `payload` | — | — |
 | `input_port` | `Utf8` | false | `payload` | — | — |
 | `input_relation_id` | `semantic_id` | false | `payload` | — | — |
 | `input_selection` | `Struct` | true | `payload` | — | — |
@@ -87,7 +73,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `mapping_id`.
 | `input_selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
 | `input_selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `support_kind` | `enum:RuleSupportKind` | false | `payload` | — | — |
-| `input_key` | `Utf8` | true | `payload` | — | — |
+| `input_key` | `content_hash` | true | `payload` | — | — |
 
 ## `demand_active_read_assertions`
 
@@ -192,13 +178,13 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `derivation_id`.
 |---|---|---|---|---|---|
 | `derivation_id` | `semantic_id` | false | `key` | — | — |
 | `relation_id` | `semantic_id` | false | `payload` | — | — |
-| `row_key` | `Utf8` | false | `payload` | — | — |
+| `row_key` | `content_hash` | false | `payload` | — | — |
 | `rule_id` | `semantic_id` | true | `payload` | — | — |
 | `pass_id` | `semantic_id` | true | `payload` | — | — |
 | `supporting` | `List` | false | `payload` | — | — |
 | `supporting.item` | `Struct` | false | `payload` | — | — |
 | `supporting.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `supporting.item.row_key` | `Utf8` | false | `payload` | — | — |
+| `supporting.item.row_key` | `content_hash` | false | `payload` | — | — |
 | `snapshot_id` | `content_hash` | true | `payload` | — | — |
 | `fingerprint` | `content_hash` | true | `payload` | — | — |
 
@@ -637,7 +623,15 @@ Version: 2. Snapshot class: `sidecar`. Primary key: `pass_run_id`.
 | `findings.item.severity` | `enum:FindingSeverity` | false | `payload` | — | — |
 | `findings.item.subjects` | `List` | false | `payload` | — | — |
 | `findings.item.subjects.item` | `semantic_id` | false | `payload` | — | — |
-| `findings.item.values` | `Utf8` | false | `payload` | — | — |
+| `findings.item.evidence` | `Struct` | false | `payload` | — | — |
+| `findings.item.evidence.kind` | `Utf8` | false | `payload` | — | — |
+| `findings.item.evidence.row` | `Struct` | true | `payload` | — | — |
+| `findings.item.evidence.row.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `findings.item.evidence.row.row_key` | `content_hash` | false | `payload` | — | — |
+| `findings.item.evidence.execution` | `Struct` | true | `payload` | — | — |
+| `findings.item.evidence.execution.failure_class` | `enum:FailureClass` | false | `payload` | — | — |
+| `findings.item.evidence.execution.diagnostic_code` | `Utf8` | true | `payload` | — | — |
+| `findings.item.evidence.execution.attempt_error` | `Utf8` | false | `payload` | — | — |
 | `findings.item.message` | `Utf8` | false | `payload` | — | — |
 | `findings.item.next_steps` | `List` | false | `payload` | — | — |
 | `findings.item.next_steps.item` | `Utf8` | false | `payload` | — | — |
@@ -646,13 +640,13 @@ Version: 2. Snapshot class: `sidecar`. Primary key: `pass_run_id`.
 | `derivations.item` | `Struct` | false | `payload` | — | — |
 | `derivations.item.derivation_id` | `semantic_id` | false | `key` | — | — |
 | `derivations.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `derivations.item.row_key` | `Utf8` | false | `payload` | — | — |
+| `derivations.item.row_key` | `content_hash` | false | `payload` | — | — |
 | `derivations.item.rule_id` | `semantic_id` | true | `payload` | — | — |
 | `derivations.item.pass_id` | `semantic_id` | true | `payload` | — | — |
 | `derivations.item.supporting` | `List` | false | `payload` | — | — |
 | `derivations.item.supporting.item` | `Struct` | false | `payload` | — | — |
 | `derivations.item.supporting.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `derivations.item.supporting.item.row_key` | `Utf8` | false | `payload` | — | — |
+| `derivations.item.supporting.item.row_key` | `content_hash` | false | `payload` | — | — |
 | `derivations.item.snapshot_id` | `content_hash` | true | `payload` | — | — |
 | `derivations.item.fingerprint` | `content_hash` | true | `payload` | — | — |
 
@@ -895,7 +889,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `edge_id`.
 | `assertion_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
 | `assertion_id` | `semantic_id` | false | `payload` | — | — |
 | `head_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
-| `head_key` | `Utf8` | false | `payload` | — | — |
+| `head_key` | `content_hash` | false | `payload` | — | — |
 | `input_port` | `Utf8` | false | `payload` | — | — |
 | `input_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
 | `input_selection` | `Struct` | true | `payload` | — | — |
@@ -913,7 +907,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `edge_id`.
 | `input_selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
 | `input_selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `support_kind` | `enum:RuleSupportKind` | false | `payload` | — | — |
-| `input_key` | `Utf8` | true | `payload` | — | — |
+| `input_key` | `content_hash` | true | `payload` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 
 ## `scope_assertions`

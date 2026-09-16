@@ -6,7 +6,7 @@ use super::{
     Configuration, Origins, invalid,
     native::{self, engine},
 };
-use crate::CompilerError;
+use crate::{CompilerError, passes::native_outputs::OutputRows};
 use datafusion::{
     arrow::array::{Array, FixedSizeBinaryArray},
     common::{Column, NullHandling, ScalarValue, UnnestOptions},
@@ -15,7 +15,7 @@ use datafusion::{
 };
 use pse_ids::{SemanticId, named_id};
 use pse_relations::{
-    columnar::{Collection, RelationRow},
+    columnar::RelationRow,
     generated::{
         authored,
         enums::{DomainBindingSource, DomainKind},
@@ -152,8 +152,7 @@ pub(super) async fn bind(
         .await?;
     config.generated_domains.insert(domain, generated);
     let mut ordinal = 0_u32;
-    let mut members = Collection::new(config.registry, config.reserver, config.cancel);
-    let mut member_origins = Vec::new();
+    let mut members = OutputRows::new(config.registry, config.reserver, config.cancel)?;
     members.ensure::<authored::domain_members::Row>()?;
     for batch in completed.batches() {
         let arrays = [0, 1, 2].map(|position| {
@@ -173,23 +172,31 @@ pub(super) async fn bind(
                 identity(element, row)?,
             );
             let origins = coordinate_origins(config, &system, &system_origins, coordinates).await?;
-            members.push(emit_member(
-                config,
-                domain,
-                system.material_system_id,
-                ordinal,
-                coordinates,
-                origins.clone(),
-            )?)?;
-            member_origins.push(origins);
+            members.push(
+                emit_member(
+                    config,
+                    domain,
+                    system.material_system_id,
+                    ordinal,
+                    coordinates,
+                    &origins,
+                )?,
+                &origins,
+            )?;
             ordinal = ordinal
                 .checked_add(1)
                 .ok_or_else(|| invalid("material domain ordinal exceeds u32"))?;
         }
     }
-    for (_, batch) in members.finish()? {
-        config.remember_generated(&batch, &member_origins).await?;
-        config.merge_generated(batch).await?;
+    for (key, batch) in members.finish()?.columns {
+        config.remember_generated(key, &batch).await?;
+        let spec = config
+            .registry
+            .relation_by_key(key)
+            .ok_or_else(|| invalid("generated member declaration absent"))?;
+        config
+            .merge_generated(batch.payload(config.registry, spec)?)
+            .await?;
     }
     Ok(domain)
 }
@@ -344,7 +351,7 @@ fn emit_member(
     system: SemanticId,
     ordinal: u32,
     (phase, species, element): (Option<SemanticId>, Option<SemanticId>, Option<SemanticId>),
-    origins: Origins,
+    origins: &Origins,
 ) -> Result<authored::domain_members::Row, CompilerError> {
     let member = if let Some(element) = element {
         named_id(domain, &format!("member:element:{}", element.to_hex()))
@@ -379,7 +386,7 @@ fn emit_member(
             phase.or(species).or(element)
         },
     };
-    config.push(
+    config.columns.push(
         normalized::material_domain_members::Row {
             domain_id: domain,
             member_id: member,

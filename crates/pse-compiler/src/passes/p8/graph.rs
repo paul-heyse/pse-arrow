@@ -13,8 +13,9 @@ use crate::{
         native_rows::AlgorithmInputs,
     },
 };
+use datafusion::arrow::array::FixedSizeBinaryArray;
 use datafusion::{
-    arrow::array::{Array, StringArray},
+    arrow::array::Array,
     logical_expr::{JoinType, col},
 };
 use pse_catalog::session::{SnapshotSession, output::declare_relation_projection, scalar};
@@ -109,6 +110,7 @@ pub(super) async fn inputs(
         let mut plan = append(
             session.scan_role("P8:graph-input")?,
             [scalar::key(
+                spec.id,
                 spec.primary_key
                     .iter()
                     .map(|name| (*name, col(*name)))
@@ -155,7 +157,7 @@ pub(super) async fn inputs(
                 .batch()
                 .column(spec.columns.len())
                 .as_any()
-                .downcast_ref::<StringArray>()
+                .downcast_ref::<FixedSizeBinaryArray>()
                 .ok_or_else(|| invalid("graph source key storage differs"))?;
             let mut support = Vec::new();
             for row in 0..values.batch().num_rows() {
@@ -165,7 +167,7 @@ pub(super) async fn inputs(
                 let source = crate::passes::native_outputs::SourceKey {
                     relation: spec.key,
                     port: role.clone(),
-                    key: keys.value(row).to_owned(),
+                    key: crate::passes::native_rows::key_value(keys.value(row))?,
                 };
                 if graph {
                     for field in ["node_id", "parent_node_id"] {
@@ -192,7 +194,7 @@ pub(super) async fn inputs(
                 support.push(BTreeSet::from([source]));
             }
             if !graph {
-                output.columns.append_checked(values, |_, row| {
+                output.columns.append_checked(&values, |_, row| {
                     support
                         .get(row)
                         .cloned()

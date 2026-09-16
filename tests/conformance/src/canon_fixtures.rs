@@ -15,6 +15,7 @@ use datafusion::arrow::{
         StringArray, StructArray, UInt64Array,
     },
     buffer::{NullBuffer, OffsetBuffer, ScalarBuffer},
+    compute::cast,
     datatypes::{DataType, Int32Type},
 };
 use pse_catalog::{EncodingPolicy, RelationContract};
@@ -80,6 +81,9 @@ pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, RelationContract, Reco
         )
         .expect("dictionary"),
     );
+    // Arrow decodes external dictionary encoding before exact admission to the
+    // canonical Utf8 enum declaration; dictionary storage is not a PSE enum form.
+    let choice = cast(dictionary.as_ref(), &DataType::Utf8).expect("native dictionary decode");
     let DataType::List(child) = fields.field(3).data_type() else {
         panic!("list");
     };
@@ -117,7 +121,7 @@ pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, RelationContract, Reco
     );
     let batch = RecordBatch::try_new(
         fields,
-        vec![source.column(0).clone(), float, dictionary, list, structure],
+        vec![source.column(0).clone(), float, choice, list, structure],
     )
     .expect("physical fixture");
     pse_relations::validate::validate_batch(&reg, spec, &batch).expect("actual value admission");

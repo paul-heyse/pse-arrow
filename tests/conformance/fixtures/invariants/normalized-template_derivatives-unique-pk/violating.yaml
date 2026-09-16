@@ -1,0 +1,20 @@
+{
+  "invariant": "normalized.template_derivatives:unique:pk",
+  "rows": {
+    "normalized.template_derivatives": [
+      {
+        "order": "[\"u64\",1]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "order": "[\"u64\",1]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

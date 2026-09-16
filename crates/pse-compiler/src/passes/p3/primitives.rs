@@ -74,7 +74,7 @@ pub(super) async fn emit(
             vec![NativeWitness {
                 port: port.clone(),
                 input: input.clone(),
-                key_columns,
+                key_columns: Some(key_columns),
                 when: None,
             }],
             session,

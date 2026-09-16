@@ -23,7 +23,7 @@ use pse_relations::{
 use pse_rules::strata::native_input::NativeInput;
 use pse_schema::{
     Registry,
-    model::{Cell, ExpressionOwnerKind, PassSpec, RelationKey},
+    model::{ExpressionOwnerKind, PassSpec, RelationKey},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -126,7 +126,7 @@ pub(super) async fn emit(
         // The complete source result enters native witness matching once, after
         // construction, instead of retaining a computation per expression/table.
         for batch in columns.into_values().chain(reads.into_values()) {
-            output.append_checked(batch, |_, _| Ok(origins.clone()))?;
+            output.append_checked(&batch, |_, _| Ok(origins.clone()))?;
         }
         offsets.insert(prefix, next);
     }
@@ -145,13 +145,9 @@ pub(super) async fn emit(
         .get(&authored::packages::RELATION_ID)
         .ok_or_else(|| invalid("package input absent"))?;
     let package_graph = pse_authoring::p0::resolve(packages, session, cancel).await?;
-    let package_origins = support.packages(&package_graph).await?;
-    output.append_checked(package_graph, |_, row| {
-        package_origins
-            .get(row)
-            .cloned()
-            .ok_or_else(|| invalid("package graph source occurrence absent"))
-    })?;
+    for (key, supported) in support.packages(&package_graph).await?.columns {
+        output.append_supported(key, supported)?;
+    }
     provenance::materialize(output.finish()?, construction, pass, session, cancel).await
 }
 
@@ -192,7 +188,6 @@ fn emit_source(
         lowered.syntax,
         lowered.root,
         derivation,
-        registry,
     )?)?;
     for row in lowered.predicates {
         columns.push(row)?;
@@ -230,67 +225,12 @@ fn source_row(
     syntax: &str,
     root: u64,
     derivation: SemanticId,
-    registry: &Registry,
 ) -> Result<normalized::expression_sources::Row, CompilerError> {
-    use normalized::expression_sources::NormalizedExpressionSourcesFieldSourceKeyItem as Key;
-    let spec = registry
-        .relation_by_id(source.relation_id)
-        .ok_or_else(|| invalid("source relation absent"))?;
-    if spec.primary_key.len() != source.row_key.len() {
-        return Err(invalid("source primary key width differs"));
-    }
-    let mut keys = Vec::new();
-    for (name, value) in spec.primary_key.iter().zip(&source.row_key) {
-        let column = spec
-            .column(name)
-            .ok_or_else(|| invalid("source key column absent"))?;
-        let logical = registry
-            .logical_type(
-                &column
-                    .value_type()
-                    .type_name()
-                    .map_err(|e| invalid(&e.to_string()))?,
-            )
-            .ok_or_else(|| invalid("source key type absent"))?;
-        let mut key = Key {
-            column_name: (*name).to_owned(),
-            logical_type_id: logical.id,
-            semantic_id: None,
-            content_hash: None,
-            text: None,
-            signed_integer: None,
-            unsigned_integer: None,
-            boolean: None,
-            index_tuple: None,
-        };
-        match value {
-            Cell::Id(value) => key.semantic_id = Some(*value),
-            Cell::Hash(value) => key.content_hash = Some(*value),
-            Cell::Text(value) => key.text = Some(value.clone()),
-            Cell::Enum(value) => key.text = Some((*value).to_owned()),
-            Cell::I64(value) => key.signed_integer = Some(*value),
-            Cell::U64(value) => key.unsigned_integer = Some(*value),
-            Cell::Bool(value) => key.boolean = Some(*value),
-            Cell::List(values) => {
-                key.index_tuple = Some(
-                    values
-                        .iter()
-                        .map(|value| match value {
-                            Cell::Id(value) => Ok(*value),
-                            _ => Err(invalid("source index key contains a non-identity")),
-                        })
-                        .collect::<Result<_, _>>()?,
-                );
-            }
-            _ => return Err(invalid("source key has an inadmissible value kind")),
-        }
-        keys.push(key);
-    }
     Ok(normalized::expression_sources::Row {
         source_id: id,
         family: family.parse()?,
         source_relation_id: source.relation_id,
-        source_key: keys,
+        source_key: source.row_key,
         field_path: source.document_path.clone(),
         owner_template_id: (source.owner_kind == ExpressionOwnerKind::Template)
             .then_some(source.owner_id),

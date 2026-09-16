@@ -4,6 +4,8 @@
 //! Shared native computations keep actual payloads and each source occurrence.
 #[path = "support/strata_fixture.rs"]
 mod fixture;
+#[path = "support/row_key.rs"]
+mod row_key;
 
 use fixture::{Fixture, builder, declare, head, id, input};
 use pse_schema::model::{
@@ -104,11 +106,9 @@ async fn joined_fanout_keeps_qualified_columns_and_every_actual_witness() {
         for port in ["left", "right"] {
             for row in &rows {
                 expected.insert((
-                    pse_rules::derivations::encode_key(rule, &fixture.registry, &[Cell::U64(id)])
-                        .unwrap(),
+                    row_key::rule(rule, &fixture.registry, &[Cell::U64(id)]).await,
                     port.to_owned(),
-                    pse_rules::derivations::encode_relation_key(source, &fixture.registry, row)
-                        .unwrap(),
+                    row_key::relation(source, &fixture.registry, row).await,
                 ));
             }
         }
@@ -120,27 +120,25 @@ async fn joined_fanout_keeps_qualified_columns_and_every_actual_witness() {
         .map(|row| {
             assert_eq!(row[7], Cell::Id(source.id));
             assert_eq!(row[9], Cell::Enum("facts"));
-            let (Cell::Text(output), Cell::Text(port), Cell::Text(input)) =
+            let (Cell::Hash(output), Cell::Text(port), Cell::Hash(input)) =
                 (&row[5], &row[6], &row[10])
             else {
-                panic!("support keys must be text")
+                panic!("support keys must be typed tokens")
             };
-            (output.clone(), port.clone(), input.clone())
+            (*output, port.clone(), *input)
         })
         .collect();
     assert_eq!(expected, actual);
     let declaration = fixture.registry.relation("provenance.derivations").unwrap();
-    let mut source_keys = rows
-        .iter()
-        .map(|row| {
-            pse_rules::derivations::encode_relation_key(source, &fixture.registry, row).unwrap()
-        })
-        .collect::<Vec<_>>();
+    let mut source_keys = vec![];
+    for row in &rows {
+        source_keys.push(row_key::relation(source, &fixture.registry, row).await);
+    }
     source_keys.sort();
     let ordered_support = Cell::List(
         source_keys
             .into_iter()
-            .map(|key| Cell::Struct(vec![Cell::Id(source.id), Cell::Text(key)]))
+            .map(|key| Cell::Struct(vec![Cell::Id(source.id), Cell::Hash(key)]))
             .collect(),
     );
     let derivations = result
@@ -254,5 +252,5 @@ async fn empty_shared_lookup_keeps_its_exact_negative_scope() {
         .find(|row| row[6] == Cell::Text("actual".into()))
         .unwrap();
     assert_eq!(actual[9], Cell::Enum("facts"));
-    assert!(matches!(actual[10], Cell::Text(_)));
+    assert!(matches!(actual[10], Cell::Hash(_)));
 }

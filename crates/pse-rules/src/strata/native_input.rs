@@ -14,7 +14,7 @@ use crate::{
     RuleError,
     errmap::{engine, internal},
 };
-use datafusion_expr::{Expr, LogicalPlan, LogicalPlanBuilder, col, lit};
+use datafusion_expr::{Expr, LogicalPlan, LogicalPlanBuilder, col};
 use pse_catalog::session::{SnapshotSession, output::declare_relation_output, scalar};
 use pse_ids::{CancellationToken, ReservationLease, SemanticId};
 use pse_relations::columnar::FieldCheckedBatch;
@@ -29,11 +29,12 @@ pub struct NativeWitness {
     /// Actual immutable source member or completed native source.
     pub input: LocatedRuleInput,
     /// Completed-plan columns in the source declaration's primary-key order.
-    /// Empty explicitly records a complete read scope (for absence/invalidation),
-    /// and does not substitute for row support where exact rows are required.
-    pub key_columns: Vec<String>,
+    /// `Some` requires actual row membership, including `Some(vec![])` for an
+    /// explicitly declared singleton key. `None` records a complete read scope
+    /// for absence/invalidation; it never substitutes for positive row support.
+    pub key_columns: Option<Vec<String>>,
     /// Native condition selecting rows that carry this exact witness. Omitted
-    /// witnesses are not inferred from nullable keys. A separate zero-key witness
+    /// witnesses are not inferred from nullable keys. A separate read-scope witness
     /// explicitly retains a complete source read scope for absence/invalidation.
     pub when: Option<Expr>,
 }
@@ -217,6 +218,7 @@ fn output_columns(
     registry: &pse_schema::Registry,
 ) -> Result<Vec<Expr>, RuleError> {
     let key = scalar::key(
+        target.id,
         target
             .primary_key
             .iter()
@@ -229,7 +231,7 @@ fn output_columns(
             })
             .collect::<Result<Vec<_>, _>>()?,
     );
-    let derivation = derivation_id(target, key, pass, registry)?;
+    let derivation = derivation_id(key, pass, registry)?;
     Ok(columns
         .iter()
         .zip(&target.columns)
@@ -248,18 +250,11 @@ fn output_columns(
 /// One derivation identity for both embedded provenance and external support heads.
 /// The key is calculated from the actual output, never from its execution position.
 fn derivation_id(
-    target: &RelationSpec,
     key: Expr,
     pass: SemanticId,
     registry: &pse_schema::Registry,
 ) -> Result<Expr, RuleError> {
-    let name = target.key.qualified_name();
-    let payload = Expr::BinaryExpr(datafusion_expr::expr::BinaryExpr::new(
-        Box::new(lit(format!("{}:{name}:", name.len()))),
-        datafusion_expr::Operator::StringConcat,
-        Box::new(key),
-    ));
-    Ok(scalar::named_id(relational::id(pass, registry)?, payload))
+    Ok(scalar::named_id(relational::id(pass, registry)?, key))
 }
 
 fn receipt_extent(
@@ -273,7 +268,7 @@ fn receipt_extent(
             .checked_add(size_of::<NativeWitness>())
             .and_then(|n| n.checked_add(witness.port.capacity()))
             .ok_or_else(|| internal("native witness metadata extent overflow"))?;
-        for key in &witness.key_columns {
+        for key in witness.key_columns.iter().flatten() {
             bytes = bytes
                 .checked_add(size_of::<String>())
                 .and_then(|n| n.checked_add(key.capacity()))

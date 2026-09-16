@@ -11,7 +11,7 @@ use crate::{
     },
 };
 use datafusion::{
-    arrow::array::{Array, Float64Array, StringArray},
+    arrow::array::{Array, FixedSizeBinaryArray, Float64Array},
     functions::core::expr_fn::coalesce,
     logical_expr::{JoinType, LogicalPlanBuilder, col, lit},
 };
@@ -70,6 +70,7 @@ pub(super) async fn emit(
         .collect::<Vec<_>>();
     fields.extend([
         scalar::key(
+            edge_spec.id,
             edge_spec
                 .primary_key
                 .iter()
@@ -78,6 +79,7 @@ pub(super) async fn emit(
         )
         .alias("edge_key"),
         scalar::key(
+            connection_spec.id,
             connection_spec
                 .primary_key
                 .iter()
@@ -108,13 +110,13 @@ pub(super) async fn emit(
         let edge_keys = batch
             .column(width)
             .as_any()
-            .downcast_ref::<StringArray>()
-            .ok_or_else(|| invalid("topology source key is not Utf8"))?;
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .ok_or_else(|| invalid("topology source key is not a typed key"))?;
         let connection_keys = batch
             .column(width + 1)
             .as_any()
-            .downcast_ref::<StringArray>()
-            .ok_or_else(|| invalid("connection source key is not Utf8"))?;
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .ok_or_else(|| invalid("connection source key is not a typed key"))?;
         let costs = batch
             .column(width + 2)
             .as_any()
@@ -147,10 +149,13 @@ pub(super) async fn emit(
                 return Err(invalid("one connection produced multiple unit graph edges"));
             }
             nodes.extend([edge.from_instance_id, edge.to_instance_id]);
-            support.insert((edge_spec.key, edge_keys.value(position).to_owned()));
+            support.insert((
+                edge_spec.key,
+                crate::passes::native_rows::key_value(edge_keys.value(position))?,
+            ));
             support.insert((
                 connection_spec.key,
-                connection_keys.value(position).to_owned(),
+                crate::passes::native_rows::key_value(connection_keys.value(position))?,
             ));
         }
     }

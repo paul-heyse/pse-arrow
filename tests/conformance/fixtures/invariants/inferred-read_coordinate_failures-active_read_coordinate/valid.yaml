@@ -1,0 +1,8 @@
+{
+  "invariant": "inferred.read_coordinate_failures:active_read_coordinate",
+  "rows": {
+    "inferred.predicate_outcomes": [],
+    "inferred.read_coordinate_failures": []
+  },
+  "expected_keys": []
+}

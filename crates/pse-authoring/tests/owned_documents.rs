@@ -109,7 +109,6 @@ fn owned_loader_matches_actual_rows_and_spans_and_retains_only_shared_owners() {
     for (actual, expected) in owned.bundle().documents.iter().zip(&ordinary.documents) {
         assert_eq!(actual.text, expected.text);
         assert_eq!(actual.spans, expected.spans);
-        assert_eq!(actual.row_spans, expected.row_spans);
     }
     let retained = budget.inner.reserved();
     assert!(retained > 0);

@@ -58,17 +58,15 @@ pub(super) fn field_value(
     depth: usize,
 ) -> Result<Expr> {
     let mut checks = vec![];
+    if let Some(reference) =
+        pse_schema::model::ReferenceContract::from_field(field).map_err(external)?
+    {
+        checks.push(super::references::presence(&reference, &value));
+    }
     if let Some(collection) =
         pse_schema::model::CollectionContract::from_field(field).map_err(external)?
     {
-        let length = array_length(value.clone());
-        checks.push(length.clone().gt_eq(lit(collection.minimum)));
-        if let Some(maximum) = collection.maximum {
-            checks.push(length.clone().lt_eq(lit(maximum)));
-        }
-        if collection.unique {
-            checks.push(length.eq(array_length(array_distinct(value.clone()))));
-        }
+        checks.push(collection_value(collection, value.clone()));
     }
     if let Some(alternative) =
         pse_schema::model::TaggedAlternative::from_field(field).map_err(external)?
@@ -155,6 +153,18 @@ pub(super) fn field_value(
     } else {
         value.is_not_null().and(valid)
     })
+}
+
+fn collection_value(collection: pse_schema::model::CollectionContract, value: Expr) -> Expr {
+    let length = array_length(value.clone());
+    let mut checks = vec![length.clone().gt_eq(lit(collection.minimum))];
+    if let Some(maximum) = collection.maximum {
+        checks.push(length.clone().lt_eq(lit(maximum)));
+    }
+    if collection.unique {
+        checks.push(length.eq(array_length(array_distinct(value))));
+    }
+    all(checks)
 }
 
 fn storage_value(registry: &Registry, ty: &DataType, value: Expr, depth: usize) -> Result<Expr> {

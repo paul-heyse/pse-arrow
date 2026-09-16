@@ -1,0 +1,12 @@
+{
+  "invariant": "authored.template_derivatives:unique:pk",
+  "rows": {
+    "authored.template_derivatives": [
+      {
+        "order": "[\"u64\",1]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

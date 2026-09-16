@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use datafusion::{
-    arrow::array::{Array, BooleanArray, FixedSizeBinaryArray, ListArray, StringArray},
+    arrow::array::{Array, BooleanArray, FixedSizeBinaryArray, ListArray},
     functions::core::expr_fn::coalesce,
     functions_aggregate::expr_fn::count,
     functions_nested::expr_fn::array_length,
@@ -290,7 +290,7 @@ impl<'a> ParameterIndexProjector<'a> {
                 let keys = batch
                     .column(position + 2)
                     .as_any()
-                    .downcast_ref::<StringArray>()
+                    .downcast_ref::<FixedSizeBinaryArray>()
                     .ok_or_else(|| invalid("parameter source key storage differs"))?;
                 // A material row is used only for phase/species coordinates. The
                 // source key was nullable at the native left-join boundary.
@@ -300,7 +300,10 @@ impl<'a> ParameterIndexProjector<'a> {
                     }
                     return Err(invalid("parameter source key is absent"));
                 }
-                sources.push((*relation, keys.value(0).to_owned()));
+                sources.push((
+                    *relation,
+                    crate::passes::native_rows::key_value(keys.value(0))?,
+                ));
             }
         }
         Ok(ProjectedIndex {
@@ -334,6 +337,7 @@ impl<'a> ParameterIndexProjector<'a> {
             append(
                 plan,
                 [scalar::key(
+                    spec.id,
                     spec.primary_key
                         .iter()
                         .map(|name| (*name, col(*name)))

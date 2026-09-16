@@ -53,7 +53,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("field_path", T::native(arrow_schema::DataType::Utf8)),
             column("ordinal", T::native(arrow_schema::DataType::UInt32)),
             column("match_ordinal", T::native(arrow_schema::DataType::UInt32)),
-            column("source_key", T::native(arrow_schema::DataType::Utf8)),
+            column("source_key", T::row_key()),
             column("kind", T::enumeration("SourceBindingKind")),
             column("owner_template_id", T::id()).optional(),
             column("semantic_id", T::id()).optional(),

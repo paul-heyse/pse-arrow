@@ -1,0 +1,26 @@
+{
+  "invariant": "normalized.template_display_indices:unique:pk",
+  "rows": {
+    "normalized.template_display_indices": [
+      {
+        "indexed_by": "[\"list\",[]]",
+        "kind": "[\"enum\",\"variable\"]",
+        "label": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "indexed_by": "[\"list\",[]]",
+        "kind": "[\"enum\",\"variable\"]",
+        "label": "[\"text\",\"value-1\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"enum\",\"variable\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

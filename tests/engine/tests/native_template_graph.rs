@@ -57,6 +57,10 @@ fn source(registry: &Registry, second: bool) -> DocumentBundle {
 
 #[tokio::test]
 async fn two_templates_produce_declared_symbols_expressions_and_equations() {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter("pse_compiler=info")
+        .with_test_writer()
+        .try_init();
     let mut fixture = native_pipeline::Fixture::new();
     let input = source(&fixture.registry, true);
     let committed = fixture.commit(vec![input]).await;

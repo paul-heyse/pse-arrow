@@ -69,6 +69,7 @@ pub(super) async fn units(
             .map_err(engine)?;
     }
     let definitions = scalar::key(
+        reference.id,
         reference
             .columns
             .iter()

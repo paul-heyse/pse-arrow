@@ -338,7 +338,7 @@ fn preserve_expression_bindings(
         if before.document_id != after.document_id
             || before.document_path != after.document_path
             || before.relation_id != after.relation_id
-            || !equal(&before.row_key, &after.row_key)
+            || before.row_key != after.row_key
             || before
                 .paths
                 .iter()
@@ -352,13 +352,6 @@ fn preserve_expression_bindings(
         }
     }
     Ok(())
-}
-fn equal(first: &[Cell], second: &[Cell]) -> bool {
-    first.len() == second.len()
-        && first
-            .iter()
-            .zip(second)
-            .all(|(first, second)| first.literal_spec() == second.literal_spec())
 }
 fn mark_rename(
     changes: &mut ChangeSet,

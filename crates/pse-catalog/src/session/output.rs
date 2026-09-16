@@ -68,21 +68,46 @@ pub fn forget_relation_annotations(plan: LogicalPlan) -> Result<LogicalPlan> {
 /// # Errors
 /// Alternatives differ in storage or semantic metadata, or native CASE is invalid.
 pub fn same_field_case(schema: &DFSchema, condition: Expr, yes: Expr, no: Expr) -> Result<Expr> {
-    let (_, yes_field) = yes.to_field(schema)?;
+    same_field_cases(schema, vec![(condition, yes)], no)
+}
+
+/// Build one flat native CASE over alternatives with the same value meaning.
+/// Keeping alternatives in a single CASE avoids recursively resolving an expanding
+/// tree of metadata carriers during native field derivation.
+///
+/// # Errors
+/// Alternatives differ in storage or semantic metadata, or native CASE is invalid.
+pub fn same_field_cases(schema: &DFSchema, cases: Vec<(Expr, Expr)>, no: Expr) -> Result<Expr> {
     let (_, no_field) = no.to_field(schema)?;
-    if yes_field.data_type() != no_field.data_type()
-        || !super::admission::same_value_metadata(&yes_field, &no_field)
-    {
-        return Err(invalid(
-            "CASE alternatives do not establish the same field meaning",
-        ));
+    let mut metadata = no_field.metadata().clone();
+    let mut conditions = Vec::with_capacity(cases.len());
+    let mut alternatives = Vec::with_capacity(cases.len());
+    for (condition, value) in cases {
+        let (_, field) = value.to_field(schema)?;
+        if field.data_type() != no_field.data_type()
+            || !super::admission::same_value_metadata(&field, &no_field)
+        {
+            return Err(invalid(
+                "CASE alternatives do not establish the same field meaning",
+            ));
+        }
+        metadata.retain(|key, value| field.metadata().get(key) == Some(value));
+        conditions.push(condition);
+        alternatives.push(value);
     }
-    let expression = datafusion::logical_expr::when(condition, yes).otherwise(no)?;
+    if conditions.is_empty() {
+        return Ok(no);
+    }
+    let expression = datafusion::logical_expr::conditional_expressions::CaseBuilder::new(
+        None,
+        conditions,
+        alternatives,
+        Some(Box::new(no)),
+    )
+    .end()?;
     let mut arguments = vec![expression];
-    for (key, value) in yes_field
-        .metadata()
+    for (key, value) in metadata
         .iter()
-        .filter(|(key, value)| no_field.metadata().get(*key) == Some(*value))
         .collect::<std::collections::BTreeMap<_, _>>()
     {
         arguments.push(datafusion::logical_expr::lit(key.clone()));
@@ -305,6 +330,7 @@ pub fn check_field_output(source: &Field, target: &Field) -> Result<()> {
         pse_schema::arrow::KEY_ENUM,
         pse_schema::arrow::KEY_EXTENSION_NAME,
         pse_schema::arrow::KEY_EXTENSION_METADATA,
+        pse_schema::arrow::KEY_ROW_KEY_ENCODING,
     ];
     for key in semantic {
         let actual = source.metadata().get(key);

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Generated algorithm columns couple to exact bound sources in one native plan.
+pub(crate) mod support;
 use super::native_rows::{column, engine, join};
 use crate::{CompilerError, InputBundle};
 use datafusion::{
@@ -10,10 +11,7 @@ use datafusion::{
 };
 use pse_catalog::session::{SnapshotSession, output::checked_literal, scalar};
 use pse_ids::{CancellationToken, MemoryReserver, Reservation, ReservationLease, SemanticId};
-use pse_relations::{
-    columnar::{Collection, FieldCheckedBatch, RelationRow},
-    generated::provenance,
-};
+use pse_relations::columnar::{Collection, FieldCheckedBatch, RelationRow};
 use pse_rules::strata::{
     LocatedRuleInput, RuleInputLocation,
     native_input::{NativeInput, NativeWitness},
@@ -26,13 +24,14 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+use support::SupportedBatch;
 
 /// An exact key calculated by a retained source projection, never a membership proof.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub(crate) struct SourceKey {
     pub(crate) relation: RelationKey,
     pub(crate) port: String,
-    pub(crate) key: String,
+    pub(crate) key: pse_ids::ContentHash,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -55,10 +54,9 @@ impl SourceKey {
 /// in the catalog executor; a private algorithm result is not a pass port.
 pub(crate) struct OutputRows<'a> {
     columns: Collection<'a>,
-    retained: BTreeMap<RelationKey, FieldCheckedBatch>,
+    retained: BTreeMap<RelationKey, SupportedBatch>,
     cancel: &'a CancellationToken,
-    occurrences: Collection<'a>,
-    counts: BTreeMap<RelationKey, u64>,
+    support: BTreeMap<RelationKey, support::Builder>,
     positive_sources: BTreeMap<RelationKey, BTreeSet<SourceRole>>,
     read_scopes: BTreeMap<RelationKey, BTreeSet<SourceRole>>,
     registry: &'a Registry,
@@ -67,8 +65,7 @@ pub(crate) struct OutputRows<'a> {
 }
 
 pub(crate) struct GeneratedOutputs {
-    pub(crate) columns: BTreeMap<RelationKey, FieldCheckedBatch>,
-    pub(crate) occurrences: FieldCheckedBatch,
+    pub(crate) columns: BTreeMap<RelationKey, SupportedBatch>,
     pub(crate) positive_sources: BTreeMap<RelationKey, BTreeSet<SourceRole>>,
     pub(crate) read_scopes: BTreeMap<RelationKey, BTreeSet<SourceRole>>,
     pub(crate) _work: Arc<ReservationLease>,
@@ -80,14 +77,12 @@ impl<'a> OutputRows<'a> {
         reserver: &'a dyn MemoryReserver,
         cancel: &'a CancellationToken,
     ) -> Result<Self, CompilerError> {
-        let mut occurrences = Collection::new(registry, reserver, cancel);
-        occurrences.ensure::<provenance::algorithm_source_occurrences::Row>()?;
+        cancel.checkpoint()?;
         Ok(Self {
             columns: Collection::new(registry, reserver, cancel),
             retained: BTreeMap::new(),
             cancel,
-            occurrences,
-            counts: BTreeMap::new(),
+            support: BTreeMap::new(),
             positive_sources: BTreeMap::new(),
             read_scopes: BTreeMap::new(),
             registry,
@@ -97,6 +92,14 @@ impl<'a> OutputRows<'a> {
     }
     pub(crate) fn ensure<T: RelationRow>(&mut self) -> Result<(), CompilerError> {
         self.columns.ensure::<T>()?;
+        let key = T::relation(self.registry)?.key;
+        if !self.support.contains_key(&key) {
+            self.work
+                .try_grow(8192)
+                .map_err(pse_ids::CanonError::from)?;
+            self.support
+                .insert(key, support::Builder::new(self.registry)?);
+        }
         Ok(())
     }
     pub(crate) fn push<T: RelationRow>(
@@ -104,9 +107,14 @@ impl<'a> OutputRows<'a> {
         row: T,
         sources: &BTreeSet<SourceKey>,
     ) -> Result<(), CompilerError> {
+        self.ensure::<T>()?;
         let spec = T::relation(self.registry)?;
         self.record_sources(spec, sources)?;
         self.columns.push(row)?;
+        self.support
+            .get_mut(&spec.key)
+            .ok_or_else(|| invalid("algorithm support builder absent"))?
+            .push(sources, self.registry)?;
         Ok(())
     }
     fn record_sources(
@@ -117,48 +125,24 @@ impl<'a> OutputRows<'a> {
         if sources.is_empty() {
             return Err(invalid("algorithm output has no actual source occurrence"));
         }
-        let extent = sources
-            .len()
-            .checked_mul(128)
-            .and_then(|size| size.checked_add(512))
-            .ok_or_else(|| invalid("algorithm output bookkeeping extent overflow"))?;
+        let extent = sources.iter().try_fold(1024usize, |sum, source| {
+            source
+                .port
+                .len()
+                .checked_add(256)
+                .and_then(|bytes| bytes.checked_mul(8))
+                .and_then(|bytes| sum.checked_add(bytes))
+                .ok_or_else(|| invalid("algorithm support capacity overflow"))
+        })?;
         self.work
             .try_grow(extent)
             .map_err(pse_ids::CanonError::from)?;
-        let ordinal = self.counts.entry(spec.key).or_default();
-        let next = ordinal
-            .checked_add(1)
-            .ok_or_else(|| invalid("algorithm output ordinal overflow"))?;
         for source in sources {
             self.positive_sources
                 .entry(spec.key)
                 .or_default()
                 .insert(source.role());
-            let relation = self
-                .registry
-                .relation(&source.relation.qualified_name())
-                .filter(|spec| spec.key == source.relation)
-                .ok_or_else(|| invalid("algorithm source declaration absent"))?;
-            let mut temporary = self.reserver.open("algorithm-occurrence-dto");
-            temporary
-                .try_grow(
-                    source
-                        .key
-                        .len()
-                        .checked_add(size_of::<provenance::algorithm_source_occurrences::Row>())
-                        .ok_or_else(|| invalid("algorithm occurrence extent overflow"))?,
-                )
-                .map_err(pse_ids::CanonError::from)?;
-            self.occurrences
-                .push(provenance::algorithm_source_occurrences::Row {
-                    output_relation_id: spec.id,
-                    constructed_row_ordinal: *ordinal,
-                    source_port: source.port.clone(),
-                    source_relation_id: relation.id,
-                    source_key: source.key.clone(),
-                })?;
         }
-        *ordinal = next;
         Ok(())
     }
     pub(crate) fn read_scope(
@@ -173,7 +157,7 @@ impl<'a> OutputRows<'a> {
     /// A typed view of current algorithm columns. The output owner retains both
     /// the native fields and DTO reservation while dependent local algorithms run.
     pub(crate) fn rows<T: RelationRow>(&mut self) -> Result<Vec<T>, CompilerError> {
-        self.columns.ensure::<T>()?;
+        self.ensure::<T>()?;
         self.flush()?;
         let key = T::relation(self.registry)?.key;
         let batch = self
@@ -182,19 +166,21 @@ impl<'a> OutputRows<'a> {
             .ok_or_else(|| invalid("typed algorithm output absent"))?;
         self.work
             .try_grow(
-                pse_ids::validation_extent(batch.batch())?
+                pse_ids::validation_extent(batch.data.batch())?
                     .checked_mul(2)
                     .ok_or_else(|| invalid("typed output view extent overflow"))?,
             )
             .map_err(pse_ids::CanonError::from)?;
-        Ok(T::rows(batch)?)
+        Ok(T::rows(
+            &batch.payload(self.registry, T::relation(self.registry)?)?,
+        )?)
     }
 
     /// Attach source occurrences while traversing this actual completed algorithm
     /// batch. The callback reads that same batch/ordinal; it does not rerun a producer.
     pub(crate) fn append_checked(
         &mut self,
-        input: FieldCheckedBatch,
+        input: &FieldCheckedBatch,
         mut sources: impl FnMut(&FieldCheckedBatch, usize) -> Result<BTreeSet<SourceKey>, CompilerError>,
     ) -> Result<(), CompilerError> {
         self.flush()?;
@@ -203,37 +189,106 @@ impl<'a> OutputRows<'a> {
             .relation_by_id(input.relation_id())
             .ok_or_else(|| invalid("algorithm output declaration absent"))?;
         input.check_declaration(self.registry, spec)?;
+        self.work
+            .try_grow(8192)
+            .map_err(pse_ids::CanonError::from)?;
+        let mut support = support::Builder::new(self.registry)?;
         for row in 0..input.batch().num_rows() {
             self.cancel.checkpoint()?;
-            self.record_sources(spec, &sources(&input, row)?)?;
+            let sources = sources(input, row)?;
+            self.record_sources(spec, &sources)?;
+            support.push(&sources, self.registry)?;
         }
-        self.retain(input)
+        self.retain(
+            spec.key,
+            SupportedBatch::new(
+                input,
+                support.finish(),
+                self.registry,
+                self.reserver,
+                self.cancel,
+            )?,
+        )
     }
 
-    fn retain(&mut self, input: FieldCheckedBatch) -> Result<(), CompilerError> {
+    /// Preserve an existing co-located batch, deriving its roles from its own lists.
+    pub(crate) fn append_supported(
+        &mut self,
+        key: RelationKey,
+        input: SupportedBatch,
+    ) -> Result<(), CompilerError> {
+        self.flush()?;
         let spec = self
             .registry
-            .relation_by_id(input.relation_id())
-            .ok_or_else(|| invalid("algorithm output declaration absent"))?;
-        let input = if let Some(prior) = self.retained.get(&spec.key) {
-            if input.batch().num_rows() == 0 {
+            .relation_by_key(key)
+            .ok_or_else(|| invalid("supported output declaration absent"))?;
+        self.work
+            .try_grow(
+                pse_ids::validation_extent(&input.data)?
+                    .checked_mul(2)
+                    .ok_or_else(|| invalid("supported output view extent overflow"))?,
+            )
+            .map_err(pse_ids::CanonError::from)?;
+        input.payload(self.registry, spec)?;
+        for row in 0..input.data.num_rows() {
+            self.cancel.checkpoint()?;
+            let sources = support::row_sources(&input.data, row, self.registry)?;
+            self.record_sources(spec, &sources)?;
+        }
+        self.retain(key, input)
+    }
+
+    /// Export payload views while retaining their source lists for later execution.
+    pub(crate) fn checked(
+        &mut self,
+    ) -> Result<BTreeMap<RelationKey, FieldCheckedBatch>, CompilerError> {
+        self.flush()?;
+        self.retained
+            .iter()
+            .map(|(key, batch)| {
+                let spec = self
+                    .registry
+                    .relation_by_key(*key)
+                    .ok_or_else(|| invalid("supported output declaration absent"))?;
+                Ok((*key, batch.payload(self.registry, spec)?))
+            })
+            .collect()
+    }
+
+    fn retain(&mut self, key: RelationKey, input: SupportedBatch) -> Result<(), CompilerError> {
+        let input = if let Some(prior) = self.retained.get(&key) {
+            if input.data.num_rows() == 0 {
                 return Ok(());
             }
-            if prior.batch().num_rows() == 0 {
+            if prior.data.num_rows() == 0 {
                 input
             } else {
-                FieldCheckedBatch::concat_reserved(
-                    self.registry,
-                    spec,
-                    &[prior.clone(), input],
-                    self.reserver,
-                    self.cancel,
-                )?
+                let extent = pse_ids::validation_extent(&prior.data)?
+                    .checked_add(pse_ids::validation_extent(&input.data)?)
+                    .and_then(|n| n.checked_mul(3))
+                    .ok_or_else(|| invalid("supported output concatenation extent overflow"))?;
+                let mut scratch = self.reserver.open("algorithm:supported-concatenation");
+                scratch
+                    .try_grow(extent)
+                    .map_err(pse_ids::CanonError::from)?;
+                self.cancel.checkpoint()?;
+                let batch = datafusion::arrow::compute::concat_batches(
+                    &prior.data.schema(),
+                    [prior.data.batch(), input.data.batch()],
+                )
+                .map_err(pse_relations::RelationError::from)?;
+                SupportedBatch {
+                    data: pse_ids::owned_buffer::OwnedRecordBatch::export(
+                        batch,
+                        self.reserver,
+                        self.cancel,
+                    )?,
+                }
             }
         } else {
             input
         };
-        self.retained.insert(spec.key, input);
+        self.retained.insert(key, input);
         Ok(())
     }
 
@@ -242,8 +297,21 @@ impl<'a> OutputRows<'a> {
             &mut self.columns,
             Collection::new(self.registry, self.reserver, self.cancel),
         );
-        for input in columns.finish()?.into_values() {
-            self.retain(input)?;
+        for (key, input) in columns.finish()? {
+            let support = self
+                .support
+                .remove(&key)
+                .ok_or_else(|| invalid("algorithm support builder absent at completion"))?;
+            self.retain(
+                key,
+                SupportedBatch::new(
+                    &input,
+                    support.finish(),
+                    self.registry,
+                    self.reserver,
+                    self.cancel,
+                )?,
+            )?;
         }
         Ok(())
     }
@@ -255,11 +323,6 @@ impl<'a> OutputRows<'a> {
             positive_sources: self.positive_sources,
             read_scopes: self.read_scopes,
             columns: self.retained,
-            occurrences: self
-                .occurrences
-                .finish()?
-                .remove(&provenance::algorithm_source_occurrences::RELATION_KEY)
-                .ok_or_else(|| invalid("algorithm occurrence batch absent"))?,
         })
     }
 }
@@ -277,7 +340,7 @@ impl Sources {
     /// established later by the native output join to that retained source.
     pub(crate) fn locate(
         &self,
-        origins: impl IntoIterator<Item = (RelationKey, String)>,
+        origins: impl IntoIterator<Item = (RelationKey, pse_ids::ContentHash)>,
     ) -> Result<BTreeSet<SourceKey>, CompilerError> {
         origins
             .into_iter()
@@ -426,15 +489,7 @@ pub(crate) async fn materialize(
             .unwrap_or_default();
         let scopes = generated.read_scopes.get(&key).cloned().unwrap_or_default();
         let input = materialize_relation(
-            key,
-            batch,
-            &generated.occurrences,
-            sources,
-            &positives,
-            &scopes,
-            pass,
-            session,
-            cancel,
+            key, batch, sources, &positives, &scopes, pass, session, cancel,
         )
         .await?;
         output.insert(key, input);
@@ -444,8 +499,7 @@ pub(crate) async fn materialize(
 
 async fn materialize_relation(
     key: RelationKey,
-    batch: FieldCheckedBatch,
-    occurrences: &FieldCheckedBatch,
+    batch: SupportedBatch,
     sources: &Sources,
     positives: &BTreeSet<SourceRole>,
     scopes: &BTreeSet<SourceRole>,
@@ -458,64 +512,37 @@ async fn materialize_relation(
         .relation(&key.qualified_name())
         .filter(|spec| spec.key == key)
         .ok_or_else(|| invalid("algorithm output declaration absent"))?;
-    let occurrence_spec = provenance::algorithm_source_occurrences::spec(registry)?;
-    let mut session = session.with_indexed_checked_role("algorithm_output", &batch, cancel)?;
-    session = session.with_checked_role_inputs(
-        BTreeMap::from([("algorithm_occurrences".to_owned(), occurrences.clone())]),
-        cancel,
-    )?;
+    let source_identity = pse_schema::model::FieldContract::source_support_member()
+        .children()
+        .into_iter()
+        .find(|field| field.name() == "source_relation_id")
+        .ok_or_else(|| invalid("support source field absent"))?;
+    let mut session = session
+        .with_columnar_argument("algorithm_output", batch.data, cancel)
+        .await?;
     let output = LogicalPlanBuilder::from(session.scan_computation_role("algorithm_output")?)
         .alias("o")
         .map_err(engine)?
-        .build()
-        .map_err(engine)?;
-    let occurrences = LogicalPlanBuilder::from(session.scan_role("algorithm_occurrences")?)
-        .filter(
-            col("output_relation_id").eq(checked_literal(
-                registry,
-                occurrence_spec
-                    .column("output_relation_id")
-                    .ok_or_else(|| invalid("occurrence output field absent"))?,
-                ScalarValue::FixedSizeBinary(16, Some(spec.id.as_bytes().to_vec())),
-            )
-            .map_err(engine)?),
+        .unnest_column_with_options(
+            datafusion::common::Column::new(Some("o"), support::COLUMN),
+            datafusion::common::UnnestOptions::new().with_preserve_nulls(false),
         )
         .map_err(engine)?
-        .alias("a")
-        .map_err(engine)?
         .build()
         .map_err(engine)?;
-    let unsupported = join(
-        output.clone(),
-        occurrences.clone(),
-        JoinType::LeftAnti,
-        &[("o.constructed_row_ordinal", "a.constructed_row_ordinal")],
-    )?;
-    crate::passes::native_rows::reject(
-        unsupported,
-        &session,
-        cancel,
-        "algorithm output omitted actual source correspondence",
-    )
-    .await?;
-    let detached = join(
-        occurrences.clone(),
-        output.clone(),
-        JoinType::LeftAnti,
-        &[("a.constructed_row_ordinal", "o.constructed_row_ordinal")],
-    )?;
-    crate::passes::native_rows::reject(
-        detached,
-        &session,
-        cancel,
-        "algorithm occurrence refers outside its retained output batch",
-    )
-    .await?;
-    let mut joined = join(
+    let mut joined = super::native_construction::append(
         output,
-        occurrences,
-        JoinType::Inner,
-        &[("o.constructed_row_ordinal", "a.constructed_row_ordinal")],
+        [
+            datafusion::functions::core::expr_fn::get_field(
+                col(support::COLUMN),
+                "source_relation_id",
+            )
+            .alias("algorithm_occurrence_relation"),
+            datafusion::functions::core::expr_fn::get_field(col(support::COLUMN), "source_port")
+                .alias("algorithm_occurrence_port"),
+            datafusion::functions::core::expr_fn::get_field(col(support::COLUMN), "source_key")
+                .alias("algorithm_occurrence_key"),
+        ],
     )?;
     let mut witnesses = Vec::new();
     let mut support_fields = Vec::new();
@@ -530,17 +557,17 @@ async fn materialize_relation(
             .ok_or_else(|| invalid("algorithm source declaration absent"))?;
         let source_id = checked_literal(
             registry,
-            occurrence_spec
-                .column("source_relation_id")
-                .ok_or_else(|| invalid("occurrence source field absent"))?,
+            &source_identity,
             ScalarValue::FixedSizeBinary(16, Some(source.id.as_bytes().to_vec())),
         )
         .map_err(engine)?;
-        let when = column("a", "source_relation_id")
+        let when = col("algorithm_occurrence_relation")
             .eq(source_id.clone())
-            .and(column("a", "source_port").eq(lit(port.clone())));
-        known = Some(known.map_or_else(|| when.clone(), |previous| previous.or(when.clone())));
+            .and(col("algorithm_occurrence_port").eq(lit(port.clone())));
         let alias = format!("algorithm_source_{ordinal}");
+        let matched = when.and(column(&alias, "algorithm_source_key").is_not_null());
+        known =
+            Some(known.map_or_else(|| matched.clone(), |previous| previous.or(matched.clone())));
         let checked = match &input.location {
             RuleInputLocation::Facts(facts) => facts.checked().clone(),
             RuleInputLocation::Completed(input) => input.checked().clone(),
@@ -563,6 +590,7 @@ async fn materialize_relation(
             .collect::<Vec<_>>();
         fields.push(
             scalar::key(
+                source.id,
                 source
                     .primary_key
                     .iter()
@@ -586,11 +614,17 @@ async fn materialize_relation(
             JoinType::Left,
             &[
                 (
-                    "a.source_relation_id",
+                    "algorithm_occurrence_relation",
                     &format!("{alias}.algorithm_source_relation"),
                 ),
-                ("a.source_port", &format!("{alias}.algorithm_source_port")),
-                ("a.source_key", &format!("{alias}.algorithm_source_key")),
+                (
+                    "algorithm_occurrence_port",
+                    &format!("{alias}.algorithm_source_port"),
+                ),
+                (
+                    "algorithm_occurrence_key",
+                    &format!("{alias}.algorithm_source_key"),
+                ),
             ],
         )?;
         let key_columns = source
@@ -605,7 +639,7 @@ async fn materialize_relation(
         witnesses.push(NativeWitness {
             port: port.clone(),
             input: input.clone(),
-            key_columns,
+            key_columns: Some(key_columns),
             when: Some(
                 col("algorithm_source_relation_id")
                     .eq(source_id)
@@ -620,7 +654,7 @@ async fn materialize_relation(
         witnesses.push(NativeWitness {
             port: port.clone(),
             input: input.clone(),
-            key_columns: vec![],
+            key_columns: None,
             when: None,
         });
     }
@@ -633,7 +667,7 @@ async fn materialize_relation(
         unknown,
         &session,
         cancel,
-        "algorithm occurrence names an unbound source relation",
+        "algorithm occurrence names an unbound source relation or key",
     )
     .await?;
     let mut fields = spec
@@ -641,8 +675,8 @@ async fn materialize_relation(
         .iter()
         .map(|field| column("o", field.name()).alias(format!("result_{}", field.name())))
         .collect::<Vec<_>>();
-    fields.push(column("a", "source_relation_id").alias("algorithm_source_relation_id"));
-    fields.push(column("a", "source_port").alias("algorithm_source_port"));
+    fields.push(col("algorithm_occurrence_relation").alias("algorithm_source_relation_id"));
+    fields.push(col("algorithm_occurrence_port").alias("algorithm_source_port"));
     fields.extend(support_fields);
     let joined = LogicalPlanBuilder::from(joined)
         .project(fields)
@@ -669,17 +703,114 @@ fn invalid(detail: &str) -> CompilerError {
 mod tests {
     use super::*;
     use crate::passes::native_test;
+    use datafusion::arrow::array::Array;
     use pse_ids::FixedBudget;
     use pse_relations::generated::{authored, normalized::template_expr_int_constants as ints};
 
+    #[tokio::test]
+    async fn colocated_support_materializes_exact_membership_and_refuses_an_unbound_key() {
+        let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+        let budget = FixedBudget::new(128 << 20);
+        let cancel = CancellationToken::new();
+        let mut inputs = BTreeMap::new();
+        native_test::put(
+            &mut inputs,
+            &registry,
+            vec![ints::Row {
+                node_id: 2,
+                value: 7,
+            }],
+        );
+        let source = inputs.remove(&ints::RELATION_KEY).unwrap();
+        let (session, _) =
+            native_test::session(&registry, BTreeMap::new(), &budget, &cancel).unwrap();
+        let session = session
+            .with_checked_role_inputs(BTreeMap::from([("source".into(), source.clone())]), &cancel)
+            .unwrap();
+        let mut arguments =
+            super::super::native_rows::AlgorithmInputs::new(budget.as_ref(), "support-test");
+        let selected = super::super::native_rows::keyed_rows::<ints::Row>(
+            &mut arguments,
+            session.scan_role("source").unwrap(),
+            &session,
+            &registry,
+            &cancel,
+        )
+        .await
+        .unwrap();
+        let mut sources = Sources::new();
+        sources.insert(
+            ints::RELATION_KEY,
+            (
+                "source".into(),
+                LocatedRuleInput {
+                    relation: ints::RELATION_KEY,
+                    location: RuleInputLocation::Facts(Arc::new(
+                        pse_catalog::session::RelationFacts::from_checked(source),
+                    )),
+                },
+            ),
+        );
+        let pass = registry
+            .passes()
+            .iter()
+            .find(|pass| pass.name == "P3")
+            .unwrap();
+        for valid in [true, false] {
+            let mut output = OutputRows::new(&registry, budget.as_ref(), &cancel).unwrap();
+            output
+                .push(
+                    ints::Row {
+                        node_id: 9,
+                        value: 11,
+                    },
+                    &BTreeSet::from([SourceKey {
+                        relation: ints::RELATION_KEY,
+                        port: "source".into(),
+                        key: if valid {
+                            selected[0].key
+                        } else {
+                            pse_ids::ContentHash::from_bytes([0; 32])
+                        },
+                    }]),
+                )
+                .unwrap();
+            let result =
+                materialize(output.finish().unwrap(), &sources, pass, &session, &cancel).await;
+            if valid {
+                let result = result.unwrap();
+                let rows = ints::View::from_checked(result[&ints::RELATION_KEY].checked())
+                    .unwrap()
+                    .rows()
+                    .unwrap();
+                assert_eq!(
+                    rows,
+                    [ints::Row {
+                        node_id: 9,
+                        value: 11
+                    }]
+                );
+                assert!(result[&ints::RELATION_KEY].derivations().batch().num_rows() > 0);
+            } else {
+                assert!(
+                    result.is_err(),
+                    "an unbound support token must not disappear during UNNEST/join"
+                );
+            }
+        }
+    }
+
     #[test]
-    fn appended_batches_keep_exact_source_ordinals_across_flushes() {
+    fn appended_batches_keep_source_lists_in_each_row_across_flushes() {
         let registry = pse_schema::catalog::assemble().unwrap();
         let budget = FixedBudget::new(1 << 20);
         let cancel = CancellationToken::new();
         let mut output = OutputRows::new(&registry, budget.as_ref(), &cancel).unwrap();
         output.ensure::<ints::Row>().unwrap();
-        for (key, nodes) in [("first", vec![9]), ("second", vec![4, 12])] {
+        for (key, nodes) in [
+            (pse_ids::ContentHash::from_bytes([1; 32]), vec![9]),
+            (pse_ids::ContentHash::from_bytes([2; 32]), vec![4, 12]),
+        ] {
             let mut inputs = BTreeMap::new();
             native_test::put(
                 &mut inputs,
@@ -690,40 +821,74 @@ mod tests {
                     .collect(),
             );
             output
-                .append_checked(inputs.remove(&ints::RELATION_KEY).unwrap(), |_, _| {
+                .append_checked(&inputs.remove(&ints::RELATION_KEY).unwrap(), |_, _| {
                     Ok(BTreeSet::from([SourceKey {
                         relation: authored::template_equations::RELATION_KEY,
                         port: "equations".to_owned(),
-                        key: key.to_owned(),
+                        key,
                     }]))
                 })
                 .unwrap();
         }
         let generated = output.finish().unwrap();
-        let values = ints::View::from_checked(&generated.columns[&ints::RELATION_KEY])
-            .unwrap()
-            .rows()
+        let supported = &generated.columns[&ints::RELATION_KEY];
+        let payload = supported
+            .payload(&registry, ints::spec(&registry).unwrap())
             .unwrap();
-        let occurrences =
-            provenance::algorithm_source_occurrences::View::from_checked(&generated.occurrences)
-                .unwrap()
-                .rows()
-                .unwrap();
-        let paired = occurrences
+        let values = ints::View::from_checked(&payload).unwrap().rows().unwrap();
+        let supports = supported
+            .data
+            .column_by_name(support::COLUMN)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<datafusion::arrow::array::ListArray>()
+            .unwrap();
+        let paired = values
             .iter()
-            .map(|source| {
-                assert_eq!(source.output_relation_id, ints::RELATION_ID);
+            .enumerate()
+            .map(|(row, value)| {
+                let list = supports.value(row);
+                let source = list
+                    .as_any()
+                    .downcast_ref::<datafusion::arrow::array::StructArray>()
+                    .unwrap();
+                assert_eq!(source.len(), 1);
+                let port = source
+                    .column_by_name("source_port")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<datafusion::arrow::array::StringArray>()
+                    .unwrap();
+                assert_eq!(port.value(0), "equations");
+                let relation = source
+                    .column_by_name("source_relation_id")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                    .unwrap();
                 assert_eq!(
-                    source.source_relation_id,
-                    authored::template_equations::RELATION_ID
+                    relation.value(0),
+                    authored::template_equations::RELATION_ID.as_bytes()
                 );
-                assert_eq!(source.source_port, "equations");
+                let key = source
+                    .column_by_name("source_key")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                    .unwrap();
                 (
-                    values[usize::try_from(source.constructed_row_ordinal).unwrap()].node_id,
-                    source.source_key.as_str(),
+                    value.node_id,
+                    pse_ids::ContentHash::try_from_slice(key.value(0)).unwrap(),
                 )
             })
             .collect::<Vec<_>>();
-        assert_eq!(paired, [(9, "first"), (4, "second"), (12, "second")]);
+        assert_eq!(
+            paired,
+            [
+                (9, pse_ids::ContentHash::from_bytes([1; 32])),
+                (4, pse_ids::ContentHash::from_bytes([2; 32])),
+                (12, pse_ids::ContentHash::from_bytes([2; 32]))
+            ]
+        );
     }
 }

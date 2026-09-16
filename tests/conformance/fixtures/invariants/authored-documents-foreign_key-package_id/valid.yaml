@@ -6,7 +6,7 @@
         "document_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "path": "[\"text\",\"value-1\"]",
-        "source_text": "[\"text\",\"fixture source text\"]"
+        "source_text": "[\"text\",\"value-1\"]"
       }
     ],
     "authored.packages": [

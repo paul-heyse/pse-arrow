@@ -31,7 +31,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `product_id, tuple`.
 
 ## `config_values`
 
-Typed admitted assignment and exact reversible source key, including declaration defaults.
+Typed admitted assignment and typed source key, including declaration defaults.
 
 Version: 1. Snapshot class: `derived`. Primary key: `owner_id, category, name`.
 
@@ -61,7 +61,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `owner_id, category, name`.
 | `value.index.value` | `index_tuple` | false | `payload` | — | — |
 | `value.quantity` | `quantity_value` | true | `payload` | — | — |
 | `source_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
-| `source_key` | `Utf8` | false | `payload` | — | — |
+| `source_key` | `content_hash` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `connections`
@@ -711,7 +711,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `product_id, source_relation
 |---|---|---|---|---|---|
 | `product_id` | `semantic_id` | false | `key` | — | — |
 | `source_relation_id` | `semantic_id` | false | `key` | — | — |
-| `source_key` | `Utf8` | false | `key` | — | — |
+| `source_key` | `content_hash` | false | `key` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `domain_products`
@@ -816,24 +816,14 @@ Version: 1. Snapshot class: `derived`. Primary key: `source_id, path_id`.
 
 Complete source key and field to exact normalized syntax root.
 
-Version: 3. Snapshot class: `derived`. Primary key: `source_id`.
+Version: 4. Snapshot class: `derived`. Primary key: `source_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `source_id` | `semantic_id` | false | `key` | — | — |
 | `family` | `enum:ExpressionFamily` | false | `payload` | — | — |
 | `source_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
-| `source_key` | `List` | false | `payload` | — | — |
-| `source_key.item` | `Struct` | false | `payload` | — | — |
-| `source_key.item.column_name` | `Utf8` | false | `payload` | — | — |
-| `source_key.item.logical_type_id` | `semantic_id` | false | `payload` | — | — |
-| `source_key.item.semantic_id` | `semantic_id` | true | `payload` | — | — |
-| `source_key.item.content_hash` | `content_hash` | true | `payload` | — | — |
-| `source_key.item.text` | `Utf8` | true | `payload` | — | — |
-| `source_key.item.signed_integer` | `Int64` | true | `payload` | — | — |
-| `source_key.item.unsigned_integer` | `UInt64` | true | `payload` | — | — |
-| `source_key.item.boolean` | `Boolean` | true | `payload` | — | — |
-| `source_key.item.index_tuple` | `index_tuple` | true | `payload` | — | — |
+| `source_key` | `content_hash` | false | `payload` | — | — |
 | `field_path` | `Utf8` | false | `payload` | — | — |
 | `owner_template_id` | `semantic_id` | true | `payload` | `authored.templates.template_id` | — |
 | `owner_instance_id` | `semantic_id` | true | `payload` | `authored.instances.instance_id` | — |
@@ -856,7 +846,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `instance_id, name`.
 | `source_instance_id` | `semantic_id` | true | `payload` | — | — |
 | `source_name` | `Utf8` | false | `payload` | — | — |
 | `source_relation_id` | `semantic_id` | false | `payload` | — | — |
-| `source_key` | `Utf8` | false | `payload` | — | — |
+| `source_key` | `content_hash` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `flowsheets`
@@ -1843,7 +1833,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `document_id, field_path, or
 | `field_path` | `Utf8` | false | `key` | — | — |
 | `ordinal` | `UInt32` | false | `key` | — | — |
 | `match_ordinal` | `UInt32` | false | `key` | — | — |
-| `source_key` | `Utf8` | false | `payload` | — | — |
+| `source_key` | `content_hash` | false | `payload` | — | — |
 | `kind` | `enum:SourceBindingKind` | false | `payload` | — | — |
 | `owner_template_id` | `semantic_id` | true | `payload` | — | — |
 | `semantic_id` | `semantic_id` | true | `payload` | — | — |

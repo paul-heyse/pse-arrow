@@ -2595,13 +2595,6 @@ Version: `1`. Stratum: 1.
 - `reference.quantity_operation_reductions` (read)
 - `reference.quantity_operations` (negate)
 
-## `foreign_key:output_relation_id:provenance.algorithm_source_occurrences`
-
-Version: `1`. Stratum: 1.
-
-- `provenance.algorithm_source_occurrences` (read)
-- `reference.schema_relations` (negate)
-
 ## `foreign_key:owner_entity_id:authored.domains`
 
 Version: `1`. Stratum: 1.
@@ -3405,13 +3398,6 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `normalized.source_occurrences` (read)
-- `reference.schema_relations` (negate)
-
-## `foreign_key:source_relation_id:provenance.algorithm_source_occurrences`
-
-Version: `1`. Stratum: 1.
-
-- `provenance.algorithm_source_occurrences` (read)
 - `reference.schema_relations` (negate)
 
 ## `foreign_key:source_symbol_decl_id:normalized.property_demand_seeds`
@@ -6837,12 +6823,6 @@ Version: `1`. Stratum: 1.
 
 - `normalized.units` (read)
 
-## `unique:pk:provenance.algorithm_source_occurrences`
-
-Version: `1`. Stratum: 1.
-
-- `provenance.algorithm_source_occurrences` (read)
-
 ## `unique:pk:provenance.assertions`
 
 Version: `1`. Stratum: 1.
@@ -8393,9 +8373,6 @@ Version: `1`. Stratum: 1.
 | `normalized.units` | `foreign_key:reference_state_id` | `foreign_key:reference_state_id:normalized.units@1` |
 | `normalized.units` | `foreign_key:unit_set_id` | `foreign_key:unit_set_id:normalized.units@1` |
 | `normalized.units` | `unique:pk` | `unique:pk:normalized.units@1` |
-| `provenance.algorithm_source_occurrences` | `foreign_key:output_relation_id` | `foreign_key:output_relation_id:provenance.algorithm_source_occurrences@1` |
-| `provenance.algorithm_source_occurrences` | `foreign_key:source_relation_id` | `foreign_key:source_relation_id:provenance.algorithm_source_occurrences@1` |
-| `provenance.algorithm_source_occurrences` | `unique:pk` | `unique:pk:provenance.algorithm_source_occurrences@1` |
 | `provenance.assertions` | `foreign_key:package_id` | `foreign_key:package_id:provenance.assertions@1` |
 | `provenance.assertions` | `unique:pk` | `unique:pk:provenance.assertions@1` |
 | `provenance.boundary_crossing_assertions` | `unique:pk` | `unique:pk:provenance.boundary_crossing_assertions@1` |

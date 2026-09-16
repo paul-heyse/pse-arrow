@@ -1,0 +1,12 @@
+{
+  "invariant": "provenance.node_rewrites:unique:pk",
+  "rows": {
+    "provenance.node_rewrites": [
+      {
+        "input_node_id": "[\"u64\",1]",
+        "output_node_id": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -9,17 +9,26 @@ use pse_ids::SemanticId;
 use pse_schema::model::Cell;
 
 fn finding(index: u8) -> Vec<Cell> {
-    vec![
-        Cell::Id(SemanticId::from_bytes([index; 16])),
-        Cell::Null,
-        Cell::Null,
-        Cell::Id(SemanticId::from_bytes([4; 16])),
-        Cell::Enum("error"),
-        Cell::List(vec![Cell::Id(SemanticId::from_bytes([7; 16]))]),
-        Cell::text(format!("{{\"actual_value\":{index}}}")),
-        Cell::text(format!("actual rule finding {index}")),
-        Cell::List(vec![Cell::text("repair the actual input")]),
-    ]
+    use pse_relations::generated::{
+        enums::FindingSeverity, runtime::diagnostics_findings as findings,
+    };
+    findings::Row {
+        finding_id: SemanticId::from_bytes([index; 16]),
+        subject_snapshot: None,
+        run_id: None,
+        check_id: SemanticId::from_bytes([4; 16]),
+        severity: FindingSeverity::Error,
+        subjects: vec![SemanticId::from_bytes([7; 16])],
+        evidence: findings::RuntimeDiagnosticsFindingsFieldEvidence::from_row(
+            findings::RuntimeDiagnosticsFindingsFieldEvidenceRow {
+                relation_id: SemanticId::from_bytes([8; 16]),
+                row_key: pse_ids::ContentHash::from_bytes([index; 32]),
+            },
+        ),
+        message: format!("actual rule finding {index}"),
+        next_steps: vec!["repair the actual input".into()],
+    }
+    .into_cells()
 }
 #[test]
 fn mixed_aggregate_preserves_every_actual_finding_and_first_non_cancel_class() {
@@ -57,25 +66,22 @@ fn mixed_aggregate_preserves_every_actual_finding_and_first_non_cancel_class() {
         actual.into_iter().map(Cell::Struct).collect::<Vec<_>>()
     );
     for row in [&report.findings[0], &report.findings[3]] {
-        let Cell::Struct(fields) = row else {
-            panic!("typed finding");
+        use pse_relations::{generated::provenance::pass_records as record, typed::CellCodec};
+        let finding = record::ProvenancePassRecordsFieldFindingsItem::from_cell(row.clone())
+            .expect("typed finding");
+        assert!(finding.check_id.is_none());
+        let record::ProvenancePassRecordsFieldFindingsItemEvidenceSelected::Execution(evidence) =
+            finding.evidence.selected().expect("selected evidence")
+        else {
+            panic!("actual execution evidence")
         };
-        assert_eq!(fields[3], Cell::Null);
-        let Cell::Text(values) = &fields[6] else {
-            panic!("typed diagnostic values");
-        };
-        let actual: serde_json::Value =
-            serde_json::from_str(values).expect("lossless diagnostic context");
         assert!(
-            actual["diagnostic_code"]
-                .as_str()
+            evidence
+                .diagnostic_code
+                .as_ref()
                 .is_some_and(|code| code.contains("runtime::"))
         );
-        assert!(
-            actual["attempt_error"]
-                .as_str()
-                .is_some_and(|message| !message.is_empty())
-        );
+        assert!(!evidence.attempt_error.is_empty());
     }
     let attempt = super::Attempt::new(registry.pass("P3").expect("pass"));
     let record = vec![

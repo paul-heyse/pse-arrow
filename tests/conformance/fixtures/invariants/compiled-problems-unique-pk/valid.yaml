@@ -6,13 +6,13 @@
         "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "degrees_of_freedom": "[\"i64\",1]",
         "discretization_policy_ids": "[\"list\",[]]",
-        "equation_count": "[\"u64\",1]",
-        "inequality_count": "[\"u64\",1]",
+        "equation_count": "[\"i64\",1]",
+        "inequality_count": "[\"i64\",1]",
         "input_bundle_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "model_revision_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "objective_count": "[\"u64\",1]",
+        "objective_count": "[\"i64\",1]",
         "problem_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "variable_count": "[\"u64\",1]"
+        "variable_count": "[\"i64\",1]"
       }
     ]
   },

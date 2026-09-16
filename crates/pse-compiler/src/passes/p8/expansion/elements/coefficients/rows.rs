@@ -8,7 +8,7 @@ use super::{
     SemanticId, compiled, invalid,
 };
 use crate::passes::native_outputs::Sources;
-use datafusion::arrow::array::{Array, FixedSizeBinaryArray, Float64Array, ListArray, StringArray};
+use datafusion::arrow::array::{Array, FixedSizeBinaryArray, Float64Array, ListArray};
 use pse_ids::{IndexTuple, symbol_instance_id};
 use pse_relations::generated::{enums, extension_values};
 
@@ -57,14 +57,17 @@ pub(super) fn read(
                 ),
                 ("species_source", "normalized.species"),
             ] {
-                let values = array::<StringArray>(batch, field)?;
+                let values = array::<FixedSizeBinaryArray>(batch, field)?;
                 if values.is_null(row) {
                     return Err(invalid("coefficient source key is null"));
                 }
                 let spec = registry
                     .relation(name)
                     .ok_or_else(|| invalid("coefficient source declaration absent"))?;
-                keys.push((spec.key, values.value(row).to_owned()));
+                keys.push((
+                    spec.key,
+                    crate::passes::native_rows::key_value(values.value(row))?,
+                ));
             }
             let compositions = array::<ListArray>(batch, "composition_keys")?;
             if compositions.is_null(row) {
@@ -73,13 +76,13 @@ pub(super) fn read(
             let values = compositions.value(row);
             let values = values
                 .as_any()
-                .downcast_ref::<StringArray>()
+                .downcast_ref::<FixedSizeBinaryArray>()
                 .ok_or_else(|| invalid("composition key storage differs"))?;
             for value in values {
                 let key = value.ok_or_else(|| invalid("composition source key is null"))?;
                 keys.push((
                     pse_relations::generated::normalized::species_elements::RELATION_KEY,
-                    key.to_owned(),
+                    crate::passes::native_rows::key_value(key)?,
                 ));
             }
             rows.push(Coefficient {

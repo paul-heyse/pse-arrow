@@ -4,6 +4,8 @@
 //! Truth and incompatible payloads are retained without first/last-writer precedence.
 #[path = "support/strata_fixture.rs"]
 mod fixture;
+#[path = "support/row_key.rs"]
+mod row_key;
 use fixture::{Fixture, builder, declare, head, id, input};
 use pse_schema::model::{
     Cell, ConflictPolicy, FieldContract, FieldContract as T, RuleDecl, RuleExpr as E, RuleHead,
@@ -142,17 +144,21 @@ async fn four_valued_rule_outcomes_false_is_not_unknown_and_true_heads_are_decid
     );
     let outcomes = fixture.rows(&result, "inferred.rule_outcomes");
     assert_eq!(outcomes.len(), 3);
-    assert_eq!(
-        outcomes
+    let facts = fixture.registry.relation("inferred.facts").unwrap();
+    for (id, truth) in [(1, "true"), (2, "false"), (3, "unknown")] {
+        let key = row_key::values(
+            &fixture.registry,
+            facts.id,
+            &[facts.column("id").unwrap()],
+            &[Cell::U64(id)],
+        )
+        .await;
+        let outcome = outcomes
             .iter()
-            .map(|row| row[3].clone())
-            .collect::<Vec<_>>(),
-        vec![
-            Cell::Enum("true"),
-            Cell::Enum("false"),
-            Cell::Enum("unknown")
-        ]
-    );
+            .find(|row| row[2] == Cell::Hash(key))
+            .unwrap();
+        assert_eq!(outcome[3], Cell::Enum(truth));
+    }
     assert_eq!(fixture.rows(&result, "provenance.fact_assertions").len(), 3);
     assert_eq!(
         fixture.rows(&result, "provenance.rule_support_edges").len(),

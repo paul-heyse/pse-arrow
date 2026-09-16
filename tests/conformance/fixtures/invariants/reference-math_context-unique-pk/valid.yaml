@@ -1,0 +1,13 @@
+{
+  "invariant": "reference.math_context:unique:pk",
+  "rows": {
+    "reference.math_context": [
+      {
+        "boolean_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "neutral_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

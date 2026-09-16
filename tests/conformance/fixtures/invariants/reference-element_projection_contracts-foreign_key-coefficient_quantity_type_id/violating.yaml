@@ -1,0 +1,36 @@
+{
+  "invariant": "reference.element_projection_contracts:foreign_key:coefficient_quantity_type_id",
+  "rows": {
+    "reference.element_projection_contracts": [
+      {
+        "coefficient_quantity_type_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "coefficient_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "formula": "[\"enum\",\"molar_count\"]",
+        "law_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "multiplication_operation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.quantity_types": [
+      {
+        "basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "canonical_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "nominal_magnitude": "[\"f64\",\"3ff0000000000000\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reference_state_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scale_kind": "[\"enum\",\"point\"]",
+        "shape": "[\"list\",[]]",
+        "subject_kind": "[\"enum\",\"species\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

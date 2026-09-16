@@ -2,6 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Deterministic concrete data construction; expected keys never evaluate `RulePlan`.
+#[path = "generate/alternatives.rs"]
+mod alternatives;
+#[path = "generate/inference.rs"]
+mod inference;
 #[path = "generate/semantic.rs"]
 mod semantic;
 use super::Fixture;
@@ -57,7 +61,10 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
             1
         })
         .map(|row| {
-            spec.primary_key
+            let pse_schema::model::RuleHead::Violations { key_columns, .. } = &rule.head else {
+                panic!("invariant fixture requires an explicit violating-key projection")
+            };
+            key_columns
                 .iter()
                 .map(|column| row[*column].literal_spec())
                 .collect()
@@ -118,6 +125,31 @@ pub(super) fn id(value: u8) -> Cell {
 }
 fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
     use datafusion::arrow::datatypes::DataType;
+    if let Some(alternative) = pse_schema::model::TaggedAlternative::from_field(ty.field()).unwrap()
+    {
+        let (tag, selected) = alternative.arms.first_key_value().unwrap();
+        let DataType::Struct(fields) = ty.data_type() else {
+            panic!("a tagged fixture requires its declared struct storage")
+        };
+        return Cell::Struct(
+            fields
+                .iter()
+                .map(|field| {
+                    if field.name() == &alternative.discriminator {
+                        Cell::text(tag)
+                    } else if Some(field.name()) == selected.as_ref() {
+                        default_value(
+                            registry,
+                            &FieldContract::from_field((**field).clone()),
+                            value,
+                        )
+                    } else {
+                        Cell::Null
+                    }
+                })
+                .collect(),
+        );
+    }
     if let Some(extension) = ty.extension() {
         return match extension {
             ExtensionUse::SemanticId => id(value),
@@ -125,7 +157,7 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
             ExtensionUse::Enum(name) => {
                 Cell::Enum(registry.enum_spec(name).unwrap().members[0].name)
             }
-            ExtensionUse::OrdinalRef { .. } => Cell::U64(u64::from(value)),
+            ExtensionUse::OrdinalRef { .. } => Cell::I64(i64::from(value)),
             ExtensionUse::ExprDsl => Cell::text("1"),
             ExtensionUse::TargetPath => Cell::text("/fixture.symbol"),
             ExtensionUse::DimensionVector => {
@@ -134,7 +166,7 @@ fn default_value(registry: &Registry, ty: &FieldContract, value: u8) -> Cell {
             ExtensionUse::IndexTuple => Cell::List(vec![id(value)]),
             ExtensionUse::QuantityValue => Cell::Struct(vec![Cell::F64(1.0), id(value), id(value)]),
             ExtensionUse::Bound => Cell::Struct(vec![Cell::Enum("unbounded"), Cell::Null]),
-            ExtensionUse::SourceSpan => Cell::Struct(vec![id(value), Cell::U64(0), Cell::U64(1)]),
+            ExtensionUse::SourceSpan => Cell::Struct(vec![id(value), Cell::I64(0), Cell::I64(1)]),
         };
     }
     match ty.data_type() {

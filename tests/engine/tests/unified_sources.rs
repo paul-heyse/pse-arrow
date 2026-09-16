@@ -312,11 +312,13 @@ async fn verify_native_support(
                 relation: declaration.key,
                 location: RuleInputLocation::Facts(Arc::new(facts)),
             },
-            key_columns: declaration
-                .primary_key
-                .iter()
-                .map(|key| (*key).to_owned())
-                .collect(),
+            key_columns: Some(
+                declaration
+                    .primary_key
+                    .iter()
+                    .map(|key| (*key).to_owned())
+                    .collect(),
+            ),
             when: None,
         }],
         &session,

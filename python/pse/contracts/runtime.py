@@ -13,6 +13,37 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeDiagnosticsFindingsFieldEvidenceRow:
+    """Declared relation row or nested value."""
+
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeDiagnosticsFindingsFieldEvidenceExecution:
+    """Declared relation row or nested value."""
+
+    failure_class: e.FailureClass = attrs.field(validator=attrs.validators.instance_of(e.FailureClass))
+    diagnostic_code: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    attempt_error: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeDiagnosticsFindingsFieldEvidence:
+    """Declared relation row or nested value."""
+
+    kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    row: RuntimeDiagnosticsFindingsFieldEvidenceRow | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeDiagnosticsFindingsFieldEvidenceRow)))
+    execution: RuntimeDiagnosticsFindingsFieldEvidenceExecution | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeDiagnosticsFindingsFieldEvidenceExecution)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "execution" and self.execution is not None and self.row is None) or (self.kind == "row" and self.execution is None and self.row is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeDiagnosticsFindingsRow:
     """Declared relation row or nested value."""
 
@@ -22,7 +53,7 @@ class RuntimeDiagnosticsFindingsRow:
     check_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     severity: e.FindingSeverity = attrs.field(validator=attrs.validators.instance_of(e.FindingSeverity))
     subjects: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    values: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    evidence: RuntimeDiagnosticsFindingsFieldEvidence = attrs.field(validator=attrs.validators.instance_of(RuntimeDiagnosticsFindingsFieldEvidence))
     message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     next_steps: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 

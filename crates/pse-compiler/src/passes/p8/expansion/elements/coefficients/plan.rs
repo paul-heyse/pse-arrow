@@ -174,6 +174,7 @@ fn source_key(registry: &Registry, name: &str, alias: &str) -> Result<Expr, Comp
         .relation(name)
         .ok_or_else(|| super::invalid("element coefficient source declaration absent"))?;
     Ok(scalar::key(
+        spec.id,
         spec.primary_key
             .iter()
             .map(|name| (*name, column(alias, name)))

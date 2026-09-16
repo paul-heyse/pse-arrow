@@ -69,7 +69,7 @@ fn registry() -> Arc<Registry> {
                 snapshot_class: relation.snapshot_class,
                 derivation_granularity: relation.derivation_granularity,
                 stability: relation.stability,
-                primary_key: relation.primary_key.clone(),
+                primary_key: Some(relation.primary_key.clone()),
                 columns: relation.columns.clone(),
                 checks: relation.checks.clone(),
                 doc: relation.doc,
@@ -446,24 +446,31 @@ async fn checked_record(
     row
 }
 fn findings(registry: &Registry) -> (RecordBatch, Vec<Cell>) {
+    use pse_relations::generated::runtime::diagnostics_findings as findings;
     let check = registry
         .invariants()
         .iter()
         .find(|check| check.name == "fixture_positive_mw")
-        .unwrap()
-        .id;
+        .unwrap();
+    let relation = registry.relation(&check.relation).unwrap();
     let rows = [(1_u8, "error"), (2, "warning")].map(|(id, severity)| {
-        vec![
-            Cell::Id(SemanticId::from_bytes([id; 16])),
-            Cell::Null,
-            Cell::Id(SemanticId::from_bytes([3; 16])),
-            Cell::Id(check),
-            Cell::Enum(severity),
-            Cell::List(vec![Cell::Id(SemanticId::from_bytes([4; 16]))]),
-            Cell::text("{\"actual\":7}"),
-            Cell::text(format!("retained finding {id}")),
-            Cell::List(vec![Cell::text("retain this suggestion")]),
-        ]
+        findings::Row {
+            finding_id: SemanticId::from_bytes([id; 16]),
+            subject_snapshot: None,
+            run_id: Some(SemanticId::from_bytes([3; 16])),
+            check_id: check.id,
+            severity: severity.parse().unwrap(),
+            subjects: vec![SemanticId::from_bytes([4; 16])],
+            evidence: findings::RuntimeDiagnosticsFindingsFieldEvidence::from_row(
+                findings::RuntimeDiagnosticsFindingsFieldEvidenceRow {
+                    relation_id: relation.id,
+                    row_key: pse_ids::ContentHash::from_bytes([id; 32]),
+                },
+            ),
+            message: format!("retained finding {id}"),
+            next_steps: vec!["retain this suggestion".into()],
+        }
+        .into_cells()
     });
     let spec = registry.relation("runtime.diagnostics_findings").unwrap();
     (

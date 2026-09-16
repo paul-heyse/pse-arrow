@@ -27,7 +27,7 @@ use std::collections::BTreeMap;
 #[derive(Clone, Debug, Default)]
 pub(super) struct Lookup {
     pub(super) completed: crate::change_set::plans::Completions,
-    pub(super) source_keys: BTreeMap<(SemanticId, String), String>,
+    pub(super) source_keys: BTreeMap<(SemanticId, String), pse_ids::ContentHash>,
     next: BTreeMap<(SemanticId, String, u32), u32>,
     pub(super) local: BTreeMap<(SemanticId, String), Vec<PathMeaning>>,
     pub(super) global: BTreeMap<String, Vec<SemanticId>>,
@@ -88,6 +88,7 @@ pub(super) async fn prepare(
     let mut requests = None;
     for (occurrence_role, source_role, spec) in branches {
         let key = pse_catalog::session::scalar::key(
+            spec.id,
             spec.primary_key
                 .iter()
                 .map(|name| (*name, col(*name)))
@@ -218,7 +219,7 @@ async fn consume(
         crate::change_set::plans::execute_recorded(session, plan, cancel, &mut output.completed)
             .await?
     {
-        let strings = ["field_path", "kind", "name", "source_key"]
+        let strings = ["field_path", "kind", "name"]
             .into_iter()
             .map(|name| {
                 let array = batch
@@ -282,7 +283,14 @@ async fn consume(
                 field_path,
                 ordinal,
                 match_ordinal: *match_ordinal,
-                source_key: text("source_key")?,
+                source_key: pse_ids::ContentHash::try_from_slice(
+                    batch
+                        .column_by_name("source_key")
+                        .and_then(|array| array.as_any().downcast_ref::<FixedSizeBinaryArray>())
+                        .ok_or_else(|| contract(None, "binding source token absent"))?
+                        .value(row),
+                )
+                .map_err(|error| contract(None, &error.to_string()))?,
                 kind: kind_name.parse()?,
                 owner_template_id: template,
                 semantic_id: semantic,
@@ -547,7 +555,7 @@ async fn bind_source_keys(
         let keys = batch
             .column(2)
             .as_any()
-            .downcast_ref::<StringArray>()
+            .downcast_ref::<FixedSizeBinaryArray>()
             .ok_or_else(|| contract(None, "source key storage"))?;
         for row in 0..batch.num_rows() {
             let id = SemanticId::from_bytes(
@@ -559,7 +567,8 @@ async fn bind_source_keys(
                 .source_keys
                 .insert(
                     (id, paths.value(row).to_owned()),
-                    keys.value(row).to_owned(),
+                    pse_ids::ContentHash::try_from_slice(keys.value(row))
+                        .map_err(|error| contract(None, &error.to_string()))?,
                 )
                 .is_some()
             {

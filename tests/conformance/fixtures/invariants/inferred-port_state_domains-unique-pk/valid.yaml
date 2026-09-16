@@ -1,0 +1,14 @@
+{
+  "invariant": "inferred.port_state_domains:unique:pk",
+  "rows": {
+    "inferred.port_state_domains": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_ids": "[\"list\",[]]",
+        "port_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "product_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -3,6 +3,7 @@
   "rows": {
     "reference.rule_specs": [
       {
+        "assertion_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "conflict_policy": "[\"enum\",\"reject\"]",
         "head_key_columns": "[\"list\",[]]",
         "head_kind": "[\"enum\",\"relation\"]",

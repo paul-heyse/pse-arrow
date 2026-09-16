@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! P2 observes duplicate candidate rows and preserves exact diagnostic/provenance keys.
+#[path = "support/row_key.rs"]
+mod row_key;
 use datafusion::arrow::array::{Array, RecordBatch};
 use datafusion::execution::runtime_env::RuntimeEnv;
 use pse_catalog::session::{
@@ -223,9 +225,21 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
         .find(|rule| rule.name == "unique:pk:authored.packages")
         .unwrap();
     assert_eq!(
-        pse_rules::derivations::decode_key(rule, &registry, finding.values_column().value(0))
-            .unwrap(),
-        vec![Cell::Id(SemanticId::from_bytes([7; 16]))]
+        finding
+            .row(0)
+            .unwrap()
+            .evidence
+            .row
+            .unwrap()
+            .row_key
+            .as_bytes(),
+        row_key::rule(
+            rule,
+            &registry,
+            &[Cell::Id(SemanticId::from_bytes([7; 16]))]
+        )
+        .await
+        .as_bytes()
     );
     let completed = report.completion().unwrap();
     assert!(completed.prepared().observation().physical_plan().is_none());
@@ -237,7 +251,7 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
         .display_indent()
         .to_string();
     assert!(observed.contains("Aggregate"));
-    assert!(observed.contains("pse_rule_key"));
+    assert!(observed.contains("pse_row_key"));
     // Both declared package uniqueness and dependency closure execute, including
     // the empty dependency list's valid zero-membership case.
     assert_eq!(report.check_count(), 2);
@@ -486,7 +500,14 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
                 .map(|row| {
                     (
                         view.check_id_column().value(row).to_vec(),
-                        view.values_column().value(row).to_owned(),
+                        view.row(row)
+                            .unwrap()
+                            .evidence
+                            .row
+                            .unwrap()
+                            .row_key
+                            .as_bytes()
+                            .to_vec(),
                     )
                 })
                 .collect::<Vec<_>>()
@@ -508,8 +529,16 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
         } else {
             "__pse_count"
         };
-        let text = format!("[\"pse.rule-key.v1\",[[\"{key}\",[\"u64\",{value}]]]]");
-        assert!(actual.contains(&(invariant.id.as_bytes().to_vec(), text)));
+        let field =
+            FieldContract::native(datafusion::arrow::datatypes::DataType::UInt64).with_name(key);
+        let token = row_key::values(
+            &registry,
+            registry.relation(&invariant.relation).unwrap().id,
+            &[&field],
+            &[Cell::U64(value)],
+        )
+        .await;
+        assert!(actual.contains(&(invariant.id.as_bytes().to_vec(), token.as_bytes().to_vec())));
     }
     let mut incomplete = rows.clone();
     incomplete.remove(&target.key);

@@ -241,14 +241,11 @@ pub(super) fn hydration_extent(
             let spec = registry
                 .relation(section.relation)
                 .ok_or_else(|| super::load::contract(None, "undeclared document relation"))?;
-            // Pending row, visited/identity/name indices, row spans and generated
+            // Pending row, visited/identity/name indices and generated
             // entity output all coexist. Context can inject package IDs and a
             // three-member source span for each declared column, at most.
             extent = add(extent, super::hydrate::pending_extent())?;
-            extent = add(
-                extent,
-                map_entry::<usize, ()>() + map_entry::<pse_ids::SemanticId, Vec<SourceSpan>>(),
-            )?;
+            extent = add(extent, map_entry::<usize, ()>())?;
             for column in &spec.columns {
                 extent = add(
                     extent,
@@ -484,15 +481,6 @@ pub(super) fn bundle_retained(bundle: &super::DocumentBundle) -> Result<usize, A
                 size_of::<DocumentSection>(),
             )?,
         )?;
-        for spans in document.row_spans.values() {
-            bytes = add(
-                bytes,
-                add(
-                    map_entry::<pse_ids::SemanticId, Vec<SourceSpan>>(),
-                    mul(spans.capacity(), size_of::<SourceSpan>())?,
-                )?,
-            )?;
-        }
     }
     for batch in bundle.batches.values() {
         bytes = add(bytes, batch.batch().get_array_memory_size())?;

@@ -111,18 +111,10 @@ pub(crate) async fn project_sources(
     for batch in batches.values_mut() {
         *batch = batch.retained(session.reserver(), cancel)?;
     }
-    let mut spans = BTreeMap::<SemanticId, Vec<SourceSpan>>::new();
-    for bundle in bundles.bundles() {
-        for document in &bundle.documents {
-            for (id, values) in &document.row_spans {
-                spans.entry(*id).or_default().extend(values.iter().copied());
-            }
-        }
-    }
     let bindings =
         crate::document::binding::bind_sources_owned(bundles, &batches, session, cancel).await?;
     let mut completed = Vec::new();
-    bind_targets(&mut batches, &spans, session, work, &mut completed, cancel).await?;
+    bind_targets(&mut batches, session, work, &mut completed, cancel).await?;
     Ok((batches, bindings, completed))
 }
 
@@ -219,7 +211,6 @@ pub async fn construct(
 /// Ambiguous declarations, invalid domain selectors or unavailable resources.
 async fn bind_targets(
     batches: &mut crate::document::Batches,
-    spans: &BTreeMap<SemanticId, Vec<SourceSpan>>,
     session: &pse_catalog::session::SnapshotSession,
     work: &mut dyn pse_ids::Reservation,
     completed: &mut crate::change_set::plans::Completions,
@@ -232,11 +223,7 @@ async fn bind_targets(
                 let view = authored::$source::View::from_checked(source)?;
                 for ordinal in 0..source.batch().num_rows() {
                     let row = view.row(ordinal)?;
-                    let at = spans
-                        .get(&authored::$source::RELATION_ID)
-                        .and_then(|values| values.get(ordinal))
-                        .copied()
-                        .ok_or_else(|| contract("target source span absent"))?;
+                    let at = SourceSpan::try_from(row.source_span)?;
                     let path = crate::targets::parse(&row.target, at)?;
                     for target in crate::targets::resolve_native(
                         &path, batches, session, row.$key, work, completed, cancel,

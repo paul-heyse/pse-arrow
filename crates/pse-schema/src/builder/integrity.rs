@@ -16,7 +16,7 @@ type Name = Cow<'static, str>;
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
     for relation in builder.relations.clone() {
-        if relation.primary_key.is_empty() {
+        if relation.primary_key.is_none() {
             // The relation declaration validator reports the missing identity.
             continue;
         }
@@ -37,11 +37,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         let repeated = filter(
             RulePlan::Aggregate {
                 input: Box::new(scan(&name, "subject")),
-                group: relation
-                    .primary_key
-                    .iter()
-                    .map(|name| (*name).into())
-                    .collect(),
+                group: keys(&relation).iter().map(|name| (*name).into()).collect(),
                 aggregates: vec![count(count_name.clone())],
             },
             RuleExpr::cmp(
@@ -55,7 +51,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             &relation,
             "unique:pk",
             InvariantKind::Unique,
-            project(repeated, &relation.primary_key, None),
+            project(repeated, keys(&relation), None),
             "The declared primary key identifies exactly one row.",
         );
         for column in &relation.columns {
@@ -73,14 +69,14 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     &relation,
                     &format!("foreign_key:{}", column.name()),
                     InvariantKind::ForeignKey,
-                    RulePlan::Distinct(Box::new(project(missing, &relation.primary_key, None))),
+                    RulePlan::Distinct(Box::new(project(missing, keys(&relation), None))),
                     "Every present foreign-key value resolves to its declared relation and column.",
                 );
             }
             if has_ordinal(&column.value_type()) {
                 let input = project(
                     scan(&name, "subject"),
-                    &relation.primary_key,
+                    keys(&relation),
                     Some((names.value.clone(), RuleExpr::col(column.name().to_owned()))),
                 );
                 ordinals(
@@ -142,7 +138,7 @@ fn ordinals(
             };
             let projected = project(
                 expanded,
-                &relation.primary_key,
+                keys(relation),
                 Some((names.value.clone(), RuleExpr::col(names.item.clone()))),
             );
             ordinals(
@@ -161,7 +157,7 @@ fn ordinals(
                 if has_ordinal(child) {
                     let projected = project(
                         input.clone(),
-                        &relation.primary_key,
+                        keys(relation),
                         Some((
                             names.value.clone(),
                             RuleExpr::Field {
@@ -194,8 +190,7 @@ fn ordinal_range(
     names: &Names,
 ) {
     let visible = filter(input, present(names.value.clone()));
-    let mut left_columns = relation
-        .primary_key
+    let mut left_columns = keys(relation)
         .iter()
         .map(|name| ((*name).into(), RuleExpr::col(*name)))
         .collect::<Vec<_>>();
@@ -236,7 +231,7 @@ fn ordinal_range(
         relation,
         &format!("ordinal_range:{path}"),
         InvariantKind::Domain,
-        RulePlan::Distinct(Box::new(project(invalid, &relation.primary_key, None))),
+        RulePlan::Distinct(Box::new(project(invalid, keys(relation), None))),
         "Every visible ordinal is below its explicitly declared target relation's row count.",
     );
 }
@@ -257,7 +252,7 @@ fn install(
         1,
         RuleHead::Violations {
             of: relation_name.clone(),
-            key_columns: relation.primary_key.clone(),
+            key_columns: keys(relation).to_vec(),
         },
         plan,
     )
@@ -307,4 +302,8 @@ fn count(output_name: Name) -> RuleAggregate {
         null_policy: AggregateNullPolicy::Reject,
         empty_policy: AggregateEmptyPolicy::Zero,
     }
+}
+
+fn keys(relation: &RelationDecl) -> &[&'static str] {
+    relation.primary_key.as_deref().unwrap_or_default()
 }

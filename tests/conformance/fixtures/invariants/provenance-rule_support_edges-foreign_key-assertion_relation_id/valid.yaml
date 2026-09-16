@@ -1,0 +1,37 @@
+{
+  "invariant": "provenance.rule_support_edges:foreign_key:assertion_relation_id",
+  "rows": {
+    "provenance.rule_support_edges": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "assertion_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "edge_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "head_key": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "head_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "input_key": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
+        "input_port": "[\"text\",\"value-1\"]",
+        "input_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "input_selection": "[\"struct\",[[\"text\",\"value-1\"],[\"text\",\"value-1\"],[\"text\",\"value-1\"],[\"id\",\"01010101010101010101010101010101\"],[\"i64\",1],[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"],[\"text\",\"value-1\"],[\"i64\",1],[\"struct\",[[\"text\",\"full\"],[\"null\",null]]]]]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "support_kind": "[\"enum\",\"delta\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ],
+    "reference.schema_relations": [
+      {
+        "authority": "[\"enum\",\"authored\"]",
+        "checks": "[\"list\",[]]",
+        "derivation_granularity": "[\"enum\",\"row\"]",
+        "doc": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "namespace": "[\"enum\",\"reference\"]",
+        "primary_key": "[\"list\",[]]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "snapshot_class": "[\"enum\",\"model\"]",
+        "stability": "[\"enum\",\"stable\"]",
+        "version": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

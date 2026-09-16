@@ -1,0 +1,15 @@
+{
+  "invariant": "inferred.material_template_checks:unique:pk",
+  "rows": {
+    "inferred.material_template_checks": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_count": "[\"u64\",1]",
+        "species_count": "[\"u64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -20,7 +20,7 @@ impl Configuration<'_> {
         &mut self,
         instance: &authored::instances::Row,
         source_relation: SemanticId,
-        source_key: &str,
+        source_key: &pse_ids::ContentHash,
         bindings: &std::collections::BTreeMap<String, Value>,
     ) -> Result<(), CompilerError> {
         self.bind_parameters(instance, source_relation, source_key, bindings)
@@ -33,7 +33,7 @@ impl Configuration<'_> {
         &mut self,
         instance: &authored::instances::Row,
         source_relation: SemanticId,
-        source_key: &str,
+        source_key: &pse_ids::ContentHash,
         bindings: &std::collections::BTreeMap<String, Value>,
     ) -> Result<(), CompilerError> {
         let params =
@@ -74,10 +74,7 @@ impl Configuration<'_> {
             let (relation, key) = if assigned.is_some() || binding.is_some() {
                 (source_relation, source_key)
             } else {
-                (
-                    authored::template_params::RELATION_ID,
-                    parameter.key.as_str(),
-                )
+                (authored::template_params::RELATION_ID, &parameter.key)
             };
             origins.extend(self.original(relation, key)?);
             self.record(
@@ -86,7 +83,7 @@ impl Configuration<'_> {
                 &row.name,
                 parsed,
                 (relation, key),
-                origins,
+                &origins,
             )?;
         }
         Ok(())
@@ -96,7 +93,7 @@ impl Configuration<'_> {
         &mut self,
         instance: &authored::instances::Row,
         source_relation: SemanticId,
-        source_key: &str,
+        source_key: &pse_ids::ContentHash,
         bindings: &std::collections::BTreeMap<String, Value>,
     ) -> Result<(), CompilerError> {
         let flowsheet = self
@@ -133,10 +130,7 @@ impl Configuration<'_> {
             let (relation, key) = if assigned.is_some() || binding.is_some() {
                 (source_relation, source_key)
             } else {
-                (
-                    authored::template_features::RELATION_ID,
-                    feature.key.as_str(),
-                )
+                (authored::template_features::RELATION_ID, &feature.key)
             };
             origins.extend(self.original(relation, key)?);
             let logical = match row.kind {
@@ -157,7 +151,7 @@ impl Configuration<'_> {
                     },
                     |name| format!("self.{name}"),
                 );
-                self.inherit(instance, &row.name, &path, relation, key, origins)?;
+                self.inherit(instance, &row.name, &path, relation, key, &origins)?;
                 continue;
             } else if let Some(text) = text {
                 value::parse(
@@ -176,7 +170,7 @@ impl Configuration<'_> {
                 &row.name,
                 parsed,
                 (relation, key),
-                origins,
+                &origins,
             )?;
         }
         self.bind_dynamic(instance, flowsheet, &dynamic_origins)
@@ -199,7 +193,7 @@ impl Configuration<'_> {
                     "parent.dynamic",
                     authored::flowsheets::RELATION_ID,
                     &flow.key,
-                    origins,
+                    &origins,
                 )?;
             } else {
                 let parsed = Value::from_boolean(
@@ -213,7 +207,7 @@ impl Configuration<'_> {
                     "dynamic",
                     parsed,
                     (authored::flowsheets::RELATION_ID, &flow.key),
-                    origins,
+                    &origins,
                 )?;
             }
         }
@@ -226,22 +220,26 @@ impl Configuration<'_> {
         category: ConfigCategory,
         name: &str,
         value: Value,
-        source: (SemanticId, &str),
-        origins: Origins,
+        source: (SemanticId, &pse_ids::ContentHash),
+        origins: &Origins,
     ) -> Result<(), CompilerError> {
         let (relation, source_key) = source;
         if self
             .values
-            .insert((owner, name.to_owned()), value.clone())
+            .insert(
+                (owner, name.to_owned()),
+                super::Sourced {
+                    value: value.clone(),
+                    sources: origins.clone(),
+                },
+            )
             .is_some()
         {
             return Err(invalid(
                 "parameter and feature names collide in one instance binding",
             ));
         }
-        self.value_origins
-            .insert((owner, name.to_owned()), origins.clone());
-        self.push(
+        self.columns.push(
             normalized::config_values::Row {
                 owner_id: owner,
                 category,
@@ -262,8 +260,8 @@ impl Configuration<'_> {
         name: &str,
         path: &str,
         relation: SemanticId,
-        source_key: &str,
-        origins: Origins,
+        source_key: &pse_ids::ContentHash,
+        origins: &Origins,
     ) -> Result<(), CompilerError> {
         let (scope, source_name) = path
             .split_once('.')
@@ -274,7 +272,7 @@ impl Configuration<'_> {
             "self" => Some(instance.instance_id),
             _ => return Err(invalid("unknown feature inheritance scope")),
         };
-        self.push(
+        self.columns.push(
             normalized::feature_inheritance::Row {
                 instance_id: instance.instance_id,
                 name: name.to_owned(),

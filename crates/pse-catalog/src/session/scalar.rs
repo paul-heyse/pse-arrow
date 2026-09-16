@@ -7,7 +7,9 @@
 
 mod element;
 mod encode;
+mod key;
 pub use element::array_element;
+pub use key::key;
 mod nonnull;
 pub(crate) use nonnull::nullable;
 pub use nonnull::{refine_filtered_fields, require_nonnull};
@@ -32,14 +34,12 @@ use datafusion::common::{DataFusionError, Result};
 use datafusion::execution::session_state::SessionStateBuilder;
 use datafusion::logical_expr::{
     ColumnarValue, Expr, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature,
-    TypeSignature, Volatility, lit,
+    TypeSignature, Volatility,
 };
 use pse_ids::SemanticId;
 use pse_schema::model::FieldContract;
 use std::sync::{Arc, LazyLock};
 
-static KEY: LazyLock<Arc<ScalarUDF>> =
-    LazyLock::new(|| Arc::new(ScalarUDF::from(Codec::new(Kind::Key))));
 static LITERAL: LazyLock<Arc<ScalarUDF>> =
     LazyLock::new(|| Arc::new(ScalarUDF::from(Codec::new(Kind::Literal))));
 static NAMED_ID: LazyLock<Arc<ScalarUDF>> =
@@ -61,7 +61,7 @@ pub fn register(
         .scalar_functions()
         .get_or_insert_with(Vec::new)
         .extend([
-            Arc::clone(&KEY),
+            key::function(),
             Arc::clone(&LITERAL),
             Arc::clone(&NAMED_ID),
             Arc::clone(&ID_LIST),
@@ -78,22 +78,12 @@ pub fn register(
     builder
 }
 
-/// Frames ordered declared names and values using the reversible `pse.rule-key.v1` codec.
-pub fn key(columns: Vec<(&str, Expr)>) -> Expr {
-    KEY.call(
-        columns
-            .into_iter()
-            .flat_map(|(name, value)| [lit(name), value])
-            .collect(),
-    )
-}
-
 /// Encodes an actual typed value without `Cell` reconstruction or float normalization.
 pub fn literal(value: Expr) -> Expr {
     LITERAL.call(vec![value])
 }
 
-/// Assigns a deterministic identity to an explicit namespace and exact text payload.
+/// Assigns an identity to an explicit namespace and exact text or typed row-key payload.
 /// Consumers must compare actual fact/support columns rather than these labels.
 pub fn named_id(namespace: Expr, payload: Expr) -> Expr {
     NAMED_ID.call(vec![namespace, payload])
@@ -107,7 +97,6 @@ pub fn id_list(values: Vec<Expr>) -> Expr {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Kind {
-    Key,
     Literal,
     NamedId,
     IdList,
@@ -122,13 +111,19 @@ struct Codec {
 impl Codec {
     fn new(kind: Kind) -> Self {
         let signature = match kind {
-            Kind::Key | Kind::IdList => Signature::one_of(
+            Kind::IdList => Signature::one_of(
                 vec![TypeSignature::Nullary, TypeSignature::VariadicAny],
                 Volatility::Immutable,
             ),
             Kind::Literal => Signature::any(1, Volatility::Immutable),
-            Kind::NamedId => Signature::exact(
-                vec![DataType::FixedSizeBinary(16), DataType::Utf8],
+            Kind::NamedId => Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![DataType::FixedSizeBinary(16), DataType::Utf8]),
+                    TypeSignature::Exact(vec![
+                        DataType::FixedSizeBinary(16),
+                        DataType::FixedSizeBinary(32),
+                    ]),
+                ],
                 Volatility::Immutable,
             ),
         };
@@ -139,7 +134,6 @@ impl Codec {
 impl ScalarUDFImpl for Codec {
     fn name(&self) -> &str {
         match self.kind {
-            Kind::Key => "pse_rule_key",
             Kind::Literal => "pse_literal",
             Kind::NamedId => "pse_named_id",
             Kind::IdList => "pse_id_list",
@@ -152,28 +146,11 @@ impl ScalarUDFImpl for Codec {
         Ok(match self.kind {
             Kind::NamedId => DataType::FixedSizeBinary(16),
             Kind::IdList => FieldContract::list(FieldContract::id()).data_type(),
-            Kind::Key | Kind::Literal => DataType::Utf8,
+            Kind::Literal => DataType::Utf8,
         })
     }
     fn return_field_from_args(&self, args: ReturnFieldArgs<'_>) -> Result<FieldRef> {
         match self.kind {
-            Kind::Key => {
-                if !args.arg_fields.len().is_multiple_of(2) {
-                    return Err(invalid("key requires ordered name/value pairs"));
-                }
-                for (index, fields) in args.arg_fields.as_chunks::<2>().0.iter().enumerate() {
-                    let name = args
-                        .scalar_arguments
-                        .get(index * 2)
-                        .copied()
-                        .flatten()
-                        .and_then(|value| value.try_as_str().flatten());
-                    if name.is_none() {
-                        return Err(invalid("key names must be explicit non-null text literals"));
-                    }
-                    encode::admit_type(fields[1].data_type())?;
-                }
-            }
             Kind::Literal => {
                 let field = args
                     .arg_fields
@@ -184,10 +161,13 @@ impl ScalarUDFImpl for Codec {
             Kind::NamedId => {
                 if args.arg_fields.len() != 2
                     || args.arg_fields[0].data_type() != &DataType::FixedSizeBinary(16)
-                    || args.arg_fields[1].data_type() != &DataType::Utf8
+                    || !matches!(
+                        args.arg_fields[1].data_type(),
+                        DataType::Utf8 | DataType::FixedSizeBinary(32)
+                    )
                 {
                     return Err(invalid(
-                        "named identity requires an explicit 16-byte namespace and text payload",
+                        "named identity requires a 16-byte namespace and text or typed-key payload",
                     ));
                 }
             }
@@ -211,7 +191,7 @@ impl ScalarUDFImpl for Codec {
         let logical = match self.kind {
             Kind::NamedId => FieldContract::id(),
             Kind::IdList => FieldContract::list(FieldContract::id()),
-            Kind::Key | Kind::Literal => FieldContract::native(DataType::Utf8),
+            Kind::Literal => FieldContract::native(DataType::Utf8),
         };
         let mut column =
             FieldContract::payload("value", logical, "Exact native diagnostic codec output.");
@@ -240,8 +220,7 @@ impl ScalarUDFImpl for Codec {
                 .ok_or_else(|| invalid("named identity namespace layout differs"))?;
             let payload = arrays
                 .get(1)
-                .and_then(|array| array.as_any().downcast_ref::<StringArray>())
-                .ok_or_else(|| invalid("named identity payload layout differs"))?;
+                .ok_or_else(|| invalid("named identity payload absent"))?;
             let mut output = FixedSizeBinaryBuilder::with_capacity(args.number_rows, 16);
             for row in 0..args.number_rows {
                 if namespace.is_null(row) || payload.is_null(row) {
@@ -252,59 +231,31 @@ impl ScalarUDFImpl for Codec {
                     .value(row)
                     .try_into()
                     .map_err(|_| invalid("identity namespace width differs"))?;
+                let payload = if let Some(text) = payload.as_any().downcast_ref::<StringArray>() {
+                    text.value(row).as_bytes()
+                } else if let Some(key) = payload.as_any().downcast_ref::<FixedSizeBinaryArray>() {
+                    key.value(row)
+                } else {
+                    return Err(invalid("named identity payload layout differs"));
+                };
                 output.append_value(
-                    pse_ids::named_id(SemanticId::from_bytes(bytes), payload.value(row)).as_bytes(),
+                    pse_ids::derive_id(
+                        pse_ids::derive::context::NAMED,
+                        &[SemanticId::from_bytes(bytes).as_bytes(), payload],
+                    )
+                    .as_bytes(),
                 )?;
             }
             return Ok(ColumnarValue::Array(Arc::new(output.finish())));
         }
-        let names = if self.kind == Kind::Key {
-            args.args
-                .iter()
-                .step_by(2)
-                .map(|argument| {
-                    let ColumnarValue::Scalar(value) = argument else {
-                        return Err(invalid("key name was not retained as a literal"));
-                    };
-                    let name = value
-                        .try_as_str()
-                        .flatten()
-                        .ok_or_else(|| invalid("key name is not text"))?;
-                    serde_json::to_string(name)
-                        .map_err(|error| DataFusionError::External(Box::new(error)))
-                })
-                .collect::<Result<Vec<_>>>()?
-        } else {
-            Vec::new()
-        };
         let mut output = StringBuilder::with_capacity(args.number_rows, 0);
         let mut text = String::new();
         for row in 0..args.number_rows {
             text.clear();
-            if self.kind == Kind::Key {
-                text.push_str("[\"pse.rule-key.v1\",[");
-                for (index, name) in names.iter().enumerate() {
-                    if index != 0 {
-                        text.push(',');
-                    }
-                    text.push('[');
-                    text.push_str(name);
-                    text.push(',');
-                    encode::value(
-                        arrays[index * 2 + 1].as_ref(),
-                        &args.arg_fields[index * 2 + 1],
-                        row,
-                        &mut text,
-                    )?;
-                    text.push(']');
-                }
-                text.push_str("]]");
-            } else {
-                let array = arrays
-                    .first()
-                    .ok_or_else(|| invalid("literal argument absent"))?;
-                encode::value(array.as_ref(), &args.arg_fields[0], row, &mut text)?;
-            }
+            let array = arrays
+                .first()
+                .ok_or_else(|| invalid("literal argument absent"))?;
+            encode::value(array.as_ref(), &args.arg_fields[0], row, &mut text)?;
             let length = output
                 .values_slice()
                 .len()

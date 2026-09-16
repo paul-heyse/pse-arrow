@@ -34,7 +34,12 @@ pub(crate) fn builder() -> RegistryBuilder {
     let catalog = pse_schema::registry().unwrap();
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
-    for name in ["TruthValue", "RuleOutcomeReason", "RuleSupportKind"] {
+    for name in [
+        "TruthValue",
+        "RuleOutcomeReason",
+        "RuleSupportKind",
+        "MemberSelectionKind",
+    ] {
         let spec = catalog.enum_spec(name).unwrap();
         builder.declare_enum(EnumDecl::platform(spec.name, spec.members.clone()));
     }

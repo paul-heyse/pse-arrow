@@ -28,7 +28,6 @@ pub mod execution;
 mod factory;
 mod facts;
 mod functions;
-mod indexed;
 mod inspection;
 mod materialized;
 pub mod mutation;

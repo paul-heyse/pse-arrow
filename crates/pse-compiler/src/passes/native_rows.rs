@@ -6,7 +6,7 @@
 use std::collections::BTreeMap;
 
 use datafusion::{
-    arrow::array::{Array, StringArray},
+    arrow::array::{Array, FixedSizeBinaryArray, StringArray},
     common::{Column, DataFusionError, NullEquality},
     logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder, col},
 };
@@ -124,42 +124,45 @@ impl AlgorithmInputs {
         Ok(rows)
     }
 
-    pub(crate) async fn strings(
+    pub(crate) async fn keys(
         &mut self,
         plan: LogicalPlan,
         session: &SnapshotSession,
         cancel: &CancellationToken,
-    ) -> Result<Vec<Option<String>>, CompilerError> {
+    ) -> Result<Vec<Option<pse_ids::ContentHash>>, CompilerError> {
         let completed = session
             .prepare_rule_plan(plan, cancel)?
             .execute(cancel)
             .await?;
         let extent = completed.batches().iter().try_fold(0_usize, |sum, batch| {
             sum.checked_add(pse_ids::validation_extent(batch)?)
-                .ok_or_else(|| invalid("algorithm text projection extent overflow"))
+                .ok_or_else(|| invalid("algorithm key projection extent overflow"))
         })?;
         self.work
             .try_grow(
                 extent
                     .checked_mul(2)
-                    .ok_or_else(|| invalid("algorithm text projection extent overflow"))?,
+                    .ok_or_else(|| invalid("algorithm key projection extent overflow"))?,
             )
             .map_err(pse_ids::CanonError::from)?;
         let mut values = Vec::new();
         for batch in completed.batches() {
             cancel.checkpoint()?;
             if batch.num_columns() != 1 {
-                return Err(invalid("algorithm text projection must have one column"));
+                return Err(invalid("algorithm key projection must have one column"));
             }
             let column = batch
                 .column(0)
                 .as_any()
-                .downcast_ref::<StringArray>()
-                .ok_or_else(|| invalid("algorithm text projection is not Utf8"))?;
-            values.extend(
-                (0..column.len())
-                    .map(|index| (!column.is_null(index)).then(|| column.value(index).to_owned())),
-            );
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .ok_or_else(|| invalid("algorithm key projection is not a typed key"))?;
+            for index in 0..column.len() {
+                values.push(if column.is_null(index) {
+                    None
+                } else {
+                    Some(key_value(column.value(index))?)
+                });
+            }
         }
         Ok(values)
     }
@@ -268,7 +271,7 @@ fn invalid(detail: &str) -> CompilerError {
 #[derive(Clone, Debug)]
 pub(crate) struct Keyed<T> {
     pub(crate) row: T,
-    pub(crate) key: String,
+    pub(crate) key: pse_ids::ContentHash,
 }
 
 pub(crate) async fn keyed_rows<T: RelationRow>(
@@ -300,6 +303,7 @@ pub(crate) async fn keyed_rows_with_text<T: RelationRow>(
     let spec = T::relation(registry)?;
     let mut extras = vec![
         scalar::key(
+            spec.id,
             spec.primary_key
                 .iter()
                 .map(|name| (*name, col(*name)))
@@ -329,8 +333,8 @@ pub(crate) async fn keyed_rows_with_text<T: RelationRow>(
         let keys = batch
             .column(spec.columns.len())
             .as_any()
-            .downcast_ref::<StringArray>()
-            .ok_or_else(|| invalid("algorithm source key is not Utf8"))?;
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .ok_or_else(|| invalid("algorithm source key is not a typed key"))?;
         let checked = FieldCheckedBatch::admit_owned_projection(registry, spec, batch, &positions)?;
         let values = if has_value {
             Some(
@@ -352,7 +356,7 @@ pub(crate) async fn keyed_rows_with_text<T: RelationRow>(
             result.push((
                 Keyed {
                     row,
-                    key: keys.value(index).to_owned(),
+                    key: key_value(keys.value(index))?,
                 },
                 values.and_then(|values| {
                     (!values.is_null(index)).then(|| values.value(index).to_owned())
@@ -415,4 +419,9 @@ pub(crate) async fn located_input<T: RelationRow>(
         },
     })
     .collect())
+}
+
+/// Decode the fixed-width token at an actual native algorithm boundary.
+pub(crate) fn key_value(bytes: &[u8]) -> Result<pse_ids::ContentHash, CompilerError> {
+    pse_ids::ContentHash::try_from_slice(bytes).map_err(|error| invalid(&error.to_string()))
 }

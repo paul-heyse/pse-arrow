@@ -40,6 +40,14 @@ test-group = "engineering"
 slow-timeout = { period = "300s", terminate-after = 3 }
 
 [[profile.default.overrides]]
+# The typed-key/source-span template journey completed in 395.369s on 2026-09-16
+# (ci/force-validation, one worker, 32 GiB shared ceiling). Keep its diagnostic
+# allowance scoped; this is not a latency acceptance threshold.
+filter = 'package(pse-tests-engine) & binary(native_template_graph)'
+test-group = "serial"
+slow-timeout = { period = "300s", terminate-after = 2 }
+
+[[profile.default.overrides]]
 filter = 'package(pse-tests-engine) | package(pse-catalog) | test(/object_store/)'
 test-group = "serial"
 

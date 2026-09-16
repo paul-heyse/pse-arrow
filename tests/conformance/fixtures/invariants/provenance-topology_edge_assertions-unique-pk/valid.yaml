@@ -1,0 +1,16 @@
+{
+  "invariant": "provenance.topology_edge_assertions:unique:pk",
+  "rows": {
+    "provenance.topology_edge_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "connection_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "from_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "to_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

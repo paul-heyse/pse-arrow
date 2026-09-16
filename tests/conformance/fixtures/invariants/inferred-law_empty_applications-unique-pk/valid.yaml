@@ -1,0 +1,12 @@
+{
+  "invariant": "inferred.law_empty_applications:unique:pk",
+  "rows": {
+    "inferred.law_empty_applications": [
+      {
+        "application_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

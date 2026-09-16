@@ -1,0 +1,36 @@
+{
+  "invariant": "normalized.source_occurrences:unique:pk",
+  "rows": {
+    "normalized.source_occurrences": [
+      {
+        "document_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "field_path": "[\"text\",\"value-1\"]",
+        "lookup_name": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "owner_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "owner_kind": "[\"enum\",\"template\"]",
+        "source_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_row_ordinal": "[\"u64\",1]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]"
+      },
+      {
+        "document_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "field_path": "[\"text\",\"value-1\"]",
+        "lookup_name": "[\"text\",\"value-1\"]",
+        "ordinal": "[\"u64\",1]",
+        "owner_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "owner_kind": "[\"enum\",\"template\"]",
+        "source_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_row_ordinal": "[\"u64\",1]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]",
+      "[\"u64\",1]"
+    ]
+  ]
+}

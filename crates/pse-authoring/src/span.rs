@@ -13,9 +13,9 @@ use pse_ids::SemanticId;
 
 /// A byte range in an authoring document (blueprint §4.4).
 ///
-/// The storage is `Struct<document_id: FixedSizeBinary(16), start: UInt32, end: UInt32>`,
-/// so `u32` is the declared width, not a convenience: a document larger than 4 GiB is
-/// outside the phase-1 envelope regardless.
+/// Parser byte offsets use `u32`; their declared Arrow representation uses bounded
+/// nonnegative `Int64` fields. A document larger than 4 GiB is outside this parser's
+/// envelope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SourceSpan {
     /// The document, by identity.
@@ -56,6 +56,25 @@ impl fmt::Display for SourceSpan {
     /// `<document id>:<start>..<end>`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}..{}", self.document_id, self.start, self.end)
+    }
+}
+
+impl TryFrom<pse_relations::generated::extension_values::SourceSpan> for SourceSpan {
+    type Error = crate::AuthoringError;
+
+    fn try_from(
+        value: pse_relations::generated::extension_values::SourceSpan,
+    ) -> Result<Self, Self::Error> {
+        let invalid = || crate::AuthoringError::Contract {
+            at: None,
+            reason: "source span exceeds the parser offset range or is inverted".into(),
+        };
+        let start = u32::try_from(value.start).map_err(|_| invalid())?;
+        let end = u32::try_from(value.end).map_err(|_| invalid())?;
+        if end < start {
+            return Err(invalid());
+        }
+        Ok(Self::new(value.document_id, start, end))
     }
 }
 

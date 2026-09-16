@@ -1,0 +1,16 @@
+{
+  "invariant": "reference.quantity_preconditions:unique:pk",
+  "rows": {
+    "reference.quantity_preconditions": [
+      {
+        "invariant_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"equal_operand_bases\"]",
+        "match_shape": "[\"bool\",true]",
+        "operand_positions": "[\"list\",[]]",
+        "required_basis_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "required_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

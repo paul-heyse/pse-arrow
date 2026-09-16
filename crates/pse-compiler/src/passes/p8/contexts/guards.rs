@@ -2,13 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Guard source keys and settled scalar outcomes are matched relationally.
-use super::native::{Sources, append, c, error, filter, join, require, sid};
+use super::native::{Sources, c, filter, join, require, sid};
 use crate::CompilerError;
 use datafusion::{
-    common::UnnestOptions,
-    functions::{core::expr_fn::get_field, string::expr_fn::ends_with},
+    functions::string::expr_fn::ends_with,
     functions_nested::expr_fn::array_length,
-    logical_expr::{JoinType, LogicalPlan, LogicalPlanBuilder, col, lit},
+    logical_expr::{JoinType, LogicalPlan, lit},
 };
 use pse_ids::CancellationToken;
 
@@ -40,20 +39,16 @@ pub(super) async fn apply(
                 lit("/predicate"),
             )),
     )?;
-    let source = append(source, [c("guard_source", "source_key").alias("guard_key")])?;
-    let source = LogicalPlanBuilder::from(source)
-        .unnest_column_with_options("guard_key", UnnestOptions::new().with_preserve_nulls(false))
-        .and_then(LogicalPlanBuilder::build)
-        .map_err(error)?;
-    let source = filter(
-        source,
-        get_field(col("guard_key"), "column_name").eq(lit("guard_id")),
-    )?;
     let base = join(
         base,
         source,
         JoinType::Left,
-        [c("guard", "guard_id").eq(get_field(col("guard_key"), "semantic_id"))],
+        [
+            c("guard_source", "source_key").eq(pse_catalog::session::scalar::key(
+                pse_relations::generated::authored::template_guards::RELATION_ID,
+                vec![("guard_id", c("guard", "guard_id"))],
+            )),
+        ],
     )?;
     let outcomes = sources.scan("inferred.predicate_outcomes", "guard_outcome")?;
     let base = join(

@@ -1,0 +1,37 @@
+{
+  "invariant": "reference.method_parameters:foreign_key:method_id",
+  "rows": {
+    "reference.method_parameters": [
+      {
+        "indexed_by": "[\"list\",[]]",
+        "method_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "natural_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "required": "[\"bool\",true]"
+      }
+    ],
+    "reference.method_specs": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "family": "[\"enum\",\"state_definition\"]",
+        "kernel_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "parameter_kinds": "[\"list\",[]]",
+        "provides": "[\"list\",[]]",
+        "realization": "[\"enum\",\"equation_template\"]",
+        "requires": "[\"list\",[]]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "validity": "[\"list\",[]]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"02020202020202020202020202020202\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

@@ -334,16 +334,25 @@ impl Realizer<'_> {
         id: SemanticId,
         field: &str,
     ) -> Result<normalized::expression_sources::Row, CompilerError> {
+        let spec = self
+            .registry
+            .relation_by_id(relation)
+            .filter(|spec| spec.primary_key == [key])
+            .ok_or_else(|| {
+                invalid("expression source lookup requires its complete identity key")
+            })?;
+        let token = self
+            .inventory
+            .source_index
+            .key(spec.id, id)
+            .ok_or_else(|| invalid("expression source declaration absent"))?;
         let matches = self
             .inventory
             .sources
             .iter()
             .filter(|source| {
                 source.source_relation_id == relation
-                    && source
-                        .source_key
-                        .iter()
-                        .any(|part| part.column_name == key && part.semantic_id == Some(id))
+                    && source.source_key == token
                     && source.field_path.rsplit('/').next() == Some(field)
             })
             .collect::<Vec<_>>();

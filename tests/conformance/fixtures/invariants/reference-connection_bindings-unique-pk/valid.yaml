@@ -1,0 +1,12 @@
+{
+  "invariant": "reference.connection_bindings:unique:pk",
+  "rows": {
+    "reference.connection_bindings": [
+      {
+        "expansion": "[\"enum\",\"equality\"]",
+        "rule_template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

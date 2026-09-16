@@ -18,7 +18,7 @@ use pse_ids::SemanticId;
 use pse_relations::generated::authored;
 use pse_schema::{
     Registry,
-    model::{Cell, ExpressionOwnerKind, ExtensionUse, FieldContract},
+    model::{ExpressionOwnerKind, ExtensionUse, FieldContract},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -117,8 +117,8 @@ pub struct SourceExpression {
     pub document_path: String,
     /// Exact registered relation.
     pub relation_id: SemanticId,
-    /// Complete actual primary key of the source row.
-    pub row_key: Vec<Cell>,
+    /// Native token of the actual declared primary key within this relation.
+    pub row_key: pse_ids::ContentHash,
     /// Explicit owner kind from the document declaration.
     pub owner_kind: ExpressionOwnerKind,
     /// Actual source owner identity; never substituted with its template context.
@@ -148,11 +148,10 @@ impl SourceBindings {
         &self.expressions
     }
     /// Exact source key computed by the retained native source-row projection.
-    pub fn source_key(&self, expression: &SourceExpression) -> Option<&str> {
+    pub fn source_key(&self, expression: &SourceExpression) -> Option<&pse_ids::ContentHash> {
         self.lookup
             .source_keys
             .get(&(expression.document_id, expression.document_path.clone()))
-            .map(String::as_str)
     }
 }
 
@@ -235,7 +234,7 @@ impl OwnedSourceBindings {
         self.0.bindings.expressions()
     }
     /// Exact source row key produced by this inventory's native binding computation.
-    pub fn source_key(&self, source: &SourceExpression) -> Option<&str> {
+    pub fn source_key(&self, source: &SourceExpression) -> Option<&pse_ids::ContentHash> {
         self.0.bindings.source_key(source)
     }
     /// Actual completed native binding pieces, retaining their frozen providers.
@@ -281,7 +280,6 @@ fn bind_parsed(
                         .expression_owner_kind
                         .ok_or_else(|| contract(None, "expression owner kind absent"))?;
                     let owner = owner_template(&context, owner_kind, owner_id)?;
-                    let key = source_row_key(document, relation, ordinal, registry)?;
                     let mut fields = Vec::new();
                     for column in &relation.columns {
                         if let Some(value) = value.value.get(column.name()) {
@@ -318,7 +316,7 @@ fn bind_parsed(
                             document_id: document.id,
                             document_path: path,
                             relation_id: relation.id,
-                            row_key: key.clone(),
+                            row_key: *source_key,
                             owner_kind,
                             owner_id,
                             owner_template_id: owner,
@@ -350,7 +348,7 @@ fn bind_parsed(
 
 fn index_names(
     relation: SemanticId,
-    source_key: &str,
+    source_key: &pse_ids::ContentHash,
     value: &Value,
     context: &Context,
 ) -> Result<Vec<String>, AuthoringError> {
@@ -591,37 +589,4 @@ fn owner_template(
         ));
     }
     Ok(owner)
-}
-
-fn source_row_key(
-    document: &super::Document,
-    relation: &pse_schema::model::RelationSpec,
-    ordinal: usize,
-    registry: &Registry,
-) -> Result<Vec<Cell>, AuthoringError> {
-    let source = document
-        .batches
-        .get(&relation.id)
-        .ok_or_else(|| contract(None, "source batch absent"))?;
-    let positions = relation
-        .primary_key
-        .iter()
-        .map(|name| {
-            source
-                .batch()
-                .schema()
-                .index_of(name)
-                .map_err(|error| contract(None, &error.to_string()))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let key_batch = source
-        .batch()
-        .slice(ordinal, 1)
-        .project(&positions)
-        .map_err(|error| contract(None, &error.to_string()))?;
-    let mut keys = pse_relations::cells::decode_columns(registry, &key_batch)?;
-    let key = keys
-        .pop()
-        .ok_or_else(|| contract(None, "source key absent"))?;
-    Ok(key)
 }

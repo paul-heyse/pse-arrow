@@ -5,13 +5,32 @@
 #[path = "../src/fixture.rs"]
 mod fixture;
 
-fn main() -> Result<(), pse_schema::SchemaError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let registry = pse_schema::catalog::assemble()?;
-    for invariant in registry.invariants() {
-        let (valid, violating) = fixture::pair(&registry, invariant);
-        let path = fixture::directory(invariant);
+    let cases = registry
+        .invariants()
+        .iter()
+        .map(|invariant| {
+            (
+                fixture::directory(invariant),
+                fixture::pair(&registry, invariant),
+            )
+        })
+        .collect::<Vec<_>>();
+    let paths = cases
+        .iter()
+        .map(|(path, _)| path.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    for (path, (valid, violating)) in cases {
         valid.save(&path.join("valid.yaml"));
         violating.save(&path.join("violating.yaml"));
+    }
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/invariants");
+    for entry in std::fs::read_dir(root)? {
+        let entry = entry?;
+        if entry.file_type()?.is_dir() && !paths.contains(&entry.path()) {
+            std::fs::remove_dir_all(entry.path())?;
+        }
     }
     Ok(())
 }

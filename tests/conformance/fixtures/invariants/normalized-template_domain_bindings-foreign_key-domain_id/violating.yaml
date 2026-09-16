@@ -1,0 +1,31 @@
+{
+  "invariant": "normalized.template_domain_bindings:foreign_key:domain_id",
+  "rows": {
+    "normalized.domains": [
+      {
+        "continuous": "[\"bool\",true]",
+        "doc": "[\"text\",\"value-1\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "kind": "[\"enum\",\"time\"]",
+        "owner_entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parent_domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "unit_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "normalized.template_domain_bindings": [
+      {
+        "domain_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "parameter_name": "[\"text\",\"value-1\"]",
+        "source": "[\"enum\",\"domain\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

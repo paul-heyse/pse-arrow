@@ -14,14 +14,18 @@ mod values;
 
 use super::invalid;
 use crate::{
-    CompilerError, passes::native_rows::AlgorithmInputs, quantity_relations::PhysicalInventory,
+    CompilerError,
+    passes::{
+        native_outputs::{GeneratedOutputs, OutputRows, Sources},
+        native_rows::AlgorithmInputs,
+    },
+    quantity_relations::PhysicalInventory,
 };
 use datafusion::logical_expr::{Expr, LogicalPlanBuilder, col};
 use native::{Source, engine};
-use provenance::{Origins, OutputOrigins};
+use provenance::Origins;
 use pse_authoring::document::OwnedDocumentSet;
 use pse_catalog::session::SnapshotSession;
-use pse_catalog::session::scalar::array_element;
 use pse_ids::{CancellationToken, MemoryReserver, SemanticId};
 use pse_relations::{
     columnar::{Collection, FieldCheckedBatch, RelationRow},
@@ -32,26 +36,28 @@ use std::collections::BTreeMap;
 
 type Value = normalized::config_values::NormalizedConfigValuesFieldValue;
 
+/// Derived finite-algorithm lookup; value and support cannot be updated separately.
+struct Sourced<T> {
+    value: T,
+    sources: Origins,
+}
+
 pub(crate) struct Configured {
-    pub(crate) batches: BTreeMap<RelationKey, FieldCheckedBatch>,
+    pub(crate) output: GeneratedOutputs,
     pub(crate) _arguments: AlgorithmInputs,
-    origins: OutputOrigins,
 }
 
 pub(super) struct Configuration<'a> {
     syntax: syntax::ConfigurationSyntax<'a>,
     binding_batches: BTreeMap<SemanticId, FieldCheckedBatch>,
-    instances: Vec<instances::Prospective>,
-    values: BTreeMap<(SemanticId, String), Value>,
-    domains: BTreeMap<(SemanticId, String), SemanticId>,
+    instances: BTreeMap<SemanticId, instances::Prospective>,
+    values: BTreeMap<(SemanticId, String), Sourced<Value>>,
+    domains: BTreeMap<(SemanticId, String), Sourced<SemanticId>>,
     generated_domains: BTreeMap<SemanticId, FieldCheckedBatch>,
-    columns: Collection<'a>,
+    columns: OutputRows<'a>,
     arguments: AlgorithmInputs,
-    origins: OutputOrigins,
-    generated_origins: BTreeMap<(RelationKey, String), Origins>,
-    instance_origins: BTreeMap<SemanticId, Origins>,
-    value_origins: BTreeMap<(SemanticId, String), Origins>,
-    domain_origins: BTreeMap<(SemanticId, String), Origins>,
+    sources: Sources,
+    generated_origins: BTreeMap<(RelationKey, pse_ids::ContentHash), Origins>,
     session: &'a SnapshotSession,
     registry: &'a Registry,
     physical: &'a PhysicalInventory,
@@ -62,16 +68,18 @@ pub(super) struct Configuration<'a> {
 impl<'a> Configuration<'a> {
     pub(super) async fn build(
         source: &BTreeMap<SemanticId, FieldCheckedBatch>,
+        sources: &Sources,
         documents: &'a OwnedDocumentSet,
         session: &'a SnapshotSession,
         physical: &'a PhysicalInventory,
         cancel: &'a CancellationToken,
     ) -> Result<Self, CompilerError> {
-        Self::build_selected(source, documents, session, physical, cancel, &[]).await
+        Self::build_selected(source, sources, documents, session, physical, cancel, &[]).await
     }
 
     async fn build_selected(
         source: &BTreeMap<SemanticId, FieldCheckedBatch>,
+        sources: &Sources,
         documents: &'a OwnedDocumentSet,
         session: &'a SnapshotSession,
         physical: &'a PhysicalInventory,
@@ -85,17 +93,14 @@ impl<'a> Configuration<'a> {
         let mut result = Self {
             syntax,
             binding_batches: source.clone(),
-            instances: Vec::new(),
+            instances: BTreeMap::new(),
             values: BTreeMap::new(),
             domains: BTreeMap::new(),
             generated_domains: BTreeMap::new(),
-            columns: Collection::new(registry, reserver, cancel),
+            columns: OutputRows::new(registry, reserver, cancel)?,
             arguments,
-            origins: BTreeMap::new(),
+            sources: sources.clone(),
             generated_origins: BTreeMap::new(),
-            instance_origins: BTreeMap::new(),
-            value_origins: BTreeMap::new(),
-            domain_origins: BTreeMap::new(),
             session,
             registry,
             physical,
@@ -115,17 +120,13 @@ impl<'a> Configuration<'a> {
         instances::expand(&mut result, selected).await?;
         let mut prospective = Collection::new(registry, reserver, cancel);
         prospective.ensure::<normalized::instance_bindings::Row>()?;
-        for instance in &result.instances {
+        for instance in result.instances.values() {
             prospective.push(instance.binding())?;
         }
         for (_, batch) in prospective.finish()? {
             result.binding_batches.insert(batch.relation_id(), batch);
         }
-        let columns = std::mem::replace(
-            &mut result.columns,
-            Collection::new(registry, reserver, cancel),
-        );
-        for (_, batch) in columns.finish()? {
+        for (_, batch) in result.columns.checked()? {
             result.binding_batches.insert(batch.relation_id(), batch);
         }
         Ok(result)
@@ -192,14 +193,16 @@ impl<'a> Configuration<'a> {
         row: T,
         origins: Origins,
     ) -> Result<FieldCheckedBatch, CompilerError> {
-        let mut columns = Collection::new(self.registry, self.reserver, self.cancel);
-        columns.push(row)?;
+        let mut columns = OutputRows::new(self.registry, self.reserver, self.cancel)?;
+        columns.push(row, &origins)?;
         let spec = T::relation(self.registry)?;
         let batch = columns
             .finish()?
+            .columns
             .remove(&spec.key)
             .ok_or_else(|| invalid("generated configuration row absent"))?;
-        self.remember_generated(&batch, &[origins]).await?;
+        self.remember_generated(spec.key, &batch).await?;
+        let batch = batch.payload(self.registry, spec)?;
         self.merge_generated(batch.clone()).await?;
         Ok(batch)
     }
@@ -240,16 +243,17 @@ impl<'a> Configuration<'a> {
     pub(super) async fn emit(
         mut self,
         expression_sources: &FieldCheckedBatch,
+        sources: &Sources,
     ) -> Result<Configured, CompilerError> {
-        let mut output = BTreeMap::new();
+        self.sources = sources.clone();
         let bindings = std::mem::take(&mut self.instances);
         self.columns
             .ensure::<normalized::instance_bindings::Row>()?;
         self.binding_batches
             .insert(expression_sources.relation_id(), expression_sources.clone());
-        for instance in bindings {
+        for instance in bindings.into_values() {
             let mut binding = instance.binding();
-            let mut origins = self.owner(binding.instance_id)?;
+            let mut origins = instance.origins;
             if let Some(guard) = instance.guard {
                 let guard = self
                     .one::<authored::template_guards::Row>("guard_id", guard)
@@ -260,30 +264,7 @@ impl<'a> Configuration<'a> {
                 binding.guard_source_id = Some(source.row.source_id);
                 binding.guard_node_id = Some(source.row.root_id);
             }
-            self.push(binding, origins)?;
-        }
-        let columns = std::mem::replace(
-            &mut self.columns,
-            Collection::new(self.registry, self.reserver, self.cancel),
-        );
-        output.extend(columns.finish()?);
-        for id in [
-            normalized::config_values::RELATION_ID,
-            normalized::feature_inheritance::RELATION_ID,
-            normalized::material_domain_members::RELATION_ID,
-            normalized::instance_domain_bindings::RELATION_ID,
-        ] {
-            let spec = self
-                .registry
-                .relation_by_id(id)
-                .ok_or_else(|| invalid("configuration output undeclared"))?;
-            output.insert(
-                spec.key,
-                self.binding_batches
-                    .get(&id)
-                    .ok_or_else(|| invalid("configuration output absent"))?
-                    .clone(),
-            );
+            self.columns.push(binding, &origins)?;
         }
         for (source, target) in [
             (
@@ -295,18 +276,11 @@ impl<'a> Configuration<'a> {
                 normalized::domain_members::RELATION_ID,
             ),
         ] {
-            let spec = self
-                .registry
-                .relation_by_id(target)
-                .ok_or_else(|| invalid("normalized domain declaration absent"))?;
-            let (batch, origins) = self.project_domains(source, target).await?;
-            output.insert(spec.key, batch);
-            self.origins.insert(spec.key, origins);
+            self.project_domains(source, target).await?;
         }
         Ok(Configured {
-            batches: output,
+            output: self.columns.finish()?,
             _arguments: self.arguments,
-            origins: self.origins,
         })
     }
 
@@ -314,8 +288,6 @@ impl<'a> Configuration<'a> {
         &mut self,
         guard: SemanticId,
     ) -> Result<Source<normalized::expression_sources::Row>, CompilerError> {
-        use datafusion::functions::core::expr_fn::get_field;
-        use datafusion::logical_expr::lit;
         let spec = normalized::expression_sources::Row::relation(self.registry)?;
         let relation = native::identity(
             self.registry,
@@ -329,12 +301,14 @@ impl<'a> Configuration<'a> {
             "guard_id",
             guard,
         )?;
-        let key = array_element(col("source_key"), lit(1_i64));
+        let key = pse_catalog::session::scalar::key(
+            authored::template_guards::RELATION_ID,
+            vec![("guard_id", guard_value)],
+        );
         let rows = self
             .select::<normalized::expression_sources::Row>(vec![
                 col("source_relation_id").eq(relation),
-                get_field(key.clone(), "column_name").eq(lit("guard_id")),
-                get_field(key, "semantic_id").eq(guard_value),
+                col("source_key").eq(key),
             ])
             .await?;
         let [row] = rows.as_slice() else {

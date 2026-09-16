@@ -1,0 +1,26 @@
+{
+  "invariant": "reference.method_precedence:unique:pk",
+  "rows": {
+    "reference.method_precedence": [
+      {
+        "is_default": "[\"bool\",true]",
+        "property_specific": "[\"bool\",true]",
+        "rank": "[\"u64\",1]",
+        "scope_kind": "[\"enum\",\"package\"]"
+      },
+      {
+        "is_default": "[\"bool\",true]",
+        "property_specific": "[\"bool\",true]",
+        "rank": "[\"u64\",1]",
+        "scope_kind": "[\"enum\",\"package\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"bool\",true]",
+      "[\"bool\",true]",
+      "[\"enum\",\"package\"]"
+    ]
+  ]
+}

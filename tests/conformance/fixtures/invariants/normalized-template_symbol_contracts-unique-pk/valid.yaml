@@ -1,0 +1,13 @@
+{
+  "invariant": "normalized.template_symbol_contracts:unique:pk",
+  "rows": {
+    "normalized.template_symbol_contracts": [
+      {
+        "semantic_role": "[\"enum\",\"state\"]",
+        "solver_type": "[\"enum\",\"continuous\"]",
+        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

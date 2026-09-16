@@ -1,0 +1,23 @@
+{
+  "invariant": "reference.math_context:foreign_key:boolean_kind_id",
+  "rows": {
+    "reference.math_context": [
+      {
+        "boolean_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "neutral_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "package_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "reference.quantity_kinds": [
+      {
+        "addition_kind": "[\"enum\",\"additive\"]",
+        "dimension": "[\"list\",[[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]],[\"struct\",[[\"i64\",0],[\"i64\",1]]]]]",
+        "doc": "[\"text\",\"value-1\"]",
+        "extensive": "[\"bool\",true]",
+        "name": "[\"text\",\"value-1\"]",
+        "quantity_kind_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

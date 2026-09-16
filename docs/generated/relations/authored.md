@@ -33,6 +33,7 @@ Version: 1. Snapshot class: `case`. Primary key: `activation_id`.
 | `case_id` | `semantic_id` | false | `payload` | — | — |
 | `target` | `target_path` | false | `payload` | — | — |
 | `active` | `Boolean` | false | `payload` | — | — |
+| `source_span` | `source_span` | false | `payload` | — | — |
 
 ## `case_objectives`
 
@@ -146,6 +147,7 @@ Version: 1. Snapshot class: `case`. Primary key: `spec_id`.
 | `upper` | `bound` | true | `payload` | — | — |
 | `scaling_factor` | `Float64` | true | `payload` | — | — |
 | `priority` | `Int32` | false | `payload` | — | — |
+| `source_span` | `source_span` | false | `payload` | — | — |
 
 ## `cases`
 
@@ -501,6 +503,7 @@ Version: 1. Snapshot class: `case`. Primary key: `observation_id`.
 | `std_dev` | `Float64` | true | `payload` | — | — |
 | `timestamp` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
 | `tag` | `Utf8` | true | `payload` | — | — |
+| `source_span` | `source_span` | false | `payload` | — | — |
 
 ## `package_unit_sets`
 

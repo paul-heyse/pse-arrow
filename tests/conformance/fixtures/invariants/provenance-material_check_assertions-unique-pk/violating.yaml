@@ -1,0 +1,30 @@
+{
+  "invariant": "provenance.material_check_assertions:unique:pk",
+  "rows": {
+    "provenance.material_check_assertions": [
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_count": "[\"u64\",1]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_count": "[\"u64\",1]",
+        "truth": "[\"enum\",\"true\"]"
+      },
+      {
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "material_system_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "phase_count": "[\"u64\",1]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "species_count": "[\"u64\",1]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

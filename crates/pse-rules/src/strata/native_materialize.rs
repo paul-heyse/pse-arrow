@@ -176,6 +176,7 @@ fn outcome(
             col("__outcome.rule_id"),
             relational::id(head.id, registry)?,
             scalar::key(
+                head.id,
                 head.primary_key
                     .iter()
                     .map(|name| (*name, Expr::Column(Column::new(Some("__outcome"), *name))))

@@ -90,8 +90,87 @@ fn bind(
 fn identity(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
 }
+
+#[tokio::test]
+async fn token_collisions_are_checked_against_actual_primary_key_tuples() {
+    let registry = registry();
+    let spec = registry.relation("authored.targets").unwrap();
+    let context = SessionContext::new();
+    for (ids, expected) in [(vec![1, 1], 0), (vec![1, 2], 1)] {
+        let rows = ids
+            .into_iter()
+            .map(|id| vec![Cell::Id(identity(id))])
+            .collect::<Vec<_>>();
+        let input = context
+            .read_batch(pse_relations::cells::batch_from_cells(&registry, spec, &rows).unwrap())
+            .unwrap()
+            .into_unoptimized_plan();
+        let collision = key_collisions(
+            input,
+            spec,
+            lit(datafusion::common::ScalarValue::FixedSizeBinary(
+                32,
+                Some(vec![0; 32]),
+            )),
+        )
+        .unwrap();
+        let batches = context
+            .execute_logical_plan(collision)
+            .await
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+        assert_eq!(
+            batches
+                .iter()
+                .map(pse_relations::RecordBatch::num_rows)
+                .sum::<usize>(),
+            expected
+        );
+    }
+}
 fn reference(value: u8) -> Cell {
     Cell::List(vec![Cell::Struct(vec![Cell::Id(identity(value))])])
+}
+
+#[tokio::test]
+async fn an_explicit_singleton_admits_zero_or_one_row_and_refuses_two() {
+    let mut builder = RegistryBuilder::new();
+    builder.declare_relation(
+        RelationDecl::new(
+            Namespace::Authored,
+            "singleton",
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "Singleton cardinality fixture.",
+        )
+        .pk(&[])
+        .columns(vec![
+            FieldContract::native(datafusion::arrow::datatypes::DataType::Int64).with_name("value"),
+        ]),
+    );
+    let registry = Arc::new(builder.build().unwrap());
+    for count in 0..=2 {
+        let context = SessionContext::new();
+        let mut record = record();
+        let rows = vec![vec![Cell::I64(7)]; count];
+        bind(
+            &context,
+            &mut record,
+            &registry,
+            "authored.singleton",
+            &rows,
+            "datafusion",
+        );
+        assert_eq!(
+            admit(&record, Arc::clone(&registry), &context.state())
+                .await
+                .is_ok(),
+            count <= 1
+        );
+    }
 }
 
 #[tokio::test]
@@ -210,4 +289,166 @@ async fn conflicting_exact_target_selections_refuse_before_execution() {
         .await
         .unwrap_err();
     assert!(error.to_string().contains("ambiguous selected revisions"));
+}
+
+fn composite_registry(policy: ReferenceNullPolicy, scalar: bool) -> Arc<Registry> {
+    let relation = |name| {
+        RelationDecl::new(
+            Namespace::Authored,
+            name,
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "Correlated reference fixture.",
+        )
+    };
+    let integer = |name: &str| FieldContract::nonnegative(i64::MAX).with_name(name);
+    let mapping = ReferenceContract {
+        relation: "authored.targets".into(),
+        columns: vec![
+            ReferenceColumn {
+                source: vec!["tenant.key".into()],
+                target: "tenant".into(),
+            },
+            ReferenceColumn {
+                source: vec!["nested".into(), "identity".into()],
+                target: "id".into(),
+            },
+        ],
+        null_policy: policy,
+    };
+    let value = if scalar {
+        integer("reference").with_fk("authored.targets", "id")
+    } else {
+        FieldContract::list(
+            FieldContract::structure(vec![
+                integer("tenant.key").optional(),
+                FieldContract::structure(vec![integer("identity").optional()])
+                    .with_name("nested")
+                    .optional(),
+            ])
+            .with_reference(&mapping)
+            .unwrap()
+            .optional(),
+        )
+        .with_name("reference")
+        .optional()
+    };
+    let mut builder = RegistryBuilder::new();
+    builder.declare_relation(
+        relation("targets")
+            .pk(&["tenant", "id"])
+            .columns(vec![integer("tenant"), integer("id")]),
+    );
+    builder.declare_relation(
+        relation("sources")
+            .pk(&["id"])
+            .columns(vec![integer("id"), value]),
+    );
+    Arc::new(builder.build().unwrap())
+}
+
+fn pair(tenant: Option<i64>, id: Option<i64>) -> Cell {
+    Cell::Struct(vec![
+        tenant.map_or(Cell::Null, Cell::I64),
+        Cell::Struct(vec![id.map_or(Cell::Null, Cell::I64)]),
+    ])
+}
+
+#[tokio::test]
+async fn composite_references_preserve_occurrence_correlation_and_null_policy() {
+    for (value, policy, valid) in [
+        (
+            Cell::List(vec![pair(Some(1), Some(10)), pair(Some(2), Some(20))]),
+            ReferenceNullPolicy::Required,
+            true,
+        ),
+        (
+            Cell::List(vec![pair(Some(1), Some(20))]),
+            ReferenceNullPolicy::Required,
+            false,
+        ),
+        (
+            Cell::List(vec![pair(None, None)]),
+            ReferenceNullPolicy::AllOrNone,
+            true,
+        ),
+        (
+            Cell::List(vec![pair(None, None)]),
+            ReferenceNullPolicy::Required,
+            false,
+        ),
+        (
+            Cell::List(vec![pair(Some(1), None)]),
+            ReferenceNullPolicy::AllOrNone,
+            false,
+        ),
+        (
+            Cell::List(vec![Cell::Null]),
+            ReferenceNullPolicy::Required,
+            true,
+        ),
+        (Cell::List(vec![]), ReferenceNullPolicy::Required, true),
+        (Cell::Null, ReferenceNullPolicy::Required, true),
+    ] {
+        let registry = composite_registry(policy, false);
+        let context = SessionContext::new();
+        let mut record = record();
+        bind(
+            &context,
+            &mut record,
+            &registry,
+            "authored.sources",
+            &[vec![Cell::I64(1), value]],
+            "datafusion",
+        );
+        bind(
+            &context,
+            &mut record,
+            &registry,
+            "authored.targets",
+            &[
+                vec![Cell::I64(1), Cell::I64(10)],
+                vec![Cell::I64(2), Cell::I64(20)],
+            ],
+            "datafusion",
+        );
+        assert_eq!(
+            admit(&record, registry, &context.state()).await.is_ok(),
+            valid
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_scalar_reference_cannot_claim_a_nonunique_selected_target_key() {
+    let registry = composite_registry(ReferenceNullPolicy::Required, true);
+    let context = SessionContext::new();
+    let mut record = record();
+    bind(
+        &context,
+        &mut record,
+        &registry,
+        "authored.sources",
+        &[vec![Cell::I64(1), Cell::I64(10)]],
+        "datafusion",
+    );
+    bind(
+        &context,
+        &mut record,
+        &registry,
+        "authored.targets",
+        &[
+            vec![Cell::I64(1), Cell::I64(10)],
+            vec![Cell::I64(2), Cell::I64(10)],
+        ],
+        "datafusion",
+    );
+    assert!(
+        admit(&record, registry, &context.state())
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("ambiguous reference target")
+    );
 }

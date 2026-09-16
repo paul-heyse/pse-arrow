@@ -1,0 +1,14 @@
+{
+  "invariant": "inferred.scope_bindings:unique:pk",
+  "rows": {
+    "inferred.scope_bindings": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

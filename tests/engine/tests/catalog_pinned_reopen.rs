@@ -494,9 +494,36 @@ async fn validly_rehashed_actual_stage_rows_still_must_satisfy_parent_content() 
         })
         .unwrap();
     assert_eq!(rows[0][3], Cell::Id(check.id));
+    let target = reader.registry().relation("normalized.outputs").unwrap();
+    let expected = datafusion::execution::context::SessionContext::new()
+        .read_batch(batch)
+        .unwrap()
+        .select(vec![pse_catalog::session::scalar::key(
+            target.id,
+            target
+                .primary_key
+                .iter()
+                .map(|name| (*name, datafusion::logical_expr::col(*name)))
+                .collect(),
+        )])
+        .unwrap()
+        .collect()
+        .await
+        .unwrap();
+    let token = expected[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<arrow::array::FixedSizeBinaryArray>()
+        .unwrap()
+        .value(0);
+    let finding =
+        pse_relations::generated::runtime::diagnostics_findings::Row::from_cells(rows[0].clone())
+            .unwrap();
+    let evidence = finding.evidence.row.unwrap();
+    assert_eq!(evidence.relation_id, target.id);
     assert_eq!(
-        rows[0][6],
-        Cell::text("[\"pse.rule-key.v1\",[[\"id\",[\"u64\",99]]]]")
+        evidence.row_key,
+        pse_ids::ContentHash::try_from_slice(token).unwrap()
     );
     drop(error);
     assert_eq!(budget.reserved(), 0);

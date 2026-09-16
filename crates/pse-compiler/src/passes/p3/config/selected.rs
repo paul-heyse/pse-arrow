@@ -19,7 +19,7 @@ pub(crate) struct SelectedRoot {
     pub instance: authored::instances::Row,
     pub source_relation: SemanticId,
     /// Exact native key from the retained P6 selection computation.
-    pub source_key: String,
+    pub source_key: pse_ids::ContentHash,
 }
 
 /// Construct selected contexts once and retain each output's actual source mapping.
@@ -41,6 +41,7 @@ pub(crate) async fn configure_selected(
         .collect();
     let configuration = Configuration::build_selected(
         &batches,
+        &sources,
         ctx.documents,
         session,
         ctx.physical()?,
@@ -53,9 +54,8 @@ pub(crate) async fn configure_selected(
         .ok_or_else(|| {
             invalid("selected configuration requires actual normalized expression sources")
         })?;
-    let configured = configuration.emit(expressions).await?;
-    let generated = configured.captured(&sources, registry, session.reserver(), cancel)?;
-    let mut output = materialize(generated, &sources, pass, session, cancel).await?;
+    let configured = configuration.emit(expressions, &sources).await?;
+    let mut output = materialize(configured.output, &sources, pass, session, cancel).await?;
     let mut overrides = BTreeMap::new();
     for (key, input) in &output {
         sources.replace_native(*key, Arc::clone(input))?;

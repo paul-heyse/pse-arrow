@@ -1,0 +1,35 @@
+{
+  "invariant": "authored.instance_equations:foreign_key:instance_id",
+  "rows": {
+    "authored.instance_equations": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression": "[\"text\",\"1\"]",
+        "family_hint": "[\"enum\",\"BOUND\"]",
+        "filter": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "role_hint": "[\"enum\",\"HARD_FEASIBILITY\"]",
+        "sense": "[\"enum\",\"eq\"]"
+      }
+    ],
+    "authored.instances": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "feature_values": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "param_values": "[\"list\",[]]",
+        "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

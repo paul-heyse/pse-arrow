@@ -8,15 +8,12 @@ use datafusion::{
     common::{Column, DataFusionError, Result, TableReference},
     execution::{context::SessionContext, session_state::SessionState},
     functions_aggregate::expr_fn::count,
-    logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder, lit},
+    logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, lit},
     physical_plan::execute_stream,
 };
 use futures_util::TryStreamExt;
 use pse_relations::generated::runtime::publications;
-use pse_schema::{
-    Registry,
-    model::{FieldContract, RelationSpec},
-};
+use pse_schema::{Registry, model::RelationSpec};
 use std::sync::Arc;
 
 /// Native violation queries for the exact candidate selection. No constraints are
@@ -58,47 +55,51 @@ pub async fn violation_plans(
             .filter(column("pse_key_count").gt(lit(1i64)))?
             .build()?;
         checks.push(violation(duplicates, spec, "duplicate primary key")?);
-        for occurrence in super::nested_values::occurrences(
-            &input,
-            spec.columns.iter().map(FieldContract::field),
-            |field| FieldContract::from_field(field.clone()).fk().is_some(),
-        )? {
-            let field = FieldContract::from_field(occurrence.field);
-            let fk = field
-                .fk()
-                .ok_or_else(|| invalid("missing reference declaration"))?;
-            let target = registry
-                .relation(fk.relation)
-                .ok_or_else(|| invalid("undeclared reference target"))?;
-            let target = selected_table(record, target.id, &member.catalog_name, &context).await?;
-            let missing = if let Some(target) = target {
-                LogicalPlanBuilder::from(occurrence.input)
-                    .alias("candidate")?
-                    .join(
-                        LogicalPlanBuilder::from(target)
-                            .alias("reference")?
-                            .build()?,
-                        JoinType::LeftAnti,
-                        (
-                            vec![Column::new(Some("candidate"), "value")],
-                            vec![Column::new(Some("reference"), fk.column)],
-                        ),
-                        None,
-                    )?
-                    .build()?
-            } else {
-                // No target can satisfy a visible reference. Null/empty source
-                // containers make no claim and do not require an invented table.
-                occurrence.input
-            };
-            checks.push(violation(
-                missing,
+        checks.push(key_consistency(input.clone(), spec)?);
+        checks.extend(
+            super::references::plans(
+                &input,
                 spec,
-                &format!("missing reference {}", occurrence.path.join(".")),
-            )?);
-        }
+                record,
+                &registry,
+                &member.catalog_name,
+                &context,
+            )
+            .await?,
+        );
     }
     Ok(checks)
+}
+fn key_consistency(input: LogicalPlan, spec: &RelationSpec) -> Result<LogicalPlan> {
+    let token = crate::session::scalar::key(
+        spec.id,
+        spec.primary_key
+            .iter()
+            .map(|name| (*name, column(name)))
+            .collect(),
+    );
+    key_collisions(input, spec, token)
+}
+
+fn key_collisions(input: LogicalPlan, spec: &RelationSpec, token: Expr) -> Result<LogicalPlan> {
+    // Compare actual distinct tuples. A token collision cannot merge different keys
+    // into a published identity, even though ordinary key uniqueness holds.
+    let mut projection = spec
+        .primary_key
+        .iter()
+        .map(|name| column(name))
+        .collect::<Vec<_>>();
+    projection.push(token.alias("__pse_row_token"));
+    let collisions = LogicalPlanBuilder::from(input)
+        .project(projection)?
+        .distinct()?
+        .aggregate(
+            vec![column("__pse_row_token")],
+            vec![count(lit(1_i64)).alias("__pse_distinct_keys")],
+        )?
+        .filter(column("__pse_distinct_keys").gt(lit(1_i64)))?
+        .build()?;
+    violation(collisions, spec, "distinct primary keys share a row token")
 }
 pub(super) async fn selected_table(
     record: &publications::Row,
@@ -149,6 +150,19 @@ fn local_values(
         "local values",
     )
 }
+
+/// Shared native local-field checks for owned intermediate Arrow arguments.
+/// This establishes neither cross-relation references nor declared keys.
+pub(crate) fn local_field_violations(
+    registry: &Registry,
+    input: LogicalPlan,
+) -> Result<LogicalPlan> {
+    let predicate = super::predicates::relation(registry, input.schema().as_arrow())?;
+    LogicalPlanBuilder::from(input)
+        .filter(predicate.is_not_true())?
+        .limit(0, Some(1))?
+        .build()
+}
 pub(super) async fn admit(
     record: &publications::Row,
     registry: Arc<Registry>,
@@ -167,7 +181,11 @@ pub(super) async fn admit(
     }
     Ok(())
 }
-fn violation(input: LogicalPlan, spec: &RelationSpec, reason: &str) -> Result<LogicalPlan> {
+pub(super) fn violation(
+    input: LogicalPlan,
+    spec: &RelationSpec,
+    reason: &str,
+) -> Result<LogicalPlan> {
     LogicalPlanBuilder::from(input)
         .project(vec![
             lit(format!("{}: {reason}", spec.qualified_name())).alias("violation"),

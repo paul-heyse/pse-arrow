@@ -1,0 +1,15 @@
+{
+  "invariant": "inferred.math_integrals:unique:pk",
+  "rows": {
+    "inferred.math_integrals": [
+      {
+        "bound_index_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "filter_node_id": "[\"u64\",1]",
+        "node_id": "[\"u64\",1]",
+        "quadrature_policy_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

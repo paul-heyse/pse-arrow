@@ -1,16 +1,19 @@
 {
   "invariant": "normalized.instances:foreign_key:parent_instance_id",
   "rows": {
-    "authored.instances": [
+    "normalized.instance_bindings": [
       {
-        "doc": "[\"text\",\"value-1\"]",
-        "feature_values": "[\"list\",[]]",
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "guard_node_id": "[\"u64\",1]",
+        "guard_source_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
         "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "name": "[\"text\",\"value-1\"]",
-        "param_values": "[\"list\",[]]",
         "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "path": "[\"text\",\"value-1\"]",
         "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "submodel_name": "[\"text\",\"value-1\"]",
+        "submodel_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ],

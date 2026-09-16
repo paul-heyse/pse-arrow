@@ -1,0 +1,26 @@
+{
+  "invariant": "provenance.law_internal_transfer_assertions:unique:pk",
+  "rows": {
+    "provenance.law_internal_transfer_assertions": [
+      {
+        "application_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "contribution_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      },
+      {
+        "application_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "contribution_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "truth": "[\"enum\",\"true\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

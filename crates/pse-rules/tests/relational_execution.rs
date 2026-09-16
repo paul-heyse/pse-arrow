@@ -426,24 +426,6 @@ async fn duplicate_input_rows_are_visible_to_count_and_float_keys_are_rejected()
         Err(pse_rules::RuleError::FloatKey { .. })
     ));
 }
-#[test]
-fn reversible_key_codec_checks_every_name_type_and_value_without_hashes() {
-    let (registry, _, _) = fixture();
-    let rule = rule(keys(scan()));
-    let text = pse_rules::derivations::encode_key(&rule, &registry, &[Cell::U64(42)]).unwrap();
-    assert_eq!(
-        pse_rules::derivations::decode_key(&rule, &registry, &text).unwrap(),
-        vec![Cell::U64(42)]
-    );
-    for altered in [
-        text.replace("\"id\"", "\"other\""),
-        text.replace("42", "4294967296"),
-        text.replace("u64", "text"),
-    ] {
-        assert!(pse_rules::derivations::decode_key(&rule, &registry, &altered).is_err());
-    }
-}
-
 #[tokio::test]
 async fn unnest_retains_parent_keys_and_obeys_explicit_null_policy() {
     let (registry, session, binding) = fixture();

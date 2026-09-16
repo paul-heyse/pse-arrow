@@ -7,7 +7,7 @@ use super::{
 };
 use crate::passes::native_rows::{self, engine};
 use datafusion::{
-    arrow::array::{Array, FixedSizeBinaryArray, StringArray, UInt64Array},
+    arrow::array::{Array, FixedSizeBinaryArray, UInt64Array},
     common::ScalarValue,
     logical_expr::{LogicalPlanBuilder, col, lit},
 };
@@ -87,6 +87,7 @@ pub(super) async fn node_origins(
             .project([
                 col(node.name()).alias("source_node"),
                 scalar::key(
+                    spec.id,
                     spec.primary_key
                         .iter()
                         .map(|name| (*name, col(*name)))
@@ -106,8 +107,8 @@ pub(super) async fn node_origins(
             let keys = batch
                 .column(1)
                 .as_any()
-                .downcast_ref::<StringArray>()
-                .ok_or_else(|| invalid("source node key is not Utf8"))?;
+                .downcast_ref::<FixedSizeBinaryArray>()
+                .ok_or_else(|| invalid("source node key is not a typed key"))?;
             for row in 0..batch.num_rows() {
                 if nodes.is_null(row) || keys.is_null(row) {
                     return Err(invalid("source node occurrence is null"));
@@ -115,7 +116,7 @@ pub(super) async fn node_origins(
                 result
                     .entry((family.to_owned(), NodeId(nodes.value(row))))
                     .or_default()
-                    .insert((*key, keys.value(row).to_owned()));
+                    .insert((*key, native_rows::key_value(keys.value(row))?));
             }
         }
     }
@@ -215,6 +216,7 @@ impl Inventory<'_> {
                     .project([
                         col("member_id").alias(format!("member_{axis}")),
                         scalar::key(
+                            spec.id,
                             spec.primary_key
                                 .iter()
                                 .map(|name| (*name, col(*name)))
@@ -253,8 +255,8 @@ impl Inventory<'_> {
                     let keys = batch
                         .column(2 + 2 * axis)
                         .as_any()
-                        .downcast_ref::<StringArray>()
-                        .ok_or_else(|| invalid("native tuple source key is not Utf8"))?;
+                        .downcast_ref::<FixedSizeBinaryArray>()
+                        .ok_or_else(|| invalid("native tuple source key is not a typed key"))?;
                     if members.is_null(row) || keys.is_null(row) {
                         return Err(invalid("native tuple occurrence is null"));
                     }
@@ -262,7 +264,7 @@ impl Inventory<'_> {
                         SemanticId::try_from_slice(members.value(row))
                             .map_err(|_| invalid("native tuple identity width differs"))?,
                     );
-                    support.insert((spec.key, keys.value(row).to_owned()));
+                    support.insert((spec.key, native_rows::key_value(keys.value(row))?));
                 }
                 result.push((tuple, support));
             }

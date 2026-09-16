@@ -18,7 +18,7 @@ fn row(value: cv::NormalizedConfigValuesFieldValue) -> cv::Row {
         name: "selected".into(),
         value,
         source_relation_id: pse_ids::SemanticId::NIL,
-        source_key: "source".into(),
+        source_key: pse_ids::ContentHash::from_bytes([1; 32]),
         derivation_id: pse_ids::SemanticId::NIL,
     }
 }

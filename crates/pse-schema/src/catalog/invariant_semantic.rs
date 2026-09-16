@@ -236,7 +236,7 @@ fn check(builder: &mut RegistryBuilder, relation: &'static str, name: &'static s
         .declared_relations()
         .iter()
         .find(|spec| spec.key.qualified_name() == relation)
-        .map(|spec| spec.primary_key.clone())
+        .and_then(|spec| spec.primary_key.clone())
     else {
         return;
     };

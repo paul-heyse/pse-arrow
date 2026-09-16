@@ -1,0 +1,12 @@
+{
+  "invariant": "inferred.math_symbol_refs:unique:pk",
+  "rows": {
+    "inferred.math_symbol_refs": [
+      {
+        "node_id": "[\"u64\",1]",
+        "symbol_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

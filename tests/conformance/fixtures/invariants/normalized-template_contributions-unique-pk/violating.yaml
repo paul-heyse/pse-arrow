@@ -11,7 +11,6 @@
         "name": "[\"text\",\"value-1\"]",
         "orientation": "[\"enum\",\"into_scope\"]",
         "scope": "[\"text\",\"value-1\"]",
-        "subject": "[\"text\",\"1\"]",
         "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
       },
       {
@@ -23,7 +22,6 @@
         "name": "[\"text\",\"value-1\"]",
         "orientation": "[\"enum\",\"into_scope\"]",
         "scope": "[\"text\",\"value-1\"]",
-        "subject": "[\"text\",\"1\"]",
         "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]

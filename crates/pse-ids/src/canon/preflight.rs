@@ -190,12 +190,6 @@ pub(super) fn estimate(
 }
 
 fn validate_contract(contract: &CanonicalContract) -> Result<(), CanonError> {
-    if contract.primary_key.is_empty() {
-        return Err(CanonError::InvalidKey {
-            column: String::new(),
-            reason: "canonical ordering requires a non-empty primary key".to_owned(),
-        });
-    }
     if contract.layouts.len() != contract.schema.fields().len() {
         return Err(CanonError::Internal(
             "contract layout count differs from schema".to_owned(),

@@ -1,0 +1,15 @@
+{
+  "invariant": "inferred.kernel_bindings:unique:pk",
+  "rows": {
+    "inferred.kernel_bindings": [
+      {
+        "binding_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "input_bindings": "[\"list\",[]]",
+        "kernel_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "parameter_bindings": "[\"list\",[]]",
+        "scope_instance_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

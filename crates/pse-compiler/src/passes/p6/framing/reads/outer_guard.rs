@@ -6,7 +6,7 @@ use super::{
     BTreeSet, CompilerError, Inventory, LogicalPlanBuilder, ScalarValue, SemanticId, Support, col,
     error, invalid, n, scalar, unique,
 };
-use datafusion::arrow::array::{Array, FixedSizeBinaryArray, StringArray};
+use datafusion::arrow::array::{Array, FixedSizeBinaryArray};
 use pse_catalog::session::output::checked_literal;
 use pse_ids::CancellationToken;
 
@@ -33,83 +33,37 @@ pub(super) async fn lookup(
         .registry
         .relation(&name)
         .ok_or_else(|| invalid("guarded normalized source absent"))?;
-    if source.source_key.len() != relation.primary_key.len() {
-        return Err(invalid("guarded source does not carry its complete key"));
-    }
-    let mut plan = LogicalPlanBuilder::from(inventory.session.scan_role(&name)?);
-    for key in &relation.primary_key {
-        let parts = source
-            .source_key
-            .iter()
-            .filter(|part| part.column_name == *key)
-            .collect::<Vec<_>>();
-        let [part] = parts.as_slice() else {
-            return Err(invalid("guarded source key is absent or repeated"));
-        };
-        let field = relation
-            .column(key)
-            .ok_or_else(|| invalid("guarded source key column absent"))?;
-        let mut values = Vec::new();
-        if let Some(value) = part.semantic_id {
-            values.push(ScalarValue::FixedSizeBinary(
-                16,
-                Some(value.as_bytes().to_vec()),
-            ));
-        }
-        if let Some(value) = part.content_hash {
-            values.push(ScalarValue::FixedSizeBinary(
-                32,
-                Some(value.as_bytes().to_vec()),
-            ));
-        }
-        if let Some(value) = &part.text {
-            values.push(ScalarValue::Utf8(Some(value.clone())));
-        }
-        if let Some(value) = part.signed_integer {
-            values.push(ScalarValue::Int64(Some(value)));
-        }
-        if let Some(value) = part.unsigned_integer {
-            values.push(ScalarValue::UInt64(Some(value)));
-        }
-        if let Some(value) = part.boolean {
-            values.push(ScalarValue::Boolean(Some(value)));
-        }
-        let value = if let Some(index) = &part.index_tuple {
-            if !values.is_empty() {
-                return Err(invalid("source key has multiple typed values"));
-            }
-            scalar::id_list(
-                index
+    let token = checked_literal(
+        inventory.registry,
+        &pse_schema::model::FieldContract::row_key(),
+        ScalarValue::FixedSizeBinary(32, Some(source.source_key.as_bytes().to_vec())),
+    )
+    .map_err(error)?;
+    // Normalization preserves the actual declaration key. Compare it in its
+    // authored scope; the selected normalized row remains the support owner.
+    let plan = LogicalPlanBuilder::from(inventory.session.scan_role(&name)?)
+        .filter(
+            scalar::key(
+                authored.id,
+                authored
+                    .primary_key
                     .iter()
-                    .map(|id| {
-                        checked_literal(
-                            inventory.registry,
-                            &pse_schema::model::FieldContract::payload(
-                                "id",
-                                pse_schema::model::FieldContract::id(),
-                                "Actual source key part.",
-                            ),
-                            ScalarValue::FixedSizeBinary(16, Some(id.as_bytes().to_vec())),
-                        )
-                        .map_err(error)
-                    })
-                    .collect::<Result<_, _>>()?,
+                    .map(|name| (*name, col(*name)))
+                    .collect(),
             )
-        } else {
-            let [value] = values.as_slice() else {
-                return Err(invalid("source key must have exactly one typed value"));
-            };
-            let declared = pse_schema::arrow::field_for(inventory.registry, field)
-                .map_err(|error| invalid(error.to_string()))?;
-            let value = value.cast_to(declared.data_type()).map_err(error)?;
-            checked_literal(inventory.registry, field, value).map_err(error)?
-        };
-        plan = plan.filter(col(*key).eq(value)).map_err(error)?;
-    }
+            .eq(token),
+        )
+        .map_err(error)?;
+    let guard_key = scalar::key(
+        pse_relations::generated::authored::template_guards::RELATION_ID,
+        vec![("guard_id", col("guard_id"))],
+    );
     let plan = plan
         .project([
             col("guard_id"),
+            guard_key.alias("guard_key"),
             scalar::key(
+                relation.id,
                 relation
                     .primary_key
                     .iter()
@@ -131,10 +85,15 @@ pub(super) async fn lookup(
             .as_any()
             .downcast_ref::<FixedSizeBinaryArray>()
             .ok_or_else(|| invalid("guard identity storage differs"))?;
-        let keys = batch
+        let guard_keys = batch
             .column(1)
             .as_any()
-            .downcast_ref::<StringArray>()
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .ok_or_else(|| invalid("guard declaration key storage differs"))?;
+        let keys = batch
+            .column(2)
+            .as_any()
+            .downcast_ref::<FixedSizeBinaryArray>()
             .ok_or_else(|| invalid("guard source key storage differs"))?;
         for row in 0..batch.num_rows() {
             if keys.is_null(row) {
@@ -148,14 +107,18 @@ pub(super) async fn lookup(
                         .map_err(|_| invalid("guard identity width differs"))?,
                 )
             };
-            found.push((guard, keys.value(row).to_owned()));
+            found.push((
+                guard,
+                crate::passes::native_rows::key_value(guard_keys.value(row))?,
+                crate::passes::native_rows::key_value(keys.value(row))?,
+            ));
         }
     }
-    let [(guard, key)] = found.as_slice() else {
+    let [(guard, guard_key, key)] = found.as_slice() else {
         return Err(invalid("source key has no unique guarded declaration"));
     };
-    let mut support = BTreeSet::from([(relation.key, key.clone())]);
-    let Some(guard) = guard else {
+    let mut support = BTreeSet::from([(relation.key, *key)]);
+    let Some(_) = guard else {
         return Ok((None, support));
     };
     let guard_source = unique(
@@ -164,10 +127,7 @@ pub(super) async fn lookup(
             row.source_relation_id
                 == pse_relations::generated::authored::template_guards::RELATION_ID
                 && row.field_path.rsplit('/').next() == Some("predicate")
-                && row
-                    .source_key
-                    .iter()
-                    .any(|part| part.column_name == "guard_id" && part.semantic_id == Some(*guard))
+                && row.source_key == *guard_key
         },
         "declaration guard source",
     )?;

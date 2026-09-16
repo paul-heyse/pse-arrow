@@ -16,7 +16,7 @@ use datafusion::arrow::{
         StructArray, UInt32Array, UInt64Array,
     },
     buffer::{NullBuffer, OffsetBuffer, ScalarBuffer},
-    compute::take_record_batch,
+    compute::{cast, take_record_batch},
     datatypes::{DataType, Int32Type},
 };
 use proptest::prelude::*;
@@ -97,7 +97,7 @@ fn alternate(source: &RecordBatch, rows: &[GeneratedRow], hidden: u64) -> Record
         vec![
             Arc::clone(source.column(0)),
             floats,
-            dictionary,
+            cast(dictionary.as_ref(), &DataType::Utf8).expect("native dictionary decode"),
             list,
             structure,
         ],

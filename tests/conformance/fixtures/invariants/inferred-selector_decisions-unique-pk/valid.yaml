@@ -1,0 +1,15 @@
+{
+  "invariant": "inferred.selector_decisions:unique:pk",
+  "rows": {
+    "inferred.selector_decisions": [
+      {
+        "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "included": "[\"bool\",true]",
+        "node_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scope_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

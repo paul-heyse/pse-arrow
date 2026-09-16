@@ -13,17 +13,6 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
-class ProvenanceAlgorithmSourceOccurrencesRow:
-    """Declared relation row or nested value."""
-
-    output_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    constructed_row_ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    source_port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    source_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
 class ProvenanceAssertionsRow:
     """Declared relation row or nested value."""
 
@@ -99,12 +88,12 @@ class ProvenanceConstructedSupportsRow:
 
     mapping_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     output_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    output_key: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    output_key: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     input_port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     input_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     input_selection: ProvenanceConstructedSupportsFieldInputSelection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceConstructedSupportsFieldInputSelection)))
     support_kind: e.RuleSupportKind = attrs.field(validator=attrs.validators.instance_of(e.RuleSupportKind))
-    input_key: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    input_key: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
 
 
 @attrs.frozen(kw_only=True)
@@ -190,7 +179,7 @@ class ProvenanceDerivationsFieldSupportingItem:
     """Declared relation row or nested value."""
 
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
 
 
 @attrs.frozen(kw_only=True)
@@ -199,7 +188,7 @@ class ProvenanceDerivationsRow:
 
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     rule_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     pass_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     supporting: b.tuple[ProvenanceDerivationsFieldSupportingItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenanceDerivationsFieldSupportingItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -671,6 +660,37 @@ class ProvenancePassRecordsFieldRulesFiredItem:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenancePassRecordsFieldFindingsItemEvidenceRow:
+    """Declared relation row or nested value."""
+
+    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenancePassRecordsFieldFindingsItemEvidenceExecution:
+    """Declared relation row or nested value."""
+
+    failure_class: e.FailureClass = attrs.field(validator=attrs.validators.instance_of(e.FailureClass))
+    diagnostic_code: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    attempt_error: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenancePassRecordsFieldFindingsItemEvidence:
+    """Declared relation row or nested value."""
+
+    kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    row: ProvenancePassRecordsFieldFindingsItemEvidenceRow | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItemEvidenceRow)))
+    execution: ProvenancePassRecordsFieldFindingsItemEvidenceExecution | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItemEvidenceExecution)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "execution" and self.execution is not None and self.row is None) or (self.kind == "row" and self.execution is None and self.row is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class ProvenancePassRecordsFieldFindingsItem:
     """Declared relation row or nested value."""
 
@@ -680,7 +700,7 @@ class ProvenancePassRecordsFieldFindingsItem:
     check_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     severity: e.FindingSeverity = attrs.field(validator=attrs.validators.instance_of(e.FindingSeverity))
     subjects: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    values: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    evidence: ProvenancePassRecordsFieldFindingsItemEvidence = attrs.field(validator=attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItemEvidence))
     message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     next_steps: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
@@ -690,7 +710,7 @@ class ProvenancePassRecordsFieldDerivationsItemSupportingItem:
     """Declared relation row or nested value."""
 
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
 
 
 @attrs.frozen(kw_only=True)
@@ -699,7 +719,7 @@ class ProvenancePassRecordsFieldDerivationsItem:
 
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     rule_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     pass_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     supporting: b.tuple[ProvenancePassRecordsFieldDerivationsItemSupportingItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldDerivationsItemSupportingItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -955,12 +975,12 @@ class ProvenanceRuleSupportEdgesRow:
     assertion_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     assertion_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     head_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    head_key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    head_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     input_port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     input_relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     input_selection: ProvenanceRuleSupportEdgesFieldInputSelection | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceRuleSupportEdgesFieldInputSelection)))
     support_kind: e.RuleSupportKind = attrs.field(validator=attrs.validators.instance_of(e.RuleSupportKind))
-    input_key: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    input_key: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
 
 
