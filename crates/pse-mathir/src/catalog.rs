@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Projection of the operator authority into registry rows (blueprint §7.3).
-use crate::opspec::{OPERATOR_TABLE, OperatorSpec};
 use pse_quantity::{OperationId, registry::QuantityRegistry};
+use pse_schema::math::operators::{OPERATOR_TABLE, OperatorSpec};
 
 /// A registry adapter consumes the table's declaration rather than reconstructing it.
 pub trait OperatorSpecSink {

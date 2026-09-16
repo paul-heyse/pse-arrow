@@ -76,7 +76,7 @@ pub fn fold_literals_with_bindings(
         };
         let numbers: Vec<_> = values.iter().map(|(value, _)| *value).collect();
         check_domain(id, node.opcode, &numbers)?;
-        if !crate::operator_spec(node.opcode).foldable {
+        if !pse_schema::math::operators::operator_spec(node.opcode).foldable {
             continue;
         }
         if mode & 1 != 0 {

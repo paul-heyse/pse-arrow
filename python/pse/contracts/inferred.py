@@ -156,20 +156,81 @@ class InferredDomainEligibleMembersRow:
 
 
 @attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueBoolean:
+    """Declared relation row or nested value."""
+
+    value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueSigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueUnsigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+
+@attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueReal:
+    """Declared relation row or nested value."""
+
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueText:
+    """Declared relation row or nested value."""
+
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueSemanticId:
+    """Declared relation row or nested value."""
+
+    value: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueEnumeration:
+    """Declared relation row or nested value."""
+
+    enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class InferredFeatureCandidatesFieldValueIndex:
+    """Declared relation row or nested value."""
+
+    value: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class InferredFeatureCandidatesFieldValue:
     """Declared relation row or nested value."""
 
     kind: e.ConfigValueKind = attrs.field(validator=attrs.validators.instance_of(e.ConfigValueKind))
-    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    signed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
-    unsigned: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    enum_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    boolean: InferredFeatureCandidatesFieldValueBoolean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueBoolean)))
+    signed: InferredFeatureCandidatesFieldValueSigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueSigned)))
+    unsigned: InferredFeatureCandidatesFieldValueUnsigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueUnsigned)))
+    real: InferredFeatureCandidatesFieldValueReal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueReal)))
+    text: InferredFeatureCandidatesFieldValueText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueText)))
+    semantic_id: InferredFeatureCandidatesFieldValueSemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueSemanticId)))
+    enumeration: InferredFeatureCandidatesFieldValueEnumeration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueEnumeration)))
+    index: InferredFeatureCandidatesFieldValueIndex | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredFeatureCandidatesFieldValueIndex)))
+    quantity: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "boolean" and self.boolean is not None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "enum" and self.boolean is None and self.enumeration is not None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "index" and self.boolean is None and self.enumeration is None and self.index is not None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "quantity" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is not None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "real" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is not None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "semantic_id" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is not None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "signed" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is not None and self.text is None and self.unsigned is None) or (self.kind == "text" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is not None and self.unsigned is None) or (self.kind == "unsigned" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -213,20 +274,81 @@ class InferredInitializationOrderRow:
 
 
 @attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueBoolean:
+    """Declared relation row or nested value."""
+
+    value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueSigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueUnsigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+
+@attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueReal:
+    """Declared relation row or nested value."""
+
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueText:
+    """Declared relation row or nested value."""
+
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueSemanticId:
+    """Declared relation row or nested value."""
+
+    value: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueEnumeration:
+    """Declared relation row or nested value."""
+
+    enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class InferredInstanceFeaturesFieldValueIndex:
+    """Declared relation row or nested value."""
+
+    value: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class InferredInstanceFeaturesFieldValue:
     """Declared relation row or nested value."""
 
     kind: e.ConfigValueKind = attrs.field(validator=attrs.validators.instance_of(e.ConfigValueKind))
-    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    signed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
-    unsigned: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    enum_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    boolean: InferredInstanceFeaturesFieldValueBoolean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueBoolean)))
+    signed: InferredInstanceFeaturesFieldValueSigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueSigned)))
+    unsigned: InferredInstanceFeaturesFieldValueUnsigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueUnsigned)))
+    real: InferredInstanceFeaturesFieldValueReal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueReal)))
+    text: InferredInstanceFeaturesFieldValueText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueText)))
+    semantic_id: InferredInstanceFeaturesFieldValueSemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueSemanticId)))
+    enumeration: InferredInstanceFeaturesFieldValueEnumeration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueEnumeration)))
+    index: InferredInstanceFeaturesFieldValueIndex | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(InferredInstanceFeaturesFieldValueIndex)))
+    quantity: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "boolean" and self.boolean is not None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "enum" and self.boolean is None and self.enumeration is not None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "index" and self.boolean is None and self.enumeration is None and self.index is not None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "quantity" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is not None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "real" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is not None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "semantic_id" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is not None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "signed" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is not None and self.text is None and self.unsigned is None) or (self.kind == "text" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is not None and self.unsigned is None) or (self.kind == "unsigned" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -588,8 +710,8 @@ class InferredMathImplicitSystemsRow:
     """Declared relation row or nested value."""
 
     implicit_system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    unknown_symbol_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    equation_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unknown_symbol_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
+    equation_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
     branch_policy: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kernel_binding_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 

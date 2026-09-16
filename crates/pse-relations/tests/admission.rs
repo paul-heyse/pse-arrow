@@ -384,32 +384,34 @@ fn nested_metadata_is_checked_even_when_every_parent_value_is_null() {
 }
 
 #[test]
-fn per_row_quantity_presence_is_a_direct_cross_field_check() {
+fn a_quantity_carries_its_measure_quantity_and_unit_in_one_nullable_value() {
     let mut builder = RegistryBuilder::new();
     builder.declare_relation(decl(
         "quantities",
         vec![
-            FieldContract::new(
-                "value",
-                FieldContract::native(DataType::Float64),
-                true,
-                pse_schema::model::ColumnRole::Measure,
-                "value",
+            FieldContract::payload(
+                "measure",
+                FieldContract::extended(ExtensionUse::QuantityValue),
+                "value with quantity and unit identities",
             )
-            .with_per_row_quantity(),
-            FieldContract::reference("value_quantity_type_id", FieldContract::id(), "type")
-                .optional(),
+            .optional(),
         ],
     ));
     let reg = builder.build().unwrap();
     let spec = reg.relation("authored.quantities").unwrap();
-    assert!(batch_from_cells(&reg, spec, &[vec![id(1), Cell::F64(5.0), Cell::Null]]).is_err());
+    for value in [
+        Cell::Struct(vec![Cell::F64(5.0), id(2), Cell::Null]),
+        Cell::Struct(vec![Cell::F64(5.0), Cell::Null, id(3)]),
+        Cell::Struct(vec![Cell::F64(f64::NAN), id(2), id(3)]),
+    ] {
+        assert!(batch_from_cells(&reg, spec, &[vec![id(1), value]]).is_err());
+    }
     let batch = batch_from_cells(
         &reg,
         spec,
         &[
-            vec![id(1), Cell::F64(5.0), id(2)],
-            vec![id(2), Cell::Null, Cell::Null],
+            vec![id(1), Cell::Struct(vec![Cell::F64(5.0), id(2), id(3)])],
+            vec![id(2), Cell::Null],
         ],
     )
     .unwrap();

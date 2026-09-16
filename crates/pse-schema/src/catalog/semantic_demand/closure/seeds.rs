@@ -344,7 +344,7 @@ fn outer(input: P, names: &[&'static str]) -> P {
     let outcomes = filter(
         scan("inferred.predicate_outcomes", "outer_guard"),
         E::And(vec![
-            eq(E::ListLen(Box::new(E::col("index"))), E::Lit(Cell::U64(0))),
+            eq(E::ListLen(Box::new(E::col("index"))), E::Lit(Cell::I64(0))),
             E::InList {
                 expr: Box::new(E::col("outcome")),
                 list: vec![Cell::Enum("true"), Cell::Enum("unknown")],

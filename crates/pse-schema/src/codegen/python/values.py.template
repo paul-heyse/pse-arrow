@@ -72,6 +72,18 @@ def integer_range(lower: int, upper: int) -> Callable[[object, object, object], 
     return validate
 
 
+def collection(minimum: int, maximum: int | None, *, unique: bool) -> Callable[[object, object, object], None]:
+    """Validate visible collection cardinality and declared member uniqueness."""
+    def validate(_instance: object, _attribute: object, value: object) -> None:
+        if not isinstance(value, tuple):
+            _reject("collection requires a tuple")
+        if len(value) < minimum or (maximum is not None and len(value) > maximum):
+            _reject("collection violates cardinality")
+        if unique and any(item in value[:index] for index, item in enumerate(value)):
+            _reject("collection violates uniqueness")
+    return validate
+
+
 def finite_float(_instance: object, _attribute: object, value: object) -> None:
     if type(value) is not float or not math.isfinite(value):
         _reject("expected a finite Float64 value")

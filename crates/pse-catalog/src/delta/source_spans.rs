@@ -18,85 +18,30 @@ pub(super) fn plans(
     input: &LogicalPlan,
     documents: Option<&LogicalPlan>,
 ) -> Result<Vec<LogicalPlan>> {
-    let mut spans = vec![];
-    for field in input.schema().fields() {
-        if contains_span(field) {
-            descend(
-                field,
-                LogicalPlanBuilder::from(input.clone())
-                    .project(vec![column(field.name()).alias("value")])?
-                    .build()?,
-                &mut spans,
-            )?;
-        }
-    }
-    spans
-        .into_iter()
-        .map(|input| check(input, documents))
-        .collect()
+    super::nested_values::occurrences(
+        input,
+        input.schema().fields().iter().map(AsRef::as_ref),
+        is_span,
+    )?
+    .into_iter()
+    .map(|occurrence| {
+        let input = LogicalPlanBuilder::from(occurrence.input)
+            .project(vec![
+                get_field(column("value"), "document_id").alias("source_document"),
+                get_field(column("value"), "start").alias("source_start"),
+                get_field(column("value"), "end").alias("source_end"),
+            ])?
+            .build()?;
+        check(input, documents)
+    })
+    .collect()
 }
 
-fn contains_span(field: &Field) -> bool {
-    if is_span(field) {
-        return true;
-    }
-    match field.data_type() {
-        DataType::Struct(fields) => fields.iter().any(|f| contains_span(f)),
-        DataType::List(child) | DataType::LargeList(child) | DataType::FixedSizeList(child, _) => {
-            contains_span(child)
-        }
-        _ => false,
-    }
-}
 fn is_span(field: &Field) -> bool {
     field
         .metadata()
         .get(pse_schema::arrow::KEY_EXTENSION_NAME)
         .is_some_and(|name| name == "pse.source_span")
-}
-
-fn descend(field: &Field, input: LogicalPlan, output: &mut Vec<LogicalPlan>) -> Result<()> {
-    let input = LogicalPlanBuilder::from(input)
-        .filter(column("value").is_not_null())?
-        .build()?;
-    if is_span(field) {
-        output.push(
-            LogicalPlanBuilder::from(input)
-                .project(vec![
-                    get_field(column("value"), "document_id").alias("source_document"),
-                    get_field(column("value"), "start").alias("source_start"),
-                    get_field(column("value"), "end").alias("source_end"),
-                ])?
-                .build()?,
-        );
-        return Ok(());
-    }
-    match field.data_type() {
-        DataType::Struct(fields) => {
-            for child in fields.iter().filter(|f| contains_span(f)) {
-                descend(
-                    child,
-                    LogicalPlanBuilder::from(input.clone())
-                        .project(vec![
-                            get_field(column("value"), child.name()).alias("value"),
-                        ])?
-                        .build()?,
-                    output,
-                )?;
-            }
-        }
-        DataType::List(child) | DataType::LargeList(child) | DataType::FixedSizeList(child, _) => {
-            descend(
-                child,
-                LogicalPlanBuilder::from(input)
-                    .unnest_column("value")?
-                    .build()?,
-                output,
-            )?;
-        }
-        _ => {}
-    }
-    Ok(())
 }
 
 fn check(input: LogicalPlan, documents: Option<&LogicalPlan>) -> Result<LogicalPlan> {

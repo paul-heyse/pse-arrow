@@ -118,7 +118,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         );
         let missing = P::Filter {
             input: Box::new(scan("normalized.material_systems", "materials")),
-            predicate: equals(E::ListLen(Box::new(E::col(list))), Cell::U64(0)),
+            predicate: equals(E::ListLen(Box::new(E::col(list))), Cell::I64(0)),
         };
         builder.declare_rule(
             RuleDecl::new(

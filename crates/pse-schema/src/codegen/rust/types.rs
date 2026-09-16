@@ -152,6 +152,7 @@ pub(super) fn logical(
                 })
                 .collect::<Result<Vec<_>, SchemaError>>()?;
             declarations.push(structure(stem, &fields));
+            declarations.push(super::alternative::accessors(ty, stem)?);
             let name = format_ident!("{}", stem);
             quote!(#name)
         }

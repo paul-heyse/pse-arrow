@@ -4,12 +4,13 @@
 //! Actual domain members, equation residuals and kernel contracts in the P10 driver.
 use pse_ids::SemanticId;
 use pse_mathir::canonicalize::{CanonicalizeInput, Policy, canonicalize};
-use pse_mathir::equation::{EquationRecord, FreeIndex, Sense};
+use pse_mathir::equation::{EquationRecord, FreeIndex};
 use pse_mathir::index::DomainFacts;
 use pse_mathir::infer::{GroupFacts, KernelContract, KernelPort, SymbolTypeSource};
 use pse_mathir::relations::vec_sink::KernelBinding;
 use pse_mathir::{ExprGraph, NodeId, Opcode, Payload};
 use pse_quantity::{BoundIndexId, DomainId, DomainKind, QuantityTypeId, UnitId};
+use pse_schema::math::Sense;
 use std::collections::BTreeMap;
 fn sid(byte: u8) -> SemanticId {
     SemanticId::from_bytes([byte; 16])
@@ -414,7 +415,8 @@ fn unresolved_template_domain_is_refused_before_any_quantity_or_index_facts() {
 
 #[test]
 fn normalized_values_and_predicates_require_explicit_lowering_before_p10() {
-    use pse_mathir::{GuardRef, TemplateValueKind, ValueRef};
+    use pse_mathir::{GuardRef, ValueRef};
+    use pse_schema::math::TemplateValueKind;
     let (registry, source) = indexed_fixture();
     let mut graph = ExprGraph::new();
     let reference = graph

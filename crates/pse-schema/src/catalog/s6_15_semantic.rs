@@ -48,31 +48,43 @@ pub fn declare(builder: &mut RegistryBuilder) {
 
 /// The one physical shape of a configuration value, admitted by its explicit tag.
 pub fn config_value_type() -> T {
-    T::structure(vec![
-        T::enumeration("ConfigValueKind")
-            .with_name("kind")
-            .with_nullable(false),
-        T::native(arrow_schema::DataType::Boolean)
-            .with_name("boolean")
-            .with_nullable(true),
-        T::native(arrow_schema::DataType::Int64)
-            .with_name("signed")
-            .with_nullable(true),
-        T::native(arrow_schema::DataType::UInt64)
-            .with_name("unsigned")
-            .with_nullable(true),
-        T::native(arrow_schema::DataType::Float64)
-            .with_name("real")
-            .with_nullable(true),
-        T::native(arrow_schema::DataType::Utf8)
-            .with_name("text")
-            .with_nullable(true),
-        T::id().with_name("semantic_id").with_nullable(true),
-        T::id().with_name("enum_id").with_nullable(true),
-        index().with_name("index").with_nullable(true),
-        T::id().with_name("quantity_type_id").with_nullable(true),
-        T::id().with_name("unit_id").with_nullable(true),
-    ])
+    let scalar = |name: &str, value: T| {
+        T::structure(vec![value.with_name("value")])
+            .with_name(name)
+            .optional()
+    };
+    let arms = vec![
+        scalar("boolean", T::native(arrow_schema::DataType::Boolean)),
+        scalar("signed", T::native(arrow_schema::DataType::Int64)),
+        scalar("unsigned", T::native(arrow_schema::DataType::UInt64)),
+        scalar("real", T::native(arrow_schema::DataType::Float64)),
+        scalar("text", T::native(arrow_schema::DataType::Utf8)),
+        scalar("semantic_id", T::id()),
+        T::structure(vec![
+            T::id().with_name("enum_id"),
+            T::native(arrow_schema::DataType::Utf8).with_name("member"),
+        ])
+        .with_name("enumeration")
+        .optional(),
+        scalar("index", index()),
+        T::extended(ExtensionUse::QuantityValue)
+            .with_name("quantity")
+            .optional(),
+    ];
+    let alternative = crate::model::TaggedAlternative::new(
+        "kind",
+        arms.iter().map(|arm| {
+            let tag = if arm.name() == "enumeration" {
+                "enum"
+            } else {
+                arm.name()
+            };
+            (tag.to_owned(), arm.name().to_owned())
+        }),
+    );
+    let mut fields = vec![T::enumeration("ConfigValueKind").with_name("kind")];
+    fields.extend(arms);
+    T::structure(fields).with_alternative(&alternative)
 }
 
 fn index() -> T {

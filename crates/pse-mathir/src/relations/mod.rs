@@ -6,13 +6,13 @@
 //! Primitive callbacks mirror declared relation fields. Sources replay their rows through
 //! the same interface; a loader checks every row and reference before constructing a DAG.
 //! Adapters over generated Arrow relations belong in `pse-compiler`.
-use crate::equation::Sense;
 use crate::{CanonicalGraph, ExprGraph, MathIrError, NodeId, Opcode, Payload};
 use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{
     BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId, ReductionKind,
     UnitConvertSpec, UnitId, WeightNormalization, infer::BuiltInRule,
 };
+use pse_schema::math::Sense;
 
 mod load;
 pub mod vec_sink;

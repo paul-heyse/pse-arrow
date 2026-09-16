@@ -133,7 +133,7 @@ fn outer_guards(builder: &mut RegistryBuilder, relation: &'static str) {
     let reads = filter(scan(relation, "reads"), present("outer_guard_source_id"));
     let outcomes = filter(
         scan("inferred.predicate_outcomes", "outcomes"),
-        eq(E::ListLen(Box::new(E::col("index"))), E::Lit(Cell::U64(0))),
+        eq(E::ListLen(Box::new(E::col("index"))), E::Lit(Cell::I64(0))),
     );
     let keys = vec![
         ("reads.requester_instance_id", "outcomes.instance_id"),

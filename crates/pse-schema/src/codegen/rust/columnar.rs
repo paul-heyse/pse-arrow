@@ -8,7 +8,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 use crate::SchemaError;
-use crate::model::{ExtensionUse, FieldContract, QuantityContract, RelationSpec};
+use crate::model::{ExtensionUse, FieldContract, RelationSpec};
 
 use super::types::ident;
 
@@ -133,41 +133,49 @@ pub(super) fn checks(spec: &RelationSpec) -> Result<Vec<TokenStream>, SchemaErro
         })
         .collect::<Result<Vec<_>, _>>()?;
     checks.retain(|check| !check.is_empty());
-    for column in &spec.columns {
-        if column.quantity() != QuantityContract::PerRow {
-            continue;
-        }
-        let sibling_name = column.per_row_quantity_sibling();
-        let Some(sibling) = spec
-            .columns
-            .iter()
-            .find(|candidate| candidate.name() == sibling_name)
-        else {
-            continue;
-        };
-        // Registry admission requires the sibling to be an ID. A non-nullable generated
-        // ID already satisfies this local implication for every visible measure.
-        if !sibling.nullable() {
-            continue;
-        }
-        let name = ident(column.name());
-        let sibling = ident(sibling.name());
-        let path = column.name();
-        let visible = if column.nullable() {
-            quote!(row.#name.is_some())
-        } else {
-            quote!(true)
-        };
-        checks.push(quote! {
-            if #visible && row.#sibling.is_none() {
-                return Err(crate::columnar::value_error(#path, row_index, "visible per-row quantity requires a non-null sibling quantity identity"));
-            }
-        });
-    }
     Ok(checks)
 }
 
 fn check(
+    ty: &FieldContract,
+    nullable: bool,
+    value: &TokenStream,
+    path: &str,
+) -> Result<TokenStream, SchemaError> {
+    let checks = check_value(ty, nullable, value, path)?;
+    let Some(collection) = crate::model::CollectionContract::from_field(ty.field())? else {
+        return Ok(checks);
+    };
+    if collection.minimum == 0 && collection.maximum.is_none() && !collection.unique {
+        return Ok(checks);
+    }
+    let minimum = integer_literal(collection.minimum)?;
+    let maximum = collection.maximum.map(integer_literal).transpose()?;
+    let maximum = maximum.map_or_else(|| quote!(None), |value| quote!(Some(#value)));
+    let unique = collection.unique;
+    let order = match collection.order {
+        crate::model::CollectionOrder::Sequence => quote!(Sequence),
+        crate::model::CollectionOrder::Unordered => quote!(Unordered),
+    };
+    let inner = if nullable {
+        quote!(value)
+    } else {
+        value.clone()
+    };
+    let collection = local_check(
+        &quote!(pse_schema::model::CollectionContract {
+            order: pse_schema::model::CollectionOrder::#order,
+            minimum: #minimum, maximum: #maximum, unique: #unique,
+        }.accepts((#inner).as_slice())),
+        &quote!("collection violates cardinality or uniqueness"),
+        nullable,
+        value,
+        path,
+    );
+    Ok(quote!(#collection #checks))
+}
+
+fn check_value(
     ty: &FieldContract,
     nullable: bool,
     value: &TokenStream,
@@ -179,8 +187,8 @@ fn check(
         value.clone()
     };
     if let Some(range) = crate::model::IntegerRange::from_field(ty.field())? {
-        let minimum = range.minimum;
-        let maximum = range.maximum;
+        let minimum = integer_literal(range.minimum)?;
+        let maximum = integer_literal(range.maximum)?;
         return Ok(local_check(
             &quote!((#minimum..=#maximum).contains(&(#inner).to_owned())),
             &quote!("value outside declared integer domain"),
@@ -202,28 +210,7 @@ fn check(
             }
             quote!((#inner).iter().try_for_each(|item| { #child Ok::<(), crate::RelationError>(()) })?;)
         }
-        (None, DataType::Struct(fields)) => {
-            let mut children = fields
-                .iter()
-                .map(|field| {
-                    let name = field.name();
-                    let ty = FieldContract::from_field((**field).clone());
-                    let nullable = field.is_nullable();
-                    let field = ident(name);
-                    check(
-                        &ty,
-                        nullable,
-                        &quote!((#inner).#field),
-                        &format!("{path}.{name}"),
-                    )
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            children.retain(|tokens| !tokens.is_empty());
-            if children.is_empty() {
-                return Ok(TokenStream::new());
-            }
-            quote!(#(#children)*)
-        }
+        (None, DataType::Struct(fields)) => check_struct(ty, &fields, &inner, path)?,
         (Some(ExtensionUse::DimensionVector), _) => {
             return Ok(local_check(
                 &quote!((#inner).iter().all(|exponent| crate::validate::local_values::dimension_exponent(i64::from(exponent.num), i64::from(exponent.den)))),
@@ -262,11 +249,31 @@ fn check(
         }
         _ => return Ok(TokenStream::new()),
     };
-    Ok(if nullable {
-        quote!(if let Some(value) = (#value).as_ref() { #body })
-    } else {
-        body
-    })
+    if body.is_empty() {
+        return Ok(body);
+    }
+    visible_check(body, nullable, value)
+}
+
+/// Keep a single generated predicate in the parent's visibility chain.
+fn visible_check(
+    body: TokenStream,
+    nullable: bool,
+    value: &TokenStream,
+) -> Result<TokenStream, SchemaError> {
+    if !nullable {
+        return Ok(body);
+    }
+    let block: syn::Block =
+        syn::parse2(quote!({ #body })).map_err(|error| super::error(error.to_string()))?;
+    if let [syn::Stmt::Expr(syn::Expr::If(check), None)] = block.stmts.as_slice()
+        && check.else_branch.is_none()
+    {
+        let condition = &check.cond;
+        let then = &check.then_branch;
+        return Ok(quote!(if let Some(value) = (#value).as_ref() && #condition #then));
+    }
+    Ok(quote!(if let Some(value) = (#value).as_ref() { #body }))
 }
 
 fn local_check(
@@ -282,4 +289,58 @@ fn local_check(
         quote!(!(#valid))
     };
     quote! { if #invalid { return Err(crate::columnar::value_error(#path, row_index, #message)); } }
+}
+
+fn integer_literal(value: i64) -> Result<TokenStream, SchemaError> {
+    let digits = value.unsigned_abs().to_string();
+    let mut text = if value < 0 {
+        "-".to_owned()
+    } else {
+        String::new()
+    };
+    for (index, digit) in digits.char_indices() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            text.push('_');
+        }
+        text.push(digit);
+    }
+    text.push_str("_i64");
+    text.parse()
+        .map_err(|error: proc_macro2::LexError| super::error(error.to_string()))
+}
+
+fn check_struct(
+    ty: &FieldContract,
+    fields: &arrow_schema::Fields,
+    inner: &TokenStream,
+    path: &str,
+) -> Result<TokenStream, SchemaError> {
+    let mut children = fields
+        .iter()
+        .map(|field| {
+            let name = field.name();
+            let ty = FieldContract::from_field((**field).clone());
+            let nullable = field.is_nullable();
+            let field = ident(name);
+            check(
+                &ty,
+                nullable,
+                &quote!((#inner).#field),
+                &format!("{path}.{name}"),
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    children.retain(|tokens| !tokens.is_empty());
+    if crate::model::TaggedAlternative::from_field(ty.field())?.is_some() {
+        children.insert(
+            0,
+            quote! { if (#inner).selected().is_err() {
+                return Err(crate::columnar::value_error(#path, row_index, "tagged value requires exactly its selected arm"));
+            } },
+        );
+    }
+    if children.is_empty() {
+        return Ok(TokenStream::new());
+    }
+    Ok(quote!(#(#children)*))
 }

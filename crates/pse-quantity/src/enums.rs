@@ -183,7 +183,7 @@ crate::closed_enum! {
     /// `reference.quantity_operations.opcode` as `enum(Opcode)` and `pse-quantity` sits
     /// below `pse-mathir`; `pse_mathir::Opcode` re-exports this type, so there is still one
     /// declaration. The member order is §7.2's table order, and it is the order
-    /// `pse_mathir::OPERATOR_TABLE` and `reference.operator_specs` must be in.
+    /// `pse_schema::math::operators::OPERATOR_TABLE` and `reference.operator_specs` must be in.
     pub enum Opcode {
         /// A literal value with an explicit unit, or an integer literal.
         Const => "Const",
@@ -610,7 +610,7 @@ mod tests {
     }
 
     /// Blueprint §7.2 lists exactly 43 operators; the count is the contract
-    /// `pse_mathir::OPERATOR_TABLE` and `reference.operator_specs` are checked against.
+    /// `pse_schema::math::operators::OPERATOR_TABLE` and `reference.operator_specs` are checked against.
     #[test]
     fn opcode_has_exactly_forty_three_members() {
         assert_eq!(Opcode::ALL.len(), 43);

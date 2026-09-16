@@ -6,21 +6,8 @@ use crate::{MathIrError, NodeId};
 use pse_ids::SemanticId;
 use pse_quantity::{BoundIndexId, DomainId, QuantityTypeId};
 
-pse_quantity::closed_enum! {
-    /// The authoritative equation-sense dictionary of blueprint §6.9.
-    pub enum Sense {
-        /// Equality to the supplied bound.
-        Eq => "eq",
-        /// Body no greater than the upper bound.
-        Le => "le",
-        /// Body no less than the lower bound.
-        Ge => "ge",
-        /// Body between both bounds.
-        Range => "range",
-        /// A defining equality.
-        Definition => "definition",
-    }
-}
+use pse_schema::math::Sense;
+
 /// One declared free-index axis, retaining its semantic position.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct FreeIndex {

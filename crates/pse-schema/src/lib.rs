@@ -56,6 +56,7 @@ pub mod error;
 pub mod ext_metadata;
 pub mod field_contract;
 pub mod fingerprint;
+pub mod math;
 pub mod membership;
 pub mod model;
 mod rule_deps;

@@ -77,12 +77,15 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `mapping_id`.
 | `input_selection.schema_name` | `Utf8` | false | `payload` | — | — |
 | `input_selection.table_name` | `Utf8` | false | `payload` | — | — |
 | `input_selection.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `input_selection.relation_version` | `UInt32` | false | `payload` | — | — |
+| `input_selection.relation_version` | `Int64` | false | `payload` | — | — |
 | `input_selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
 | `input_selection.table_uri` | `Utf8` | false | `payload` | — | — |
-| `input_selection.delta_version` | `UInt64` | false | `payload` | — | — |
-| `input_selection.revision_column` | `Utf8` | true | `payload` | — | — |
-| `input_selection.revision_id` | `semantic_id` | true | `payload` | — | — |
+| `input_selection.delta_version` | `Int64` | false | `payload` | — | — |
+| `input_selection.selection` | `Struct` | false | `payload` | — | — |
+| `input_selection.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `input_selection.selection.revision` | `Struct` | true | `payload` | — | — |
+| `input_selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `input_selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `support_kind` | `enum:RuleSupportKind` | false | `payload` | — | — |
 | `input_key` | `Utf8` | true | `payload` | — | — |
 
@@ -230,16 +233,24 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `source_name` | `Utf8` | false | `payload` | — | — |
 | `value` | `Struct` | false | `payload` | — | — |
 | `value.kind` | `enum:ConfigValueKind` | false | `payload` | — | — |
-| `value.boolean` | `Boolean` | true | `payload` | — | — |
-| `value.signed` | `Int64` | true | `payload` | — | — |
-| `value.unsigned` | `UInt64` | true | `payload` | — | — |
-| `value.real` | `Float64` | true | `payload` | — | — |
-| `value.text` | `Utf8` | true | `payload` | — | — |
-| `value.semantic_id` | `semantic_id` | true | `payload` | — | — |
-| `value.enum_id` | `semantic_id` | true | `payload` | — | — |
-| `value.index` | `index_tuple` | true | `payload` | — | — |
-| `value.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
-| `value.unit_id` | `semantic_id` | true | `payload` | — | — |
+| `value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.signed` | `Struct` | true | `payload` | — | — |
+| `value.signed.value` | `Int64` | false | `payload` | — | — |
+| `value.unsigned` | `Struct` | true | `payload` | — | — |
+| `value.unsigned.value` | `UInt64` | false | `payload` | — | — |
+| `value.real` | `Struct` | true | `payload` | — | — |
+| `value.real.value` | `Float64` | false | `payload` | — | — |
+| `value.text` | `Struct` | true | `payload` | — | — |
+| `value.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.semantic_id` | `Struct` | true | `payload` | — | — |
+| `value.semantic_id.value` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration` | `Struct` | true | `payload` | — | — |
+| `value.enumeration.enum_id` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration.member` | `Utf8` | false | `payload` | — | — |
+| `value.index` | `Struct` | true | `payload` | — | — |
+| `value.index.value` | `index_tuple` | false | `payload` | — | — |
+| `value.quantity` | `quantity_value` | true | `payload` | — | — |
 
 ## `feature_check_assertions`
 
@@ -303,16 +314,24 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `name` | `Utf8` | false | `payload` | — | — |
 | `value` | `Struct` | false | `payload` | — | — |
 | `value.kind` | `enum:ConfigValueKind` | false | `payload` | — | — |
-| `value.boolean` | `Boolean` | true | `payload` | — | — |
-| `value.signed` | `Int64` | true | `payload` | — | — |
-| `value.unsigned` | `UInt64` | true | `payload` | — | — |
-| `value.real` | `Float64` | true | `payload` | — | — |
-| `value.text` | `Utf8` | true | `payload` | — | — |
-| `value.semantic_id` | `semantic_id` | true | `payload` | — | — |
-| `value.enum_id` | `semantic_id` | true | `payload` | — | — |
-| `value.index` | `index_tuple` | true | `payload` | — | — |
-| `value.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
-| `value.unit_id` | `semantic_id` | true | `payload` | — | — |
+| `value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.signed` | `Struct` | true | `payload` | — | — |
+| `value.signed.value` | `Int64` | false | `payload` | — | — |
+| `value.unsigned` | `Struct` | true | `payload` | — | — |
+| `value.unsigned.value` | `UInt64` | false | `payload` | — | — |
+| `value.real` | `Struct` | true | `payload` | — | — |
+| `value.real.value` | `Float64` | false | `payload` | — | — |
+| `value.text` | `Struct` | true | `payload` | — | — |
+| `value.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.semantic_id` | `Struct` | true | `payload` | — | — |
+| `value.semantic_id.value` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration` | `Struct` | true | `payload` | — | — |
+| `value.enumeration.enum_id` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration.member` | `Utf8` | false | `payload` | — | — |
+| `value.index` | `Struct` | true | `payload` | — | — |
+| `value.index.value` | `index_tuple` | false | `payload` | — | — |
+| `value.quantity` | `quantity_value` | true | `payload` | — | — |
 
 ## `instance_guard_violation_assertions`
 
@@ -603,11 +622,11 @@ Version: 2. Snapshot class: `sidecar`. Primary key: `pass_run_id`.
 | `plan_explain.item` | `Utf8` | false | `payload` | — | — |
 | `rules_fired` | `List` | false | `payload` | — | — |
 | `rules_fired.item` | `Struct` | false | `payload` | — | — |
-| `rules_fired.item.plan_ordinal` | `UInt16` | false | `payload` | — | — |
+| `rules_fired.item.plan_ordinal` | `Int64` | false | `payload` | — | — |
 | `rules_fired.item.rule_name` | `Utf8` | false | `payload` | — | — |
-| `rules_fired.item.ordinal` | `UInt16` | false | `payload` | — | — |
+| `rules_fired.item.ordinal` | `Int64` | false | `payload` | — | — |
 | `duration_ms` | `Float64` | false | `payload` | — | — |
-| `finding_count` | `UInt64` | false | `payload` | — | — |
+| `finding_count` | `Int64` | false | `payload` | — | — |
 | `status` | `enum:PassStatus` | false | `payload` | — | — |
 | `findings` | `List` | false | `payload` | — | — |
 | `findings.item` | `Struct` | false | `payload` | — | — |
@@ -884,12 +903,15 @@ Version: 1. Snapshot class: `derived`. Primary key: `edge_id`.
 | `input_selection.schema_name` | `Utf8` | false | `payload` | — | — |
 | `input_selection.table_name` | `Utf8` | false | `payload` | — | — |
 | `input_selection.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `input_selection.relation_version` | `UInt32` | false | `payload` | — | — |
+| `input_selection.relation_version` | `Int64` | false | `payload` | — | — |
 | `input_selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
 | `input_selection.table_uri` | `Utf8` | false | `payload` | — | — |
-| `input_selection.delta_version` | `UInt64` | false | `payload` | — | — |
-| `input_selection.revision_column` | `Utf8` | true | `payload` | — | — |
-| `input_selection.revision_id` | `semantic_id` | true | `payload` | — | — |
+| `input_selection.delta_version` | `Int64` | false | `payload` | — | — |
+| `input_selection.selection` | `Struct` | false | `payload` | — | — |
+| `input_selection.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `input_selection.selection.revision` | `Struct` | true | `payload` | — | — |
+| `input_selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `input_selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `support_kind` | `enum:RuleSupportKind` | false | `payload` | — | — |
 | `input_key` | `Utf8` | true | `payload` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |

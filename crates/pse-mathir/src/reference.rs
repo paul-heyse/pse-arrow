@@ -6,28 +6,8 @@ use crate::{DomainRef, MathIrError, NodeId};
 use pse_ids::SemanticId;
 use pse_quantity::BoundIndexId;
 
-/// Which declared template member supplies an unresolved value.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum TemplateValueKind {
-    /// A declared parameter.
-    Parameter,
-    /// A declared feature.
-    Feature,
-    /// A declared port.
-    Port,
-}
-impl TemplateValueKind {
-    /// Closed declaration vocabulary, used by schema projections.
-    pub const ALL: [Self; 3] = [Self::Parameter, Self::Feature, Self::Port];
-    /// Stable declaration spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Parameter => "parameter",
-            Self::Feature => "feature",
-            Self::Port => "port",
-        }
-    }
-}
+use pse_schema::math::{NORMALIZED_REFERENCE_KINDS, TemplateValueKind};
+
 /// A bound declaration reference, preserving its actual key until instantiation.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ValueRef {
@@ -48,16 +28,6 @@ pub enum ValueRef {
     Index(BoundIndexId),
 }
 impl ValueRef {
-    /// Sole normalized declaration discriminator roster for registry projection.
-    pub const KINDS: [&'static str; 6] = [
-        "symbol",
-        TemplateValueKind::Parameter.as_str(),
-        TemplateValueKind::Feature.as_str(),
-        TemplateValueKind::Port.as_str(),
-        "domain",
-        "index",
-    ];
-
     /// Require an actual symbol before physical inference looks up its complete contract.
     ///
     /// # Errors
@@ -74,10 +44,10 @@ impl ValueRef {
     /// Normalized relation discriminator.
     pub const fn kind(&self) -> &'static str {
         match self {
-            Self::ActualSymbol(_) => Self::KINDS[0],
+            Self::ActualSymbol(_) => NORMALIZED_REFERENCE_KINDS[0],
             Self::Template { kind, .. } => kind.as_str(),
-            Self::Domain(_) => Self::KINDS[4],
-            Self::Index(_) => Self::KINDS[5],
+            Self::Domain(_) => NORMALIZED_REFERENCE_KINDS[4],
+            Self::Index(_) => NORMALIZED_REFERENCE_KINDS[5],
         }
     }
     pub(crate) fn validate(&self) -> Result<(), MathIrError> {

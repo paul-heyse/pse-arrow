@@ -88,6 +88,27 @@ pub(super) fn logical(
     stem: &str,
     declarations: &mut String,
 ) -> Result<Type, SchemaError> {
+    let mut value = logical_value(ty, stem, declarations)?;
+    if let Some(collection) = crate::model::CollectionContract::from_field(ty.field())?
+        && (collection.minimum != 0 || collection.maximum.is_some() || collection.unique)
+    {
+        let maximum = collection
+            .maximum
+            .map_or_else(|| "None".into(), |value| value.to_string());
+        let unique = if collection.unique { "True" } else { "False" };
+        value.validator = format!(
+            "attrs.validators.and_({}, v.collection({}, {maximum}, unique={unique}))",
+            value.validator, collection.minimum
+        );
+    }
+    Ok(value)
+}
+
+fn logical_value(
+    ty: &FieldContract,
+    stem: &str,
+    declarations: &mut String,
+) -> Result<Type, SchemaError> {
     if let Some(range) = crate::model::IntegerRange::from_field(ty.field())? {
         return Ok(integer_domain(range));
     }
@@ -131,6 +152,7 @@ pub(super) fn logical(
                 })
                 .collect::<Result<Vec<_>, SchemaError>>()?;
             declarations.push_str(&structure(stem, &fields));
+            declarations.push_str(&alternative_check(ty, &fields)?);
             scalar(stem)
         }
         (Some(ExtensionUse::Enum(name)), _) => scalar(&format!("e.{}", pascal(name))),
@@ -231,6 +253,51 @@ fn integer_domain(range: crate::model::IntegerRange) -> Type {
         annotation: "b.int".to_owned(),
         validator: format!("v.integer_range({}, {})", range.minimum, range.maximum),
     }
+}
+
+fn alternative_check(ty: &FieldContract, fields: &[(String, Type)]) -> Result<String, SchemaError> {
+    if let Some(alternative) = crate::model::TaggedAlternative::from_field(ty.field())? {
+        let names = fields
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>();
+        let attributes = names
+            .iter()
+            .copied()
+            .zip(super::identifiers::fields(names.iter().copied()))
+            .collect::<std::collections::BTreeMap<_, _>>();
+        let discriminator = &attributes[alternative.discriminator.as_str()];
+        let cases = alternative
+            .arms
+            .iter()
+            .map(|(tag, selected)| {
+                let checks = alternative
+                    .payloads()
+                    .into_iter()
+                    .map(|name| {
+                        let name_python = &attributes[name];
+                        let present = if Some(name) == selected.as_deref() {
+                            "not "
+                        } else {
+                            ""
+                        };
+                        format!("self.{name_python} is {present}None")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" and ");
+                if checks.is_empty() {
+                    format!("self.{discriminator} == {tag:?}")
+                } else {
+                    format!("(self.{discriminator} == {tag:?} and {checks})")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" or ");
+        return Ok(format!(
+            "\n    def __attrs_post_init__(self) -> None:\n        if not ({cases}):\n            message = \"tagged value requires exactly its selected arm\"\n            raise ValueError(message)\n"
+        ));
+    }
+    Ok(String::new())
 }
 
 #[cfg(test)]

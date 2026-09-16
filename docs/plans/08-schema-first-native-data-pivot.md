@@ -367,7 +367,7 @@ extension storage; all generated field projections agree, including nested paths
 
 ### SP02 — Canonical scalar types, alternatives and quantities
 
-**Depends on:** SP01. **Status:** In progress (canonical string enums, signed ordinal/span extensions and recursive integer domains implemented; other scalar/value changes open).
+**Depends on:** SP01. **Status:** In progress (canonical string enums, signed extensions and metadata/runtime counts, recursive integer domains and tagged configuration/feature values implemented; remaining scalar/value and collection changes open).
 
 - Convert PSE durable ordinals/counts/versions and ordinal/span extensions to signed
   canonical storage with generated nonnegative/width bounds. Keep checked external
@@ -1130,6 +1130,322 @@ The old product store, Driver/stage/memo paths and closed rule representation ar
 present. SP00–SP13 and G1–G7 are not certified complete. No new simulator behavior was
 added, and no measurement or linked-solver acceptance is claimed.
 
+### Signed metadata and tagged configuration — 2026-09-16
+
+**Implemented:** canonical signed storage now covers registry versions and declaration
+ordinals, publication member/control versions and command outcomes, package depth,
+change-operation/staged-row ordinals, case sampling counts and ordinals, runtime
+attempt/iteration/kernel-outcome positions and terminal evidence counts/positions.
+Existing width bounds are generated from `IntegerRange`. Declaration materialization,
+fingerprints, generated Rust/Python/JSON contracts, native list-length expressions and
+the existing authoring/compiler/publication callers use the new representation.
+
+`PublicationRoot` and PSE Delta command results now use `Int64`. Conversion to the
+pinned kernel's unsigned `Version` rejects negative values; conversion back rejects
+overflow. A write whose result cannot be represented retains its actual committed
+version in `MutationError::Committed`. DataFusion's required native DML `UInt64`
+`count` result remains its external protocol. Full-width unsigned literal/configuration
+values and random seeds remain eligible; this cut adds no unsigned compatibility
+reader for replaced PSE fields.
+
+**Implemented:** `TaggedAlternative` binds a required discriminator to distinct optional
+struct arms on the native field tree. Its metadata contains the selection relationship;
+payload types remain the Arrow children. Registry admission checks arm shape, complete
+enum coverage and exact metadata. Generated Rust constructors and borrowed enum
+selectors, generated Python post-initialization validation, JSON Schema `oneOf`, imported
+Arrow admission and native DataFusion/Delta predicates all project that declaration.
+Unknown tags, missing selected arms and overlapping arms fail; null outer values mask
+their children.
+
+Selection itself requires no UDF. Configuration's index arm still uses the existing
+persisted native-collection expression adapter because this Delta pin cannot parse
+the required lambda SQL. No new configuration validator UDF is introduced.
+
+Configuration, feature candidates, resolved features and their generated provenance
+values now use this declared shape. Scalar payloads have a required `value` child;
+the enum arm carries its dictionary identity and member together. The quantity arm
+uses the existing typed quantity structure with required value, quantity type and unit.
+Existing unit/dimension/reference checks remain active. Compiler parsing constructs
+generated arms; scalar consumers use generated selectors, and native feature/selector/
+balance queries read the corresponding children. The manually assembled empty value,
+the duplicated configuration `RulePlan` shape rules and the field-by-field feature-value
+copy are deleted. No old-shape reader is retained.
+
+Normalized domain and instance references now update the actual field metadata.
+The earlier native-field cut had left one caller mutating the temporary reference
+returned by `fk()`, so generated domain members and child bindings still referenced
+the authored-only inventory. The declaration now targets the complete normalized
+inventory, with a regression checking both the declaration and execution metadata.
+Numeric-domain checks also consume the new quantity arm's value.
+
+**Interface-checked:** DataFusion 55.1.0's `datafusion_session::table::TableProvider`
+documents unsigned native DML count results. Its
+`datafusion_functions_nested::length::ArrayLength` returns `UInt64`; the PSE list-length
+projection now uses a native checked `Int64` cast. Delta `58f07cd6` and kernel `8ba063f8`
+retain their unsigned external version interface. These checks used the pinned local
+skills and Cargo sources. Context7's upstream attrs documentation confirms that
+`__attrs_post_init__` runs after field validators; actual generated construction is
+tested against the pinned attrs 26.1.0/cattrs 26.2.0 environment.
+
+**Tested — focused contracts, baseline 0:**
+`just test-package pse-schema --test native_field_declarations -p pse-relations --test tagged_values -p pse-catalog --test tagged_delta_values --no-fail-fast --status-level fail --final-status-level fail`
+passed **15 tests, 0 failed/skipped**, default Nextest with force validation, 0.954 s,
+run `a1c99695-d843-414a-8944-c07a65741623`. This includes a cold raw Delta writer with
+only native functions enforcing selection, child ranges and null-parent visibility
+on a scalar tagged fixture,
+without a PSE CHECK UDF or registry. Invalid writes leave the committed version unchanged.
+
+**Tested — current source, baseline 0:**
+
+| Command | Mode and result |
+|---|---|
+| `just test-package pse-schema -p pse-ids -p pse-relations -p pse-catalog -p pse-rules -p pse-authoring -p pse-templates -p pse-compiler --no-fail-fast --status-level fail --final-status-level fail` | Default Nextest / force validation after all reference/quantity and regression corrections: **617 passed, 0 failed/skipped**, 45.759 s, `6b5f2978-2cc2-4797-8497-4da35604ba7e` |
+| `just py-test` | Unit/component, 32 workers, fresh native inspection fixtures after the reference/quantity corrections: **84 passed, 0 failed/skipped**, 29.33 s |
+| `just test-package pse-schema -p pse-relations --test native_field_declarations --no-fail-fast --status-level fail --final-status-level fail` | Default / force validation, including the reference correction: **13 passed, 0 failed/skipped**, 0.968 s, `a97d43fe-11f4-49cd-b55b-01a1bcf5fcc2` |
+| `just test-package pse-tests-engine --test native_normalization --test native_template_graph --test native_change_batches --test unified_sources --test terminal_attempts --profile ci --no-fail-fast --status-level fail --final-status-level fail` | CI / force validation: **16 passed, 0 failed/skipped** (2 slow), 908.103 s, `2bc50ab7-c805-4e44-a158-843b370f3a1e`; precedes the final equivalent generated-validator cleanup and reference/quantity corrections |
+| `just test-package pse-tests-engine --test native_engineering_workflows --profile ci --no-fail-fast --status-level fail --final-status-level fail` | CI / force validation after the reference/quantity corrections: **4 passed, 0 failed/skipped** (4 slow), 1346.628 s, `30fb677b-2679-43df-a6c5-6db53fa0e98b`. Heater/mixer FTPx and FcTP source-to-P10 assertions; existing one-worker, 32 GiB runtime per case and two-case test group. |
+| `just check` | Workspace/all targets/default dev profile: **0 compile errors or project warnings** |
+| `cargo clippy -p pse-schema -p pse-relations -p pse-catalog -p pse-rules -p pse-authoring -p pse-templates --all-targets --locked -- -D warnings` | Selected packages/all targets/default dev profile: **0 project findings**, after generator corrections |
+| `PS1='' just quality` | Python format/lint/types/import boundaries and repository checks: **0 failures**, including 14 setup/tooling tests; empty prompt avoids an unrelated system Bash startup failure on the recipe's comment line |
+| `just codegen-check`; `just fmt-check`; `git diff --check` | Regeneration, Rust/TOML formatting and whitespace checks pass |
+| `just py-sync`; `PS1='' just doctor` | Editable native extension and compiled API stubs refreshed after the reference/quantity corrections; final environment check reports **0 blocking issues**. A final sync refreshed uv's source fingerprint after the regression-test edit; system Bash still prints its unrelated unset-prompt startup diagnostic. |
+
+The first generated-check refactor emitted empty optional-value guards; large signed
+bound literals and a nested single predicate also triggered Clippy findings. The
+generator now omits empty checks, formats bounds readably and composes parent visibility
+with the single predicate. The final eight-package receipt includes those corrections.
+The upstream `proc-macro-error2 2.0.1` future-compatibility warning and full-workspace
+Clippy qualification remain open; the selected-package receipt is not a workspace
+lint receipt. No measurement or linked-solver acceptance is claimed.
+
+Initial validation found an unsigned-only sort-oracle fixture, old dynamic Cell
+writers/comparisons, and native queries selecting the former flat configuration
+children. These were updated with the caller cut. The generated Python cross-field
+validator initially violated the exception-message lint; the generator was corrected.
+No baseline was introduced and no domain assertion was weakened.
+
+The expanded heater/mixer run initially failed all four cases at P3 publication
+because of the stale normalized foreign keys described above. A new regression's
+first assertion incorrectly treated execution metadata as registry-declaration
+metadata; it now checks the execution `pse.semantic.fk` projection explicitly.
+The schema-only test command also requires selecting `pse-relations` for the recipe's
+force-validation feature; the corrected command is recorded above.
+The final heater/mixer rerun passes all four cases. Its duration is a test-run receipt,
+not a controlled performance comparison; architecture cost qualification remains open.
+
+**Remaining:** signed expression/graph IDs and the other ordinary ordinal/count sites;
+alternatives outside configuration/features; general typed quantities, explicit
+collection semantics, keys/references/support, coherent expression/numerical rows,
+common invariant/domain transfer, full table/root policies and the provider/compiler/
+store/Python replacement/deletion. The predecessor store, Driver/stage/memo paths and
+general RulePlan representation still exist. SP00–SP13 and G1–G7 remain uncertified;
+this receipt adds no simulator behavior or cost measurement.
+
+### Remaining execution sequence — 2026-09-16
+
+The maintainer authorized the detailed execution plan after this checkpoint.
+The current working tree is the starting implementation; prior receipts are not
+terminal acceptance. Each replacement includes its callers and deletions.
+
+| Step | Plan packages | Execution and closing evidence | Status |
+|---|---|---|---|
+| E00 | SP00 | Current-function oracles, deletion inventory and final acceptance entry point | In progress |
+| E01 | SP01–SP02 | Native schema/math dependency placement, signed local integers, alternatives, quantities and collections; Q01–Q02 | In progress |
+| E02 | SP03 | Declared keys, exact references, co-located spans/support and structured diagnostics; Q03–Q04 | In progress; native nested references tested, typed keys/composite references/support open |
+| E03 | SP04–SP05 | Coherent expression rows and dimensioned numerical vectors, existing solver contracts; Q05–Q06 | Proposed |
+| E04 | SP06/SP10 | Native invariant/rule bindings and one domain-transfer implementation; Q04/Q07/Q11 | In progress; declared native SQL row checks tested, general rule/domain replacement open |
+| E05 | SP08 | Actual native session/provider/planner composition and complete admission; Q09 | In progress; native configuration preservation tested, complete caller cut open |
+| E06 | SP07/SP09 | Declared tables/control facts, complete selections, member/root reconciliation; Q07/Q08/Q10 | In progress; declared roots/members and selections tested, member-attempt reconciliation open |
+| E07 | SP10 | Existing authoring and P0–P10 responsibilities as native plans; delete Driver/stage/memo; Q11 | Proposed |
+| E08 | SP11 | Exact Rust/Python publications, owned streams and full predecessor-store deletion; Q12 | Proposed |
+| E09 | SP12 | Typed dependencies, CDF, exact reuse and coordinated native retention; Q13 | Proposed |
+| E10 | SP13 | Ordinary extension proof, measurements, deletion audit and final Q01–Q14/G1–G7 receipts | Proposed |
+
+E05–E08 remain one caller-replacement cut. E10 verifies deletions completed in
+their owning steps. No compatibility API, migration reader or new simulator
+functionality is part of this sequence.
+
+### Schema and publication contract continuation — 2026-09-16
+
+**Implemented; package acceptance remains open.** The continuation applies E01
+schema foundations and bounded E05/E06 changes needed by their consumers:
+
+- Operator, arity, equation-sense and template-reference declarations now belong to
+  `pse-schema::math`. `pse-schema` no longer depends on `pse-mathir`; math consumes
+  the schema crate. The old `opspec.rs` and its re-exports are removed. This makes
+  generated coherent math rows possible without a dependency cycle; it does not
+  establish that the graph replacement has happened.
+- `TaggedAlternative` supports payload-free alternatives and multiple tags sharing
+  a payload shape. Generated Rust constructors/selectors, Python checks, JSON Schema
+  and native predicates follow the same declaration. Publication selection is now
+  `full` or `revision { column, revision_id }`; the two independent nullable fields
+  are deleted. Revision columns must carry the semantic identity declaration.
+- Kernel outcomes contain a selected result: success carries a typed quantity;
+  failure variants share a required reason/quantity/unit payload. Incidence contains
+  a linear coefficient arm or a payload-free nonlinear alternative. These changes
+  restructure existing declarations and add no numerical execution functionality.
+- `QuantityContract::PerRow`, its sibling naming rule, registry metadata flag and
+  corresponding generator/admission checks are deleted. Heterogeneous values use
+  `QuantityValue`; homogeneous field quantities remain. Cross-relation unit/quantity
+  agreement still belongs to the uncompleted reference/invariant work.
+- Native list fields declare order, cardinality and uniqueness. Lists retain Arrow
+  nullability and child nullability, so absent and empty are distinct. Package
+  dependencies are a set; implicit-system lists preserve order and prohibit repeated
+  members. Rust/Python/JSON checks and native `array_length`/`array_distinct` predicates
+  are generated. Equal cardinalities between related collections remain open.
+- Ordinary derived-structure counts and positions in `s6_12_derived` use bounded
+  signed fields. Expression IDs and other remaining ordinal sites are still open.
+- `SessionFactory::from_builder` retains the actual native configuration, including
+  opaque extensions. Its separate settings/budget arguments and replacement of the
+  caller's configuration are removed. The convenience constructor explicitly builds
+  its selected configuration before delegating. Tests follow the actual configuration
+  through nested execution and policy overrides.
+- Root and member opens verify persisted declared Delta properties and native CHECK.
+  Root initialization installs the schema and CHECK before its first data write.
+  An initialized empty control table is not a publication. Initial publication is
+  version 1; callers use the actual returned version. Concurrent initialization and
+  lost initialization responses reconcile the real declared table; publication
+  identity applies only to the subsequent data transaction. Existing member/root
+  retries continue to check exact requests. This does not close member-attempt reuse.
+- Publication input verification transfers the native Arrow input column into the
+  identical member contract; its generic Cell reconstruction is removed.
+
+**Pinned capability evidence — Interface-checked and exercised by the tests below:**
+the DataFusion skill's `datafusion_functions_nested.set_ops.md`,
+`datafusion_functions_nested.length.md`, `datafusion.execution.session_state.md` and
+`datafusion_execution.config.md` establish native list predicates and configuration
+ownership. The Delta skill's create/write builder references and pinned upstream
+`operations/write/mod.rs` establish that checks must precede the first data write.
+Capability-gap scans of the edited catalog paths found ordinary mutation nodes with
+unknown statistics, a physical-child bridge without filter pushdown, tiny test
+sessions and native writes with schema mode unset. No merge/overwrite schema mode is
+selected: exact field admission and contract verification require schema refusal.
+The mutation commands retain their real inputs and execution effects; no optimization
+claim is inferred from these syntactic hints.
+
+**Corrections found during validation:** `serde_json/preserve_order` feature unification
+changed tagged metadata fingerprints and JSON Schema alternative ordering. Both now
+sort object keys explicitly, while preserving array order. A raw cold-writer fixture
+initially used the declared storage schema rather than Delta's reconstructed physical
+schema; it now takes that schema directly from the loaded Delta table.
+
+**Remaining:** E00–E10 and SP00–SP13 are not certified. In particular, coherent math
+rows, the remaining signed ordinals and alternatives, typed keys/references/support,
+dimensioned numerical rows, common invariant/domain transfer, complete table policies,
+member-attempt reconciliation, provider/compiler/store/Python caller replacement,
+native change/reuse/retention, legacy deletion and terminal architecture measurements
+remain open. The predecessor graph/store, Driver/stage/memo and RulePlan/RuleExpr
+paths still exist. There is no compatibility layer for the contracts replaced here.
+
+#### Continuation verification
+
+**Tested, baseline 0; no terminal architectural acceptance:**
+
+| Command | Actual evidence and limits |
+|---|---|
+| `just test-package pse-schema -p pse-relations -p pse-mathir -p pse-catalog --no-fail-fast` | Default Nextest with force validation: **434 passed, 0 failed/skipped**, 42.611 s. Includes generated typed alternatives/quantities, native collection predicates, cold collection CHECK, exact member/root admission, concurrent initializers and lost-response reconciliation. |
+| `just test-package pse-tests-engine --test unified_sources --profile ci --no-fail-fast` | CI / force validation: **1 passed, 0 failed/skipped**, 3.613 s; `33376d2e-0a9a-4a82-8a0d-6b891723753b`. Exact source reopening, reparsing and support queries; no broader simulator qualification. |
+| `just py-sync`, `just py-test` | Editable native extension/stubs rebuilt; Python 3.14.7 unit/component suite: **86 passed, 0 failed**, 21.57 s. |
+| `just quality` | Python/repository checks: **0 findings**; includes **14 setup tests passed**. |
+| `just governance` | Default force-validation governance: **69 passed, 0 failed/skipped**, 3.972 s; `a1e805f8-1c4d-4528-a978-d7ff87dc2fa4`. All three schema generation targets, Ipopt bindings and pinned dependency-family checks pass. |
+| `just check` | Workspace, all targets, locked default compilation succeeded. Cargo still emits the upstream `proc-macro-error2` future-incompatibility notice. |
+| `just clippy` | Default workspace/all-target pass fails with **65 compiler lint errors**, baseline 0. The no-default-features pass was not reached. |
+
+The first 434-test run had one invalid cold-writer fixture and the first governance
+run had one cross-feature JSON ordering mismatch; their causes and corrections are
+described above. Scoped Clippy for the four changed packages passed with `-D warnings`.
+Compiler findings are not an accepted baseline or a
+completion waiver. Linked-solver, full engine, feature-matrix, cost and terminal
+architecture gates are not certified by this continuation.
+
+### Native nested references and row predicates — 2026-09-16
+
+**Implemented; package acceptance remains open.** Native occurrence plans now walk
+declared structs, lists, list views and maps. They mask parents before extracting
+children and preserve visible occurrence multiplicity. The previous source-span-only
+walker and publication's top-level-only FK loop are replaced by this shared traversal.
+Foreign-key validation uses native anti joins against the exact selected target in
+the same catalog. Conflicting selected target revisions refuse; a visible unresolved
+reference violates admission. Null and empty containers make no reference claim.
+This does not implement composite mappings or typed diagnostic/key output yet.
+
+Typed scalar `QuantityValue` occurrences now join the selected quantity-type and unit
+relations, including the type's canonical unit. Missing definitions, unequal dimensions,
+non-scalar type shapes and incompatible reference-state restrictions refuse admission.
+An ambient table outside the selected publication cannot satisfy these obligations.
+This is reference/representation admission, not a second numerical conversion engine;
+the complete native physical-type domain invariants remain part of E04.
+
+Relations can declare named **native DataFusion SQL** row predicates. The registry's
+own relation rows, fingerprints, exact Arrow schema metadata and generated inspection
+interfaces carry the declaration. Actual caller state binds and type-checks the
+predicates; non-Boolean and volatile expressions refuse. Publication admission and
+persisted Delta CHECK both require true, so SQL NULL cannot bypass them. Cold Delta
+reconstruction verifies the recorded checks against the table configuration before
+binding; extra and removed CHECK constraints both refuse exact admission. This adds
+no parallel expression language or row interpreter.
+
+Compiled and inferred implicit-system declarations now require equal unknown/equation
+list cardinalities through this shared native check. Existing ordered uniqueness stays
+on each list's field declaration. Rust/Python value constructors continue to establish
+their documented local field contracts; cross-field SQL and cross-relation checks run
+at native candidate/write admission. Replacing every predecessor caller with that
+boundary remains mandatory in E05–E08.
+
+**Interface-checked:** DataFusion 55.1.0 skill references for
+`datafusion_common::unnest::UnnestOptions`, native `map_keys`/`map_values`,
+`datafusion_functions::core::expr_fn::named_struct`, native binary expressions and
+`SessionState::create_logical_expr`; Delta commit `58f07cd6` create/write/constraint
+interfaces. Capability-gap scans found the previously recorded mutation statistics,
+test-session and schema-evolution hints; no new runtime workaround was introduced.
+
+**Corrections found during validation:** `map_entries` normalizes entry child names
+at this pin; paired native UNNEST of keys and values plus `named_struct` preserves the
+declared names and correlation. The initial Delta retry fixture reopened no snapshot
+after the failed data write had already created an empty declared table. It now loads
+the actual table before retry. Native validation errors contain the invalid-row preview,
+not the named constraint, so the test asserts the actual validation error and unchanged
+data version rather than an invented diagnostic field.
+
+**Remaining:** this closes neither E01/E02/E04 nor SP00–SP13. Signed graph IDs,
+coherent math/numerical rows, other alternatives, exact/composite keys and references,
+structured support/diagnostics, common domain transfer and rule replacement, complete
+table policies, member-attempt reuse, the provider/compiler/store/Python caller cut,
+native reuse/retention and terminal deletion/measurement gates remain open. No new
+simulator function, legacy reader or compatibility path was added.
+
+#### Native reference/predicate verification
+
+**Tested, baseline 0:** focused catalog library plus native row-check integration
+(`just test-package pse-catalog --lib --test declared_row_checks --no-fail-fast`)
+passed **130 tests, 0 failures/skips**, default Nextest with force validation,
+12.273 s. This includes cold registry-free CHECK enforcement, failed first writes,
+removed-constraint refusal, quoted nested names, null/empty containers, list-view
+slices, map/struct masks, exact catalog/revision scope and quantity mismatches.
+
+**Tested, baseline 0; final continuation evidence:**
+
+| Command | Actual evidence and limits |
+|---|---|
+| `just test-package pse-schema -p pse-relations -p pse-mathir -p pse-catalog --no-fail-fast` | Default Nextest / force validation: **446 passed, 0 failed/skipped**, 44.925 s; `9efa03f1-b2ad-4735-9e94-f2aabb0ead43`. |
+| `just test-package pse-catalog --test declared_row_checks --test unified_delta_contracts --no-fail-fast` | Default / force validation, after enforcing the complete CHECK set: **24 passed, 0 failed/skipped**, 14.677 s; `79da1100-4d67-46f7-8fbe-f08c39b9df48`. |
+| `just governance` | Default / force validation: **69 passed, 0 failed/skipped**, 3.919 s; `e9e032e0-b3bf-44c1-a1e6-df0f3c281977`. Regeneration and family checks pass. |
+| `just test-package pse-tests-engine --test unified_sources --profile ci --no-fail-fast` | CI / force validation: **1 passed, 0 failed/skipped**, 3.960 s; `4f494617-b0fc-4820-80eb-c77fac1b8dd9`. |
+| `just test-package pse-tests-engine --test memo_dependencies --test terminal_attempts --profile ci --no-fail-fast` | CI / force validation, updated registry-copy fixtures: **11 passed, 0 failed/skipped**, 86.069 s; `76f77911-95c1-4d26-8ca7-598ff0341270`. This retains their existing assertions while their caller replacement remains open. |
+| `just py-test` | Editable extension, Python 3.14.7 unit/component: **86 passed, 0 failed**, 21.82 s. |
+| `just quality` | Python/repository checks: **0 findings**, including 14 setup tests. |
+| `cargo clippy -p pse-schema -p pse-relations -p pse-mathir -p pse-catalog --all-targets --locked -- -D warnings` | Scoped default/all-target check: **0 findings**. No recipe exposes this package-scoped lint invocation. |
+| `just check` | Workspace/all-target/default compilation succeeds. Two registry-copy fixtures were updated to retain native check declarations. |
+| `just py-sync`, `just doctor` | Final editable rebuild and actual API stubs succeed; doctor reports **Environment ready**. |
+
+The first broad continuation run had **442 passes and 1 failed retry fixture**;
+the corrected broad run above is green. Map-name and fixture/API mistakes were
+corrected and retested. These results do not close terminal architecture acceptance.
+The last full `just clippy` run still has **65 compiler errors**, baseline 0;
+the no-default-features pass was not reached. The upstream `proc-macro-error2`
+future-incompatibility notice also remains. No full linked-solver, feature-matrix,
+cost or legacy-deletion qualification is claimed.
+
 ### Planning-task verification — 2026-09-16
 
 **Tested — documentation only, baseline 0:** scoped `.venv/bin/typos` over this plan,
@@ -1171,7 +1487,8 @@ builds pass.
 
 **Implemented, partially Tested:** the scope/decision records, current-function oracle
 inventory, shared exact Arrow/Delta boundary, native recursive registry declarations,
-canonical string enums, signed ordinal/span extensions and native local value checks
+canonical string enums, signed extensions and metadata/runtime fields, tagged
+configuration/feature values and native local value checks
 described in the checkpoints. Declared member tables persist native checks and identity,
 with registry-free cold reconstruction. The old declaration types and monolithic local
 Cell validation callbacks on the replaced routes are deleted; later architecture

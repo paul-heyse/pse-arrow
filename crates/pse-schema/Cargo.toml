@@ -27,6 +27,5 @@ arrow-schema.workspace = true
 pse-ids.workspace = true
 pse-quantity.workspace = true
 pse-material.workspace = true
-pse-mathir.workspace = true
 thiserror.workspace = true
 miette.workspace = true

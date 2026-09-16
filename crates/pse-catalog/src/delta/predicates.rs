@@ -23,30 +23,21 @@ use datafusion::{
 };
 use pse_schema::{
     Registry,
-    model::{FieldContract, IntegerRange, QuantityContract, RelationSpec},
+    model::{FieldContract, IntegerRange},
 };
 
-pub(super) fn relation(registry: &Registry, spec: &RelationSpec, schema: &Schema) -> Result<Expr> {
+pub(super) fn relation(registry: &Registry, schema: &Schema) -> Result<Expr> {
     let checks = schema
         .fields()
         .iter()
         .map(|field| field_value(registry, field, column(field.name()), 0))
         .collect::<Result<Vec<_>>>()?;
-    Ok(combine(spec, checks)
+    Ok(combine(checks)
         .resolve_lambda_variables(&DFSchema::try_from(schema.clone())?)?
         .data)
 }
 
-pub(super) fn combine(spec: &RelationSpec, mut checks: Vec<Expr>) -> Expr {
-    for field in &spec.columns {
-        if field.quantity() == QuantityContract::PerRow {
-            checks.push(
-                column(field.name())
-                    .is_null()
-                    .or(column(&field.per_row_quantity_sibling()).is_not_null()),
-            );
-        }
-    }
+pub(super) fn combine(checks: Vec<Expr>) -> Expr {
     all(checks)
 }
 
@@ -67,6 +58,35 @@ pub(super) fn field_value(
     depth: usize,
 ) -> Result<Expr> {
     let mut checks = vec![];
+    if let Some(collection) =
+        pse_schema::model::CollectionContract::from_field(field).map_err(external)?
+    {
+        let length = array_length(value.clone());
+        checks.push(length.clone().gt_eq(lit(collection.minimum)));
+        if let Some(maximum) = collection.maximum {
+            checks.push(length.clone().lt_eq(lit(maximum)));
+        }
+        if collection.unique {
+            checks.push(length.eq(array_length(array_distinct(value.clone()))));
+        }
+    }
+    if let Some(alternative) =
+        pse_schema::model::TaggedAlternative::from_field(field).map_err(external)?
+    {
+        let tag = get_field(value.clone(), &alternative.discriminator);
+        let variants = alternative.arms.iter().map(|(name, selected)| {
+            let presence = alternative.payloads().into_iter().map(|arm| {
+                let payload = get_field(value.clone(), arm);
+                if Some(arm) == selected.as_deref() {
+                    payload.is_not_null()
+                } else {
+                    payload.is_null()
+                }
+            });
+            tag.clone().eq(lit(name.clone())).and(all(presence))
+        });
+        checks.push(variants.reduce(Expr::or).unwrap_or_else(|| lit(false)));
+    }
     if let Some(range) = IntegerRange::from_field(field).map_err(external)? {
         checks.push(
             value

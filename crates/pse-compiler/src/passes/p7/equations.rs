@@ -6,10 +6,11 @@ use crate::CompilerError;
 use pse_ids::{IndexTuple, SemanticId, equation_instance_id};
 use pse_mathir::{
     NodeId, Opcode, Payload,
-    equation::{EquationRecord, FreeIndex, Sense},
+    equation::{EquationRecord, FreeIndex},
 };
 use pse_quantity::BoundIndexId;
 use pse_relations::generated::{compiled, inferred, normalized};
+use pse_schema::math::Sense;
 use pse_templates::InstantiationEnvironment;
 use std::collections::BTreeSet;
 

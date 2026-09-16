@@ -152,7 +152,13 @@ fn parameter_targets(builder: &mut RegistryBuilder) {
         vec![
             ("value_owner_id", E::col("values.owner_id")),
             ("value_name", E::col("values.name")),
-            ("value_target_id", field("values.value", "semantic_id")),
+            (
+                "value_target_id",
+                E::Field {
+                    expr: Box::new(field("values.value", "semantic_id")),
+                    name: "value".into(),
+                },
+            ),
         ],
     );
     let source = join(

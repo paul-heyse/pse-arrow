@@ -73,7 +73,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, iteration`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `run_id` | `semantic_id` | false | `key` | — | — |
-| `iteration` | `UInt32` | false | `key` | — | — |
+| `iteration` | `Int64` | false | `key` | — | — |
 | `objective` | `Float64` | false | `payload` | — | — |
 | `inf_pr` | `Float64` | false | `payload` | — | — |
 | `inf_du` | `Float64` | false | `payload` | — | — |
@@ -91,13 +91,15 @@ Version: 1. Snapshot class: `derived`. Primary key: `evaluation_id, row_ordinal,
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `evaluation_id` | `semantic_id` | false | `key` | — | — |
-| `row_ordinal` | `UInt64` | false | `key` | — | — |
-| `output_ordinal` | `UInt16` | false | `key` | — | — |
-| `outcome` | `enum:KernelOutcome` | false | `payload` | — | — |
-| `value` | `Float64` | true | `payload` | — | — |
-| `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
-| `unit_id` | `semantic_id` | false | `payload` | — | — |
-| `reason_code` | `enum:KernelFailure` | true | `payload` | — | — |
+| `row_ordinal` | `Int64` | false | `key` | — | — |
+| `output_ordinal` | `Int64` | false | `key` | — | — |
+| `result` | `Struct` | false | `payload` | — | — |
+| `result.kind` | `enum:KernelOutcome` | false | `payload` | — | — |
+| `result.success` | `quantity_value` | true | `payload` | — | — |
+| `result.failure` | `Struct` | true | `payload` | — | — |
+| `result.failure.reason_code` | `enum:KernelFailure` | false | `payload` | — | — |
+| `result.failure.quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `result.failure.unit_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `kernel_evaluations`
 
@@ -131,24 +133,30 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
 | `inputs.item.schema_name` | `Utf8` | false | `payload` | — | — |
 | `inputs.item.table_name` | `Utf8` | false | `payload` | — | — |
 | `inputs.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `inputs.item.relation_version` | `UInt32` | false | `payload` | — | — |
+| `inputs.item.relation_version` | `Int64` | false | `payload` | — | — |
 | `inputs.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
 | `inputs.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `inputs.item.delta_version` | `UInt64` | false | `payload` | — | — |
-| `inputs.item.revision_column` | `Utf8` | true | `payload` | — | — |
-| `inputs.item.revision_id` | `semantic_id` | true | `payload` | — | — |
+| `inputs.item.delta_version` | `Int64` | false | `payload` | — | — |
+| `inputs.item.selection` | `Struct` | false | `payload` | — | — |
+| `inputs.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `inputs.item.selection.revision` | `Struct` | true | `payload` | — | — |
+| `inputs.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `inputs.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 | `members` | `List` | false | `payload` | — | — |
 | `members.item` | `Struct` | false | `payload` | — | — |
 | `members.item.catalog_name` | `Utf8` | false | `payload` | — | — |
 | `members.item.schema_name` | `Utf8` | false | `payload` | — | — |
 | `members.item.table_name` | `Utf8` | false | `payload` | — | — |
 | `members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `members.item.relation_version` | `UInt32` | false | `payload` | — | — |
+| `members.item.relation_version` | `Int64` | false | `payload` | — | — |
 | `members.item.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
 | `members.item.table_uri` | `Utf8` | false | `payload` | — | — |
-| `members.item.delta_version` | `UInt64` | false | `payload` | — | — |
-| `members.item.revision_column` | `Utf8` | true | `payload` | — | — |
-| `members.item.revision_id` | `semantic_id` | true | `payload` | — | — |
+| `members.item.delta_version` | `Int64` | false | `payload` | — | — |
+| `members.item.selection` | `Struct` | false | `payload` | — | — |
+| `members.item.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `members.item.selection.revision` | `Struct` | true | `payload` | — | — |
+| `members.item.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `members.item.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `residuals`
 
@@ -181,7 +189,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `plan_id` | `semantic_id` | true | `payload` | — | — |
 | `stage_id` | `semantic_id` | true | `payload` | — | — |
 | `parent_run_id` | `semantic_id` | true | `payload` | — | — |
-| `attempt` | `UInt16` | false | `payload` | — | — |
+| `attempt` | `Int64` | false | `payload` | — | — |
 | `resolved_options` | `List` | false | `payload` | — | — |
 | `resolved_options.item` | `Struct` | false | `payload` | — | — |
 | `resolved_options.item.key` | `Utf8` | false | `payload` | — | — |
@@ -197,7 +205,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `environment.kernel_digests.item` | `content_hash` | false | `payload` | — | — |
 | `environment.host` | `Utf8` | false | `payload` | — | — |
 | `wall_seconds` | `Float64` | false | `payload` | — | — |
-| `iterations` | `UInt32` | true | `payload` | — | — |
+| `iterations` | `Int64` | true | `payload` | — | — |
 
 ## `solutions`
 

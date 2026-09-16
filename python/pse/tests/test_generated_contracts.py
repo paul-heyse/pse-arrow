@@ -15,8 +15,39 @@ from pse.contracts.authored import AuthoredPackagesRow
 from pse.contracts.compiled import CompiledSolvePlansRow
 from pse.contracts.enums import EquationFamily, EquationRole, SolvePlanClass
 from pse.contracts.extension_types import PseEnum, PseOrdinalRef
+from pse.contracts.normalized import NormalizedConfigValuesFieldValue
 from pse.contracts.reference import ReferenceUnitsRow
+from pse.contracts.runtime import RuntimePublicationsFieldMembersItemSelection
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
+
+
+@pytest.mark.unit
+def test_tagged_configuration_has_one_typed_payload() -> None:
+    value: dict[str, object] = {
+        "kind": "unsigned",
+        "boolean": None,
+        "signed": None,
+        "unsigned": {"value": 2**64 - 1},
+        "real": None,
+        "text": None,
+        "semantic_id": None,
+        "enumeration": None,
+        "index": None,
+        "quantity": None,
+    }
+    parsed = converter().structure(value, NormalizedConfigValuesFieldValue)
+    assert parsed.unsigned is not None
+    assert parsed.unsigned.value == 2**64 - 1
+    for change in (
+        {"kind": "invented"},
+        {"kind": "boolean"},
+        {"unsigned": None},
+        {"boolean": {"value": True}},
+        {"unsigned": {"value": -1}},
+        {"unsigned": {"value": 1, "legacy": True}},
+    ):
+        with pytest.raises((ValueError, cattrs.BaseValidationError)):
+            converter().structure(value | change, NormalizedConfigValuesFieldValue)
 
 
 @pytest.mark.unit
@@ -57,6 +88,36 @@ def test_nested_generated_row_is_typed_and_frozen() -> None:
     with pytest.raises(attrs.exceptions.FrozenInstanceError):
         # pyrefly: ignore[read-only] -- refusal is under test
         row.name = "changed"
+
+
+@pytest.mark.unit
+def test_declared_dependency_collection_rejects_duplicates_and_accepts_empty() -> None:
+    document = package_row()
+    item = {"package_id": "02" * 16, "version_req": "=1.0.0"}
+    document["dependencies"] = [item, item]
+    with pytest.raises((ValueError, cattrs.BaseValidationError)):
+        structure_rows([document], AuthoredPackagesRow)
+    document["dependencies"] = []
+    assert structure_rows([document], AuthoredPackagesRow)[0].dependencies == ()
+
+
+@pytest.mark.unit
+def test_typed_publication_selection_has_a_payload_free_full_case() -> None:
+    full: dict[str, object] = {"kind": "full", "revision": None}
+    value = converter().structure(full, RuntimePublicationsFieldMembersItemSelection)
+    assert value.revision is None
+    revision: dict[str, object] = {"column": "revision_id", "revision_id": "01" * 16}
+    for invalid in (
+        full | {"revision": revision},
+        {"kind": "revision", "revision": None},
+    ):
+        with pytest.raises((ValueError, cattrs.BaseValidationError)):
+            converter().structure(invalid, RuntimePublicationsFieldMembersItemSelection)
+    value = converter().structure(
+        {"kind": "revision", "revision": revision},
+        RuntimePublicationsFieldMembersItemSelection,
+    )
+    assert value.revision is not None
 
 
 @pytest.mark.unit

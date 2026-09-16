@@ -42,16 +42,24 @@ Version: 1. Snapshot class: `derived`. Primary key: `owner_id, category, name`.
 | `name` | `Utf8` | false | `key` | — | — |
 | `value` | `Struct` | false | `payload` | — | — |
 | `value.kind` | `enum:ConfigValueKind` | false | `payload` | — | — |
-| `value.boolean` | `Boolean` | true | `payload` | — | — |
-| `value.signed` | `Int64` | true | `payload` | — | — |
-| `value.unsigned` | `UInt64` | true | `payload` | — | — |
-| `value.real` | `Float64` | true | `payload` | — | — |
-| `value.text` | `Utf8` | true | `payload` | — | — |
-| `value.semantic_id` | `semantic_id` | true | `payload` | — | — |
-| `value.enum_id` | `semantic_id` | true | `payload` | — | — |
-| `value.index` | `index_tuple` | true | `payload` | — | — |
-| `value.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
-| `value.unit_id` | `semantic_id` | true | `payload` | — | — |
+| `value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.signed` | `Struct` | true | `payload` | — | — |
+| `value.signed.value` | `Int64` | false | `payload` | — | — |
+| `value.unsigned` | `Struct` | true | `payload` | — | — |
+| `value.unsigned.value` | `UInt64` | false | `payload` | — | — |
+| `value.real` | `Struct` | true | `payload` | — | — |
+| `value.real.value` | `Float64` | false | `payload` | — | — |
+| `value.text` | `Struct` | true | `payload` | — | — |
+| `value.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.semantic_id` | `Struct` | true | `payload` | — | — |
+| `value.semantic_id.value` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration` | `Struct` | true | `payload` | — | — |
+| `value.enumeration.enum_id` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration.member` | `Utf8` | false | `payload` | — | — |
+| `value.index` | `Struct` | true | `payload` | — | — |
+| `value.index.value` | `index_tuple` | false | `payload` | — | — |
+| `value.quantity` | `quantity_value` | true | `payload` | — | — |
 | `source_relation_id` | `semantic_id` | false | `payload` | `reference.schema_relations.relation_id` | — |
 | `source_key` | `Utf8` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
@@ -79,7 +87,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `domain_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `domain_id` | `semantic_id` | false | `key` | `authored.domains.domain_id` | — |
+| `domain_id` | `semantic_id` | false | `key` | `normalized.domains.domain_id` | — |
 | `lower` | `Float64` | false | `payload` | — | — |
 | `upper` | `Float64` | false | `payload` | — | — |
 | `unit_id` | `semantic_id` | false | `payload` | `reference.units.unit_id` | — |
@@ -671,7 +679,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `member_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `domain_id` | `semantic_id` | false | `payload` | `authored.domains.domain_id` | — |
+| `domain_id` | `semantic_id` | false | `payload` | `normalized.domains.domain_id` | — |
 | `member_id` | `semantic_id` | false | `key` | — | — |
 | `ordinal` | `UInt32` | false | `payload` | — | — |
 | `label` | `Utf8` | false | `payload` | — | — |
@@ -731,7 +739,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `domain_id`.
 | `kind` | `enum:DomainKind` | false | `payload` | — | — |
 | `continuous` | `Boolean` | false | `payload` | — | — |
 | `unit_id` | `semantic_id` | true | `payload` | `reference.units.unit_id` | — |
-| `parent_domain_id` | `semantic_id` | true | `payload` | `authored.domains.domain_id` | — |
+| `parent_domain_id` | `semantic_id` | true | `payload` | `normalized.domains.domain_id` | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
 ## `entities`
@@ -859,7 +867,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `instance_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `instance_id` | `semantic_id` | false | `key` | `authored.instances.instance_id` | — |
+| `instance_id` | `semantic_id` | false | `key` | `normalized.instance_bindings.instance_id` | — |
 | `time_domain_id` | `semantic_id` | false | `payload` | — | — |
 | `dynamic` | `enum:TriState` | false | `payload` | — | — |
 | `default_property_package_id` | `semantic_id` | true | `payload` | — | — |
@@ -1186,9 +1194,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `instance_id, domain_name`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `instance_id` | `semantic_id` | false | `key` | `authored.instances.instance_id` | — |
+| `instance_id` | `semantic_id` | false | `key` | `normalized.instance_bindings.instance_id` | — |
 | `domain_name` | `Utf8` | false | `key` | — | — |
-| `domain_id` | `semantic_id` | false | `payload` | `authored.domains.domain_id` | — |
+| `domain_id` | `semantic_id` | false | `payload` | `normalized.domains.domain_id` | — |
 
 ## `instance_equations`
 
@@ -1198,7 +1206,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `equation_decl_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `instance_id` | `semantic_id` | false | `payload` | `authored.instances.instance_id` | — |
+| `instance_id` | `semantic_id` | false | `payload` | `normalized.instance_bindings.instance_id` | — |
 | `equation_decl_id` | `semantic_id` | false | `key` | — | — |
 | `name` | `Utf8` | false | `payload` | — | — |
 | `indexed_by` | `List` | false | `payload` | — | — |
@@ -1488,7 +1496,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `instance_id`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `instance_id` | `semantic_id` | false | `key` | — | — |
-| `parent_instance_id` | `semantic_id` | true | `payload` | `authored.instances.instance_id` | — |
+| `parent_instance_id` | `semantic_id` | true | `payload` | `normalized.instance_bindings.instance_id` | — |
 | `template_id` | `semantic_id` | false | `payload` | `authored.templates.template_id` | — |
 | `name` | `Utf8` | false | `payload` | — | — |
 | `param_values` | `List` | false | `payload` | — | — |
@@ -1568,7 +1576,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `package_id`.
 | `package_id` | `semantic_id` | false | `key` | `authored.packages.package_id` | — |
 | `version` | `Utf8` | false | `label` | — | — |
 | `content_hash` | `content_hash` | false | `payload` | — | — |
-| `depth` | `UInt16` | false | `payload` | — | — |
+| `depth` | `Int64` | false | `payload` | — | — |
 | `dependency_package_ids` | `List` | false | `payload` | — | — |
 | `dependency_package_ids.item` | `semantic_id` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
@@ -2107,7 +2115,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `template_id, name`.
 | `template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
 | `name` | `Utf8` | false | `key` | — | — |
 | `source` | `enum:DomainBindingSource` | false | `payload` | — | — |
-| `domain_id` | `semantic_id` | true | `payload` | `authored.domains.domain_id` | — |
+| `domain_id` | `semantic_id` | true | `payload` | `normalized.domains.domain_id` | — |
 | `parameter_name` | `Utf8` | true | `payload` | — | — |
 
 ## `template_domains`

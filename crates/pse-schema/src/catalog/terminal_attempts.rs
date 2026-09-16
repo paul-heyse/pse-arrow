@@ -75,7 +75,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "check:terminal_failure_finding",
         E::And(vec![
             failed(),
-            E::cmp(CmpOp::Eq, E::col("finding_count"), E::Lit(Cell::U64(0))),
+            E::cmp(CmpOp::Eq, E::col("finding_count"), E::Lit(Cell::I64(0))),
         ]),
         "An unsuccessful attempt retains at least one actual execution or rule finding.",
     );

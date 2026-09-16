@@ -31,12 +31,12 @@
 //!
 //! Landed by the keel (packet K-4):
 //!
-//! - [`node`] — [`NodeId`], [`Node`], [`Arity`] and [`arity`].
+//! - [`node`] — [`NodeId`], [`Node`], [`pse_schema::math::Arity`] and [`pse_schema::math::arity`].
 //! - [`payload`] — [`Payload`], one variant per §6.9 payload relation.
 //! - [`graph`] — [`ExprGraph`], the only builder.
 //! - [`error`] — [`MathIrError`] with its §23.2 classes.
 //!
-//! [`opspec`] and [`catalog`] expose the authoritative operator table; [`hash`],
+//! [`pse_schema::math::operators`] declares the operator table and [`catalog`] projects it; [`hash`],
 //! [`canonical`] and [`topo`] implement ordered identity and structural admission.
 //! [`fold`] performs guarded ordered literal folding. Physical inference and relation
 //! adapters are implemented separately so neither supplied type IDs nor digests establish
@@ -54,7 +54,6 @@ pub mod hash;
 pub mod index;
 pub mod infer;
 pub mod node;
-pub mod opspec;
 pub mod payload;
 pub mod reference;
 pub mod relations;
@@ -66,10 +65,9 @@ pub use crate::canonicalize::{CanonicalizeInput, Policy, canonicalize};
 pub use crate::domain::DomainRef;
 pub use crate::error::MathIrError;
 pub use crate::graph::ExprGraph;
-pub use crate::node::{Arity, Node, NodeId, arity};
-pub use crate::opspec::{OPERATOR_TABLE, OperatorSpec, operator_spec};
+pub use crate::node::{Node, NodeId};
 pub use crate::payload::{AffineTerm, Payload, WeightedPair};
-pub use crate::reference::{GuardRef, TemplateValueKind, ValueRef};
+pub use crate::reference::{GuardRef, ValueRef};
 
 /// The 43 operators of §7.2, re-exported from where they are declared.
 ///

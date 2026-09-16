@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Exact Delta publication opening. The control relation selects the entire catalog.
-use super::{layout::DurableLayout, provider::open_view};
 use datafusion::{
     catalog::{
         CatalogProvider, CatalogProviderList, MemoryCatalogProvider, MemoryCatalogProviderList,
@@ -11,7 +10,7 @@ use datafusion::{
     common::{DataFusionError, Result, ScalarValue},
     datasource::{ViewTable, provider_as_source},
     execution::session_state::{SessionState, SessionStateBuilder},
-    logical_expr::{LogicalPlanBuilder, col, lit},
+    logical_expr::{LogicalPlanBuilder, lit},
     physical_plan::collect,
 };
 use pse_relations::generated::runtime::publications;
@@ -24,7 +23,7 @@ pub struct PublicationRoot {
     /// Location of the workspace's Delta control table.
     pub location: url::Url,
     /// Exact Delta version of the publication record.
-    pub version: u64,
+    pub version: i64,
 }
 
 /// Opened target facts and native providers. This contains no materialized model or
@@ -174,11 +173,25 @@ pub(super) async fn read_record(
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<publications::Row> {
-    let layout = DurableLayout::new(publications::schema().map_err(external)?)?;
-    let control = open_view(
+    read_optional_record(root, registry, state)
+        .await?
+        .ok_or_else(|| invalid("publication control has no published row"))
+}
+
+/// An empty declared control table is initialized storage, not a publication root.
+pub(super) async fn read_optional_record(
+    root: &PublicationRoot,
+    registry: &Registry,
+    state: Arc<SessionState>,
+) -> Result<Option<publications::Row>> {
+    let contract = super::contract::DeclaredCheck::new(
+        registry,
+        publications::spec(registry).map_err(external)?.id,
+    )?;
+    let control = super::provider::open_declared_view(
         root.location.clone(),
         root.version,
-        &layout,
+        &contract,
         Arc::clone(&state),
     )
     .await?;
@@ -190,8 +203,12 @@ pub(super) async fn read_record(
     .limit(0, Some(2))?
     .build()?;
     let batches = collect(state.create_physical_plan(&plan).await?, state.task_ctx()).await?;
-    let batch = datafusion::arrow::compute::concat_batches(layout.execution_schema(), &batches)?;
-    if batch.num_rows() != 1 {
+    let batch =
+        datafusion::arrow::compute::concat_batches(contract.layout().execution_schema(), &batches)?;
+    if batch.num_rows() == 0 {
+        return Ok(None);
+    }
+    if batch.num_rows() > 1 {
         return Err(invalid(
             "publication control must contain exactly one workspace row",
         ));
@@ -200,7 +217,7 @@ pub(super) async fn read_record(
         .map_err(external)?
         .row(0)
         .map_err(external)?;
-    Ok(record)
+    Ok(Some(record))
 }
 pub(super) async fn bind_members(
     record: &publications::Row,
@@ -212,31 +229,48 @@ pub(super) async fn bind_members(
         let relation = registry
             .relation_by_id(member.relation_id)
             .ok_or_else(|| invalid("publication references an unknown relation contract"))?;
-        if relation.key.version != member.relation_version
+        if i64::from(relation.key.version) != member.relation_version
             || relation.fingerprint != member.contract_fingerprint
         {
             return Err(invalid(
                 "publication relation version or fingerprint differs from its declaration",
             ));
         }
-        let execution =
-            Arc::new(pse_schema::arrow::relation_schema(registry, relation).map_err(external)?);
-        let layout = DurableLayout::new(execution)?;
+        let contract = super::contract::DeclaredCheck::new(registry, relation.id)?;
         let location = url::Url::parse(&member.table_uri).map_err(external)?;
-        let view = open_view(location, member.delta_version, &layout, Arc::clone(&state)).await?;
-        let view = match (&member.revision_column, member.revision_id) {
-            (None, None) => view,
-            (Some(column), Some(id)) => {
-                let value = ScalarValue::FixedSizeBinary(16, Some(id.as_bytes().to_vec()));
+        let view = super::provider::open_declared_view(
+            location,
+            member.delta_version,
+            &contract,
+            Arc::clone(&state),
+        )
+        .await?;
+        let view = match member.selection.selected().map_err(external)? {
+            publications::RuntimePublicationsFieldMembersItemSelectionSelected::Full => view,
+            publications::RuntimePublicationsFieldMembersItemSelectionSelected::Revision(
+                selection,
+            ) => {
+                let column = relation
+                    .column(&selection.column)
+                    .ok_or_else(|| invalid("revision selection column is undeclared"))?;
+                if column.extension() != Some(pse_schema::model::ExtensionUse::SemanticId) {
+                    return Err(invalid(
+                        "revision selection column is not a semantic identity",
+                    ));
+                }
+                let value = ScalarValue::FixedSizeBinary(
+                    16,
+                    Some(selection.revision_id.as_bytes().to_vec()),
+                );
                 let plan = LogicalPlanBuilder::from(view.logical_plan().clone())
-                    .filter(col(column).eq(lit(value)))?
+                    .filter(
+                        datafusion::logical_expr::Expr::Column(
+                            datafusion::common::Column::from_name(&selection.column),
+                        )
+                        .eq(lit(value)),
+                    )?
                     .build()?;
                 ViewTable::new(plan, None)
-            }
-            _ => {
-                return Err(invalid(
-                    "revision selection requires both column and identity",
-                ));
             }
         };
         let catalog = if let Some(catalog) = catalogs.catalog(&member.catalog_name) {
@@ -275,22 +309,19 @@ pub(super) async fn verify_inputs(
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<()> {
-    use pse_relations::typed::CellCodec;
-    // Both vectors use the same declared nested Arrow shape. The generated codecs
-    // transfer that shape without a second handwritten member declaration.
-    let members = record
-        .inputs
-        .iter()
-        .cloned()
-        .map(|input| {
-            publications::RuntimePublicationsFieldMembersItem::from_cell(input.into_cell())
-                .map_err(external)
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let inputs = publications::Row {
-        members,
-        ..record.clone()
-    };
+    // Inputs and members project the same declared nested Arrow value. Transfer
+    // the column directly; no generic scalar reconstruction or second schema.
+    let mut builder = publications::Builder::with_registry(registry, 1).map_err(external)?;
+    builder.push(record.clone()).map_err(external)?;
+    let batch = builder.finish().map_err(external)?.into_batch();
+    let schema = batch.schema();
+    let mut columns = batch.columns().to_vec();
+    columns[schema.index_of("members")?] = Arc::clone(batch.column(schema.index_of("inputs")?));
+    let batch = datafusion::arrow::array::RecordBatch::try_new(schema, columns)?;
+    let inputs = publications::View::try_from_batch_with_registry(registry, &batch)
+        .map_err(external)?
+        .row(0)
+        .map_err(external)?;
     bind_members(&inputs, registry, state).await?;
     Ok(())
 }

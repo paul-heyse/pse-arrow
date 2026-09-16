@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    150u8, 127u8, 239u8, 102u8, 255u8, 186u8, 228u8, 88u8, 26u8, 154u8, 91u8, 7u8, 140u8,
-    232u8, 135u8, 81u8, 214u8, 135u8, 151u8, 152u8, 212u8, 69u8, 55u8, 29u8, 187u8,
-    250u8, 14u8, 45u8, 150u8, 250u8, 125u8, 194u8,
+    57u8, 109u8, 99u8, 92u8, 60u8, 152u8, 45u8, 164u8, 215u8, 104u8, 47u8, 26u8, 70u8,
+    244u8, 86u8, 153u8, 42u8, 155u8, 245u8, 65u8, 83u8, 47u8, 224u8, 177u8, 61u8, 167u8,
+    195u8, 161u8, 82u8, 99u8, 119u8, 98u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -30,7 +30,7 @@ pub struct ReferenceSchemaColumnsRow {
     ///The owning relation.
     pub r#relation_id: pse_ids::SemanticId,
     ///The column's position, which is its ordinal.
-    pub r#ordinal: u16,
+    pub r#ordinal: i64,
     ///The column name.
     pub r#name: String,
     ///The declared logical type.
@@ -39,8 +39,6 @@ pub struct ReferenceSchemaColumnsRow {
     pub r#nullable: bool,
     ///One quantity contract for the whole column.
     pub r#quantity_type_id: Option<pse_ids::SemanticId>,
-    ///True when a sibling column named `<name>_quantity_type_id` carries the contract.
-    pub r#per_row_quantity: bool,
     ///The referenced relation, when the column is a reference.
     pub r#fk_relation_id: Option<pse_ids::SemanticId>,
     ///The referenced column, when the column is a reference.
@@ -62,7 +60,6 @@ impl crate::typed::CellCodec for ReferenceSchemaColumnsRow {
                 crate::typed::CellCodec::into_cell(self.r#logical_type_id),
                 crate::typed::CellCodec::into_cell(self.r#nullable),
                 crate::typed::CellCodec::into_cell(self.r#quantity_type_id),
-                crate::typed::CellCodec::into_cell(self.r#per_row_quantity),
                 crate::typed::CellCodec::into_cell(self.r#fk_relation_id),
                 crate::typed::CellCodec::into_cell(self.r#fk_column),
                 crate::typed::CellCodec::into_cell(self.r#role),
@@ -75,7 +72,7 @@ impl crate::typed::CellCodec for ReferenceSchemaColumnsRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(ReferenceSchemaColumnsRow)));
         };
-        if values.len() != 12usize {
+        if values.len() != 11usize {
             return Err(crate::typed::mismatch(stringify!(ReferenceSchemaColumnsRow)));
         }
         let mut values = values.into_iter();
@@ -87,7 +84,7 @@ impl crate::typed::CellCodec for ReferenceSchemaColumnsRow {
                         stringify!(ReferenceSchemaColumnsRow),
                     ))?,
             )?,
-            r#ordinal: <u16 as crate::typed::CellCodec>::from_cell(
+            r#ordinal: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -118,13 +115,6 @@ impl crate::typed::CellCodec for ReferenceSchemaColumnsRow {
             r#quantity_type_id: <Option<
                 pse_ids::SemanticId,
             > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(ReferenceSchemaColumnsRow),
-                    ))?,
-            )?,
-            r#per_row_quantity: <bool as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -201,22 +191,18 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
             children[5usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#per_row_quantity,
+            &self.r#fk_relation_id,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#fk_relation_id,
+            &self.r#fk_column,
             children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#fk_column,
-            children[8usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#role, children[9usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#doc, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#role, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#doc, children[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#native_field,
-            children[11usize].as_mut(),
+            children[10usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -231,7 +217,7 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <u16 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
@@ -240,21 +226,18 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
         <Option<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
             pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         <crate::generated::enums::ColumnRole as crate::columnar::ArrowValue>::append_null(
-            children[9usize].as_mut(),
+            children[8usize].as_mut(),
         )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(
             children[10usize].as_mut(),
-        )?;
-        <String as crate::columnar::ArrowValue>::append_null(
-            children[11usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -270,7 +253,7 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#ordinal: <u16 as crate::columnar::ArrowValue>::read(
+            r#ordinal: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -292,32 +275,28 @@ impl crate::columnar::ArrowValue for ReferenceSchemaColumnsRow {
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#per_row_quantity: <bool as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
-                index,
-            )?,
             r#fk_relation_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
+                input.column(6usize).as_ref(),
                 index,
             )?,
             r#fk_column: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#role: <crate::generated::enums::ColumnRole as crate::columnar::ArrowValue>::read(
-                input.column(9usize).as_ref(),
+                input.column(8usize).as_ref(),
                 index,
             )?,
             r#doc: <String as crate::columnar::ArrowValue>::read(
-                input.column(10usize).as_ref(),
+                input.column(9usize).as_ref(),
                 index,
             )?,
             r#native_field: <String as crate::columnar::ArrowValue>::read(
-                input.column(11usize).as_ref(),
+                input.column(10usize).as_ref(),
                 index,
             )?,
         })
@@ -339,7 +318,6 @@ impl ReferenceSchemaColumnsRow {
             crate::typed::CellCodec::into_cell(self.r#logical_type_id),
             crate::typed::CellCodec::into_cell(self.r#nullable),
             crate::typed::CellCodec::into_cell(self.r#quantity_type_id),
-            crate::typed::CellCodec::into_cell(self.r#per_row_quantity),
             crate::typed::CellCodec::into_cell(self.r#fk_relation_id),
             crate::typed::CellCodec::into_cell(self.r#fk_column),
             crate::typed::CellCodec::into_cell(self.r#role),
@@ -358,7 +336,7 @@ impl ReferenceSchemaColumnsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"cb0b7c28badded886bfe02d8e0d3b771\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_columns\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"stable\"],[\"list\",[[\"text\",\"relation_id\"],[\"text\",\"ordinal\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The owning relation.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"relation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.schema_relations\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.schema_relations.relation_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"2d9738bcffa94795b471758793894cb0\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_relations\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The column's position, which is its ordinal.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The column name.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"logical_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The declared logical type.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"logical_type_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.schema_logical_types\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"logical_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.schema_logical_types.logical_type_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"070dda179f9a232515c2a7d8b2761831\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_logical_types\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"nullable\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Whether the column admits nulls.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"nullable\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"One quantity contract for the whole column.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"per_row_quantity\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"True when a sibling column named `<name>_quantity_type_id` carries the contract.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"per_row_quantity\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"fk_relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The referenced relation, when the column is a reference.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"fk_relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"fk_column\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The referenced column, when the column is a reference.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"fk_column\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the column is for.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ColumnRole\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"8abae9e3e8baccfd74a64c5aa72618e8\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"8abae9e3e8baccfd74a64c5aa72618e8\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ColumnRole\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ColumnRole\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"8abae9e3e8baccfd74a64c5aa72618e8\\\"}\"],[\"struct\",[[\"id\",\"8abae9e3e8baccfd74a64c5aa72618e8\"],[\"text\",\"ColumnRole\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"key\"],[\"null\",null],[\"bool\",false],[\"text\",\"Part of the primary key.\"]]],[\"struct\",[[\"text\",\"reference\"],[\"null\",null],[\"bool\",false],[\"text\",\"A reference to another relation's key.\"]]],[\"struct\",[[\"text\",\"measure\"],[\"null\",null],[\"bool\",false],[\"text\",\"A numerical value under a quantity contract.\"]]],[\"struct\",[[\"text\",\"label\"],[\"null\",null],[\"bool\",false],[\"text\",\"A human-facing name. Never identity.\"]]],[\"struct\",[[\"text\",\"payload\"],[\"null\",null],[\"bool\",false],[\"text\",\"Structured content.\"]]],[\"struct\",[[\"text\",\"provenance\"],[\"null\",null],[\"bool\",false],[\"text\",\"Evidence: a derivation, span or pass.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the column means.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"native_field\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Complete canonical Arrow field declaration, including every nested domain facet and metadata entry.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"native_field\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"One row per declared column, in declaration order (blueprint §4.1).\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"cb0b7c28badded886bfe02d8e0d3b771\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"cb0b7c28badded886bfe02d8e0d3b771\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_columns\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"stable\"],[\"list\",[[\"text\",\"relation_id\"],[\"text\",\"ordinal\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The owning relation.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"relation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.schema_relations\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.schema_relations.relation_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"2d9738bcffa94795b471758793894cb0\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_relations\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The column's position, which is its ordinal.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The column name.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"logical_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The declared logical type.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"logical_type_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.schema_logical_types\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"logical_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.schema_logical_types.logical_type_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"070dda179f9a232515c2a7d8b2761831\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_logical_types\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"nullable\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Whether the column admits nulls.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"nullable\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"One quantity contract for the whole column.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"fk_relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The referenced relation, when the column is a reference.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"fk_relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"fk_column\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The referenced column, when the column is a reference.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"fk_column\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the column is for.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ColumnRole\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"8abae9e3e8baccfd74a64c5aa72618e8\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"8abae9e3e8baccfd74a64c5aa72618e8\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ColumnRole\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ColumnRole\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"8abae9e3e8baccfd74a64c5aa72618e8\\\"}\"],[\"struct\",[[\"id\",\"8abae9e3e8baccfd74a64c5aa72618e8\"],[\"text\",\"ColumnRole\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"key\"],[\"null\",null],[\"bool\",false],[\"text\",\"Part of the primary key.\"]]],[\"struct\",[[\"text\",\"reference\"],[\"null\",null],[\"bool\",false],[\"text\",\"A reference to another relation's key.\"]]],[\"struct\",[[\"text\",\"measure\"],[\"null\",null],[\"bool\",false],[\"text\",\"A numerical value under a quantity contract.\"]]],[\"struct\",[[\"text\",\"label\"],[\"null\",null],[\"bool\",false],[\"text\",\"A human-facing name. Never identity.\"]]],[\"struct\",[[\"text\",\"payload\"],[\"null\",null],[\"bool\",false],[\"text\",\"Structured content.\"]]],[\"struct\",[[\"text\",\"provenance\"],[\"null\",null],[\"bool\",false],[\"text\",\"Evidence: a derivation, span or pass.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the column means.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"native_field\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Complete canonical Arrow field declaration, including every nested domain facet and metadata entry.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"native_field\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"One row per declared column, in declaration order (blueprint §4.1).\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"cb0b7c28badded886bfe02d8e0d3b771\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -434,10 +412,10 @@ impl crate::columnar::RelationRow for ReferenceSchemaColumnsRow {
         ReferenceSchemaColumnsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        114_544_usize + size_of::<Self::Builder>()
+        109_592_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        224usize
+        208usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -471,10 +449,6 @@ impl crate::columnar::RelationRow for ReferenceSchemaColumnsRow {
             } else {
                 Ok::<usize, crate::RelationError>(1)
             }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -520,7 +494,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "relation_id",
@@ -553,33 +527,28 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "per_row_quantity",
+        name: "fk_relation_id",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "fk_relation_id",
+        name: "fk_column",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "fk_column",
+        name: "role",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "role",
+        name: "doc",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "doc",
-        position: 10usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "native_field",
-        position: 11usize,
+        position: 10usize,
     },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
@@ -588,12 +557,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
 pub struct ReferenceSchemaColumnsView<'a> {
     batch: &'a crate::RecordBatch,
     relation_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    ordinal_column: &'a arrow_array::UInt16Array,
+    ordinal_column: &'a arrow_array::Int64Array,
     name_column: &'a arrow_array::StringArray,
     logical_type_id_column: &'a arrow_array::FixedSizeBinaryArray,
     nullable_column: &'a arrow_array::BooleanArray,
     quantity_type_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    per_row_quantity_column: &'a arrow_array::BooleanArray,
     fk_relation_id_column: &'a arrow_array::FixedSizeBinaryArray,
     fk_column_column: &'a arrow_array::StringArray,
     role_column: &'a arrow_array::StringArray,
@@ -640,7 +608,7 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
             ordinal_column: crate::columnar::array::<
-                arrow_array::UInt16Array,
+                arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
             name_column: crate::columnar::array::<
                 arrow_array::StringArray,
@@ -654,24 +622,21 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
             quantity_type_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(5usize).as_ref())?,
-            per_row_quantity_column: crate::columnar::array::<
-                arrow_array::BooleanArray,
-            >(batch.column(6usize).as_ref())?,
             fk_relation_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             fk_column_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             role_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             doc_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             native_field_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -703,7 +668,7 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
         "ordinal",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn ordinal_column(&self) -> &'a arrow_array::UInt16Array {
+    pub const fn ordinal_column(&self) -> &'a arrow_array::Int64Array {
         self.ordinal_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "ordinal", "`.")]
@@ -762,18 +727,6 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "per_row_quantity",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn per_row_quantity_column(&self) -> &'a arrow_array::BooleanArray {
-        self.per_row_quantity_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "per_row_quantity", "`.")]
-    pub fn per_row_quantity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
         "fk_relation_id",
         "`, including its offsets and validity bitmap.",
     )]
@@ -782,7 +735,7 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "fk_relation_id", "`.")]
     pub fn fk_relation_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -794,7 +747,7 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "fk_column", "`.")]
     pub fn fk_column_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -806,7 +759,7 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "role", "`.")]
     pub fn role_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -818,7 +771,7 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "doc", "`.")]
     pub fn doc_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -830,7 +783,7 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "native_field", "`.")]
     pub fn native_field_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -857,10 +810,6 @@ impl<'a> ReferenceSchemaColumnsView<'a> {
             r#nullable: crate::columnar::ArrowValue::read(self.nullable_column, index)?,
             r#quantity_type_id: crate::columnar::ArrowValue::read(
                 self.quantity_type_id_column,
-                index,
-            )?,
-            r#per_row_quantity: crate::columnar::ArrowValue::read(
-                self.per_row_quantity_column,
                 index,
             )?,
             r#fk_relation_id: crate::columnar::ArrowValue::read(
@@ -941,6 +890,16 @@ impl ReferenceSchemaColumnsBuilder {
         &mut self,
         row: ReferenceSchemaColumnsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=65_535_i64).contains(&(row.r#ordinal).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "ordinal",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -969,28 +928,24 @@ impl ReferenceSchemaColumnsBuilder {
                     columns[5usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#per_row_quantity,
+                    &row.r#fk_relation_id,
                     columns[6usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#fk_relation_id,
+                    &row.r#fk_column,
                     columns[7usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#fk_column,
+                    &row.r#role,
                     columns[8usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#role,
+                    &row.r#doc,
                     columns[9usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#doc,
-                    columns[10usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
                     &row.r#native_field,
-                    columns[11usize].as_mut(),
+                    columns[10usize].as_mut(),
                 )?;
                 Ok(())
             })

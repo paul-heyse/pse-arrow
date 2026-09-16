@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Uncached physical canonicalization (blueprint §7.4, §8.3).
-use crate::equation::{EquationRecord, Sense};
+use crate::equation::EquationRecord;
 use crate::infer::{KernelBindings, SymbolTypeSource};
 use crate::relations::vec_sink::QuantitySelection;
 use crate::{CanonicalGraph, ExprGraph, MathIrError, Node, NodeId, Opcode, Payload};
@@ -15,6 +15,7 @@ use pse_quantity::{
     BoundIndexRef, ConversionId, ConversionKind, IndexSet, QuantityRegistry, QuantityTypeId, Ratio,
     UnitConvertSpec, UnitId,
 };
+use pse_schema::math::Sense;
 use std::collections::{BTreeMap, BTreeSet};
 
 mod literal_context;

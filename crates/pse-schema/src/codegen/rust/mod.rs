@@ -3,6 +3,7 @@
 
 //! Readable Rust source generated through syn, quote and prettyplease (ADR-0031).
 
+mod alternative;
 mod columnar;
 mod enums;
 mod manifest;

@@ -87,7 +87,7 @@ fn declare_change_ops(builder: &mut RegistryBuilder) {
                 .with_fk("authored.change_sets", "change_set_id"),
             FieldContract::key(
                 "ordinal",
-                FieldContract::native(arrow_schema::DataType::UInt32),
+                FieldContract::nonnegative(i64::from(u32::MAX)),
                 "The operation's position in the change set.",
             ),
             FieldContract::label(
@@ -130,7 +130,7 @@ fn staged_row_type() -> FieldContract {
         FieldContract::native(arrow_schema::DataType::Utf8)
             .with_name("staged_port")
             .with_nullable(false),
-        FieldContract::native(arrow_schema::DataType::UInt64)
+        FieldContract::nonnegative(i64::MAX)
             .with_name("staged_ordinal")
             .with_nullable(false),
     ])

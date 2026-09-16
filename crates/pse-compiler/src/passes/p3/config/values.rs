@@ -10,7 +10,7 @@ use pse_relations::{
     columnar::RelationRow,
     generated::{
         authored,
-        enums::{ConfigCategory, ConfigValueKind, FeatureKind, TriState},
+        enums::{ConfigCategory, FeatureKind, TriState},
         normalized,
     },
 };
@@ -202,8 +202,11 @@ impl Configuration<'_> {
                     origins,
                 )?;
             } else {
-                let mut parsed = value::empty(ConfigValueKind::Boolean);
-                parsed.boolean = Some(flow.row.dynamic == TriState::True);
+                let parsed = Value::from_boolean(
+                    normalized::config_values::NormalizedConfigValuesFieldValueBoolean {
+                        value: flow.row.dynamic == TriState::True,
+                    },
+                );
                 self.record(
                     instance.instance_id,
                     ConfigCategory::Feature,
@@ -303,6 +306,8 @@ impl Configuration<'_> {
         }
         let target = value
             .semantic_id
+            .as_ref()
+            .map(|arm| arm.value)
             .ok_or_else(|| invalid("identity constraint requires a semantic ID value"))?;
         match spec {
             "is_property_package" => {

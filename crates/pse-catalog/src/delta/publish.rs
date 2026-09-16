@@ -5,13 +5,13 @@
 //! Commit metadata is a search index only: reconciliation verifies the exact typed row.
 use super::{
     layout::DurableLayout,
-    publication::{PublicationRoot, read_record},
+    publication::{PublicationRoot, read_optional_record, read_record},
     write::PhysicalInput,
 };
 use datafusion::{
     arrow::{
-        array::{RecordBatch, UInt64Array},
-        datatypes::{DataType, Field, Schema},
+        array::{Int64Array, RecordBatch},
+        datatypes::Schema,
     },
     catalog::Session,
     common::{DFSchema, DFSchemaRef, DataFusionError, Result, ScalarValue},
@@ -94,11 +94,9 @@ impl DeltaPublish {
         if input.schema().as_arrow().fields() != expected.fields() {
             return Err(invalid("DeltaPublish input must be runtime.publications"));
         }
-        let schema = Arc::new(DFSchema::try_from(Schema::new(vec![Field::new(
-            "version",
-            DataType::UInt64,
-            false,
-        )]))?);
+        let schema = Arc::new(DFSchema::try_from(Schema::new(vec![
+            pse_schema::model::IntegerRange::NONNEGATIVE.field("version"),
+        ]))?);
         Ok(LogicalPlan::Extension(Extension {
             node: Arc::new(Self {
                 request: Arc::new(Request {
@@ -279,7 +277,7 @@ impl ExecutionPlan for PublishExec {
                 commit(&request.location, &record, batch, &state, &request.registry).await?;
             Ok(RecordBatch::try_new(
                 schema,
-                vec![Arc::new(UInt64Array::from(vec![version]))],
+                vec![Arc::new(Int64Array::from(vec![version]))],
             )?)
         });
         Ok(Box::pin(RecordBatchStreamAdapter::new(output, stream)))
@@ -322,40 +320,42 @@ async fn commit(
     batch: RecordBatch,
     state: &Arc<SessionState>,
     registry: &Arc<pse_schema::Registry>,
-) -> Result<u64> {
-    let base = load(location, state).await?;
+) -> Result<i64> {
+    let contract = super::contract::DeclaredCheck::new(
+        registry,
+        publications::spec(registry).map_err(external)?.id,
+    )?;
+    let state = Arc::new(contract.bind(state)?);
+    let base = load(location, &state).await?;
     if let Some(table) = &base {
-        if let Some(version) = reconcile(table, record, state, registry).await? {
+        contract.verify(table)?;
+        if let Some(version) = reconcile(table, record, &state, registry).await? {
             return Ok(version);
         }
-        let current = read_record(
-            &PublicationRoot {
-                location: location.clone(),
-                version: version(table)?,
-            },
-            registry,
-            Arc::clone(state),
-        )
-        .await?;
-        if current.workspace_id != record.workspace_id
-            || Some(current.publication_id) != record.parent_publication_id
-        {
-            return Err(external(PublicationError::Conflict));
-        }
-    } else if record.parent_publication_id.is_some() {
-        return Err(external(PublicationError::Conflict));
     }
+    let has_head = admit_parent(base.as_ref(), location, record, &state, registry).await?;
 
     if record.parent_publication_id == Some(record.publication_id) {
         return Err(invalid("a publication cannot be its own parent"));
     }
-    super::publication::verify_inputs(record, registry, Arc::clone(state)).await?;
-    let candidate = super::publication::bind_members(record, registry, Arc::clone(state)).await?;
+    super::publication::verify_inputs(record, registry, Arc::clone(&state)).await?;
+    let candidate = super::publication::bind_members(record, registry, Arc::clone(&state)).await?;
     super::admission::admit(record, Arc::clone(registry), &candidate).await?;
-    let physical = encoded_candidate(batch, state).await?;
+    let physical = encoded_candidate(batch, &state).await?;
     let commit = commit_properties(record);
-    let result = if let Some(table) = base {
-        let batch = one_row(physical, state).await?;
+    let (table, has_head) = if let Some(table) = base {
+        (table, has_head)
+    } else {
+        let table = initialize_control(location, &state, &contract).await?;
+        contract.verify(&table)?;
+        if let Some(version) = reconcile(&table, record, &state, registry).await? {
+            return Ok(version);
+        }
+        let head = admit_parent(Some(&table), location, record, &state, registry).await?;
+        (table, head)
+    };
+    let result = if has_head {
+        let batch = one_row(physical, &state).await?;
         let parent = record
             .parent_publication_id
             .ok_or_else(|| invalid("existing publication needs a parent"))?;
@@ -384,25 +384,23 @@ async fn commit(
             None,
         )?
         .build()?;
-        super::provider::table_builder(location.clone(), state)?
-            .build()
-            .map_err(external)?
+        table
             .write(Vec::<RecordBatch>::new())
             .with_input_plan(input)
             .with_session_state(state.clone())
             .with_session_fallback_policy(SessionFallbackPolicy::RequireSessionState)
-            .with_save_mode(SaveMode::ErrorIfExists)
+            .with_save_mode(SaveMode::Append)
             .with_commit_properties(commit)
             .await
             .map(|table| (table, true))
     };
     // Even a successful builder result is reconciled against the recorded row. A
     // post-commit failure and a lost acknowledgment take exactly the same path.
-    let latest = load(location, state)
+    let latest = load(location, &state)
         .await
         .map_err(|error| unresolved(error.to_string()))?;
     if let Some(table) = latest
-        && let Some(version) = reconcile(&table, record, state, registry)
+        && let Some(version) = reconcile(&table, record, &state, registry)
             .await
             .map_err(|error| unresolved(error.to_string()))?
     {
@@ -414,6 +412,66 @@ async fn commit(
             "builder returned success without a recorded publication".into(),
         )),
         Err(error) => Err(unresolved(error.to_string())),
+    }
+}
+
+async fn initialize_control(
+    location: &url::Url,
+    state: &SessionState,
+    contract: &super::contract::DeclaredCheck,
+) -> Result<DeltaTable> {
+    let empty = super::provider::table_builder(location.clone(), state)?
+        .build()
+        .map_err(external)?;
+    // Schema/CHECK creation has no publication identity. A lost creation response
+    // or concurrent initializer is reconciled by opening the actual declared table.
+    match contract
+        .create(
+            empty,
+            CommitProperties::default()
+                .with_max_retries(0)
+                .with_create_checkpoint(false)
+                .with_cleanup_expired_logs(Some(false)),
+        )
+        .await
+    {
+        Ok(table) => Ok(table),
+        Err(error) => load(location, state)
+            .await?
+            .ok_or_else(|| unresolved(error.to_string())),
+    }
+}
+
+async fn admit_parent(
+    table: Option<&DeltaTable>,
+    location: &url::Url,
+    requested: &publications::Row,
+    state: &Arc<SessionState>,
+    registry: &Arc<pse_schema::Registry>,
+) -> Result<bool> {
+    let current = match table {
+        Some(table) => {
+            read_optional_record(
+                &PublicationRoot {
+                    location: location.clone(),
+                    version: version(table)?,
+                },
+                registry,
+                Arc::clone(state),
+            )
+            .await?
+        }
+        None => None,
+    };
+    match current {
+        Some(current)
+            if current.workspace_id == requested.workspace_id
+                && Some(current.publication_id) == requested.parent_publication_id =>
+        {
+            Ok(true)
+        }
+        None if requested.parent_publication_id.is_none() => Ok(false),
+        _ => Err(external(PublicationError::Conflict)),
     }
 }
 
@@ -446,8 +504,8 @@ fn commit_properties(record: &publications::Row) -> CommitProperties {
                 serde_json::json!(record.publication_id.to_string()),
             ),
         ])
-        // An empty-table writer has no existing read set. Rebasing a second
-        // creator can append a second head despite ErrorIfExists's initial check.
+        // Concurrent first-head writers must compete for the same native version.
+        // Never rebase an append after another writer has published a head.
         .with_max_retries(0)
         .with_create_checkpoint(false)
         .with_cleanup_expired_logs(Some(false))
@@ -460,11 +518,11 @@ async fn reconcile(
     requested: &publications::Row,
     state: &Arc<SessionState>,
     registry: &Arc<pse_schema::Registry>,
-) -> Result<Option<u64>> {
+) -> Result<Option<i64>> {
     for version in (0..=version(table)?).rev() {
         let bytes = table
             .log_store()
-            .read_commit_entry(version)
+            .read_commit_entry(super::provider::delta_version(version)?)
             .await
             .map_err(external)?
             .ok_or_else(|| unresolved(format!("control commit {version} is unavailable")))?;
@@ -494,10 +552,11 @@ async fn reconcile(
     }
     Ok(None)
 }
-fn version(table: &DeltaTable) -> Result<u64> {
-    table
+fn version(table: &DeltaTable) -> Result<i64> {
+    let version = table
         .version()
-        .ok_or_else(|| invalid("control table has no version"))
+        .ok_or_else(|| invalid("control table has no version"))?;
+    super::provider::signed_version(version)
 }
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.into())

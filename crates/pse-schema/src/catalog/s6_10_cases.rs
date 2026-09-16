@@ -85,7 +85,7 @@ fn declare_authored_case_spec_targets(builder: &mut RegistryBuilder) {
         &["spec_id", "ordinal"],
         vec![
             column("spec_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("instance_id", T::id()),
             column("member_kind", T::enumeration("TargetKind")),
             column("symbol_decl_id", T::id()).optional(),
@@ -112,7 +112,7 @@ fn declare_authored_case_activation_targets(builder: &mut RegistryBuilder) {
         &["activation_id", "ordinal"],
         vec![
             column("activation_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("instance_id", T::id()),
             column("member_kind", T::enumeration("TargetKind")),
             column("symbol_decl_id", T::id()).optional(),
@@ -139,7 +139,7 @@ fn declare_authored_observation_targets(builder: &mut RegistryBuilder) {
         &["observation_id", "ordinal"],
         vec![
             column("observation_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("instance_id", T::id()),
             column("member_kind", T::enumeration("TargetKind")),
             column("symbol_decl_id", T::id()).optional(),
@@ -294,7 +294,7 @@ fn declare_authored_case_sets(builder: &mut RegistryBuilder) {
                 ])),
             ),
             column("seed", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("sample_count", T::native(arrow_schema::DataType::UInt64)),
+            column("sample_count", T::nonnegative(i64::MAX)),
         ],
         "blueprint §6.10 case: case_sets.",
     );
@@ -309,7 +309,7 @@ fn declare_authored_case_set_samples(builder: &mut RegistryBuilder) {
         &["case_set_id", "sample_ordinal"],
         vec![
             column("case_set_id", T::id()),
-            column("sample_ordinal", T::native(arrow_schema::DataType::UInt64)),
+            column("sample_ordinal", T::nonnegative(i64::MAX)),
             column("case_id", T::id()),
         ],
         "blueprint §6.10 case: case_set_samples.",

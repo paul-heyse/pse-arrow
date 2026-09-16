@@ -169,10 +169,14 @@ fn payload_only_gather_and_one_child_piecewise_contract_are_enforced() {
 fn table_projection_contains_every_declaration_without_reconstruction() {
     struct Sink(Vec<Opcode>);
     impl pse_mathir::catalog::OperatorSpecSink for Sink {
-        fn operator_spec(&mut self, spec: &pse_mathir::OperatorSpec, operations: &[OperationId]) {
+        fn operator_spec(
+            &mut self,
+            spec: &pse_schema::math::operators::OperatorSpec,
+            operations: &[OperationId],
+        ) {
             self.0.push(spec.opcode);
             assert!(operations.is_empty());
-            assert_eq!(spec.arity, pse_mathir::arity(spec.opcode));
+            assert_eq!(spec.arity, pse_schema::math::arity(spec.opcode));
         }
     }
     let mut sink = Sink(vec![]);

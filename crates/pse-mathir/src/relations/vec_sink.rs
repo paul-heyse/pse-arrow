@@ -3,13 +3,14 @@
 
 //! An append-only plain-value sink/source for admission and deterministic round trips.
 use super::{InputBinding, MathRelationSink, MathRelationSource, ParameterBinding};
-use crate::equation::{EquationRecord, FreeIndex, Sense};
+use crate::equation::{EquationRecord, FreeIndex};
 use crate::{AffineTerm, MathIrError, NodeId, Opcode, Payload, WeightedPair};
 use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{
     BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId, ReductionKind,
     UnitConvertSpec, UnitId, WeightNormalization, infer::BuiltInRule,
 };
+use pse_schema::math::Sense;
 
 /// A selection row retained as fields until semantic inference validates it.
 #[derive(Clone, Debug, PartialEq, Eq)]

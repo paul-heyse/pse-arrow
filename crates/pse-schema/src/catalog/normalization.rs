@@ -63,10 +63,10 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     enumeration(
         builder,
         "NormalizedReferenceKind",
-        pse_mathir::ValueRef::KINDS
+        crate::math::NORMALIZED_REFERENCE_KINDS
             .iter()
             .copied()
-            .chain([pse_mathir::Payload::PENDING_PATH_KIND]),
+            .chain([crate::math::PENDING_PATH_KIND]),
     );
     relation(
         builder,

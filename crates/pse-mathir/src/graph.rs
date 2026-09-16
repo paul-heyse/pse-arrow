@@ -34,8 +34,9 @@ use pse_ids::{SemanticId, canonical_f64_bits};
 use pse_quantity::{Opcode, QuantityTypeId, UnitConvertSpec, UnitId};
 
 use crate::error::MathIrError;
-use crate::node::{Node, NodeId, arity};
+use crate::node::{Node, NodeId};
 use crate::payload::Payload;
+use pse_schema::math::arity;
 
 /// An expression DAG under construction (blueprint §6.9, §7.1).
 ///
@@ -758,7 +759,7 @@ pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
             path_id,
             indices,
         } => {
-            put_str(out, Payload::PENDING_PATH_KIND);
+            put_str(out, pse_schema::math::PENDING_PATH_KIND);
             put_id(out, *source_id);
             put_u64(out, *path_id);
             put_len(out, indices.len());

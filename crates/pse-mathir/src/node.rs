@@ -16,6 +16,7 @@ use pse_quantity::{Opcode, QuantityTypeId};
 use serde::{Deserialize, Serialize};
 
 use crate::payload::Payload;
+use pse_schema::math::{Arity, arity};
 
 /// An artifact-local node number (blueprint §5.1, §6.9 `math_expr_nodes.node_id`).
 ///
@@ -32,74 +33,6 @@ impl core::fmt::Display for NodeId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "#{}", self.0)
     }
-}
-
-/// How many children an operator takes (blueprint §7.3, `operator_specs.arity`).
-///
-/// `Display` renders the registry spelling — `fixed 2`, `variadic`, `payload` — so the
-/// relation and this type cannot drift into two different vocabularies.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
-pub enum Arity {
-    /// Exactly this many children, in argument order.
-    Fixed(u8),
-    /// Any number of children; the payload says what they mean.
-    Variadic,
-    /// No children at all: every operand lives in the payload.
-    Payload,
-}
-
-impl Arity {
-    /// The exact child count, when the arity fixes one.
-    pub const fn child_count(self) -> Option<u8> {
-        match self {
-            Self::Fixed(count) => Some(count),
-            Self::Variadic | Self::Payload => None,
-        }
-    }
-
-    /// Does a child list of this length satisfy the arity?
-    pub const fn admits(self, children: usize) -> bool {
-        match self {
-            Self::Fixed(count) => children == count as usize,
-            Self::Variadic => true,
-            Self::Payload => children == 0,
-        }
-    }
-}
-
-impl core::fmt::Display for Arity {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::Fixed(count) => write!(f, "fixed {count}"),
-            Self::Variadic => f.write_str("variadic"),
-            Self::Payload => f.write_str("payload"),
-        }
-    }
-}
-
-/// The arity of an operator (blueprint §7.2).
-///
-/// Three families are worth reading twice, because each puts an operand somewhere other
-/// than the child list:
-///
-/// - `Conditional` is `Fixed(2)` — the two branches. The guard is in the payload, so that
-///   sharing a subtree with a branch cannot hoist its evaluation out of the branch
-///   (§7.4 step 1).
-/// - `SumOver`, `ProdOver`, `MinOver` and `MaxOver` are `Fixed(1)` — the body. The domain,
-///   the binder and the optional filter are in the payload.
-/// - `WeightedMean` is `Payload`: its ordered weight/value pairs reference nodes directly,
-///   because a flat child list could not say which weight belongs to which value.
-///
-/// ```
-/// use pse_mathir::{Arity, Opcode, arity};
-///
-/// assert_eq!(arity(Opcode::Add), Arity::Fixed(2));
-/// assert_eq!(arity(Opcode::Conditional), Arity::Fixed(2));
-/// assert_eq!(arity(Opcode::Affine), Arity::Variadic);
-/// assert_eq!(arity(Opcode::WeightedMean), Arity::Payload);
-/// ```
-pub const fn arity(opcode: Opcode) -> Arity {
-    crate::opspec::operator_spec(opcode).arity
 }
 
 /// One node of the expression DAG (blueprint §6.9 `compiled.math_expr_nodes`).

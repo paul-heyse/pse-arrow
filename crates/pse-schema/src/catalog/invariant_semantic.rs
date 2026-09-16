@@ -55,9 +55,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             ]),
         ]),
     );
-    for relation in ["normalized.config_values", "inferred.instance_features"] {
-        config(builder, relation);
-    }
     check(
         builder,
         "inferred.method_resolutions",
@@ -225,53 +222,6 @@ fn coordinate(fixed: &'static str, axis: &'static str, required: bool) -> E {
     }
 }
 
-fn config(builder: &mut RegistryBuilder, relation: &'static str) {
-    let fields = [
-        "boolean",
-        "signed",
-        "unsigned",
-        "real",
-        "text",
-        "semantic_id",
-        "enum_id",
-        "index",
-        "quantity_type_id",
-        "unit_id",
-    ];
-    let alternatives: &[(&'static str, &[&'static str])] = &[
-        ("boolean", &["boolean"]),
-        ("signed", &["signed"]),
-        ("unsigned", &["unsigned"]),
-        ("real", &["real"]),
-        ("text", &["text"]),
-        ("semantic_id", &["semantic_id"]),
-        ("enum", &["enum_id", "text"]),
-        ("index", &["index"]),
-        ("quantity", &["real", "quantity_type_id", "unit_id"]),
-    ];
-    let valid = alternatives
-        .iter()
-        .map(|(kind, selected)| {
-            let mut clauses = vec![E::cmp(CmpOp::Eq, field("kind"), E::Lit(Cell::Enum(kind)))];
-            for name in fields {
-                let expression = Box::new(field(name));
-                clauses.push(if selected.contains(&name) {
-                    E::IsNotNull(expression)
-                } else {
-                    E::IsNull(expression)
-                });
-            }
-            E::And(clauses)
-        })
-        .collect();
-    check(builder, relation, "typed_value_alternative", E::Or(valid));
-}
-fn field(name: &'static str) -> E {
-    E::Field {
-        expr: Box::new(E::col("value")),
-        name: name.into(),
-    }
-}
 fn eq(name: &'static str, value: &'static str) -> E {
     E::cmp(CmpOp::Eq, E::col(name), E::Lit(Cell::Enum(value)))
 }

@@ -46,6 +46,269 @@ fn fixture(value: F) -> Result<Registry, SchemaError> {
 }
 
 #[test]
+fn normalized_foreign_keys_bind_generated_instances_and_domains() {
+    let registry = pse_schema::registry().unwrap();
+    for (relation, column, target, target_column) in [
+        (
+            "normalized.instance_domain_bindings",
+            "instance_id",
+            "normalized.instance_bindings",
+            "instance_id",
+        ),
+        (
+            "normalized.instance_domain_bindings",
+            "domain_id",
+            "normalized.domains",
+            "domain_id",
+        ),
+        (
+            "normalized.domain_members",
+            "domain_id",
+            "normalized.domains",
+            "domain_id",
+        ),
+        (
+            "authored.instance_domain_bindings",
+            "instance_id",
+            "authored.instances",
+            "instance_id",
+        ),
+        (
+            "authored.domain_members",
+            "domain_id",
+            "authored.domains",
+            "domain_id",
+        ),
+    ] {
+        let field = registry.relation(relation).unwrap().column(column).unwrap();
+        let reference = field.fk().unwrap();
+        assert_eq!(
+            (reference.relation, reference.column),
+            (target, target_column)
+        );
+        let native = arrow::field_for(registry, field).unwrap();
+        assert_eq!(
+            native.metadata().get(arrow::KEY_FK),
+            Some(&format!("{target}.{target_column}")),
+        );
+    }
+}
+
+#[test]
+fn tagged_arms_project_to_native_fields_and_all_generated_contracts() {
+    use pse_schema::model::TaggedAlternative;
+    let declaration = TaggedAlternative::new(
+        "kind",
+        [
+            ("number".into(), "number".into()),
+            ("label".into(), "label".into()),
+        ],
+    );
+    let value = F::structure(vec![
+        F::native(DataType::Utf8).with_name("kind"),
+        F::structure(vec![F::nonnegative(10).with_name("value")])
+            .with_name("number")
+            .optional(),
+        F::structure(vec![F::native(DataType::Utf8).with_name("value")])
+            .with_name("label")
+            .optional(),
+    ])
+    .with_alternative(&declaration);
+    let registry = fixture(value.clone()).unwrap();
+    let relation = registry.relation("authored.native_fields").unwrap();
+    let execution = arrow::relation_schema(&registry, relation).unwrap();
+    let storage = pse_schema::delta::relation_schema(&registry, relation).unwrap();
+    assert_eq!(
+        pse_schema::delta::execution_schema(&storage).unwrap(),
+        execution
+    );
+    assert_eq!(
+        TaggedAlternative::from_field(execution.field(1)).unwrap(),
+        Some(declaration)
+    );
+    let rust = generate(&registry, Language::Rust).unwrap();
+    let rust = std::str::from_utf8(
+        &rust.files[Path::new("crates/pse-relations/src/generated/authored/native_fields.rs")],
+    )
+    .unwrap();
+    assert!(rust.contains("pub enum AuthoredNativeFieldsFieldValueSelected"));
+    assert!(rust.contains("pub fn from_number"));
+    assert!(rust.contains("selected().is_err()"));
+    let python = generate(&registry, Language::Python).unwrap();
+    let python =
+        std::str::from_utf8(&python.files[Path::new("python/pse/contracts/authored.py")]).unwrap();
+    assert!(python.contains("def __attrs_post_init__"));
+    let docs = generate(&registry, Language::Markdown).unwrap();
+    let schema: serde_json::Value = serde_json::from_slice(
+        &docs.files[Path::new("docs/generated/schema/authoring.schema.json")],
+    )
+    .unwrap();
+    let arms =
+        &schema["$defs"]["authored.native_fields"]["properties"]["value"]["allOf"][1]["oneOf"];
+    assert_eq!(arms.as_array().unwrap().len(), 2);
+    let mut malformed = value.field().clone();
+    malformed.metadata_mut().insert(
+        pse_schema::model::tagged_alternative::KEY_TAGGED_ALTERNATIVE.into(),
+        "{}".into(),
+    );
+    assert!(fixture(F::from_field(malformed)).is_err());
+    let duplicate = TaggedAlternative::new(
+        "kind",
+        [
+            ("number".into(), "number".into()),
+            ("label".into(), "number".into()),
+        ],
+    );
+    assert!(fixture(value.with_alternative(&duplicate)).is_err());
+}
+
+#[test]
+fn unit_and_shared_payload_tags_have_one_declared_shape() {
+    use pse_schema::model::{Cell, TaggedAlternative};
+    let declaration = TaggedAlternative::new(
+        "kind",
+        [
+            ("first".into(), "payload".into()),
+            ("second".into(), "payload".into()),
+        ],
+    )
+    .with_unit("absent");
+    // Fingerprints must not depend on serde_json's feature-unified map representation.
+    assert_eq!(
+        declaration.canonical(),
+        r#"{"arms":{"absent":null,"first":"payload","second":"payload"},"discriminator":"kind"}"#
+    );
+    let value = F::structure(vec![
+        F::native(DataType::Utf8).with_name("kind"),
+        F::structure(vec![F::nonnegative(10).with_name("value")])
+            .with_name("payload")
+            .optional(),
+    ])
+    .with_alternative(&declaration);
+    let registry = fixture(value.clone()).unwrap();
+    for tag in ["first", "second"] {
+        assert!(declaration.accepts(
+            value.field(),
+            &Cell::Struct(vec![Cell::text(tag), Cell::Struct(vec![Cell::I64(1)])])
+        ));
+        assert!(!declaration.accepts(
+            value.field(),
+            &Cell::Struct(vec![Cell::text(tag), Cell::Null])
+        ));
+    }
+    assert!(declaration.accepts(
+        value.field(),
+        &Cell::Struct(vec![Cell::text("absent"), Cell::Null])
+    ));
+    assert!(!declaration.accepts(
+        value.field(),
+        &Cell::Struct(vec![Cell::text("absent"), Cell::Struct(vec![Cell::I64(1)])])
+    ));
+    assert!(!declaration.accepts(
+        value.field(),
+        &Cell::Struct(vec![Cell::text("unknown"), Cell::Null])
+    ));
+    let rust = generate(&registry, Language::Rust).unwrap();
+    let rust = std::str::from_utf8(
+        &rust.files[Path::new("crates/pse-relations/src/generated/authored/native_fields.rs")],
+    )
+    .unwrap();
+    for constructor in ["from_first", "from_second", "from_absent"] {
+        assert!(rust.contains(constructor));
+    }
+    syn::parse_file(rust).unwrap();
+    let docs = generate(&registry, Language::Markdown).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(
+        &docs.files[Path::new("docs/generated/schema/authoring.schema.json")],
+    )
+    .unwrap();
+    let variants =
+        json["$defs"]["authored.native_fields"]["properties"]["value"]["allOf"][1]["oneOf"]
+            .as_array()
+            .unwrap();
+    assert_eq!(variants.len(), 3);
+    assert_eq!(variants[0]["required"], serde_json::json!(["kind"]));
+}
+
+#[test]
+fn entirely_payload_free_alternatives_do_not_generate_a_borrow_lifetime() {
+    use pse_schema::model::TaggedAlternative;
+    let declaration = TaggedAlternative::new("kind", [])
+        .with_unit("enabled")
+        .with_unit("disabled");
+    let value = F::structure(vec![F::native(DataType::Utf8).with_name("kind")])
+        .with_alternative(&declaration);
+    let registry = fixture(value).unwrap();
+    let rust = generate(&registry, Language::Rust).unwrap();
+    let rust = std::str::from_utf8(
+        &rust.files[Path::new("crates/pse-relations/src/generated/authored/native_fields.rs")],
+    )
+    .unwrap();
+    assert!(rust.contains("pub enum AuthoredNativeFieldsFieldValueSelected {"));
+    assert!(!rust.contains("AuthoredNativeFieldsFieldValueSelected<'a>"));
+    syn::parse_file(rust).unwrap();
+    let python = generate(&registry, Language::Python).unwrap();
+    let python =
+        std::str::from_utf8(&python.files[Path::new("python/pse/contracts/authored.py")]).unwrap();
+    assert!(!python.contains(" and )"));
+}
+
+#[test]
+fn collection_facets_preserve_empty_order_and_unique_meanings_across_projections() {
+    use pse_schema::model::{CollectionContract, CollectionOrder};
+    let contract = CollectionContract {
+        minimum: 1,
+        maximum: Some(3),
+        ..CollectionContract::SET
+    };
+    let field = F::list(F::nonnegative(10).optional()).with_collection(contract);
+    let registry = fixture(field.clone()).unwrap();
+    assert_eq!(
+        CollectionContract::from_field(field.field()).unwrap(),
+        Some(contract)
+    );
+    assert!(contract.accepts(&[Some(2), None, Some(1)]));
+    assert!(!contract.accepts::<i64>(&[]));
+    assert!(!contract.accepts(&[None::<i64>, None]));
+    assert!(!contract.accepts(&[1, 2, 3, 4]));
+    assert!(CollectionContract::SEQUENCE.accepts(&[1, 1]));
+    let list = F::list(F::nonnegative(10));
+    assert_eq!(
+        CollectionContract::from_field(list.field())
+            .unwrap()
+            .unwrap()
+            .order,
+        CollectionOrder::Sequence
+    );
+    assert!(fixture(F::native(DataType::Int64).with_collection(contract)).is_err());
+    assert!(fixture(F::fixed_list(F::id(), 4).with_collection(contract)).is_err());
+    assert!(
+        fixture(field.with_collection(CollectionContract {
+            minimum: -1,
+            ..contract
+        }))
+        .is_err()
+    );
+    let rust = generate(&registry, Language::Rust).unwrap();
+    let source = std::str::from_utf8(
+        &rust.files[Path::new("crates/pse-relations/src/generated/authored/native_fields.rs")],
+    )
+    .unwrap();
+    syn::parse_file(source).unwrap();
+    assert!(source.contains("CollectionContract"));
+    let docs = generate(&registry, Language::Markdown).unwrap();
+    let json: serde_json::Value = serde_json::from_slice(
+        &docs.files[Path::new("docs/generated/schema/authoring.schema.json")],
+    )
+    .unwrap();
+    let schema = &json["$defs"]["authored.native_fields"]["properties"]["value"];
+    assert_eq!(schema["uniqueItems"], true);
+    assert_eq!(schema["minItems"], 1);
+    assert_eq!(schema["maxItems"], 3);
+    assert_eq!(schema["x-pse-order"], "unordered");
+}
+
+#[test]
 fn string_enums_keep_their_domain_in_execution_and_durable_fields() {
     let registry = fixture(F::extended(pse_schema::model::ExtensionUse::Bound)).unwrap();
     let relation = registry.relation("authored.native_fields").unwrap();

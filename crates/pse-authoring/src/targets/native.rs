@@ -169,7 +169,7 @@ pub async fn resolve_native(
     for batch in tuples {
         for row in 0..batch.num_rows() {
             let mut result = target.clone();
-            result.ordinal = u16::try_from(output.len())
+            result.ordinal = i64::try_from(output.len())
                 .map_err(|_| contract(Some(path.at), "target ordinal overflow"))?;
             result.index = Some(
                 batch

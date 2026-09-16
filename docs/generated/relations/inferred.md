@@ -196,16 +196,24 @@ Version: 1. Snapshot class: `derived`. Primary key: `instance_id, name, source_o
 | `source_name` | `Utf8` | false | `key` | — | — |
 | `value` | `Struct` | false | `payload` | — | — |
 | `value.kind` | `enum:ConfigValueKind` | false | `payload` | — | — |
-| `value.boolean` | `Boolean` | true | `payload` | — | — |
-| `value.signed` | `Int64` | true | `payload` | — | — |
-| `value.unsigned` | `UInt64` | true | `payload` | — | — |
-| `value.real` | `Float64` | true | `payload` | — | — |
-| `value.text` | `Utf8` | true | `payload` | — | — |
-| `value.semantic_id` | `semantic_id` | true | `payload` | — | — |
-| `value.enum_id` | `semantic_id` | true | `payload` | — | — |
-| `value.index` | `index_tuple` | true | `payload` | — | — |
-| `value.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
-| `value.unit_id` | `semantic_id` | true | `payload` | — | — |
+| `value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.signed` | `Struct` | true | `payload` | — | — |
+| `value.signed.value` | `Int64` | false | `payload` | — | — |
+| `value.unsigned` | `Struct` | true | `payload` | — | — |
+| `value.unsigned.value` | `UInt64` | false | `payload` | — | — |
+| `value.real` | `Struct` | true | `payload` | — | — |
+| `value.real.value` | `Float64` | false | `payload` | — | — |
+| `value.text` | `Struct` | true | `payload` | — | — |
+| `value.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.semantic_id` | `Struct` | true | `payload` | — | — |
+| `value.semantic_id.value` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration` | `Struct` | true | `payload` | — | — |
+| `value.enumeration.enum_id` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration.member` | `Utf8` | false | `payload` | — | — |
+| `value.index` | `Struct` | true | `payload` | — | — |
+| `value.index.value` | `index_tuple` | false | `payload` | — | — |
+| `value.quantity` | `quantity_value` | true | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `feature_checks`
@@ -257,16 +265,24 @@ Version: 2. Snapshot class: `derived`. Primary key: `instance_id, name`.
 | `name` | `Utf8` | false | `key` | — | — |
 | `value` | `Struct` | false | `payload` | — | — |
 | `value.kind` | `enum:ConfigValueKind` | false | `payload` | — | — |
-| `value.boolean` | `Boolean` | true | `payload` | — | — |
-| `value.signed` | `Int64` | true | `payload` | — | — |
-| `value.unsigned` | `UInt64` | true | `payload` | — | — |
-| `value.real` | `Float64` | true | `payload` | — | — |
-| `value.text` | `Utf8` | true | `payload` | — | — |
-| `value.semantic_id` | `semantic_id` | true | `payload` | — | — |
-| `value.enum_id` | `semantic_id` | true | `payload` | — | — |
-| `value.index` | `index_tuple` | true | `payload` | — | — |
-| `value.quantity_type_id` | `semantic_id` | true | `payload` | — | — |
-| `value.unit_id` | `semantic_id` | true | `payload` | — | — |
+| `value.boolean` | `Struct` | true | `payload` | — | — |
+| `value.boolean.value` | `Boolean` | false | `payload` | — | — |
+| `value.signed` | `Struct` | true | `payload` | — | — |
+| `value.signed.value` | `Int64` | false | `payload` | — | — |
+| `value.unsigned` | `Struct` | true | `payload` | — | — |
+| `value.unsigned.value` | `UInt64` | false | `payload` | — | — |
+| `value.real` | `Struct` | true | `payload` | — | — |
+| `value.real.value` | `Float64` | false | `payload` | — | — |
+| `value.text` | `Struct` | true | `payload` | — | — |
+| `value.text.value` | `Utf8` | false | `payload` | — | — |
+| `value.semantic_id` | `Struct` | true | `payload` | — | — |
+| `value.semantic_id.value` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration` | `Struct` | true | `payload` | — | — |
+| `value.enumeration.enum_id` | `semantic_id` | false | `payload` | — | — |
+| `value.enumeration.member` | `Utf8` | false | `payload` | — | — |
+| `value.index` | `Struct` | true | `payload` | — | — |
+| `value.index.value` | `index_tuple` | false | `payload` | — | — |
+| `value.quantity` | `quantity_value` | true | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `instance_guard_violations`
@@ -696,6 +712,12 @@ Version: 1. Snapshot class: `derived`. Primary key: `implicit_system_id`.
 | `equation_ids.item` | `semantic_id` | false | `payload` | — | — |
 | `branch_policy` | `Utf8` | false | `payload` | — | — |
 | `kernel_binding_id` | `semantic_id` | true | `payload` | — | — |
+
+Native row check `implicit_cardinality` (must be true):
+
+```sql
+array_length(unknown_symbol_ids) = array_length(equation_ids)
+```
 
 ## `math_indexed_equations`
 

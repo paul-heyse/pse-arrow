@@ -265,8 +265,11 @@ fn feature_rules(builder: &mut RegistryBuilder) {
     let enabled = P::Filter {
         input: Box::new(scan("inferred.feature_candidates", "features")),
         predicate: E::IsTrue(Box::new(E::Field {
-            expr: Box::new(E::col("value")),
-            name: "boolean".into(),
+            expr: Box::new(E::Field {
+                expr: Box::new(E::col("value")),
+                name: "boolean".into(),
+            }),
+            name: "value".into(),
         })),
     };
     let implied = join(

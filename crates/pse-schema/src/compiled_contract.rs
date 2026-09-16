@@ -27,6 +27,7 @@ pub fn relation(reg: &Registry, spec: &RelationSpec) -> Result<Cell, SchemaError
         stability,
         primary_key,
         columns,
+        checks: _, // The complete native checks are in relation schema metadata below.
         doc,
         fingerprint: _,
     } = spec;

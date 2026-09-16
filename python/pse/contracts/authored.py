@@ -78,7 +78,7 @@ class AuthoredCaseSetSamplesRow:
     """Declared relation row or nested value."""
 
     case_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    sample_ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    sample_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -99,7 +99,7 @@ class AuthoredCaseSetsRow:
     generator_kind: e.GeneratorKind = attrs.field(validator=attrs.validators.instance_of(e.GeneratorKind))
     generator_params: b.tuple[AuthoredCaseSetsFieldGeneratorParamsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredCaseSetsFieldGeneratorParamsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     seed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    sample_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    sample_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -152,7 +152,7 @@ class AuthoredChangeOpsFieldRowKey:
     """Declared relation row or nested value."""
 
     staged_port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    staged_ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    staged_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -160,7 +160,7 @@ class AuthoredChangeOpsFieldRow:
     """Declared relation row or nested value."""
 
     staged_port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    staged_ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    staged_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -472,7 +472,7 @@ class AuthoredPackagesRow:
     version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.PackageKind = attrs.field(validator=attrs.validators.instance_of(e.PackageKind))
     id_policy: e.IdPolicy = attrs.field(validator=attrs.validators.instance_of(e.IdPolicy))
-    dependencies: b.tuple[AuthoredPackagesFieldDependenciesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredPackagesFieldDependenciesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependencies: b.tuple[AuthoredPackagesFieldDependenciesItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredPackagesFieldDependenciesItem), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
     content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 

@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    2u8, 218u8, 81u8, 109u8, 130u8, 238u8, 112u8, 134u8, 120u8, 165u8, 254u8, 227u8,
-    213u8, 5u8, 60u8, 89u8, 240u8, 250u8, 151u8, 97u8, 101u8, 74u8, 234u8, 20u8, 159u8,
-    153u8, 22u8, 112u8, 184u8, 137u8, 109u8, 154u8,
+    217u8, 144u8, 182u8, 60u8, 143u8, 14u8, 22u8, 129u8, 235u8, 226u8, 38u8, 34u8, 123u8,
+    85u8, 242u8, 125u8, 54u8, 119u8, 233u8, 194u8, 36u8, 135u8, 127u8, 238u8, 254u8,
+    196u8, 122u8, 214u8, 98u8, 216u8, 59u8, 114u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -30,7 +30,7 @@ pub struct AuthoredChangeOpsFieldRowKey {
     ///staged_port
     pub r#staged_port: String,
     ///staged_ordinal
-    pub r#staged_ordinal: u64,
+    pub r#staged_ordinal: i64,
 }
 impl crate::typed::CellCodec for AuthoredChangeOpsFieldRowKey {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -57,7 +57,7 @@ impl crate::typed::CellCodec for AuthoredChangeOpsFieldRowKey {
                         stringify!(AuthoredChangeOpsFieldRowKey),
                     ))?,
             )?,
-            r#staged_ordinal: <u64 as crate::typed::CellCodec>::from_cell(
+            r#staged_ordinal: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -95,7 +95,7 @@ impl crate::columnar::ArrowValue for AuthoredChangeOpsFieldRowKey {
         >(output)?;
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -110,7 +110,7 @@ impl crate::columnar::ArrowValue for AuthoredChangeOpsFieldRowKey {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#staged_ordinal: <u64 as crate::columnar::ArrowValue>::read(
+            r#staged_ordinal: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -128,7 +128,7 @@ pub struct AuthoredChangeOpsFieldRow {
     ///staged_port
     pub r#staged_port: String,
     ///staged_ordinal
-    pub r#staged_ordinal: u64,
+    pub r#staged_ordinal: i64,
 }
 impl crate::typed::CellCodec for AuthoredChangeOpsFieldRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -155,7 +155,7 @@ impl crate::typed::CellCodec for AuthoredChangeOpsFieldRow {
                         stringify!(AuthoredChangeOpsFieldRow),
                     ))?,
             )?,
-            r#staged_ordinal: <u64 as crate::typed::CellCodec>::from_cell(
+            r#staged_ordinal: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -193,7 +193,7 @@ impl crate::columnar::ArrowValue for AuthoredChangeOpsFieldRow {
         >(output)?;
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -208,7 +208,7 @@ impl crate::columnar::ArrowValue for AuthoredChangeOpsFieldRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#staged_ordinal: <u64 as crate::columnar::ArrowValue>::read(
+            r#staged_ordinal: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -226,7 +226,7 @@ pub struct AuthoredChangeOpsRow {
     ///The owning change set.
     pub r#change_set_id: pse_ids::SemanticId,
     ///The operation's position in the change set.
-    pub r#ordinal: u32,
+    pub r#ordinal: i64,
     ///What the operation does.
     pub r#op: crate::generated::enums::ChangeOpKind,
     ///The relation the operation writes. A derived relation is rejected: an "expected" derived fact goes to `provenance.assertions`.
@@ -268,7 +268,7 @@ impl crate::typed::CellCodec for AuthoredChangeOpsRow {
                         stringify!(AuthoredChangeOpsRow),
                     ))?,
             )?,
-            r#ordinal: <u32 as crate::typed::CellCodec>::from_cell(
+            r#ordinal: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -355,7 +355,7 @@ impl crate::columnar::ArrowValue for AuthoredChangeOpsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <u32 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <crate::generated::enums::ChangeOpKind as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
@@ -385,7 +385,7 @@ impl crate::columnar::ArrowValue for AuthoredChangeOpsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#ordinal: <u32 as crate::columnar::ArrowValue>::read(
+            r#ordinal: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -446,7 +446,7 @@ impl AuthoredChangeOpsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c33fb3e01c7ee338ca315c775a6bed37\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"change_ops\"],[\"u64\",1]]],[\"text\",\"authored\"],[\"text\",\"sidecar\"],[\"null\",null],[\"text\",\"stable\"],[\"list\",[[\"text\",\"change_set_id\"],[\"text\",\"ordinal\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"change_set_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The owning change set.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"change_set_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.change_sets\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"change_set_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.change_sets.change_set_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"3c95a36913f61039f4c2e026954bf05b\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"change_sets\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The operation's position in the change set.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u32\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the operation does.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ChangeOpKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"6db3fd2292e4777f5910d4fe19bf134f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"6db3fd2292e4777f5910d4fe19bf134f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ChangeOpKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ChangeOpKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"6db3fd2292e4777f5910d4fe19bf134f\\\"}\"],[\"struct\",[[\"id\",\"6db3fd2292e4777f5910d4fe19bf134f\"],[\"text\",\"ChangeOpKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"insert\"],[\"null\",null],[\"bool\",false],[\"text\",\"Add a row.\"]]],[\"struct\",[[\"text\",\"update\"],[\"null\",null],[\"bool\",false],[\"text\",\"Replace a row's non-key values.\"]]],[\"struct\",[[\"text\",\"delete\"],[\"null\",null],[\"bool\",false],[\"text\",\"Remove a row.\"]]],[\"struct\",[[\"text\",\"rename\"],[\"null\",null],[\"bool\",false],[\"text\",\"Change an entity's name and qualified name; rejected for a named-policy entity.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The relation the operation writes. A derived relation is rejected: an \\\"expected\\\" derived fact goes to `provenance.assertions`.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"relation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.schema_relations\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.schema_relations.relation_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"2d9738bcffa94795b471758793894cb0\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_relations\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"row_key\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"UInt64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"A typed staged row whose primary key identifies the affected base row (ADR-0053).\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"row_key\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"UInt64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"u64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"UInt64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"row\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"UInt64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"A pointer into the change set's per-relation staged members, never JSON text (decision D1). For a rename the staged row carries the entity identity and the new name and qualified name. Absent for delete.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"row\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"UInt64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"u64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"UInt64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"precondition\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"An optional expectation about the base row, checked before the operation applies.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"precondition\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"The operations of a change set, in application order.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c33fb3e01c7ee338ca315c775a6bed37\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c33fb3e01c7ee338ca315c775a6bed37\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"change_ops\"],[\"u64\",1]]],[\"text\",\"authored\"],[\"text\",\"sidecar\"],[\"null\",null],[\"text\",\"stable\"],[\"list\",[[\"text\",\"change_set_id\"],[\"text\",\"ordinal\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"change_set_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The owning change set.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"change_set_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.change_sets\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"change_set_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.change_sets.change_set_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"3c95a36913f61039f4c2e026954bf05b\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"change_sets\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The operation's position in the change set.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the operation does.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ChangeOpKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"op\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"6db3fd2292e4777f5910d4fe19bf134f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"6db3fd2292e4777f5910d4fe19bf134f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ChangeOpKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ChangeOpKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"6db3fd2292e4777f5910d4fe19bf134f\\\"}\"],[\"struct\",[[\"id\",\"6db3fd2292e4777f5910d4fe19bf134f\"],[\"text\",\"ChangeOpKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"insert\"],[\"null\",null],[\"bool\",false],[\"text\",\"Add a row.\"]]],[\"struct\",[[\"text\",\"update\"],[\"null\",null],[\"bool\",false],[\"text\",\"Replace a row's non-key values.\"]]],[\"struct\",[[\"text\",\"delete\"],[\"null\",null],[\"bool\",false],[\"text\",\"Remove a row.\"]]],[\"struct\",[[\"text\",\"rename\"],[\"null\",null],[\"bool\",false],[\"text\",\"Change an entity's name and qualified name; rejected for a named-policy entity.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The relation the operation writes. A derived relation is rejected: an \\\"expected\\\" derived fact goes to `provenance.assertions`.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"relation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.schema_relations\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.schema_relations.relation_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"2d9738bcffa94795b471758793894cb0\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_relations\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"row_key\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"A typed staged row whose primary key identifies the affected base row (ADR-0053).\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"row_key\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"row\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"A pointer into the change set's per-relation staged members, never JSON text (decision D1). For a rename the staged row carries the entity identity and the new name and qualified name. Absent for delete.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"row\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"staged_port\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"staged_ordinal\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"staged_port\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"staged_ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"precondition\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"An optional expectation about the base row, checked before the operation applies.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"precondition\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"The operations of a change set, in application order.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c33fb3e01c7ee338ca315c775a6bed37\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -522,7 +522,7 @@ impl crate::columnar::RelationRow for AuthoredChangeOpsRow {
         AuthoredChangeOpsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        106_720_usize + size_of::<Self::Builder>()
+        113_856_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         176usize
@@ -652,7 +652,7 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 7usize] = [
 pub struct AuthoredChangeOpsView<'a> {
     batch: &'a crate::RecordBatch,
     change_set_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    ordinal_column: &'a arrow_array::UInt32Array,
+    ordinal_column: &'a arrow_array::Int64Array,
     op_column: &'a arrow_array::StringArray,
     relation_id_column: &'a arrow_array::FixedSizeBinaryArray,
     row_key_column: &'a arrow_array::StructArray,
@@ -699,7 +699,7 @@ impl<'a> AuthoredChangeOpsView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
             ordinal_column: crate::columnar::array::<
-                arrow_array::UInt32Array,
+                arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
             op_column: crate::columnar::array::<
                 arrow_array::StringArray,
@@ -747,7 +747,7 @@ impl<'a> AuthoredChangeOpsView<'a> {
         "ordinal",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn ordinal_column(&self) -> &'a arrow_array::UInt32Array {
+    pub const fn ordinal_column(&self) -> &'a arrow_array::Int64Array {
         self.ordinal_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "ordinal", "`.")]
@@ -906,6 +906,39 @@ impl AuthoredChangeOpsBuilder {
         &mut self,
         row: AuthoredChangeOpsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=4_294_967_295_i64).contains(&(row.r#ordinal).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "ordinal",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&((row.r#row_key).r#staged_ordinal).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "row_key.staged_ordinal",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if let Some(value) = (row.r#row).as_ref()
+            && !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#staged_ordinal).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "row.staged_ordinal",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

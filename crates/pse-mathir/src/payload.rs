@@ -230,9 +230,6 @@ pub enum Payload {
 }
 
 impl Payload {
-    /// Normalized reference discriminator for an unresolved instance path.
-    pub const PENDING_PATH_KIND: &'static str = "path";
-
     /// Optional predicate dependency, preserving normalized predicate identity.
     pub fn guard(&self) -> Option<GuardRef> {
         match self {

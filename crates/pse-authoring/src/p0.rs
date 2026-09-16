@@ -106,7 +106,7 @@ pub async fn resolve(
             package_id: package.package_id,
             version: package.version,
             content_hash: package.content_hash,
-            depth: depth[&package.package_id],
+            depth: i64::from(depth[&package.package_id]),
             dependency_package_ids: dependencies,
             derivation_id: pse_ids::named_id(package.package_id, "pass:P0@1:package_graph"),
         })?;

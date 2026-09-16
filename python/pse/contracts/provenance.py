@@ -58,6 +58,27 @@ class ProvenanceConnectionViolationAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenanceConstructedSupportsFieldInputSelectionSelectionRevision:
+    """Declared relation row or nested value."""
+
+    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceConstructedSupportsFieldInputSelectionSelection:
+    """Declared relation row or nested value."""
+
+    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision: ProvenanceConstructedSupportsFieldInputSelectionSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceConstructedSupportsFieldInputSelectionSelectionRevision)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class ProvenanceConstructedSupportsFieldInputSelection:
     """Declared relation row or nested value."""
 
@@ -68,9 +89,8 @@ class ProvenanceConstructedSupportsFieldInputSelection:
     relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    selection: ProvenanceConstructedSupportsFieldInputSelectionSelection = attrs.field(validator=attrs.validators.instance_of(ProvenanceConstructedSupportsFieldInputSelectionSelection))
 
 
 @attrs.frozen(kw_only=True)
@@ -199,20 +219,81 @@ class ProvenanceDomainMemberAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueBoolean:
+    """Declared relation row or nested value."""
+
+    value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueSigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueUnsigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueReal:
+    """Declared relation row or nested value."""
+
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueText:
+    """Declared relation row or nested value."""
+
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueSemanticId:
+    """Declared relation row or nested value."""
+
+    value: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueEnumeration:
+    """Declared relation row or nested value."""
+
+    enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceFeatureCandidateAssertionsFieldValueIndex:
+    """Declared relation row or nested value."""
+
+    value: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class ProvenanceFeatureCandidateAssertionsFieldValue:
     """Declared relation row or nested value."""
 
     kind: e.ConfigValueKind = attrs.field(validator=attrs.validators.instance_of(e.ConfigValueKind))
-    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    signed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
-    unsigned: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    enum_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    boolean: ProvenanceFeatureCandidateAssertionsFieldValueBoolean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueBoolean)))
+    signed: ProvenanceFeatureCandidateAssertionsFieldValueSigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueSigned)))
+    unsigned: ProvenanceFeatureCandidateAssertionsFieldValueUnsigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueUnsigned)))
+    real: ProvenanceFeatureCandidateAssertionsFieldValueReal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueReal)))
+    text: ProvenanceFeatureCandidateAssertionsFieldValueText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueText)))
+    semantic_id: ProvenanceFeatureCandidateAssertionsFieldValueSemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueSemanticId)))
+    enumeration: ProvenanceFeatureCandidateAssertionsFieldValueEnumeration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueEnumeration)))
+    index: ProvenanceFeatureCandidateAssertionsFieldValueIndex | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceFeatureCandidateAssertionsFieldValueIndex)))
+    quantity: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "boolean" and self.boolean is not None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "enum" and self.boolean is None and self.enumeration is not None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "index" and self.boolean is None and self.enumeration is None and self.index is not None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "quantity" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is not None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "real" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is not None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "semantic_id" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is not None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "signed" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is not None and self.text is None and self.unsigned is None) or (self.kind == "text" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is not None and self.unsigned is None) or (self.kind == "unsigned" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -268,20 +349,81 @@ class ProvenanceInstanceAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueBoolean:
+    """Declared relation row or nested value."""
+
+    value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueSigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueUnsigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueReal:
+    """Declared relation row or nested value."""
+
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueText:
+    """Declared relation row or nested value."""
+
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueSemanticId:
+    """Declared relation row or nested value."""
+
+    value: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueEnumeration:
+    """Declared relation row or nested value."""
+
+    enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceInstanceFeatureAssertionsFieldValueIndex:
+    """Declared relation row or nested value."""
+
+    value: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class ProvenanceInstanceFeatureAssertionsFieldValue:
     """Declared relation row or nested value."""
 
     kind: e.ConfigValueKind = attrs.field(validator=attrs.validators.instance_of(e.ConfigValueKind))
-    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    signed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
-    unsigned: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    enum_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    boolean: ProvenanceInstanceFeatureAssertionsFieldValueBoolean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueBoolean)))
+    signed: ProvenanceInstanceFeatureAssertionsFieldValueSigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueSigned)))
+    unsigned: ProvenanceInstanceFeatureAssertionsFieldValueUnsigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueUnsigned)))
+    real: ProvenanceInstanceFeatureAssertionsFieldValueReal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueReal)))
+    text: ProvenanceInstanceFeatureAssertionsFieldValueText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueText)))
+    semantic_id: ProvenanceInstanceFeatureAssertionsFieldValueSemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueSemanticId)))
+    enumeration: ProvenanceInstanceFeatureAssertionsFieldValueEnumeration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueEnumeration)))
+    index: ProvenanceInstanceFeatureAssertionsFieldValueIndex | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceInstanceFeatureAssertionsFieldValueIndex)))
+    quantity: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "boolean" and self.boolean is not None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "enum" and self.boolean is None and self.enumeration is not None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "index" and self.boolean is None and self.enumeration is None and self.index is not None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "quantity" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is not None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "real" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is not None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "semantic_id" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is not None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "signed" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is not None and self.text is None and self.unsigned is None) or (self.kind == "text" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is not None and self.unsigned is None) or (self.kind == "unsigned" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -579,7 +721,7 @@ class ProvenancePassRecordsRow:
     plan_explain: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     rules_fired: b.tuple[ProvenancePassRecordsFieldRulesFiredItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldRulesFiredItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     duration_ms: b.float = attrs.field(validator=v.finite_float)
-    finding_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    finding_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     status: e.PassStatus = attrs.field(validator=attrs.validators.instance_of(e.PassStatus))
     findings: b.tuple[ProvenancePassRecordsFieldFindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     failure_class: e.FailureClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.FailureClass)))
@@ -769,6 +911,27 @@ class ProvenanceRequirementUniverseAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenanceRuleSupportEdgesFieldInputSelectionSelectionRevision:
+    """Declared relation row or nested value."""
+
+    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceRuleSupportEdgesFieldInputSelectionSelection:
+    """Declared relation row or nested value."""
+
+    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision: ProvenanceRuleSupportEdgesFieldInputSelectionSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceRuleSupportEdgesFieldInputSelectionSelectionRevision)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class ProvenanceRuleSupportEdgesFieldInputSelection:
     """Declared relation row or nested value."""
 
@@ -779,9 +942,8 @@ class ProvenanceRuleSupportEdgesFieldInputSelection:
     relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    selection: ProvenanceRuleSupportEdgesFieldInputSelectionSelection = attrs.field(validator=attrs.validators.instance_of(ProvenanceRuleSupportEdgesFieldInputSelectionSelection))
 
 
 @attrs.frozen(kw_only=True)

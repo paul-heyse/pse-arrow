@@ -88,11 +88,6 @@ pub enum QuantityContract<'a> {
     /// One quantity type for the whole column, named by its qualified name, for example
     /// `pse.quantity.temperature`.
     Column(&'a str),
-    /// The quantity type varies per row. A sibling column named
-    /// `<name>_quantity_type_id` declares it, and assembly rejects the declaration if that
-    /// sibling is missing — a per-row contract with nowhere to put the contract is a
-    /// column of unlabelled numbers.
-    PerRow,
 }
 
 /// A reference from one relation's column to another's (blueprint §4.1).
@@ -138,6 +133,9 @@ pub struct RelationSpec {
     pub primary_key: Vec<&'static str>,
     /// The columns, in declaration order. The ordinal is the position.
     pub columns: Vec<FieldContract>,
+    /// Named native DataFusion SQL predicates. Each must evaluate to true for a row;
+    /// false and null are violations. Binding uses the actual execution session.
+    pub checks: std::collections::BTreeMap<String, String>,
     /// What the relation means.
     pub doc: &'static str,
     /// The BLAKE3 digest of this relation's registry rows, filled at assembly.
@@ -177,6 +175,8 @@ pub struct RelationDecl {
     pub primary_key: Vec<&'static str>,
     /// See [`RelationSpec::columns`].
     pub columns: Vec<FieldContract>,
+    /// See [`RelationSpec::checks`].
+    pub checks: std::collections::BTreeMap<String, String>,
     /// See [`RelationSpec::doc`].
     pub doc: &'static str,
 }
@@ -200,6 +200,7 @@ impl RelationDecl {
             stability: Stability::Evolving,
             primary_key: Vec::new(),
             columns: Vec::new(),
+            checks: std::collections::BTreeMap::new(),
             doc,
         }
     }
@@ -215,6 +216,14 @@ impl RelationDecl {
     #[must_use]
     pub fn columns(mut self, columns: Vec<FieldContract>) -> Self {
         self.columns = columns;
+        self
+    }
+
+    /// Declare native SQL row predicates. Keys are stable names, values are SQL
+    /// expressions; there is no application expression language or evaluator.
+    #[must_use]
+    pub fn checks(mut self, checks: std::collections::BTreeMap<String, String>) -> Self {
+        self.checks = checks;
         self
     }
 

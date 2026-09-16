@@ -22,11 +22,15 @@ use std::sync::Arc;
 
 fn check(array: ArrayRef, expected: &[bool]) {
     let field = Field::new("value", array.data_type().clone(), true);
+    check_field(array, &field, expected);
+}
+
+fn check_field(array: ArrayRef, field: &Field, expected: &[bool]) {
     let batch =
         RecordBatch::try_new(Arc::new(Schema::new(vec![field.clone()])), vec![array]).unwrap();
     let schema = DFSchema::try_from(batch.schema().as_ref().clone()).unwrap();
     let registry = pse_schema::RegistryBuilder::new().build().unwrap();
-    let expression = field_value(&registry, &field, column("value"), 0)
+    let expression = field_value(&registry, field, column("value"), 0)
         .unwrap()
         .resolve_lambda_variables(&schema)
         .unwrap()
@@ -42,6 +46,40 @@ fn check(array: ArrayRef, expected: &[bool]) {
     let values = result.as_any().downcast_ref::<BooleanArray>().unwrap();
     assert_eq!(values.null_count(), 0);
     assert_eq!(values.values().iter().collect::<Vec<_>>(), expected);
+}
+
+#[test]
+fn collection_bounds_uniqueness_and_empty_values_use_native_array_functions() {
+    use datafusion::arrow::{array::ListArray, datatypes::Int64Type};
+    use pse_schema::model::CollectionContract;
+    let array: ArrayRef = Arc::new(ListArray::from_iter_primitive::<Int64Type, _, _>([
+        Some(vec![Some(2), Some(1)]),
+        Some(vec![Some(1), Some(1)]),
+        Some(vec![]),
+        None,
+        Some(vec![None, None]),
+        Some(vec![Some(1), Some(2), Some(3)]),
+        Some(vec![None, Some(1)]),
+    ]));
+    let field = Field::new("value", array.data_type().clone(), true);
+    let contract = CollectionContract {
+        maximum: Some(2),
+        ..CollectionContract::SET
+    };
+    check_field(
+        Arc::clone(&array),
+        &contract.annotate(field.clone()),
+        &[true, false, true, true, false, false, true],
+    );
+    check_field(
+        array,
+        &CollectionContract {
+            minimum: 1,
+            ..contract
+        }
+        .annotate(field),
+        &[true, false, false, true, false, false, true],
+    );
 }
 
 #[test]

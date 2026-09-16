@@ -788,12 +788,11 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id, ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `relation_id` | `semantic_id` | false | `key` | `reference.schema_relations.relation_id` | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `name` | `Utf8` | false | `label` | — | — |
 | `logical_type_id` | `semantic_id` | false | `reference` | `reference.schema_logical_types.logical_type_id` | — |
 | `nullable` | `Boolean` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | true | `reference` | — | — |
-| `per_row_quantity` | `Boolean` | false | `payload` | — | — |
 | `fk_relation_id` | `semantic_id` | true | `reference` | — | — |
 | `fk_column` | `Utf8` | true | `label` | — | — |
 | `role` | `enum:ColumnRole` | false | `label` | — | — |
@@ -809,7 +808,7 @@ Version: 2. Snapshot class: `model`. Primary key: `document_name, ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `document_name` | `Utf8` | false | `key` | `reference.schema_documents.document_name` | — |
-| `ordinal` | `UInt32` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `key` | `Utf8` | false | `label` | — | — |
 | `relation_id` | `semantic_id` | false | `reference` | `reference.schema_relations.relation_id` | — |
 | `repeated` | `Boolean` | false | `payload` | — | — |
@@ -847,7 +846,7 @@ Version: 1. Snapshot class: `model`. Primary key: `enum_id, member_ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `enum_id` | `semantic_id` | false | `key` | — | — |
-| `member_ordinal` | `UInt16` | false | `key` | — | — |
+| `member_ordinal` | `Int64` | false | `key` | — | — |
 | `member` | `Utf8` | false | `label` | — | — |
 | `idaes_name` | `Utf8` | true | `label` | — | — |
 | `deprecated` | `Boolean` | false | `payload` | — | — |
@@ -891,8 +890,8 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id, from_version, to
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `relation_id` | `semantic_id` | false | `key` | `reference.schema_relations.relation_id` | — |
-| `from_version` | `UInt32` | false | `key` | — | — |
-| `to_version` | `UInt32` | false | `key` | — | — |
+| `from_version` | `Int64` | false | `key` | — | — |
+| `to_version` | `Int64` | false | `key` | — | — |
 | `plan_spec` | `Utf8` | false | `payload` | — | — |
 | `doc` | `Utf8` | false | `label` | — | — |
 
@@ -907,7 +906,7 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id`.
 | `relation_id` | `semantic_id` | false | `key` | — | — |
 | `namespace` | `enum:Namespace` | false | `label` | — | — |
 | `name` | `Utf8` | false | `label` | — | — |
-| `version` | `UInt32` | false | `payload` | — | — |
+| `version` | `Int64` | false | `payload` | — | — |
 | `authority` | `enum:Authority` | false | `label` | — | — |
 | `snapshot_class` | `enum:SnapshotClass` | false | `label` | — | — |
 | `primary_key` | `List` | false | `payload` | — | — |
@@ -915,6 +914,10 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id`.
 | `derivation_granularity` | `enum:DerivationGranularity` | true | `label` | — | — |
 | `stability` | `enum:Stability` | false | `label` | — | — |
 | `doc` | `Utf8` | false | `label` | — | — |
+| `checks` | `List` | false | `payload` | — | — |
+| `checks.item` | `Struct` | false | `payload` | — | — |
+| `checks.item.name` | `Utf8` | false | `payload` | — | — |
+| `checks.item.sql` | `Utf8` | false | `payload` | — | — |
 
 ## `unit_sets`
 

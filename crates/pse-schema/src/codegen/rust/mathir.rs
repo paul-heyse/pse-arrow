@@ -58,7 +58,7 @@ pub(super) fn source(registry: &Registry) -> Result<TokenStream, SchemaError> {
     }
     Ok(quote! {
         //! Exact generated Arrow views feed the existing mathematical algorithm callbacks.
-        use pse_mathir::{DomainRef, GuardRef, MathIrError, NodeId, Opcode, TemplateValueKind, ValueRef};
+        use pse_mathir::{DomainRef, GuardRef, MathIrError, NodeId, Opcode, ValueRef}; use pse_schema::math::{TemplateValueKind};
         use pse_quantity::{BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId, ReductionKind, UnitId, WeightNormalization, infer::BuiltInRule};
         use crate::mathir_relations::malformed;
         #[expect(clippy::needless_pass_by_value, reason = "map_err consumes the relation error at the mathematical boundary")]
@@ -194,7 +194,7 @@ fn callback(name: &str, spec: &RelationSpec) -> Result<Option<TokenStream>, Sche
             quote! { let points = row.breakpoints.into_iter().map(|point| (point.x, point.y)).collect::<Vec<_>>(); sink.piecewise_linear(NodeId(row.node_id), &points, QuantityTypeId::from_id(row.input_quantity_type_id), QuantityTypeId::from_id(row.output_quantity_type_id))?; }
         }
         "math_indexed_equations" => {
-            quote!(sink.indexed_equation(row.indexed_equation_id, row.owner_instance_id, row.equation_decl_id, &row.qualified_name, row.product_id, row.filter_node_id.map(NodeId), NodeId(row.body_node_id), enumeration(row.sense.as_str(), pse_mathir::equation::Sense::parse)?, row.lower_node_id.map(NodeId), row.upper_node_id.map(NodeId), row.residual_quantity_type_id.map(QuantityTypeId::from_id), row.law_instance_id, row.derivation_id)?;)
+            quote!(sink.indexed_equation(row.indexed_equation_id, row.owner_instance_id, row.equation_decl_id, &row.qualified_name, row.product_id, row.filter_node_id.map(NodeId), NodeId(row.body_node_id), enumeration(row.sense.as_str(), pse_schema::math::Sense::parse)?, row.lower_node_id.map(NodeId), row.upper_node_id.map(NodeId), row.residual_quantity_type_id.map(QuantityTypeId::from_id), row.law_instance_id, row.derivation_id)?;)
         }
         "math_free_indices" => {
             quote!(sink.free_index(row.indexed_equation_id, BoundIndexId::from_id(row.bound_index_id), DomainId::from_id(row.domain_id), row.position)?;)
@@ -229,7 +229,7 @@ fn callback(name: &str, spec: &RelationSpec) -> Result<Option<TokenStream>, Sche
 
 fn reference() -> TokenStream {
     quote! {
-        if row.kind.as_str() == pse_mathir::Payload::PENDING_PATH_KIND {
+        if row.kind.as_str() == pse_schema::math::PENDING_PATH_KIND {
             if row.symbol_id.is_some() || row.template_id.is_some() || row.name.is_some() || row.domain_id.is_some() || row.bound_index_id.is_some() { return Err(malformed("path reference overlaps another alternative")); }
             let indices = row.path_index_nodes.ok_or_else(|| malformed("path index inventory absent"))?.into_iter().map(NodeId).collect::<Vec<_>>();
             sink.pending_path(NodeId(row.node_id), row.path_source_id.ok_or_else(|| malformed("path source absent"))?, row.path_id.ok_or_else(|| malformed("path ordinal absent"))?, &indices)?;

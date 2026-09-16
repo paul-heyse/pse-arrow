@@ -40,8 +40,8 @@ Version: 1. Snapshot class: `derived`. Primary key: `block_id`.
 | `problem_id` | `semantic_id` | false | `payload` | — | — |
 | `block_id` | `semantic_id` | false | `key` | — | — |
 | `kind` | `enum:BlockKind` | false | `payload` | — | — |
-| `order` | `UInt32` | false | `payload` | — | — |
-| `size` | `UInt32` | false | `payload` | — | — |
+| `order` | `Int64` | false | `payload` | — | — |
+| `size` | `Int64` | false | `payload` | — | — |
 
 ## `bound_values`
 
@@ -187,7 +187,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `problem_id, equation_id`.
 |---|---|---|---|---|---|
 | `problem_id` | `semantic_id` | false | `key` | — | — |
 | `equation_id` | `semantic_id` | false | `key` | — | — |
-| `position` | `UInt64` | true | `payload` | — | — |
+| `position` | `Int64` | true | `payload` | — | — |
 | `active` | `Boolean` | false | `payload` | — | — |
 | `scale` | `Float64` | false | `payload` | — | — |
 | `kind` | `enum:RowKind` | false | `payload` | — | — |
@@ -216,8 +216,8 @@ Version: 1. Snapshot class: `derived`. Primary key: `program_id`.
 | `problem_id` | `semantic_id` | false | `payload` | — | — |
 | `program_id` | `semantic_id` | false | `key` | — | — |
 | `artifact_hash` | `content_hash` | false | `payload` | — | — |
-| `instruction_count` | `UInt64` | false | `payload` | — | — |
-| `workspace_size` | `UInt64` | false | `payload` | — | — |
+| `instruction_count` | `Int64` | false | `payload` | — | — |
+| `workspace_size` | `Int64` | false | `payload` | — | — |
 
 ## `expression_root_indices`
 
@@ -345,8 +345,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `problem_id, equation_id, sy
 | `problem_id` | `semantic_id` | false | `key` | — | — |
 | `equation_id` | `semantic_id` | false | `key` | — | — |
 | `symbol_id` | `semantic_id` | false | `key` | — | — |
-| `linear` | `Boolean` | false | `payload` | — | — |
-| `coefficient` | `Float64` | true | `payload` | — | — |
+| `dependence` | `Struct` | false | `payload` | — | — |
+| `dependence.kind` | `enum:IncidenceKind` | false | `payload` | — | — |
+| `dependence.linear` | `Struct` | true | `payload` | — | — |
+| `dependence.linear.coefficient` | `Float64` | false | `payload` | — | — |
 
 ## `init_stages`
 
@@ -667,6 +669,12 @@ Version: 1. Snapshot class: `derived`. Primary key: `implicit_system_id`.
 | `branch_policy` | `Utf8` | false | `payload` | — | — |
 | `kernel_binding_id` | `semantic_id` | true | `payload` | — | — |
 
+Native row check `implicit_cardinality` (must be true):
+
+```sql
+array_length(unknown_symbol_ids) = array_length(equation_ids)
+```
+
 ## `math_indexed_equations`
 
 blueprint §6.9 math: math_indexed_equations.
@@ -966,10 +974,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `problem_id`.
 | `case_id` | `semantic_id` | false | `payload` | — | — |
 | `discretization_policy_ids` | `List` | false | `payload` | — | — |
 | `discretization_policy_ids.item` | `semantic_id` | false | `payload` | — | — |
-| `variable_count` | `UInt64` | false | `payload` | — | — |
-| `equation_count` | `UInt64` | false | `payload` | — | — |
-| `inequality_count` | `UInt64` | false | `payload` | — | — |
-| `objective_count` | `UInt64` | false | `payload` | — | — |
+| `variable_count` | `Int64` | false | `payload` | — | — |
+| `equation_count` | `Int64` | false | `payload` | — | — |
+| `inequality_count` | `Int64` | false | `payload` | — | — |
+| `objective_count` | `Int64` | false | `payload` | — | — |
 | `degrees_of_freedom` | `Int64` | false | `payload` | — | — |
 | `input_bundle_hash` | `content_hash` | false | `payload` | — | — |
 
@@ -1012,9 +1020,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `problem_id, kind`.
 | `problem_id` | `semantic_id` | false | `key` | — | — |
 | `kind` | `enum:SparsityKind` | false | `key` | — | — |
 | `row_ptr` | `List` | false | `payload` | — | — |
-| `row_ptr.item` | `UInt32` | false | `payload` | — | — |
+| `row_ptr.item` | `Int64` | false | `payload` | — | — |
 | `col_idx` | `List` | false | `payload` | — | — |
-| `col_idx.item` | `UInt32` | false | `payload` | — | — |
+| `col_idx.item` | `Int64` | false | `payload` | — | — |
 | `content_hash` | `content_hash` | false | `payload` | — | — |
 
 ## `stage_bundles`
@@ -1135,7 +1143,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `problem_id, symbol_id`.
 |---|---|---|---|---|---|
 | `problem_id` | `semantic_id` | false | `key` | — | — |
 | `symbol_id` | `semantic_id` | false | `key` | — | — |
-| `position` | `UInt64` | true | `payload` | — | — |
+| `position` | `Int64` | true | `payload` | — | — |
 | `treatment` | `enum:Treatment` | false | `payload` | — | — |
 | `lower` | `bound` | false | `payload` | — | — |
 | `upper` | `bound` | false | `payload` | — | — |

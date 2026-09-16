@@ -67,8 +67,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             ],
         );
         let boolean = |name| E::Field {
-            expr: Box::new(E::col(name)),
-            name: "boolean".into(),
+            expr: Box::new(E::Field {
+                expr: Box::new(E::col(name)),
+                name: "boolean".into(),
+            }),
+            name: "value".into(),
         };
         let left = boolean("left_feature.value");
         let right = boolean("right_feature.value");

@@ -61,7 +61,7 @@ pub(super) fn envelope(
         ));
     }
     let operations = rows::<authored::change_ops::Row>(catalog, &draft.operations)?;
-    let mut expected = BTreeMap::<String, BTreeSet<u64>>::new();
+    let mut expected = BTreeMap::<String, BTreeSet<i64>>::new();
     for (ordinal, operation) in operations.into_iter().enumerate() {
         if operation.change_set_id != header.change_set_id
             || usize::try_from(operation.ordinal).ok() != Some(ordinal)

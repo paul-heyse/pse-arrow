@@ -174,7 +174,10 @@ async fn cached_configuration_ast_binds_each_parent_and_preserves_full_width_lit
                 .filter(|row| row.owner_id == children[0].instance_id && row.name == name)
                 .collect::<Vec<_>>();
             assert_eq!(actual.len(), 1);
-            assert_eq!(actual[0].value.unsigned, Some(expected));
+            assert_eq!(
+                actual[0].value.unsigned.as_ref().map(|arm| arm.value),
+                Some(expected)
+            );
             assert_eq!(
                 actual[0].source_relation_id,
                 authored::template_submodels::RELATION_ID

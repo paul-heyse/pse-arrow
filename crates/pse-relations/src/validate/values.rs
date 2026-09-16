@@ -3,7 +3,7 @@
 
 use crate::RelationError;
 use arrow_schema::{DataType, Field};
-use pse_schema::model::{Cell, QuantityContract, RelationSpec};
+use pse_schema::model::Cell;
 
 pub(super) fn validate_cell(
     field: &Field,
@@ -29,6 +29,24 @@ pub(super) fn validate_cell(
             path,
             row,
             "value outside declared integer domain",
+        ));
+    }
+    if let Ok(Some(alternative)) = pse_schema::model::TaggedAlternative::from_field(field)
+        && !alternative.accepts(field, cell)
+    {
+        errors.push(crate::cells::value_error(
+            path,
+            row,
+            "tagged value requires exactly its selected arm",
+        ));
+    }
+    if let Ok(Some(contract)) = pse_schema::model::CollectionContract::from_field(field)
+        && !matches!(cell, Cell::List(values) if contract.accepts(values))
+    {
+        errors.push(crate::cells::value_error(
+            path,
+            row,
+            "collection violates cardinality or uniqueness",
         ));
     }
     match (field.data_type(), cell) {
@@ -119,33 +137,5 @@ fn quantity(cell: &Cell) -> Option<&'static str> {
             None
         }
         _ => Some(super::local_values::QUANTITY_ERROR),
-    }
-}
-
-pub(super) fn validate_quantities(
-    spec: &RelationSpec,
-    values: &[Cell],
-    row: usize,
-    errors: &mut Vec<RelationError>,
-) {
-    for (index, column) in spec.columns.iter().enumerate() {
-        if column.quantity() != QuantityContract::PerRow
-            || matches!(values.get(index), None | Some(Cell::Null))
-        {
-            continue;
-        }
-        let sibling = column.per_row_quantity_sibling();
-        let value = spec
-            .columns
-            .iter()
-            .position(|candidate| candidate.name() == sibling)
-            .and_then(|index| values.get(index));
-        if !matches!(value, Some(Cell::Id(_))) {
-            errors.push(crate::cells::value_error(
-                column.name(),
-                row,
-                "visible per-row quantity requires a non-null sibling quantity identity",
-            ));
-        }
     }
 }

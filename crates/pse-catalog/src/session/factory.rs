@@ -65,28 +65,32 @@ impl SessionFactory {
         let rules = super::EngineRules::from_profile(&profile)?;
         let builder = SessionStateBuilder::new()
             .with_default_features()
+            .with_config(super::config::build(settings, budget)?)
             .with_query_planner(Arc::new(super::planner::UnifiedPlanner::default()))
             .with_analyzer_rules(rules.analyzers)
             .with_optimizer_rules(rules.optimizers)
             .with_physical_optimizer_rules(rules.physical);
         let version = profile.version;
-        Self::from_builder(runtime, reserver, settings, budget, &version, builder)
+        Ok(Self::from_builder(runtime, reserver, &version, builder))
     }
     /// Freeze a native engine assembly before binding any input or preparing a plan.
     /// Callers may install native scalar, aggregate, window and higher-order functions,
     /// analyzers, expression rewrites, logical/physical optimizers and planners using
-    /// `SessionStateBuilder`. This retains the actual implementations, not their names.
-    /// # Errors
-    /// Invalid typed execution settings or thread configuration.
+    /// `SessionStateBuilder`. The builder's entire native configuration, including
+    /// opaque extensions, remains authoritative alongside the actual implementations.
+    #[must_use]
     pub fn from_builder(
         runtime: Arc<RuntimeEnv>,
         reserver: Arc<dyn MemoryReserver>,
-        settings: ExecutionSettings,
-        budget: ThreadBudget,
         version: &str,
         mut builder: SessionStateBuilder,
-    ) -> Result<Self, CatalogError> {
-        let config = super::config::build(settings, budget)?;
+    ) -> Self {
+        builder
+            .config()
+            .get_or_insert_default()
+            .options_mut()
+            .extensions
+            .insert(super::config::PseOptions);
         // A plain native builder must retain the same Delta/domain planning path
         // as `new`. Explicit caller planners remain the actual implementations;
         // custom assemblies compose domain planners through UnifiedPlanner::new.
@@ -95,7 +99,6 @@ impl SessionFactory {
             .get_or_insert_with(|| Arc::new(super::planner::UnifiedPlanner::default()));
         let state = super::scalar::register(builder, Arc::clone(&reserver))
             .with_runtime_env(runtime)
-            .with_config(config)
             .build();
         let mut physical = state.physical_optimizers().to_vec();
         physical.insert(0, Arc::new(super::physical_fields::SemanticFields));
@@ -108,7 +111,7 @@ impl SessionFactory {
             physical: state.physical_optimizers().to_vec(),
         });
         let function_bindings = super::functions::Functions::from_state(&state);
-        Ok(Self {
+        Self {
             state,
             reserver,
             profile: rules.profile(version),
@@ -116,7 +119,7 @@ impl SessionFactory {
             function_bindings,
             requirement_planner: None,
             policies: Arc::default(),
-        })
+        }
     }
     /// Construct a constraint-free session over the complete actual candidate rows.
     /// # Errors

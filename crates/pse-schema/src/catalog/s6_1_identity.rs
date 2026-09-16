@@ -68,7 +68,8 @@ fn declare_packages(builder: &mut RegistryBuilder) {
                     FieldContract::native(arrow_schema::DataType::Utf8)
                         .with_name("version_req")
                         .with_nullable(false),
-                ])),
+                ]))
+                .with_collection(crate::model::CollectionContract::SET),
                 "The declared dependencies. Phase 0 admits exact version requirements only.",
             ),
             FieldContract::payload(
@@ -236,7 +237,7 @@ fn declare_package_graph(builder: &mut RegistryBuilder) {
             ),
             FieldContract::payload(
                 "depth",
-                FieldContract::native(arrow_schema::DataType::UInt16),
+                FieldContract::nonnegative(i64::from(u16::MAX)),
                 "The distance from the root package.",
             ),
             FieldContract::payload(

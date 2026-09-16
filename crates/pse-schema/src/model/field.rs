@@ -12,7 +12,6 @@ const EXTENSION: &str = "pse.domain.extension";
 const PARAMETER: &str = "pse.domain.parameter";
 const ROLE: &str = "pse.domain.role";
 const DOC: &str = "pse.domain.doc";
-const PER_ROW: &str = "pse.domain.per_row_quantity";
 const QUANTITY: &str = "pse.domain.quantity";
 const FK_RELATION: &str = "pse.domain.fk.relation";
 const FK_COLUMN: &str = "pse.domain.fk.column";
@@ -77,6 +76,17 @@ impl FieldContract {
     pub fn nonnegative(maximum: i64) -> Self {
         Self(super::IntegerRange::nonnegative(maximum).field("item"))
     }
+
+    /// Select exactly one optional struct arm using the declared discriminator.
+    #[must_use]
+    pub fn with_alternative(self, alternative: &super::TaggedAlternative) -> Self {
+        Self(alternative.annotate(self.0))
+    }
+    /// Declare cardinality, order and uniqueness at this native list field.
+    #[must_use]
+    pub fn with_collection(self, contract: super::CollectionContract) -> Self {
+        Self(contract.annotate(self.0))
+    }
     /// Native physical type, including complete nested fields.
     pub fn data_type(&self) -> DataType {
         self.0.data_type().clone()
@@ -134,14 +144,10 @@ impl FieldContract {
     pub fn doc(&self) -> &str {
         self.get(DOC).unwrap_or("")
     }
-    /// Quantity facet, including the predecessor per-row form until SP02 replaces its callers.
+    /// One homogeneous quantity for this field; heterogeneous values use `QuantityValue`.
     pub fn quantity(&self) -> QuantityContract<'_> {
-        if self.get(PER_ROW) == Some("true") {
-            QuantityContract::PerRow
-        } else {
-            self.get(QUANTITY)
-                .map_or(QuantityContract::None, QuantityContract::Column)
-        }
+        self.get(QUANTITY)
+            .map_or(QuantityContract::None, QuantityContract::Column)
     }
     /// Reference facet, at this exact field path.
     pub fn fk(&self) -> Option<ForeignKey<'_>> {
@@ -157,19 +163,16 @@ impl FieldContract {
     }
     /// Assign one quantity type.
     #[must_use]
-    pub fn with_quantity(mut self, quantity: &str) -> Self {
-        self.0.metadata_mut().remove(PER_ROW);
+    pub fn with_quantity(self, quantity: &str) -> Self {
         self.facet(QUANTITY, quantity)
     }
     /// Assign a quantity facet obtained from another declared field.
     #[must_use]
     pub fn with_quantity_contract(mut self, quantity: QuantityContract<'_>) -> Self {
         self.0.metadata_mut().remove(QUANTITY);
-        self.0.metadata_mut().remove(PER_ROW);
         match quantity {
             QuantityContract::None => self,
             QuantityContract::Column(name) => self.with_quantity(name),
-            QuantityContract::PerRow => self.with_per_row_quantity(),
         }
     }
     /// Remove a reference when a native projection no longer establishes it.
@@ -178,16 +181,6 @@ impl FieldContract {
         self.0.metadata_mut().remove(FK_RELATION);
         self.0.metadata_mut().remove(FK_COLUMN);
         self
-    }
-    /// Per-row sibling facet, replaced by typed quantities in SP02.
-    #[must_use]
-    pub fn with_per_row_quantity(mut self) -> Self {
-        self.0.metadata_mut().remove(QUANTITY);
-        self.facet(PER_ROW, "true")
-    }
-    /// The required quantity identity sibling.
-    pub fn per_row_quantity_sibling(&self) -> String {
-        format!("{}_quantity_type_id", self.name())
     }
     /// Declare a named field from an existing native value contract.
     pub fn new(name: &str, value: Self, nullable: bool, role: ColumnRole, doc: &str) -> Self {
@@ -220,10 +213,17 @@ impl FieldContract {
     /// A list of explicitly declared fields, including element name, nullability and facets.
     pub fn list(element: Self) -> Self {
         Self::native(DataType::List(element.into_field().into()))
+            .with_collection(super::CollectionContract::SEQUENCE)
     }
     /// A fixed-size list of explicitly declared fields.
     pub fn fixed_list(element: Self, width: i32) -> Self {
-        Self::native(DataType::FixedSizeList(element.into_field().into(), width))
+        Self::native(DataType::FixedSizeList(element.into_field().into(), width)).with_collection(
+            super::CollectionContract {
+                minimum: i64::from(width),
+                maximum: Some(i64::from(width)),
+                ..super::CollectionContract::SEQUENCE
+            },
+        )
     }
     /// A native struct with complete child declarations.
     pub fn structure(fields: Vec<Self>) -> Self {
@@ -318,7 +318,7 @@ impl FieldContract {
             .filter(|(key, _)| {
                 !matches!(
                     key.as_str(),
-                    ROLE | DOC | QUANTITY | PER_ROW | FK_RELATION | FK_COLUMN
+                    ROLE | DOC | QUANTITY | FK_RELATION | FK_COLUMN
                 )
             })
             .map(|(k, v)| (k.clone(), v.clone()))
@@ -408,7 +408,7 @@ impl FieldContract {
         {
             if !matches!(
                 key.as_str(),
-                EXTENSION | PARAMETER | ROLE | DOC | QUANTITY | PER_ROW | FK_RELATION | FK_COLUMN
+                EXTENSION | PARAMETER | ROLE | DOC | QUANTITY | FK_RELATION | FK_COLUMN
             ) {
                 return Err(invalid("unknown domain facet"));
             }
@@ -429,11 +429,6 @@ impl FieldContract {
             .is_some_and(|role| !ColumnRole::ALL.iter().any(|known| known.as_str() == role))
         {
             return Err(invalid("unknown field role"));
-        }
-        if self.get(PER_ROW).is_some_and(|value| value != "true")
-            || (self.get(PER_ROW).is_some() && self.get(QUANTITY).is_some())
-        {
-            return Err(invalid("ambiguous per-row quantity declaration"));
         }
         if self.get(FK_RELATION).is_some() != self.get(FK_COLUMN).is_some() {
             return Err(invalid("incomplete field reference"));

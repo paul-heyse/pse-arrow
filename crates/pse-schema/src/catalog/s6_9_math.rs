@@ -538,20 +538,40 @@ fn declare_compiled_math_objectives(builder: &mut RegistryBuilder) {
 }
 
 fn declare_compiled_math_implicit_systems(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Compiled,
-        "math_implicit_systems",
-        S::Derived,
-        &["implicit_system_id"],
-        vec![
-            column("implicit_system_id", T::id()),
-            column("unknown_symbol_ids", T::list(T::id())),
-            column("equation_ids", T::list(T::id())),
+    builder.declare_relation(
+        crate::model::RelationDecl::new(
+            N::Compiled,
+            "math_implicit_systems",
+            1,
+            crate::model::Authority::Derived,
+            S::Derived,
+            "blueprint §6.9 math: math_implicit_systems.",
+        )
+        .pk(&["implicit_system_id"])
+        .granularity(crate::model::DerivationGranularity::Row)
+        .checks(std::collections::BTreeMap::from([(
+            "implicit_cardinality".into(),
+            "array_length(unknown_symbol_ids) = array_length(equation_ids)".into(),
+        )]))
+        .columns(vec![
+            T::key("implicit_system_id", T::id(), "Implicit system identity."),
+            column(
+                "unknown_symbol_ids",
+                T::list(T::id()).with_collection(crate::model::CollectionContract {
+                    unique: true,
+                    ..crate::model::CollectionContract::SEQUENCE
+                }),
+            ),
+            column(
+                "equation_ids",
+                T::list(T::id()).with_collection(crate::model::CollectionContract {
+                    unique: true,
+                    ..crate::model::CollectionContract::SEQUENCE
+                }),
+            ),
             column("branch_policy", T::native(arrow_schema::DataType::Utf8)),
             column("kernel_binding_id", T::id()).optional(),
-        ],
-        "blueprint §6.9 math: math_implicit_systems.",
+        ]),
     );
 }
 
@@ -594,9 +614,7 @@ fn declare_sense_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
         "Sense",
-        pse_mathir::equation::Sense::ALL
-            .iter()
-            .map(|sense| sense.as_str()),
+        crate::math::Sense::ALL.iter().map(|sense| sense.as_str()),
     );
 }
 

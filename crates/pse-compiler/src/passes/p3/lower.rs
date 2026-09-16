@@ -10,13 +10,14 @@ use pse_authoring::{
 };
 use pse_ids::{CancellationToken, Reservation, SemanticId};
 use pse_mathir::{
-    BoundIndexId, DomainRef, ExprGraph, GuardRef, NodeId, Opcode, Payload, ReductionKind,
-    TemplateValueKind, ValueRef, WeightNormalization, WeightedPair,
+    BoundIndexId, DomainRef, ExprGraph, GuardRef, NodeId, Opcode, Payload, ReductionKind, ValueRef,
+    WeightNormalization, WeightedPair,
 };
 use pse_relations::generated::{
     enums::{EquationSyntax, PredicateComparison, PredicateKind, PredicateOperandKind, Sense},
     normalized,
 };
+use pse_schema::math::TemplateValueKind;
 use std::collections::BTreeMap;
 
 pub(super) struct Lowered {

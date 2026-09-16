@@ -562,7 +562,7 @@ async fn domain_candidates(
                 result
                     .values
                     .get(&(instance.instance_id, name.clone()))
-                    .and_then(|value| value.semantic_id)
+                    .and_then(|value| value.semantic_id.as_ref().map(|arm| arm.value))
                     .ok_or_else(|| invalid("domain parameter lacks actual identity"))?
             }
             _ => {
@@ -618,7 +618,7 @@ async fn select_child_template(
     let selected = result
         .values
         .get(&(parent.instance_id, name.to_owned()))
-        .and_then(|value| value.semantic_id)
+        .and_then(|value| value.semantic_id.as_ref().map(|arm| arm.value))
         .ok_or_else(|| {
             invalid("parameter-selected child requires an actual typed semantic identity")
         })?;

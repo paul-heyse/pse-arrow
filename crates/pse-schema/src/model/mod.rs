@@ -21,6 +21,7 @@
 
 pub mod cell;
 mod cell_codec;
+pub mod collection;
 pub mod document;
 pub mod enums;
 pub mod expression_path;
@@ -37,6 +38,7 @@ pub mod relation;
 pub mod rule;
 pub mod rule_expr;
 pub(crate) mod rule_validation;
+pub mod tagged_alternative;
 
 pub use crate::model::cell::{Cell, RuleLiteralKind};
 pub use crate::model::document::{
@@ -66,5 +68,7 @@ pub use crate::model::rule::{
 pub use crate::model::rule_expr::{CmpOp, RuleExpr, RuleExprOp};
 pub use expression_path::ExpressionPathSegmentKind;
 
+pub use collection::{CollectionContract, CollectionOrder};
 pub use field::FieldContract;
 pub use integer_range::IntegerRange;
+pub use tagged_alternative::TaggedAlternative;

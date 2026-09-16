@@ -61,9 +61,12 @@ pub(super) async fn apply(
         cancel,
     )
     .await?;
-    let member = when(is_feature, get_field(c("feature", "value"), "text"))
-        .otherwise(col("balance_option"))
-        .map_err(error)?;
+    let member = when(
+        is_feature,
+        get_field(get_field(c("feature", "value"), "enumeration"), "member"),
+    )
+    .otherwise(col("balance_option"))
+    .map_err(error)?;
     let base = append(base, [member.alias("initial_balance")])?;
 
     // Prospective child rows are joined to actual instances before joining the parent.
@@ -111,7 +114,10 @@ pub(super) async fn apply(
         ],
     )?;
     let is_default = col("initial_balance").eq(lit("useDefault"));
-    let default_value = get_field(c("default_feature", "value"), "text");
+    let default_value = get_field(
+        get_field(c("default_feature", "value"), "enumeration"),
+        "member",
+    );
     let valid = c("state", "instance_id")
         .is_not_null()
         .and(c("definition", "family").eq(lit("state_definition")))
@@ -174,6 +180,9 @@ fn feature_contract(alias: &str) -> Expr {
     let value = c(alias, "value");
     get_field(value.clone(), "kind")
         .eq(lit("enum"))
-        .and(get_field(value.clone(), "enum_id").eq(c("contract", "balance_enum_id")))
-        .and(get_field(value, "text").is_not_null())
+        .and(
+            get_field(get_field(value.clone(), "enumeration"), "enum_id")
+                .eq(c("contract", "balance_enum_id")),
+        )
+        .and(get_field(get_field(value, "enumeration"), "member").is_not_null())
 }

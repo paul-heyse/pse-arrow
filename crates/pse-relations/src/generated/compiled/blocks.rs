@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    187u8, 38u8, 199u8, 215u8, 8u8, 11u8, 110u8, 227u8, 16u8, 245u8, 89u8, 89u8, 76u8,
-    48u8, 203u8, 166u8, 134u8, 185u8, 207u8, 208u8, 127u8, 112u8, 22u8, 221u8, 26u8,
-    205u8, 160u8, 191u8, 48u8, 14u8, 2u8, 244u8,
+    247u8, 63u8, 174u8, 134u8, 245u8, 83u8, 20u8, 91u8, 85u8, 96u8, 60u8, 148u8, 177u8,
+    193u8, 65u8, 197u8, 69u8, 3u8, 119u8, 207u8, 158u8, 71u8, 64u8, 92u8, 33u8, 227u8,
+    45u8, 230u8, 33u8, 40u8, 188u8, 193u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -34,9 +34,9 @@ pub struct CompiledBlocksRow {
     ///kind
     pub r#kind: crate::generated::enums::BlockKind,
     ///order
-    pub r#order: u32,
+    pub r#order: i64,
     ///size
-    pub r#size: u32,
+    pub r#size: i64,
 }
 impl crate::typed::CellCodec for CompiledBlocksRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -80,14 +80,14 @@ impl crate::typed::CellCodec for CompiledBlocksRow {
                         stringify!(CompiledBlocksRow),
                     ))?,
             )?,
-            r#order: <u32 as crate::typed::CellCodec>::from_cell(
+            r#order: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(CompiledBlocksRow),
                     ))?,
             )?,
-            r#size: <u32 as crate::typed::CellCodec>::from_cell(
+            r#size: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -136,8 +136,8 @@ impl crate::columnar::ArrowValue for CompiledBlocksRow {
         <crate::generated::enums::BlockKind as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <u32 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <u32 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -160,11 +160,11 @@ impl crate::columnar::ArrowValue for CompiledBlocksRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#order: <u32 as crate::columnar::ArrowValue>::read(
+            r#order: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#size: <u32 as crate::columnar::ArrowValue>::read(
+            r#size: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
@@ -199,7 +199,7 @@ impl CompiledBlocksRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"234f12bca9f422e4f70af8fdfcc63b82\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"blocks\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"block_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"problem_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"block_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"block_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"block_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"BlockKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"85a8b7265aff920d2346bc74bf588f52\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"85a8b7265aff920d2346bc74bf588f52\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:BlockKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:BlockKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"85a8b7265aff920d2346bc74bf588f52\\\"}\"],[\"struct\",[[\"id\",\"85a8b7265aff920d2346bc74bf588f52\"],[\"text\",\"BlockKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"scc\"],[\"null\",null],[\"bool\",false],[\"text\",\"scc\"]]],[\"struct\",[[\"text\",\"connected_component\"],[\"null\",null],[\"bool\",false],[\"text\",\"connected_component\"]]],[\"struct\",[[\"text\",\"bordered_diagonal\"],[\"null\",null],[\"bool\",false],[\"text\",\"bordered_diagonal\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"order\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"order\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"order\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u32\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"size\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"size\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"size\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u32\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.12 derived structure: blocks.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"234f12bca9f422e4f70af8fdfcc63b82\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"234f12bca9f422e4f70af8fdfcc63b82\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"blocks\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"block_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"problem_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"block_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"block_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"block_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"BlockKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"85a8b7265aff920d2346bc74bf588f52\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"85a8b7265aff920d2346bc74bf588f52\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:BlockKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:BlockKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"85a8b7265aff920d2346bc74bf588f52\\\"}\"],[\"struct\",[[\"id\",\"85a8b7265aff920d2346bc74bf588f52\"],[\"text\",\"BlockKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"scc\"],[\"null\",null],[\"bool\",false],[\"text\",\"scc\"]]],[\"struct\",[[\"text\",\"connected_component\"],[\"null\",null],[\"bool\",false],[\"text\",\"connected_component\"]]],[\"struct\",[[\"text\",\"bordered_diagonal\"],[\"null\",null],[\"bool\",false],[\"text\",\"bordered_diagonal\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"order\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"order\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]]]]]],[\"struct\",[[\"text\",\"order\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"size\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"size\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]]]]]],[\"struct\",[[\"text\",\"size\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.12 derived structure: blocks.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"234f12bca9f422e4f70af8fdfcc63b82\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -275,7 +275,7 @@ impl crate::columnar::RelationRow for CompiledBlocksRow {
         CompiledBlocksView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        51_096_usize + size_of::<Self::Builder>()
+        53_992_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         96usize
@@ -347,8 +347,8 @@ pub struct CompiledBlocksView<'a> {
     problem_id_column: &'a arrow_array::FixedSizeBinaryArray,
     block_id_column: &'a arrow_array::FixedSizeBinaryArray,
     kind_column: &'a arrow_array::StringArray,
-    order_column: &'a arrow_array::UInt32Array,
-    size_column: &'a arrow_array::UInt32Array,
+    order_column: &'a arrow_array::Int64Array,
+    size_column: &'a arrow_array::Int64Array,
 }
 impl<'a> CompiledBlocksView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -396,10 +396,10 @@ impl<'a> CompiledBlocksView<'a> {
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
             order_column: crate::columnar::array::<
-                arrow_array::UInt32Array,
+                arrow_array::Int64Array,
             >(batch.column(3usize).as_ref())?,
             size_column: crate::columnar::array::<
-                arrow_array::UInt32Array,
+                arrow_array::Int64Array,
             >(batch.column(4usize).as_ref())?,
         })
     }
@@ -456,7 +456,7 @@ impl<'a> CompiledBlocksView<'a> {
         "order",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn order_column(&self) -> &'a arrow_array::UInt32Array {
+    pub const fn order_column(&self) -> &'a arrow_array::Int64Array {
         self.order_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "order", "`.")]
@@ -468,7 +468,7 @@ impl<'a> CompiledBlocksView<'a> {
         "size",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn size_column(&self) -> &'a arrow_array::UInt32Array {
+    pub const fn size_column(&self) -> &'a arrow_array::Int64Array {
         self.size_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "size", "`.")]
@@ -553,6 +553,25 @@ impl CompiledBlocksBuilder {
     /// # Errors
     /// An extension value, quantity sibling or Arrow storage violation.
     pub fn push(&mut self, row: CompiledBlocksRow) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=4_294_967_295_i64).contains(&(row.r#order).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "order",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if !((0_i64..=4_294_967_295_i64).contains(&(row.r#size).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "size",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

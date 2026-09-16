@@ -33,20 +33,81 @@ class NormalizedCandidateIndexTuplesRow:
 
 
 @attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueBoolean:
+    """Declared relation row or nested value."""
+
+    value: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+
+@attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueSigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueUnsigned:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+
+@attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueReal:
+    """Declared relation row or nested value."""
+
+    value: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueText:
+    """Declared relation row or nested value."""
+
+    value: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueSemanticId:
+    """Declared relation row or nested value."""
+
+    value: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueEnumeration:
+    """Declared relation row or nested value."""
+
+    enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class NormalizedConfigValuesFieldValueIndex:
+    """Declared relation row or nested value."""
+
+    value: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
 class NormalizedConfigValuesFieldValue:
     """Declared relation row or nested value."""
 
     kind: e.ConfigValueKind = attrs.field(validator=attrs.validators.instance_of(e.ConfigValueKind))
-    boolean: b.bool | None = attrs.field(validator=attrs.validators.optional(v.exact_type(b.bool)))
-    signed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(-9223372036854775808, 9223372036854775807)))
-    unsigned: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    real: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    text: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    semantic_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    enum_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    boolean: NormalizedConfigValuesFieldValueBoolean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueBoolean)))
+    signed: NormalizedConfigValuesFieldValueSigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueSigned)))
+    unsigned: NormalizedConfigValuesFieldValueUnsigned | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueUnsigned)))
+    real: NormalizedConfigValuesFieldValueReal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueReal)))
+    text: NormalizedConfigValuesFieldValueText | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueText)))
+    semantic_id: NormalizedConfigValuesFieldValueSemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueSemanticId)))
+    enumeration: NormalizedConfigValuesFieldValueEnumeration | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueEnumeration)))
+    index: NormalizedConfigValuesFieldValueIndex | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(NormalizedConfigValuesFieldValueIndex)))
+    quantity: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "boolean" and self.boolean is not None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "enum" and self.boolean is None and self.enumeration is not None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "index" and self.boolean is None and self.enumeration is None and self.index is not None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "quantity" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is not None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "real" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is not None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "semantic_id" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is not None and self.signed is None and self.text is None and self.unsigned is None) or (self.kind == "signed" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is not None and self.text is None and self.unsigned is None) or (self.kind == "text" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is not None and self.unsigned is None) or (self.kind == "unsigned" and self.boolean is None and self.enumeration is None and self.index is None and self.quantity is None and self.real is None and self.semantic_id is None and self.signed is None and self.text is None and self.unsigned is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -1397,7 +1458,7 @@ class NormalizedPackagesRow:
     version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: e.PackageKind = attrs.field(validator=attrs.validators.instance_of(e.PackageKind))
     id_policy: e.IdPolicy = attrs.field(validator=attrs.validators.instance_of(e.IdPolicy))
-    dependencies: b.tuple[NormalizedPackagesFieldDependenciesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(NormalizedPackagesFieldDependenciesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    dependencies: b.tuple[NormalizedPackagesFieldDependenciesItem, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(NormalizedPackagesFieldDependenciesItem), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
     content_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 

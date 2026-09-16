@@ -84,7 +84,7 @@ pub(super) fn render(registry: &Registry) -> Result<TokenStream, SchemaError> {
     Ok(quote! {
         //! Existing mathematical callbacks write direct generated columns.
         use pse_ids::{ContentHash, SemanticId};
-        use pse_mathir::{MathIrError, NodeId, Opcode, equation::Sense, relations::{MathRelationSink, InputBinding, ParameterBinding}};
+        use pse_mathir::{MathIrError, NodeId, Opcode, relations::{MathRelationSink, InputBinding, ParameterBinding}}; use pse_schema::math::{Sense};
         use pse_quantity::{BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId, ReductionKind, UnitId, WeightNormalization, infer::BuiltInRule};
         use crate::mathir_relations::{Family, RelationSink, malformed, sink::adapter_error};
         impl MathRelationSink for RelationSink<'_> { #(#methods)* }
@@ -252,7 +252,7 @@ fn row(method: &str, spec: &RelationSpec) -> Result<TokenStream, SchemaError> {
             set!(
                 "kind",
                 quote!(
-                    pse_mathir::Payload::PENDING_PATH_KIND
+                    pse_schema::math::PENDING_PATH_KIND
                         .parse()
                         .map_err(adapter_error)?
                 )

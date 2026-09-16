@@ -87,7 +87,7 @@ fn declare_runs(builder: &mut RegistryBuilder) {
             column("plan_id", T::id()).optional(),
             column("stage_id", T::id()).optional(),
             column("parent_run_id", T::id()).optional(),
-            column("attempt", T::native(arrow_schema::DataType::UInt16)),
+            column("attempt", T::nonnegative(i64::from(u16::MAX))),
             column(
                 "resolved_options",
                 T::list(structure(vec![
@@ -115,7 +115,7 @@ fn declare_runs(builder: &mut RegistryBuilder) {
                 ]),
             ),
             column("wall_seconds", T::native(arrow_schema::DataType::Float64)),
-            column("iterations", T::native(arrow_schema::DataType::UInt32)).optional(),
+            column("iterations", T::nonnegative(i64::from(u32::MAX))).optional(),
         ],
         "blueprint §6.13 execution and evidence: runs.",
     );
@@ -199,7 +199,7 @@ fn declare_iterations(builder: &mut RegistryBuilder) {
         &["run_id", "iteration"],
         vec![
             column("run_id", T::id()),
-            column("iteration", T::native(arrow_schema::DataType::UInt32)),
+            column("iteration", T::nonnegative(i64::from(u32::MAX))),
             column("objective", T::native(arrow_schema::DataType::Float64)),
             column("inf_pr", T::native(arrow_schema::DataType::Float64)),
             column("inf_du", T::native(arrow_schema::DataType::Float64)),
@@ -275,16 +275,38 @@ fn declare_kernel_evaluation_outcomes(builder: &mut RegistryBuilder) {
         &["evaluation_id", "row_ordinal", "output_ordinal"],
         vec![
             column("evaluation_id", T::id()),
-            column("row_ordinal", T::native(arrow_schema::DataType::UInt64)),
-            column("output_ordinal", T::native(arrow_schema::DataType::UInt16)),
-            column("outcome", T::enumeration("KernelOutcome")),
-            column("value", T::native(arrow_schema::DataType::Float64)).optional(),
-            column("quantity_type_id", T::id()),
-            column("unit_id", T::id()),
-            column("reason_code", T::enumeration("KernelFailure")).optional(),
+            column("row_ordinal", T::nonnegative(i64::MAX)),
+            column("output_ordinal", T::nonnegative(i64::from(u16::MAX))),
+            column("result", kernel_result()),
         ],
         "blueprint §6.13 execution and evidence: kernel_evaluation_outcomes.",
     );
+}
+
+fn kernel_result() -> T {
+    let alternative = crate::model::TaggedAlternative::new(
+        "kind",
+        [
+            ("success".into(), "success".into()),
+            ("missing_input".into(), "failure".into()),
+            ("domain_failure".into(), "failure".into()),
+            ("implementation_failure".into(), "failure".into()),
+        ],
+    );
+    T::structure(vec![
+        T::enumeration("KernelOutcome").with_name("kind"),
+        T::extended(crate::model::ExtensionUse::QuantityValue)
+            .with_name("success")
+            .optional(),
+        T::structure(vec![
+            T::enumeration("KernelFailure").with_name("reason_code"),
+            T::id().with_name("quantity_type_id"),
+            T::id().with_name("unit_id"),
+        ])
+        .with_name("failure")
+        .optional(),
+    ])
+    .with_alternative(&alternative)
 }
 
 fn declare_host_capabilities(builder: &mut RegistryBuilder) {
@@ -445,13 +467,13 @@ fn declare_pass_records(builder: &mut RegistryBuilder) {
             column(
                 "rules_fired",
                 T::list(structure(vec![
-                    ("plan_ordinal", T::native(arrow_schema::DataType::UInt16)),
+                    ("plan_ordinal", T::nonnegative(i64::from(u16::MAX))),
                     ("rule_name", T::native(arrow_schema::DataType::Utf8)),
-                    ("ordinal", T::native(arrow_schema::DataType::UInt16)),
+                    ("ordinal", T::nonnegative(i64::from(u16::MAX))),
                 ])),
             ),
             column("duration_ms", T::native(arrow_schema::DataType::Float64)),
-            column("finding_count", T::native(arrow_schema::DataType::UInt64)),
+            column("finding_count", T::nonnegative(i64::MAX)),
             column("status", T::enumeration("PassStatus")),
             column("findings", T::list(diagnostic_type())),
             column("failure_class", T::enumeration("FailureClass")).optional(),

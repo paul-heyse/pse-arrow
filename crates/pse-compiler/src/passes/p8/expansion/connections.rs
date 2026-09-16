@@ -7,12 +7,13 @@ use crate::{CompilerError, PassContext};
 use pse_ids::{Reservation, SemanticId};
 use pse_mathir::{
     ExprGraph, Opcode, Payload,
-    equation::{EquationRecord, FreeIndex, Sense},
+    equation::{EquationRecord, FreeIndex},
 };
 use pse_quantity::{
     BoundIndexId, BoundIndexRef, DomainId, IndexSet, QuantityRegistry, QuantityTypeId,
 };
 use pse_relations::generated::{compiled, inferred};
+use pse_schema::math::Sense;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) fn expand(

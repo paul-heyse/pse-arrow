@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Single operator contract table (blueprint §7.2–§7.3).
-use crate::node::Arity;
+use super::Arity;
 use pse_quantity::Opcode;
 
 pse_quantity::closed_enum! {

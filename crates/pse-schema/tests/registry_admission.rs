@@ -40,6 +40,36 @@ fn registry_with(decl: RelationDecl) -> Result<Registry, SchemaError> {
     builder.build()
 }
 
+#[test]
+fn native_sql_checks_are_part_of_exact_contract_identity() {
+    let declaration = relation("checked", 1, vec![]);
+    let old = registry_with(declaration.clone()).unwrap();
+    let new = registry_with(declaration.checks(std::collections::BTreeMap::from([(
+        "value".into(),
+        "id IS NOT NULL".into(),
+    )])))
+    .unwrap();
+    let left = old.relation("authored.checked").unwrap();
+    let right = new.relation("authored.checked").unwrap();
+    assert_eq!(left.id, right.id);
+    assert_ne!(left.fingerprint, right.fingerprint);
+    assert_ne!(old.fingerprint(), new.fingerprint());
+    let schema = pse_schema::arrow::relation_schema(&new, right).unwrap();
+    assert_eq!(
+        pse_schema::arrow::native_checks(&schema).unwrap(),
+        right.checks
+    );
+    assert!(
+        registry_with(
+            relation("checked", 1, vec![]).checks(std::collections::BTreeMap::from([(
+                "empty".into(),
+                " ".into()
+            ),]))
+        )
+        .is_err()
+    );
+}
+
 fn scan(relation: &'static str, port: &'static str) -> RulePlan {
     RulePlan::Scan {
         relation: relation.to_owned(),
@@ -254,7 +284,7 @@ fn duplicate_enum_members_document_sections_and_manifest_fields_are_rejected() {
 }
 
 #[test]
-fn foreign_key_and_quantity_sibling_types_must_match() {
+fn foreign_key_types_must_match() {
     let mut builder = RegistryBuilder::new();
     builder.declare_relation(relation("target", 1, vec![]));
     builder.declare_relation(relation(
@@ -273,28 +303,6 @@ fn foreign_key_and_quantity_sibling_types_must_match() {
         builder.build(),
         Err(SchemaError::InvalidDeclaration { .. })
     ));
-    assert!(
-        registry_with(relation(
-            "measure",
-            1,
-            vec![
-                FieldContract::new(
-                    "value",
-                    FieldContract::native(arrow_schema::DataType::Float64),
-                    false,
-                    ColumnRole::Measure,
-                    "value"
-                )
-                .with_per_row_quantity(),
-                FieldContract::reference(
-                    "value_quantity_type_id",
-                    FieldContract::native(arrow_schema::DataType::Utf8),
-                    "not an identity"
-                ),
-            ]
-        ))
-        .is_err()
-    );
 }
 
 #[test]

@@ -38,6 +38,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
     );
     super::declarations::enumeration(builder, "SparsityKind", ["jacobian", "hessian"]);
     super::declarations::enumeration(builder, "BindingStatus", ["supported", "unsupported"]);
+    super::declarations::enumeration(builder, "IncidenceKind", ["linear", "nonlinear"]);
 }
 fn declare_problems(builder: &mut RegistryBuilder) {
     relation(
@@ -51,13 +52,10 @@ fn declare_problems(builder: &mut RegistryBuilder) {
             column("model_revision_id", T::id()),
             column("case_id", T::id()),
             column("discretization_policy_ids", T::list(T::id())),
-            column("variable_count", T::native(arrow_schema::DataType::UInt64)),
-            column("equation_count", T::native(arrow_schema::DataType::UInt64)),
-            column(
-                "inequality_count",
-                T::native(arrow_schema::DataType::UInt64),
-            ),
-            column("objective_count", T::native(arrow_schema::DataType::UInt64)),
+            column("variable_count", T::nonnegative(i64::MAX)),
+            column("equation_count", T::nonnegative(i64::MAX)),
+            column("inequality_count", T::nonnegative(i64::MAX)),
+            column("objective_count", T::nonnegative(i64::MAX)),
             column(
                 "degrees_of_freedom",
                 T::native(arrow_schema::DataType::Int64),
@@ -78,7 +76,7 @@ fn declare_variable_order(builder: &mut RegistryBuilder) {
         vec![
             column("problem_id", T::id()),
             column("symbol_id", T::id()),
-            column("position", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("position", T::nonnegative(i64::MAX)).optional(),
             column("treatment", T::enumeration("Treatment")),
             column("lower", T::extended(crate::model::ExtensionUse::Bound)),
             column("upper", T::extended(crate::model::ExtensionUse::Bound)),
@@ -100,7 +98,7 @@ fn declare_equation_order(builder: &mut RegistryBuilder) {
         vec![
             column("problem_id", T::id()),
             column("equation_id", T::id()),
-            column("position", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("position", T::nonnegative(i64::MAX)).optional(),
             column("active", T::native(arrow_schema::DataType::Boolean)),
             column("scale", T::native(arrow_schema::DataType::Float64)),
             column("kind", T::enumeration("RowKind")),
@@ -159,8 +157,24 @@ fn declare_incidence(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("equation_id", T::id()),
             column("symbol_id", T::id()),
-            column("linear", T::native(arrow_schema::DataType::Boolean)),
-            column("coefficient", T::native(arrow_schema::DataType::Float64)).optional(),
+            column(
+                "dependence",
+                T::structure(vec![
+                    T::enumeration("IncidenceKind").with_name("kind"),
+                    T::structure(vec![
+                        T::native(arrow_schema::DataType::Float64).with_name("coefficient"),
+                    ])
+                    .with_name("linear")
+                    .optional(),
+                ])
+                .with_alternative(
+                    &crate::model::TaggedAlternative::new(
+                        "kind",
+                        [("linear".into(), "linear".into())],
+                    )
+                    .with_unit("nonlinear"),
+                ),
+            ),
         ],
         "blueprint §6.12 derived structure: incidence.",
     );
@@ -195,8 +209,8 @@ fn declare_blocks(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("block_id", T::id()),
             column("kind", T::enumeration("BlockKind")),
-            column("order", T::native(arrow_schema::DataType::UInt32)),
-            column("size", T::native(arrow_schema::DataType::UInt32)),
+            column("order", T::nonnegative(i64::from(u32::MAX))),
+            column("size", T::nonnegative(i64::from(u32::MAX))),
         ],
         "blueprint §6.12 derived structure: blocks.",
     );
@@ -228,14 +242,8 @@ fn declare_sparsity_patterns(builder: &mut RegistryBuilder) {
         vec![
             column("problem_id", T::id()),
             column("kind", T::enumeration("SparsityKind")),
-            column(
-                "row_ptr",
-                T::list(T::native(arrow_schema::DataType::UInt32)),
-            ),
-            column(
-                "col_idx",
-                T::list(T::native(arrow_schema::DataType::UInt32)),
-            ),
+            column("row_ptr", T::list(T::nonnegative(i64::from(u32::MAX)))),
+            column("col_idx", T::list(T::nonnegative(i64::from(u32::MAX)))),
             column("content_hash", T::hash()),
         ],
         "blueprint §6.12 derived structure: sparsity_patterns.",
@@ -253,11 +261,8 @@ fn declare_evaluation_programs(builder: &mut RegistryBuilder) {
             column("problem_id", T::id()),
             column("program_id", T::id()),
             column("artifact_hash", T::hash()),
-            column(
-                "instruction_count",
-                T::native(arrow_schema::DataType::UInt64),
-            ),
-            column("workspace_size", T::native(arrow_schema::DataType::UInt64)),
+            column("instruction_count", T::nonnegative(i64::MAX)),
+            column("workspace_size", T::nonnegative(i64::MAX)),
         ],
         "blueprint §6.12 derived structure: evaluation_programs.",
     );

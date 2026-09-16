@@ -71,6 +71,7 @@ fn registry() -> Arc<Registry> {
                 stability: relation.stability,
                 primary_key: relation.primary_key.clone(),
                 columns: relation.columns.clone(),
+                checks: relation.checks.clone(),
                 doc: relation.doc,
             });
         }
@@ -426,7 +427,7 @@ async fn checked_record(
     assert_eq!(row[13], class.map_or(Cell::Null, Cell::Enum));
     assert!(matches!(
         &row[12],
-        Cell::List(findings) if row[10] == Cell::U64(findings.len() as u64)
+        Cell::List(findings) if row[10] == Cell::I64(i64::try_from(findings.len()).unwrap())
     ));
     assert!(matches!(
         row[9],

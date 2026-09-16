@@ -223,7 +223,7 @@ pub(super) fn validate_envelope(
     header.push(changes.header.clone())?;
     header.finish()?;
     let mut operations = authored::change_ops::Builder::with_registry(registry, changes.ops.len())?;
-    let mut referenced = BTreeMap::<&str, BTreeSet<u64>>::new();
+    let mut referenced = BTreeMap::<&str, BTreeSet<i64>>::new();
     for (ordinal, operation) in changes.ops.iter().enumerate() {
         if usize::try_from(operation.ordinal).ok() != Some(ordinal)
             || operation.change_set_id != changes.header.change_set_id
@@ -294,7 +294,7 @@ fn staged(
     registry: &Registry,
     spec: &RelationSpec,
     port: &str,
-    ordinal: u64,
+    ordinal: i64,
 ) -> Result<FieldCheckedBatch, AuthoringError> {
     let member = changes
         .staged

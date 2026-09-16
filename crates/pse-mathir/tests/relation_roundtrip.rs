@@ -96,7 +96,7 @@ fn equations_filters_bounds_and_kernel_input_rows_are_remapped_together() {
             None,
             Some(NodeId(88)),
             NodeId(99),
-            pse_mathir::equation::Sense::Range,
+            pse_schema::math::Sense::Range,
             Some(NodeId(22)),
             Some(NodeId(88)),
             None,
@@ -324,8 +324,9 @@ fn template_domains_preserve_composite_keys_and_admit_exactly_one_alternative() 
 
 #[test]
 fn normalized_predicate_and_value_keys_survive_math_remapping_without_fake_symbols() {
-    use pse_mathir::{DomainRef, GuardRef, TemplateValueKind, ValueRef};
+    use pse_mathir::{DomainRef, GuardRef, ValueRef};
     use pse_quantity::{BoundIndexId, DomainId};
+    use pse_schema::math::TemplateValueKind;
     let mut graph = ExprGraph::new();
     let mut roots = vec![];
     let values = [

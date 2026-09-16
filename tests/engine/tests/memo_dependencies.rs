@@ -132,6 +132,7 @@ fn declare_package_document(builder: &mut RegistryBuilder) {
             stability: relation.stability,
             primary_key: relation.primary_key.clone(),
             columns: relation.columns.clone(),
+            checks: relation.checks.clone(),
             doc: relation.doc,
         });
     }

@@ -51,6 +51,7 @@ pub fn delta_scan_schema(actual: &Schema, expected: &Schema) -> Result<(), Schem
 /// # Errors
 /// A struct or schema declares the same field name twice.
 pub fn declaration(schema: &Schema) -> Result<(), SchemaError> {
+    crate::arrow::native_checks(schema)?;
     unique_fields(schema.fields(), "schema", true)
 }
 
@@ -63,6 +64,8 @@ fn unique_fields(
     for field in fields {
         if validate_extensions {
             crate::model::IntegerRange::from_field(field)?;
+            crate::model::TaggedAlternative::from_field(field)?;
+            crate::model::CollectionContract::from_field(field)?;
         }
         if !names.insert(field.name()) {
             return Err(mismatch(path, &format!("duplicate field {}", field.name())));

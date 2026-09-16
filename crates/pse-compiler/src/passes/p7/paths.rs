@@ -313,9 +313,9 @@ impl Realizer<'_> {
             .ok_or_else(|| invalid("configuration owner absent"))?;
         let actual = self.environment(instance, source)?;
         let kind = if category == "parameter" {
-            pse_mathir::TemplateValueKind::Parameter
+            pse_schema::math::TemplateValueKind::Parameter
         } else {
-            pse_mathir::TemplateValueKind::Feature
+            pse_schema::math::TemplateValueKind::Feature
         };
         let value = actual
             .values

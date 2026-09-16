@@ -120,7 +120,7 @@ pub(super) async fn bind_publication(
             .registry
             .relation_by_id(member.relation_id)
             .filter(|spec| {
-                spec.key.version == member.relation_version
+                i64::from(spec.key.version) == member.relation_version
                     && spec.fingerprint == member.contract_fingerprint
             })
             .ok_or_else(|| invalid("selected member declaration differs"))?;

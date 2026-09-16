@@ -144,7 +144,7 @@ async fn publish(
         failure_class,
     } = collect_findings(catalog.registry(), &observation, error)?;
     let (explain, rules) = plans(observation.plans)?;
-    let count = u64::try_from(findings.len()).map_err(|_| invalid("finding count overflow"))?;
+    let count = i64::try_from(findings.len()).map_err(|_| invalid("finding count overflow"))?;
     publish_rows(
         catalog,
         "provenance.pass_records",
@@ -163,7 +163,7 @@ async fn publish(
             Cell::List(explain),
             Cell::List(rules),
             Cell::F64(attempt.started.elapsed().as_secs_f64() * 1000.0),
-            Cell::U64(count),
+            Cell::I64(count),
             Cell::Enum(status.as_str()),
             Cell::List(findings),
             failure_class.map_or(Cell::Null, Cell::Enum),
@@ -315,9 +315,9 @@ fn plans(plans: &[PlanObservation]) -> Result<(Vec<Cell>, Vec<Cell>), CompilerEr
             let ordinal =
                 u16::try_from(ordinal).map_err(|_| invalid("too many observed optimizer rules"))?;
             rules.push(Cell::Struct(vec![
-                Cell::U64(u64::from(plan_ordinal)),
+                Cell::I64(i64::from(plan_ordinal)),
                 Cell::text(name),
-                Cell::U64(u64::from(ordinal)),
+                Cell::I64(i64::from(ordinal)),
             ]));
         }
     }

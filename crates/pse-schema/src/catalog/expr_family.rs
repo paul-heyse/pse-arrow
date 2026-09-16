@@ -28,12 +28,13 @@ pub fn declare(builder: &mut RegistryBuilder) {
         // Normalized references bind that complete inventory; authored references
         // retain their original source-only targets.
         for column in &mut spec.columns {
-            if let Some(fk) = &mut column.fk() {
-                fk.relation = match fk.relation {
+            if let Some(fk) = column.fk() {
+                let target = match fk.relation {
                     "authored.domains" => "normalized.domains",
                     "authored.instances" => "normalized.instance_bindings",
                     other => other,
                 };
+                *column = column.clone().with_fk(target, fk.column);
             }
         }
         builder.declare_relation(spec);

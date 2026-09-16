@@ -133,10 +133,13 @@ pub(super) async fn emit(
                         },
                         "instance path parameter",
                     )?;
-                    root =
-                        configured.row.value.semantic_id.ok_or_else(|| {
-                            invalid("instance path parameter has no actual identity")
-                        })?;
+                    root = configured
+                        .row
+                        .value
+                        .semantic_id
+                        .as_ref()
+                        .map(|arm| arm.value)
+                        .ok_or_else(|| invalid("instance path parameter has no actual identity"))?;
                     support.insert(inventory.origin(configured)?);
                     member_support(
                         inventory,

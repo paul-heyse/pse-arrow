@@ -68,7 +68,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         input: Box::new(scan("inferred.predicate_outcomes", "guards")),
         predicate: E::And(vec![
             equals(E::col("outcome"), Cell::Enum("true")),
-            equals(E::ListLen(Box::new(E::col("index"))), Cell::U64(0)),
+            equals(E::ListLen(Box::new(E::col("index"))), Cell::I64(0)),
         ]),
     };
     let guarded = join(
@@ -164,7 +164,7 @@ fn guard_checks(builder: &mut RegistryBuilder, prospective: P) {
     };
     let outcomes = P::Filter {
         input: Box::new(scan("inferred.predicate_outcomes", "guards")),
-        predicate: equals(E::ListLen(Box::new(E::col("index"))), Cell::U64(0)),
+        predicate: equals(E::ListLen(Box::new(E::col("index"))), Cell::I64(0)),
     };
     let keys = vec![
         ("prospective.parent_instance_id", "guards.instance_id"),

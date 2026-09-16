@@ -972,6 +972,13 @@ IDAES compatibility source: `idaes.models.properties.modular_properties.phase_eq
 | `explicit` | `` | false |
 | `named` | `` | false |
 
+## `IncidenceKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `linear` | `` | false |
+| `nonlinear` | `` | false |
+
 ## `IndexMapKind`
 
 | Member | IDAES name | Deprecated |
@@ -1097,6 +1104,13 @@ IDAES compatibility source: `idaes.core.base.process_base`.
 | `molar` | `molar` | false |
 | `mass` | `mass` | false |
 | `other` | `other` | false |
+
+## `MemberSelectionKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `full` | `` | false |
+| `revision` | `` | false |
 
 ## `MethodCandidateReason`
 

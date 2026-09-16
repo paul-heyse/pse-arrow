@@ -28,6 +28,9 @@ fn visit(reg: &Registry, field: &Field, path: &str, errors: &mut Vec<RelationErr
     if let Err(error) = pse_schema::model::IntegerRange::from_field(field) {
         errors.push(error.into());
     }
+    if let Err(error) = pse_schema::model::TaggedAlternative::from_field(field) {
+        errors.push(error.into());
+    }
     check_semantics(reg, field, path, errors);
     let extension = field.metadata().get(KEY_EXTENSION_NAME);
     if let Some(name) = extension {

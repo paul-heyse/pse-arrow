@@ -186,6 +186,24 @@ fn object(properties: &[String], required: &[String]) -> String {
 }
 
 fn logical(reg: &Registry, ty: &FieldContract) -> Result<String, SchemaError> {
+    let value = logical_value(reg, ty)?;
+    let Some(collection) = crate::model::CollectionContract::from_field(ty.field())? else {
+        return Ok(value);
+    };
+    let mut value: serde_json::Value =
+        serde_json::from_str(&value).map_err(|cause| error(cause.to_string()))?;
+    value["minItems"] = collection.minimum.into();
+    if let Some(maximum) = collection.maximum {
+        value["maxItems"] = maximum.into();
+    }
+    value["uniqueItems"] = collection.unique.into();
+    value["x-pse-order"] =
+        serde_json::to_value(collection.order).map_err(|cause| error(cause.to_string()))?;
+    value.sort_all_objects();
+    serde_json::to_string(&value).map_err(|cause| error(cause.to_string()))
+}
+
+fn logical_value(reg: &Registry, ty: &FieldContract) -> Result<String, SchemaError> {
     if let Some(range) = crate::model::IntegerRange::from_field(ty.field())? {
         return Ok(integer(
             i128::from(range.minimum),
@@ -227,7 +245,7 @@ fn logical(reg: &Registry, ty: &FieldContract) -> Result<String, SchemaError> {
                 };
                 properties.push(format!("{}:{ty}", quote(name)));
             }
-            object(&properties, &required)
+            alternative_shape(ty, object(&properties, &required))?
         }
         (None, DataType::FixedSizeBinary(_) | DataType::Dictionary(..)) => {
             return Err(error(format!(
@@ -237,6 +255,27 @@ fn logical(reg: &Registry, ty: &FieldContract) -> Result<String, SchemaError> {
         }
         _ => storage(reg, &ty.data_type())?,
     })
+}
+
+fn alternative_shape(ty: &FieldContract, shape: String) -> Result<String, SchemaError> {
+    Ok(
+        if let Some(alternative) = crate::model::TaggedAlternative::from_field(ty.field())? {
+            let variants = alternative.arms.iter().map(|(tag, selected)| {
+                    let mut properties = serde_json::Map::new();
+                    properties.insert(alternative.discriminator.clone(), serde_json::json!({"const":tag}));
+                    for arm in alternative.payloads() {
+                        properties.insert(arm.to_owned(), serde_json::json!({"type":if Some(arm) == selected.as_deref() {"object"} else {"null"}}));
+                    }
+                    let required = std::iter::once(alternative.discriminator.as_str()).chain(selected.as_deref()).collect::<Vec<_>>();
+                    serde_json::json!({"properties":properties,"required":required})
+                }).collect::<Vec<_>>();
+            let mut variants = serde_json::Value::Array(variants);
+            variants.sort_all_objects();
+            format!("{{\"allOf\":[{shape},{{\"oneOf\":{variants}}}]}}")
+        } else {
+            shape
+        },
+    )
 }
 
 fn logical_field(reg: &Registry, field: &arrow_schema::Field) -> Result<String, SchemaError> {

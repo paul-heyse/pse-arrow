@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    84u8, 98u8, 121u8, 233u8, 217u8, 223u8, 61u8, 141u8, 78u8, 102u8, 186u8, 45u8, 4u8,
-    222u8, 113u8, 58u8, 101u8, 71u8, 238u8, 64u8, 247u8, 171u8, 29u8, 67u8, 31u8, 71u8,
-    81u8, 51u8, 190u8, 30u8, 231u8, 154u8,
+    16u8, 240u8, 250u8, 72u8, 12u8, 70u8, 181u8, 59u8, 64u8, 80u8, 53u8, 134u8, 222u8,
+    181u8, 226u8, 196u8, 87u8, 232u8, 255u8, 121u8, 20u8, 101u8, 207u8, 152u8, 172u8,
+    64u8, 252u8, 94u8, 246u8, 83u8, 241u8, 18u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -142,7 +142,7 @@ impl ProvenanceNodeRewritesRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c2593e47b134322eb852ea1314795575\"],[\"struct\",[[\"text\",\"provenance\"],[\"text\",\"node_rewrites\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"sidecar\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"input_node_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"output_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Transient actual MathIR graph-import mapping, scoped to one exact graph/family argument role. Native joins apply this mapping to carrier columns. It cannot replace root-environment-specific canonicalization correspondence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c2593e47b134322eb852ea1314795575\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"provenance\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c2593e47b134322eb852ea1314795575\"],[\"struct\",[[\"text\",\"provenance\"],[\"text\",\"node_rewrites\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"sidecar\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"input_node_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"output_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Transient actual MathIR graph-import mapping, scoped to one exact graph/family argument role. Native joins apply this mapping to carrier columns. It cannot replace root-environment-specific canonicalization correspondence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c2593e47b134322eb852ea1314795575\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"provenance\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -218,7 +218,7 @@ impl crate::columnar::RelationRow for ProvenanceNodeRewritesRow {
         ProvenanceNodeRewritesView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        17_632_usize + size_of::<Self::Builder>()
+        18_096_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         32usize

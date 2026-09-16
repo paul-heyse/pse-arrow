@@ -17,13 +17,14 @@ use crate::{CompilerError, PassContext, passes::native_outputs::Sources};
 use pse_ids::SemanticId;
 use pse_mathir::{
     NodeId,
-    equation::{EquationRecord, FreeIndex, Sense},
+    equation::{EquationRecord, FreeIndex},
 };
 use pse_quantity::{BoundIndexId, BoundIndexRef, DomainId, IndexSet, QuantityTypeId};
 use pse_relations::{
     RecordBatch,
     generated::{compiled, inferred},
 };
+use pse_schema::math::Sense;
 use pse_schema::model::PassSpec;
 use std::collections::{BTreeMap, BTreeSet};
 

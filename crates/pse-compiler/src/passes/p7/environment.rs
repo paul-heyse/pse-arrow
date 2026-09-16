@@ -4,10 +4,60 @@
 use super::{Realizer, invalid};
 use crate::CompilerError;
 use pse_ids::SemanticId;
-use pse_mathir::{DomainRef, Payload, TemplateValueKind, ValueRef};
+use pse_mathir::{DomainRef, Payload, ValueRef};
 use pse_quantity::{BoundIndexId, BoundIndexRef, DomainId, QuantityTypeId, UnitId};
-use pse_relations::generated::{enums::ConfigCategory, inferred, normalized};
+use pse_relations::generated::{enums::ConfigCategory, inferred};
+use pse_schema::math::TemplateValueKind;
 use pse_templates::{BindingValue, InstantiationEnvironment, identity};
+
+// Both relation projections share the same declared alternative; borrow each directly.
+macro_rules! configuration_literal {
+    ($engine:expr, $instance:expr, $value:expr, $selection:path) => {{
+        (|| -> Result<Option<BindingValue>, CompilerError> {
+            use $selection as Selected;
+            let engine = $engine;
+            let instance = $instance;
+            let selected = $value.selected()?;
+            let quantity = match selected {
+                Selected::Signed(_) | Selected::Unsigned(_) | Selected::Real(_) => {
+                    Some(engine.neutral_type(instance)?)
+                }
+                Selected::Boolean(_) => Some(engine.boolean_types_for_instance(instance)?),
+                Selected::Quantity(arm) => Some(QuantityTypeId::from_id(arm.quantity_type_id)),
+                _ => None,
+            };
+            let payload = match selected {
+                Selected::Signed(arm) => Payload::IntConst { value: arm.value },
+                Selected::Unsigned(arm) => Payload::IntConst {
+                    value: i64::try_from(arm.value).map_err(|_| {
+                        invalid("unsigned parameter exceeds exact mathematical integer range")
+                    })?,
+                },
+                Selected::Boolean(arm) => Payload::IntConst {
+                    value: i64::from(arm.value),
+                },
+                Selected::Quantity(arm) => Payload::FloatConst {
+                    value: arm.value,
+                    unit: UnitId::from_id(arm.unit_id),
+                },
+                Selected::Real(arm) => {
+                    let quantity = quantity.ok_or_else(|| {
+                        invalid(
+                            "real arithmetic parameter needs its explicitly selected physical type",
+                        )
+                    })?;
+                    Payload::FloatConst {
+                        value: arm.value,
+                        unit: engine.physical.quantity_type(quantity)?.canonical_unit,
+                    }
+                }
+                Selected::SemanticId(arm) => return Ok(Some(BindingValue::Member(arm.value))),
+                Selected::Text(_) | Selected::Enum(_) | Selected::Index(_) => return Ok(None),
+            };
+            Ok(Some(BindingValue::Literal { payload, quantity }))
+        })()
+    }};
+}
 
 impl Realizer<'_> {
     pub(super) fn environment(
@@ -153,7 +203,7 @@ impl Realizer<'_> {
             if declaration != 1 {
                 return Err(invalid("parameter value lacks exact declaration"));
             }
-            if let Some(value) = self.value(instance.instance_id, &row.value)? {
+            if let Some(value) = configuration_literal!(self, instance.instance_id, &row.value, pse_relations::generated::normalized::config_values::NormalizedConfigValuesFieldValueSelected)? {
                 env.values.insert(
                     ValueRef::Template {
                         template_id: instance.template_id,
@@ -170,20 +220,7 @@ impl Realizer<'_> {
             .iter()
             .filter(|row| row.instance_id == instance.instance_id)
         {
-            let value = normalized::config_values::NormalizedConfigValuesFieldValue {
-                kind: row.value.kind,
-                boolean: row.value.boolean,
-                signed: row.value.signed,
-                unsigned: row.value.unsigned,
-                real: row.value.real,
-                text: row.value.text.clone(),
-                semantic_id: row.value.semantic_id,
-                enum_id: row.value.enum_id,
-                index: row.value.index.clone(),
-                quantity_type_id: row.value.quantity_type_id,
-                unit_id: row.value.unit_id,
-            };
-            if let Some(value) = self.value(instance.instance_id, &value)? {
+            if let Some(value) = configuration_literal!(self, instance.instance_id, &row.value, pse_relations::generated::inferred::instance_features::InferredInstanceFeaturesFieldValueSelected)? {
                 env.values.insert(
                     ValueRef::Template {
                         template_id: instance.template_id,
@@ -214,73 +251,6 @@ impl Realizer<'_> {
             }
         }
         Ok(env)
-    }
-    fn value(
-        &self,
-        instance: SemanticId,
-        value: &normalized::config_values::NormalizedConfigValuesFieldValue,
-    ) -> Result<Option<BindingValue>, CompilerError> {
-        let quantity = match value.kind.as_str() {
-            "signed" | "unsigned" | "real" => Some(self.neutral_type(instance)?),
-            "boolean" => Some(self.boolean_types_for_instance(instance)?),
-            _ => value.quantity_type_id.map(QuantityTypeId::from_id),
-        };
-        let payload = match value.kind.as_str() {
-            "signed" => Payload::IntConst {
-                value: value
-                    .signed
-                    .ok_or_else(|| invalid("signed parameter value absent"))?,
-            },
-            "unsigned" => Payload::IntConst {
-                value: i64::try_from(
-                    value
-                        .unsigned
-                        .ok_or_else(|| invalid("unsigned parameter value absent"))?,
-                )
-                .map_err(|_| {
-                    invalid("unsigned parameter exceeds exact mathematical integer range")
-                })?,
-            },
-            "boolean" => Payload::IntConst {
-                value: i64::from(
-                    value
-                        .boolean
-                        .ok_or_else(|| invalid("Boolean parameter value absent"))?,
-                ),
-            },
-            "quantity" => Payload::FloatConst {
-                value: value
-                    .real
-                    .ok_or_else(|| invalid("quantity parameter value absent"))?,
-                unit: UnitId::from_id(
-                    value
-                        .unit_id
-                        .ok_or_else(|| invalid("quantity parameter unit absent"))?,
-                ),
-            },
-            "real" => {
-                let quantity = quantity.ok_or_else(|| {
-                    invalid("real arithmetic parameter needs its explicitly selected physical type")
-                })?;
-                let unit = self.physical.quantity_type(quantity)?.canonical_unit;
-                Payload::FloatConst {
-                    value: value
-                        .real
-                        .ok_or_else(|| invalid("real parameter value absent"))?,
-                    unit,
-                }
-            }
-            "semantic_id" => {
-                return Ok(Some(BindingValue::Member(
-                    value
-                        .semantic_id
-                        .ok_or_else(|| invalid("SemanticId parameter value absent"))?,
-                )));
-            }
-            "text" | "enum" | "index" => return Ok(None),
-            _ => return Err(invalid("unrecognized configuration value kind")),
-        };
-        Ok(Some(BindingValue::Literal { payload, quantity }))
     }
     fn neutral_type(&self, instance: SemanticId) -> Result<QuantityTypeId, CompilerError> {
         self.inventory

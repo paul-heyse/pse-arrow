@@ -158,11 +158,8 @@ pub(super) fn lower(
                 return Err(internal("list length requires a declared list"));
             }
             (
-                array_length(value),
-                synthetic(
-                    FieldContract::native(DataType::UInt64),
-                    column.spec.nullable(),
-                ),
+                datafusion::logical_expr::cast(array_length(value), DataType::Int64),
+                synthetic(FieldContract::nonnegative(i64::MAX), column.spec.nullable()),
             )
         }
     };

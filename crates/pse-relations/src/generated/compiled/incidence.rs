@@ -15,10 +15,245 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    81u8, 165u8, 239u8, 222u8, 184u8, 71u8, 70u8, 70u8, 217u8, 119u8, 204u8, 136u8,
-    170u8, 20u8, 29u8, 203u8, 39u8, 232u8, 182u8, 92u8, 197u8, 63u8, 218u8, 220u8, 11u8,
-    13u8, 114u8, 208u8, 201u8, 0u8, 205u8, 52u8,
+    247u8, 75u8, 144u8, 212u8, 252u8, 63u8, 85u8, 201u8, 141u8, 98u8, 112u8, 241u8, 20u8,
+    227u8, 100u8, 161u8, 233u8, 135u8, 219u8, 100u8, 111u8, 236u8, 0u8, 169u8, 230u8,
+    10u8, 214u8, 143u8, 246u8, 37u8, 225u8, 151u8,
 ]);
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct CompiledIncidenceFieldDependenceLinear {
+    ///coefficient
+    pub r#coefficient: f64,
+}
+impl crate::typed::CellCodec for CompiledIncidenceFieldDependenceLinear {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![crate::typed::CellCodec::into_cell(self.r#coefficient)],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(CompiledIncidenceFieldDependenceLinear),
+                ),
+            );
+        };
+        if values.len() != 1usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(CompiledIncidenceFieldDependenceLinear),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#coefficient: <f64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledIncidenceFieldDependenceLinear),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for CompiledIncidenceFieldDependenceLinear {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#coefficient,
+            children[0usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <f64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#coefficient: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct CompiledIncidenceFieldDependence {
+    ///kind
+    pub r#kind: crate::generated::enums::IncidenceKind,
+    ///linear
+    pub r#linear: Option<CompiledIncidenceFieldDependenceLinear>,
+}
+impl crate::typed::CellCodec for CompiledIncidenceFieldDependence {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#linear),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(stringify!(CompiledIncidenceFieldDependence)),
+            );
+        };
+        if values.len() != 2usize {
+            return Err(
+                crate::typed::mismatch(stringify!(CompiledIncidenceFieldDependence)),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#kind: <crate::generated::enums::IncidenceKind as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledIncidenceFieldDependence),
+                    ))?,
+            )?,
+            r#linear: <Option<
+                CompiledIncidenceFieldDependenceLinear,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledIncidenceFieldDependence),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for CompiledIncidenceFieldDependence {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#linear, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::IncidenceKind as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            CompiledIncidenceFieldDependenceLinear,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::IncidenceKind as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#linear: <Option<
+                CompiledIncidenceFieldDependenceLinear,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// The declared selected payload, borrowed without a second row representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CompiledIncidenceFieldDependenceSelected<'a> {
+    ///linear
+    Linear(&'a CompiledIncidenceFieldDependenceLinear),
+    ///nonlinear
+    Nonlinear,
+}
+impl CompiledIncidenceFieldDependence {
+    #[doc = concat!("Construct the ", "linear", " arm with every other arm absent.")]
+    pub fn from_linear(value: CompiledIncidenceFieldDependenceLinear) -> Self {
+        Self {
+            r#kind: crate::generated::enums::IncidenceKind::Linear,
+            r#linear: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "nonlinear", " arm with every other arm absent.")]
+    pub fn from_nonlinear() -> Self {
+        Self {
+            r#kind: crate::generated::enums::IncidenceKind::Nonlinear,
+            r#linear: None,
+        }
+    }
+    /// Select exactly the declared payload.
+    /// # Errors
+    /// Unknown tag, missing selected arm or any overlapping arm.
+    pub fn selected(
+        &self,
+    ) -> Result<CompiledIncidenceFieldDependenceSelected<'_>, crate::RelationError> {
+        match (self.r#kind.as_str(), self.r#linear.as_ref()) {
+            ("linear", Some(value)) => {
+                Ok(CompiledIncidenceFieldDependenceSelected::Linear(value))
+            }
+            ("nonlinear", None) => {
+                Ok(CompiledIncidenceFieldDependenceSelected::Nonlinear)
+            }
+            _ => {
+                Err(
+                    crate::typed::mismatch(
+                        "tagged value requires exactly its selected arm",
+                    ),
+                )
+            }
+        }
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,10 +268,8 @@ pub struct CompiledIncidenceRow {
     pub r#equation_id: pse_ids::SemanticId,
     ///symbol_id
     pub r#symbol_id: pse_ids::SemanticId,
-    ///linear
-    pub r#linear: bool,
-    ///coefficient
-    pub r#coefficient: Option<f64>,
+    ///dependence
+    pub r#dependence: CompiledIncidenceFieldDependence,
 }
 impl crate::typed::CellCodec for CompiledIncidenceRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -45,8 +278,7 @@ impl crate::typed::CellCodec for CompiledIncidenceRow {
                 crate::typed::CellCodec::into_cell(self.r#problem_id),
                 crate::typed::CellCodec::into_cell(self.r#equation_id),
                 crate::typed::CellCodec::into_cell(self.r#symbol_id),
-                crate::typed::CellCodec::into_cell(self.r#linear),
-                crate::typed::CellCodec::into_cell(self.r#coefficient),
+                crate::typed::CellCodec::into_cell(self.r#dependence),
             ],
         )
     }
@@ -54,7 +286,7 @@ impl crate::typed::CellCodec for CompiledIncidenceRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(CompiledIncidenceRow)));
         };
-        if values.len() != 5usize {
+        if values.len() != 4usize {
             return Err(crate::typed::mismatch(stringify!(CompiledIncidenceRow)));
         }
         let mut values = values.into_iter();
@@ -80,16 +312,7 @@ impl crate::typed::CellCodec for CompiledIncidenceRow {
                         stringify!(CompiledIncidenceRow),
                     ))?,
             )?,
-            r#linear: <bool as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(CompiledIncidenceRow),
-                    ))?,
-            )?,
-            r#coefficient: <Option<
-                f64,
-            > as crate::typed::CellCodec>::from_cell(
+            r#dependence: <CompiledIncidenceFieldDependence as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -120,10 +343,9 @@ impl crate::columnar::ArrowValue for CompiledIncidenceRow {
             &self.r#symbol_id,
             children[2usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#linear, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#coefficient,
-            children[4usize].as_mut(),
+            &self.r#dependence,
+            children[3usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -144,10 +366,9 @@ impl crate::columnar::ArrowValue for CompiledIncidenceRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <Option<
-            f64,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <CompiledIncidenceFieldDependence as crate::columnar::ArrowValue>::append_null(
+            children[3usize].as_mut(),
+        )?;
         output.append(false);
         Ok(())
     }
@@ -170,14 +391,8 @@ impl crate::columnar::ArrowValue for CompiledIncidenceRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#linear: <bool as crate::columnar::ArrowValue>::read(
+            r#dependence: <CompiledIncidenceFieldDependence as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
-                index,
-            )?,
-            r#coefficient: <Option<
-                f64,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
                 index,
             )?,
         })
@@ -196,8 +411,7 @@ impl CompiledIncidenceRow {
             crate::typed::CellCodec::into_cell(self.r#problem_id),
             crate::typed::CellCodec::into_cell(self.r#equation_id),
             crate::typed::CellCodec::into_cell(self.r#symbol_id),
-            crate::typed::CellCodec::into_cell(self.r#linear),
-            crate::typed::CellCodec::into_cell(self.r#coefficient),
+            crate::typed::CellCodec::into_cell(self.r#dependence),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -211,7 +425,7 @@ impl CompiledIncidenceRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"6eab2f6615eb3914cc94542198b392be\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"incidence\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"problem_id\"],[\"text\",\"equation_id\"],[\"text\",\"symbol_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"problem_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"symbol_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"symbol_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"symbol_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"linear\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"linear\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"linear\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"coefficient\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"coefficient\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"coefficient\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"f64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.12 derived structure: incidence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"6eab2f6615eb3914cc94542198b392be\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"6eab2f6615eb3914cc94542198b392be\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"incidence\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"problem_id\"],[\"text\",\"equation_id\"],[\"text\",\"symbol_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"problem_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"problem_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"symbol_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"symbol_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"symbol_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"dependence\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"IncidenceKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"coefficient\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"linear\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"dependence\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"linear\\\":\\\"linear\\\",\\\"nonlinear\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"text\",\"dependence\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"3fe356b5b341ed2b658d604ebc4e2a23\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"3fe356b5b341ed2b658d604ebc4e2a23\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:IncidenceKind\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"f64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"coefficient\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":\\\\\\\"Float64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{},\\\\\\\"name\\\\\\\":\\\\\\\"coefficient\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"linear\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"IncidenceKind\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"coefficient\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"linear\\\",\\\"nullable\\\":true}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.tagged_alternative\\\":\\\"{\\\\\\\"arms\\\\\\\":{\\\\\\\"linear\\\\\\\":\\\\\\\"linear\\\\\\\",\\\\\\\"nonlinear\\\\\\\":null},\\\\\\\"discriminator\\\\\\\":\\\\\\\"kind\\\\\\\"}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"linear\\\":\\\"linear\\\",\\\"nonlinear\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"IncidenceKind\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"3fe356b5b341ed2b658d604ebc4e2a23\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"3fe356b5b341ed2b658d604ebc4e2a23\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:IncidenceKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:IncidenceKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"3fe356b5b341ed2b658d604ebc4e2a23\\\"}\"],[\"struct\",[[\"id\",\"3fe356b5b341ed2b658d604ebc4e2a23\"],[\"text\",\"IncidenceKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"linear\"],[\"null\",null],[\"bool\",false],[\"text\",\"linear\"]]],[\"struct\",[[\"text\",\"nonlinear\"],[\"null\",null],[\"bool\",false],[\"text\",\"nonlinear\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"linear\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"coefficient\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"linear\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"f64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"coefficient\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Float64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"coefficient\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"coefficient\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"coefficient\"],[\"text\",\"\\\"Float64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"f64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]]]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.12 derived structure: incidence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"6eab2f6615eb3914cc94542198b392be\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -287,10 +501,10 @@ impl crate::columnar::RelationRow for CompiledIncidenceRow {
         CompiledIncidenceView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        48_376_usize + size_of::<Self::Builder>()
+        86_416_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        104usize
+        120usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -308,17 +522,34 @@ impl crate::columnar::RelationRow for CompiledIncidenceRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(8usize)?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#coefficient).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#dependence).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#dependence).r#linear).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
             }?,
         )?;
         Ok(bytes)
@@ -331,7 +562,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "problem_id",
@@ -349,13 +580,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "linear",
+        name: "dependence",
         position: 3usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "coefficient",
-        position: 4usize,
     },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
@@ -366,8 +592,7 @@ pub struct CompiledIncidenceView<'a> {
     problem_id_column: &'a arrow_array::FixedSizeBinaryArray,
     equation_id_column: &'a arrow_array::FixedSizeBinaryArray,
     symbol_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    linear_column: &'a arrow_array::BooleanArray,
-    coefficient_column: &'a arrow_array::Float64Array,
+    dependence_column: &'a arrow_array::StructArray,
 }
 impl<'a> CompiledIncidenceView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -414,12 +639,9 @@ impl<'a> CompiledIncidenceView<'a> {
             symbol_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(2usize).as_ref())?,
-            linear_column: crate::columnar::array::<
-                arrow_array::BooleanArray,
+            dependence_column: crate::columnar::array::<
+                arrow_array::StructArray,
             >(batch.column(3usize).as_ref())?,
-            coefficient_column: crate::columnar::array::<
-                arrow_array::Float64Array,
-            >(batch.column(4usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -472,27 +694,15 @@ impl<'a> CompiledIncidenceView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "linear",
+        "dependence",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn linear_column(&self) -> &'a arrow_array::BooleanArray {
-        self.linear_column
+    pub const fn dependence_column(&self) -> &'a arrow_array::StructArray {
+        self.dependence_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "linear", "`.")]
-    pub fn linear_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "dependence", "`.")]
+    pub fn dependence_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[3usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "coefficient",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn coefficient_column(&self) -> &'a arrow_array::Float64Array {
-        self.coefficient_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "coefficient", "`.")]
-    pub fn coefficient_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -518,9 +728,8 @@ impl<'a> CompiledIncidenceView<'a> {
                 self.symbol_id_column,
                 index,
             )?,
-            r#linear: crate::columnar::ArrowValue::read(self.linear_column, index)?,
-            r#coefficient: crate::columnar::ArrowValue::read(
-                self.coefficient_column,
+            r#dependence: crate::columnar::ArrowValue::read(
+                self.dependence_column,
                 index,
             )?,
         })
@@ -587,6 +796,16 @@ impl CompiledIncidenceBuilder {
         &mut self,
         row: CompiledIncidenceRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if (row.r#dependence).selected().is_err() {
+            return Err(
+                crate::columnar::value_error(
+                    "dependence",
+                    row_index,
+                    "tagged value requires exactly its selected arm",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -603,12 +822,8 @@ impl CompiledIncidenceBuilder {
                     columns[2usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#linear,
+                    &row.r#dependence,
                     columns[3usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#coefficient,
-                    columns[4usize].as_mut(),
                 )?;
                 Ok(())
             })

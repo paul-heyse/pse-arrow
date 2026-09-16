@@ -18,6 +18,58 @@ use pse_schema::{
 use std::sync::Arc;
 
 #[test]
+fn registry_metadata_is_signed_and_enforces_its_declared_widths() {
+    let registry = pse_schema::registry().unwrap();
+    let batches = pse_relations::registry_relations::materialize(registry).unwrap();
+    for (name, column, maximum) in [
+        ("schema_relations", "version", i64::from(u32::MAX)),
+        ("schema_columns", "ordinal", i64::from(u16::MAX)),
+        ("schema_enums", "member_ordinal", i64::from(u16::MAX)),
+        ("schema_migrations", "from_version", i64::from(u32::MAX)),
+        ("schema_migrations", "to_version", i64::from(u32::MAX)),
+        ("schema_document_sections", "ordinal", i64::from(u32::MAX)),
+    ] {
+        let spec = registry.relation(&format!("reference.{name}")).unwrap();
+        let execution = arrow::relation_schema(registry, spec).unwrap();
+        let storage = pse_schema::delta::relation_schema(registry, spec).unwrap();
+        let field = execution.field_with_name(column).unwrap();
+        assert_eq!(field.data_type(), &DataType::Int64);
+        assert_eq!(
+            storage.field_with_name(column).unwrap().data_type(),
+            &DataType::Int64
+        );
+        assert_eq!(
+            batches[&spec.key]
+                .column_by_name(column)
+                .unwrap()
+                .data_type(),
+            &DataType::Int64
+        );
+        assert_eq!(
+            IntegerRange::from_field(field).unwrap(),
+            Some(IntegerRange::nonnegative(maximum))
+        );
+        for (value, valid) in [
+            (-1, false),
+            (0, true),
+            (maximum, true),
+            (maximum + 1, false),
+        ] {
+            assert_eq!(
+                pse_relations::validate::validate_column(
+                    registry,
+                    field,
+                    &Int64Array::from(vec![value])
+                )
+                .is_ok(),
+                valid,
+                "{name}.{column} = {value}"
+            );
+        }
+    }
+}
+
+#[test]
 fn visible_values_obey_bounds_while_null_parents_mask_children() {
     let registry = RegistryBuilder::new().build().unwrap();
     let child = IntegerRange::nonnegative(255).field("offset");

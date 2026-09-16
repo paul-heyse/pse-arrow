@@ -114,7 +114,7 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
         location: format!("file://{}/control/", root.path().display())
             .parse()
             .unwrap(),
-        version: 0,
+        version: 1,
     };
     let plan = publication_plan::plan(
         selection.location.clone(),

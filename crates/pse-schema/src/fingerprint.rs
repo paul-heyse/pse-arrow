@@ -91,6 +91,7 @@ pub fn relation(reg: &Registry, spec: &RelationSpec) -> Result<ContentHash, crat
         let rows = reg
             .enum_spec(name)
             .map(Registry::schema_enums_rows_of)
+            .transpose()?
             .unwrap_or_default();
         hasher.u64(len(rows.len()));
         for row in &rows {

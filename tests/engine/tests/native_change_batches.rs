@@ -72,7 +72,7 @@ async fn actual_commit_receipt_reopens_nonzero_ordinals_and_rejects_invalid_batc
         .iter()
         .find(|(_, artifact)| artifact.relation().rows() > 1)
         .unwrap();
-    let ordinal = u64::try_from(batch.relation().rows() - 1).unwrap();
+    let ordinal = i64::try_from(batch.relation().rows() - 1).unwrap();
     let mut rows =
         change_ops::View::from_checked(receipt.artifacts().operations.relation().checked())
             .unwrap()
@@ -115,7 +115,7 @@ async fn actual_commit_receipt_reopens_nonzero_ordinals_and_rejects_invalid_batc
                 .is_some_and(|row| row.staged_port == *port && row.staged_ordinal == ordinal)
     });
     for (ordinal, row) in rows.iter_mut().enumerate() {
-        row.ordinal = u32::try_from(ordinal).unwrap();
+        row.ordinal = i64::try_from(ordinal).unwrap();
     }
     incomplete.operations = operations(&fixture, &rows).await;
     let error = fixture

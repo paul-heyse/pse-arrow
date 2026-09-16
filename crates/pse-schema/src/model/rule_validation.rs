@@ -420,10 +420,7 @@ fn expression(
             }) {
                 return Err(invalid(rule, "list length requires a declared list"));
             }
-            Ok((
-                Some(FieldContract::native(arrow_schema::DataType::UInt64)),
-                nullable,
-            ))
+            Ok((Some(FieldContract::nonnegative(i64::MAX)), nullable))
         }
     }
 }

@@ -247,7 +247,7 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
             let publication = Publication::open(
                 PublicationRoot {
                     location: control,
-                    version: 0,
+                    version: 1,
                 },
                 &registry,
                 Arc::new(state),
@@ -301,13 +301,13 @@ fn publication_plan(location: url::Url, row: publications::Row) -> LogicalPlan {
     )
     .unwrap()
 }
-async fn publish(state: &SessionState, location: url::Url, row: publications::Row) -> Result<u64> {
+async fn publish(state: &SessionState, location: url::Url, row: publications::Row) -> Result<i64> {
     let plan = publication_plan(location, row);
     let result = collect(state.create_physical_plan(&plan).await?, state.task_ctx()).await?;
     Ok(result[0]
         .column(0)
         .as_any()
-        .downcast_ref::<datafusion::arrow::array::UInt64Array>()
+        .downcast_ref::<Int64Array>()
         .unwrap()
         .value(0))
 }
@@ -328,13 +328,13 @@ async fn publication_retry_checks_complete_request_after_head_advancement() {
         publish(&state, location.clone(), publication_row(3, Some(2)))
             .await
             .unwrap(),
-        1
+        2
     );
     assert_eq!(
         publish(&state, location.clone(), original.clone())
             .await
             .unwrap(),
-        0
+        1
     );
     let mut changed = original;
     changed.kind = PublicationKind::Model;
@@ -356,7 +356,7 @@ async fn publication_retry_checks_complete_request_after_head_advancement() {
             .await
             .unwrap()
             .version(),
-        Some(1)
+        Some(2)
     );
 }
 
@@ -376,12 +376,11 @@ async fn unavailable_declared_input_prevents_publication() {
             schema_name: "authored".into(),
             table_name: "packages".into(),
             relation_id: relation.id,
-            relation_version: relation.key.version,
+            relation_version: i64::from(relation.key.version),
             contract_fingerprint: relation.fingerprint,
             table_uri: location(&temp.path().join("absent")).to_string(),
             delta_version: 13,
-            revision_column: None,
-            revision_id: None,
+            selection: publications::RuntimePublicationsFieldInputsItemSelection::from_full(),
         });
     assert!(
         publish(
@@ -471,7 +470,7 @@ async fn concurrent_publication_creation_and_parent_updates_have_one_winner() {
             .await
             .unwrap()
             .version(),
-        Some(1)
+        Some(2)
     );
 }
 
@@ -483,7 +482,7 @@ async fn publication_reconciles_actual_lost_commit_acknowledgments() {
     let store = FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
     runtime.register_object_store(&location, store.clone());
     let state = context.state();
-    for (id, parent, version) in [(2, None, 0), (3, Some(2), 1)] {
+    for (id, parent, version) in [(2, None, 1), (3, Some(2), 2)] {
         store.arm(FaultPlan {
             operation: "put",
             prefix: format!("control/_delta_log/{version:020}.json"),
@@ -510,7 +509,7 @@ async fn publication_reconciles_actual_lost_commit_acknowledgments() {
         .unwrap();
     assert_eq!(
         table.version(),
-        Some(1),
+        Some(2),
         "retries must not duplicate a commit"
     );
 }
@@ -522,10 +521,10 @@ async fn write_member(
     batch: RecordBatch,
 ) -> publications::RuntimePublicationsFieldMembersItem {
     use datafusion::datasource::{MemTable, provider_as_source};
-    use pse_catalog::delta::layout::DurableLayout;
+    use pse_catalog::delta::contract::DeclaredCheck;
     let registry = pse_schema::registry().unwrap();
     let spec = registry.relation(name).unwrap();
-    let layout = DurableLayout::new(batch.schema()).unwrap();
+    let contract = DeclaredCheck::new(registry, spec.id).unwrap();
     let input = LogicalPlanBuilder::scan(
         "member_input",
         provider_as_source(Arc::new(
@@ -537,27 +536,40 @@ async fn write_member(
     .build()
     .unwrap();
     let location = location(&root.join(spec.key.name));
-    execute(
-        &context.state(),
+    let plan = DeltaWrite::declared(
         DeltaTableBuilder::from_url(location.clone())
             .unwrap()
             .build()
             .unwrap(),
-        layout.encode(input).unwrap(),
+        input,
+        SaveMode::ErrorIfExists,
+        CommitProperties::default(),
+        contract,
+    )
+    .unwrap();
+    let state = context.state();
+    let result = collect(
+        state.create_physical_plan(&plan).await.unwrap(),
+        state.task_ctx(),
     )
     .await
     .unwrap();
+    let delta_version = result[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap()
+        .value(0);
     publications::RuntimePublicationsFieldMembersItem {
         catalog_name: "model".into(),
         schema_name: spec.key.namespace.as_str().into(),
         table_name: spec.key.name.into(),
         relation_id: spec.id,
-        relation_version: spec.key.version,
+        relation_version: i64::from(spec.key.version),
         contract_fingerprint: spec.fingerprint,
         table_uri: location.to_string(),
-        delta_version: 0,
-        revision_column: None,
-        revision_id: None,
+        delta_version,
+        selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
     }
 }
 
@@ -611,7 +623,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
         "valid",
         "duplicate",
         "dangling",
-        "unknown-enum",
+        "missing-check",
         "wrong-contract",
     ] {
         let temp = tempfile::tempdir().unwrap();
@@ -653,29 +665,23 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
             )
             .await,
         );
-        let mut entities_batch = entities.finish().unwrap().into_batch();
-        if case == "unknown-enum" {
-            let mut columns = entities_batch.columns().to_vec();
-            columns[2] = datafusion::arrow::compute::cast(
-                &datafusion::arrow::array::StringArray::from(vec!["not-an-entity-kind"]),
-                entities_batch.schema().field(2).data_type(),
-            )
-            .unwrap();
-            entities_batch = RecordBatch::try_new(entities_batch.schema(), columns).unwrap();
-        }
+        let entities_batch = entities.finish().unwrap().into_batch();
         row.members
             .push(write_member(&context, temp.path(), "authored.entities", entities_batch).await);
+        if case == "missing-check" {
+            remove_native_check(&mut row.members[1]).await;
+        }
         if case == "wrong-contract" {
             row.members[1].contract_fingerprint = pse_ids::ContentHash::NIL;
         }
         let root = location(&temp.path().join("control"));
         let result = publish(&context.state(), root.clone(), row).await;
         if case == "valid" {
-            assert_eq!(result.unwrap(), 0);
+            assert_eq!(result.unwrap(), 1);
             let publication = Publication::open(
                 PublicationRoot {
                     location: root,
-                    version: 0,
+                    version: 1,
                 },
                 pse_schema::registry().unwrap(),
                 Arc::new(context.state()),
@@ -685,8 +691,8 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
             assert_isolated_publication(&publication).await;
         } else {
             let error = result.unwrap_err();
-            if case == "unknown-enum" {
-                assert!(error.to_string().contains("local values"), "{error}");
+            if case == "missing-check" {
+                assert!(error.to_string().contains("property"), "{error}");
             } else if case == "wrong-contract" {
                 assert!(error.to_string().contains("fingerprint"), "{error}");
             } else {
@@ -1325,10 +1331,7 @@ async fn application_transaction_records_do_not_implement_replay_deduplication()
 
 #[tokio::test]
 async fn generated_publication_control_reopens_its_exact_member_catalog() {
-    use pse_catalog::delta::{
-        layout::DurableLayout,
-        publication::{Publication, PublicationRoot},
-    };
+    use pse_catalog::delta::publication::{Publication, PublicationRoot};
     let temp = tempfile::tempdir().unwrap();
     let (writer, _, _, _) = context();
     let registry = pse_schema::registry().unwrap();
@@ -1343,37 +1346,14 @@ async fn generated_publication_control_reopens_its_exact_member_catalog() {
     .await;
     let mut row = publication_row(2, None);
     row.members.push(member);
-    let mut builder = publications::Builder::new().unwrap();
-    builder.push(row).unwrap();
-    let batch = builder.finish().unwrap().into_batch();
-    let layout = DurableLayout::new(batch.schema()).unwrap();
-    writer.register_batch("control_input", batch).unwrap();
-    let input = layout
-        .encode(
-            writer
-                .table("control_input")
-                .await
-                .unwrap()
-                .into_unoptimized_plan(),
-        )
-        .unwrap();
     let control_uri = location(&temp.path().join("control"));
-    execute(
-        &writer.state(),
-        DeltaTableBuilder::from_url(control_uri.clone())
-            .unwrap()
-            .build()
-            .unwrap(),
-        input,
-    )
-    .await
-    .unwrap();
+    write_control(&writer, control_uri.clone(), row).await;
     drop(writer);
     let (reader, _, _, _) = context();
     let publication = Publication::open(
         PublicationRoot {
             location: control_uri,
-            version: 0,
+            version: 1,
         },
         registry,
         Arc::new(reader.state()),
@@ -1393,4 +1373,237 @@ async fn generated_publication_control_reopens_its_exact_member_catalog() {
         .await
         .unwrap();
     assert_eq!(rows.iter().map(RecordBatch::num_rows).sum::<usize>(), 0);
+}
+
+#[tokio::test]
+async fn publication_selection_preserves_full_tables_and_exact_identity_slices() {
+    use pse_catalog::delta::publication::{Publication, PublicationRoot};
+    use pse_relations::generated::{authored::entities, enums::EntityKind};
+    use publications::{
+        RuntimePublicationsFieldMembersItemSelection as Selection,
+        RuntimePublicationsFieldMembersItemSelectionRevision as Revision,
+    };
+    let root = tempfile::tempdir().unwrap();
+    let (writer, _, _, _) = context();
+    let identity = |value| pse_ids::SemanticId::from_bytes([value; 16]);
+    let mut builder = entities::Builder::new().unwrap();
+    for id in [10, 11] {
+        builder
+            .push(entities::Row {
+                entity_id: identity(id),
+                package_id: identity(1),
+                kind: EntityKind::Package,
+                name: format!("entity-{id}"),
+                qualified_name: format!("entity-{id}"),
+                parent_entity_id: None,
+                source_span: None,
+            })
+            .unwrap();
+    }
+    let member = write_member(
+        &writer,
+        root.path(),
+        "authored.entities",
+        builder.finish().unwrap().into_batch(),
+    )
+    .await;
+    for (case, selection, expected) in [
+        ("full", Selection::from_full(), Some(2)),
+        (
+            "slice",
+            Selection::from_revision(Revision {
+                column: "entity_id".into(),
+                revision_id: identity(10),
+            }),
+            Some(1),
+        ),
+        (
+            "empty",
+            Selection::from_revision(Revision {
+                column: "entity_id".into(),
+                revision_id: identity(99),
+            }),
+            Some(0),
+        ),
+        (
+            "unknown",
+            Selection::from_revision(Revision {
+                column: "not_declared".into(),
+                revision_id: identity(10),
+            }),
+            None,
+        ),
+        (
+            "wrong-type",
+            Selection::from_revision(Revision {
+                column: "name".into(),
+                revision_id: identity(10),
+            }),
+            None,
+        ),
+    ] {
+        let mut selected = member.clone();
+        selected.selection = selection;
+        let mut row = publication_row(2, None);
+        row.members.push(selected);
+        let uri = location(&root.path().join(case));
+        write_control(&writer, uri.clone(), row).await;
+        let result = Publication::open(
+            PublicationRoot {
+                location: uri,
+                version: 1,
+            },
+            pse_schema::registry().unwrap(),
+            Arc::new(writer.state()),
+        )
+        .await;
+        if let Some(expected) = expected {
+            let publication = result.unwrap();
+            let reader = SessionContext::new_with_state(publication.session_state().await.unwrap());
+            assert_eq!(
+                reader
+                    .table("model.authored.entities")
+                    .await
+                    .unwrap()
+                    .count()
+                    .await
+                    .unwrap(),
+                expected,
+                "{case}"
+            );
+        } else {
+            assert!(result.is_err(), "{case}");
+        }
+    }
+}
+
+async fn write_control(context: &SessionContext, uri: url::Url, row: publications::Row) {
+    let registry = pse_schema::registry().unwrap();
+    let contract = pse_catalog::delta::contract::DeclaredCheck::new(
+        registry,
+        publications::spec(registry).unwrap().id,
+    )
+    .unwrap();
+    let mut builder = publications::Builder::new().unwrap();
+    builder.push(row).unwrap();
+    let batch = builder.finish().unwrap().into_batch();
+    let plan = DeltaWrite::declared(
+        DeltaTableBuilder::from_url(uri).unwrap().build().unwrap(),
+        context.read_batch(batch).unwrap().into_unoptimized_plan(),
+        SaveMode::ErrorIfExists,
+        CommitProperties::default(),
+        contract,
+    )
+    .unwrap();
+    let state = context.state();
+    collect(
+        state.create_physical_plan(&plan).await.unwrap(),
+        state.task_ctx(),
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn publication_root_records_native_checks_and_refuses_empty_or_invalid_heads() {
+    use deltalake::delta_datafusion::SessionFallbackPolicy;
+    use pse_catalog::delta::{
+        contract::DeclaredCheck,
+        publication::{Publication, PublicationRoot},
+    };
+    let root = tempfile::tempdir().unwrap();
+    let uri = location(root.path());
+    let (writer, _, _, _) = context();
+    assert_eq!(
+        publish(&writer.state(), uri.clone(), publication_row(2, None))
+            .await
+            .unwrap(),
+        1
+    );
+    let registry = pse_schema::registry().unwrap();
+    assert!(
+        Publication::open(
+            PublicationRoot {
+                location: uri.clone(),
+                version: 0
+            },
+            registry,
+            Arc::new(writer.state())
+        )
+        .await
+        .is_err()
+    );
+    let table = DeltaTableBuilder::from_url(uri.clone())
+        .unwrap()
+        .load()
+        .await
+        .unwrap();
+    let cold = SessionStateBuilder::new_with_default_features()
+        .with_query_planner(deltalake::delta_datafusion::planner::DeltaPlanner::new())
+        .build();
+    let contract = DeclaredCheck::open(&table, &cold).unwrap();
+    assert!(
+        contract
+            .properties()
+            .contains_key("delta.constraints.pse_contract")
+    );
+    assert!(
+        contract
+            .properties()
+            .contains_key(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
+    );
+    let cold = Arc::new(contract.bind(&cold).unwrap());
+    let result = table
+        .update()
+        .with_session_state(cold)
+        .with_session_fallback_policy(SessionFallbackPolicy::RequireSessionState)
+        .with_update("kind", datafusion::logical_expr::lit("invalid-kind"))
+        .await;
+    assert!(result.is_err());
+    assert_eq!(
+        DeltaTableBuilder::from_url(uri)
+            .unwrap()
+            .load()
+            .await
+            .unwrap()
+            .version(),
+        Some(1)
+    );
+}
+
+#[tokio::test]
+async fn a_lost_control_schema_creation_response_is_reconciled_before_publishing() {
+    use fault_store::{Fault, FaultPlan, FaultStore};
+    let (context, _, _, runtime) = context();
+    let location = url::Url::parse("memory://creation/control/").unwrap();
+    let store = FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
+    runtime.register_object_store(&location, store.clone());
+    store.arm(FaultPlan {
+        operation: "put",
+        prefix: "control/_delta_log/00000000000000000000.json".into(),
+        call: 1,
+        fault: Fault::LostResponse,
+    });
+    let row = publication_row(2, None);
+    assert_eq!(
+        publish(&context.state(), location.clone(), row.clone())
+            .await
+            .unwrap(),
+        1
+    );
+    assert_eq!(store.fired(), 1);
+    assert_eq!(publish(&context.state(), location, row).await.unwrap(), 1);
+}
+
+async fn remove_native_check(member: &mut publications::RuntimePublicationsFieldMembersItem) {
+    let table = DeltaTableBuilder::from_url(member.table_uri.parse().unwrap())
+        .unwrap()
+        .load()
+        .await
+        .unwrap()
+        .drop_constraints()
+        .with_constraint("pse_contract")
+        .await
+        .unwrap();
+    member.delta_version = i64::try_from(table.version().unwrap()).unwrap();
 }

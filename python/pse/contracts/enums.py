@@ -916,6 +916,13 @@ class IdPolicy(StrEnum):
     NAMED = "named"
 
 
+class IncidenceKind(StrEnum):
+    """The declared IncidenceKind enumeration."""
+
+    LINEAR = "linear"
+    NONLINEAR = "nonlinear"
+
+
 class IndexMapKind(StrEnum):
     """The declared IndexMapKind enumeration."""
 
@@ -1034,6 +1041,13 @@ class MaterialFlowBasis(StrEnum):
     MOLAR = "molar"
     MASS = "mass"
     OTHER = "other"
+
+
+class MemberSelectionKind(StrEnum):
+    """The declared MemberSelectionKind enumeration."""
+
+    FULL = "full"
+    REVISION = "revision"
 
 
 class MethodCandidateReason(StrEnum):

@@ -11719,6 +11719,107 @@ impl crate::columnar::ArrowValue for IdPolicy {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum IncidenceKind {
+    ///linear
+    #[serde(rename = "linear")]
+    Linear,
+    ///nonlinear
+    #[serde(rename = "nonlinear")]
+    Nonlinear,
+}
+impl IncidenceKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Linear, Self::Nonlinear];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Linear => "linear",
+            Self::Nonlinear => "nonlinear",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Linear => 0usize,
+            Self::Nonlinear => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Linear => None,
+            Self::Nonlinear => None,
+        }
+    }
+}
+impl core::str::FromStr for IncidenceKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "linear" => Ok(Self::Linear),
+            "nonlinear" => Ok(Self::Nonlinear),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(IncidenceKind).to_owned(),
+                    enumeration: stringify!(IncidenceKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for IncidenceKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(IncidenceKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for IncidenceKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum IndexMapKind {
     ///source_axis
     #[serde(rename = "source_axis")]
@@ -13299,6 +13400,107 @@ impl crate::typed::CellCodec for MaterialFlowBasis {
     }
 }
 impl crate::columnar::ArrowValue for MaterialFlowBasis {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum MemberSelectionKind {
+    ///full
+    #[serde(rename = "full")]
+    Full,
+    ///revision
+    #[serde(rename = "revision")]
+    Revision,
+}
+impl MemberSelectionKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Full, Self::Revision];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Full => "full",
+            Self::Revision => "revision",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Full => 0usize,
+            Self::Revision => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Full => None,
+            Self::Revision => None,
+        }
+    }
+}
+impl core::str::FromStr for MemberSelectionKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "full" => Ok(Self::Full),
+            "revision" => Ok(Self::Revision),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(MemberSelectionKind).to_owned(),
+                    enumeration: stringify!(MemberSelectionKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for MemberSelectionKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(MemberSelectionKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for MemberSelectionKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

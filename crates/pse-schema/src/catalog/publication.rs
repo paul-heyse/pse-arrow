@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
+    enumeration(builder, "MemberSelectionKind", ["full", "revision"]);
     enumeration(
         builder,
         "PublicationKind",
@@ -44,7 +45,7 @@ pub(super) fn member() -> T {
             .with_name("table_name")
             .with_nullable(false),
         T::id().with_name("relation_id").with_nullable(false),
-        T::native(arrow_schema::DataType::UInt32)
+        T::nonnegative(i64::from(u32::MAX))
             .with_name("relation_version")
             .with_nullable(false),
         T::hash()
@@ -53,12 +54,25 @@ pub(super) fn member() -> T {
         T::native(arrow_schema::DataType::Utf8)
             .with_name("table_uri")
             .with_nullable(false),
-        T::native(arrow_schema::DataType::UInt64)
+        T::nonnegative(i64::MAX)
             .with_name("delta_version")
             .with_nullable(false),
-        T::native(arrow_schema::DataType::Utf8)
-            .with_name("revision_column")
-            .with_nullable(true),
-        T::id().with_name("revision_id").with_nullable(true),
+        selection().with_name("selection"),
     ])
+}
+
+fn selection() -> T {
+    let alternative =
+        crate::model::TaggedAlternative::new("kind", [("revision".into(), "revision".into())])
+            .with_unit("full");
+    T::structure(vec![
+        T::enumeration("MemberSelectionKind").with_name("kind"),
+        T::structure(vec![
+            T::native(arrow_schema::DataType::Utf8).with_name("column"),
+            T::id().with_name("revision_id"),
+        ])
+        .with_name("revision")
+        .optional(),
+    ])
+    .with_alternative(&alternative)
 }

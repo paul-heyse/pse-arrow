@@ -5,8 +5,9 @@
 #![allow(clippy::unwrap_used, reason = "fixture assertions")]
 use pse_compiler::mathir_relations::{Family, RelationSink, RelationSource};
 use pse_ids::{CancellationToken, FixedBudget, SemanticId};
-use pse_mathir::{ExprGraph, Opcode, Payload, TemplateValueKind, ValueRef};
+use pse_mathir::{ExprGraph, Opcode, Payload, ValueRef};
 use pse_relations::{columnar::FieldCheckedBatch, generated::compiled};
+use pse_schema::math::TemplateValueKind;
 
 #[test]
 fn relation_round_trip_preserves_children_and_rejects_duplicate_payload_rows() {

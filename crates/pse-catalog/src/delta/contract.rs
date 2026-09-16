@@ -71,8 +71,9 @@ impl DeclaredCheck {
         if !nested.is_empty() {
             properties.insert("pse.check.nested.dialect".into(), "duckdb".into());
         }
-        let sql = expr_to_sql(&super::predicates::combine(spec, checks))?.to_string();
+        let sql = expr_to_sql(&super::predicates::combine(checks))?.to_string();
         properties.insert("delta.constraints.pse_contract".into(), sql);
+        properties.extend(super::row_checks::properties(&schema)?);
         Ok(Self {
             layout,
             properties,
@@ -140,6 +141,7 @@ impl DeclaredCheck {
             "delta.constraints.pse_contract".into(),
             get("delta.constraints.pse_contract")?,
         );
+        properties.extend(super::row_checks::properties(layout.execution_schema())?);
         let contract = Self {
             layout,
             properties,
@@ -172,6 +174,10 @@ impl DeclaredCheck {
                 ));
             }
             state.register_udf(function)?;
+        }
+        let schema = DFSchema::try_from(self.layout.storage_schema().as_ref().clone())?;
+        for expression in super::row_checks::expressions(self.layout.storage_schema(), &state)? {
+            state.create_physical_expr(expression, &schema)?;
         }
         Ok(state)
     }
@@ -227,6 +233,13 @@ impl DeclaredCheck {
         pse_schema::field_contract::delta_scan_schema(&stored, self.layout.storage_schema())
             .map_err(external)?;
         let configuration = snapshot.metadata().configuration();
+        if let Some(name) = configuration.keys().find(|name| {
+            name.starts_with("delta.constraints.") && !self.properties.contains_key(*name)
+        }) {
+            return Err(invalid(&format!(
+                "Delta CHECK {name} is outside the declared contract"
+            )));
+        }
         for (key, value) in &self.properties {
             if configuration.get(key) != Some(value) {
                 return Err(invalid(&format!(

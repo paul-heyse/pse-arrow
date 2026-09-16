@@ -2228,28 +2228,28 @@ Version: `1`. Stratum: 1.
 
 Version: `1`. Stratum: 1.
 
-- `authored.domains` (negate)
 - `normalized.continuous_domains` (read)
+- `normalized.domains` (negate)
 
 ## `foreign_key:domain_id:normalized.domain_members`
 
 Version: `1`. Stratum: 1.
 
-- `authored.domains` (negate)
 - `normalized.domain_members` (read)
+- `normalized.domains` (negate)
 
 ## `foreign_key:domain_id:normalized.instance_domain_bindings`
 
 Version: `1`. Stratum: 1.
 
-- `authored.domains` (negate)
+- `normalized.domains` (negate)
 - `normalized.instance_domain_bindings` (read)
 
 ## `foreign_key:domain_id:normalized.template_domain_bindings`
 
 Version: `1`. Stratum: 1.
 
-- `authored.domains` (negate)
+- `normalized.domains` (negate)
 - `normalized.template_domain_bindings` (read)
 
 ## `foreign_key:element_id:authored.species_elements`
@@ -2410,21 +2410,21 @@ Version: `1`. Stratum: 1.
 
 Version: `1`. Stratum: 1.
 
-- `authored.instances` (negate)
 - `normalized.flowsheets` (read)
+- `normalized.instance_bindings` (negate)
 
 ## `foreign_key:instance_id:normalized.instance_domain_bindings`
 
 Version: `1`. Stratum: 1.
 
-- `authored.instances` (negate)
+- `normalized.instance_bindings` (negate)
 - `normalized.instance_domain_bindings` (read)
 
 ## `foreign_key:instance_id:normalized.instance_equations`
 
 Version: `1`. Stratum: 1.
 
-- `authored.instances` (negate)
+- `normalized.instance_bindings` (negate)
 - `normalized.instance_equations` (read)
 
 ## `foreign_key:law_instance_decl_id:authored.template_law_contracts`
@@ -2830,7 +2830,7 @@ Version: `1`. Stratum: 1.
 
 Version: `1`. Stratum: 1.
 
-- `authored.domains` (negate)
+- `normalized.domains` (negate)
 - `normalized.domains` (read)
 
 ## `foreign_key:parent_entity_id:authored.entities`
@@ -2858,7 +2858,7 @@ Version: `1`. Stratum: 1.
 
 Version: `1`. Stratum: 1.
 
-- `authored.instances` (negate)
+- `normalized.instance_bindings` (negate)
 - `normalized.instances` (read)
 
 ## `foreign_key:parent_term_id:authored.selector_terms`
@@ -4244,18 +4244,6 @@ Version: `1`. Stratum: 1.
 Version: `1`. Stratum: 1.
 
 - `compiled.law_applications` (read)
-
-## `typed_value_alternative:inferred.instance_features`
-
-Version: `1`. Stratum: 1.
-
-- `inferred.instance_features` (read)
-
-## `typed_value_alternative:normalized.config_values`
-
-Version: `1`. Stratum: 1.
-
-- `normalized.config_values` (read)
 
 ## `unique:pk:authored.case_activation_targets`
 
@@ -7981,7 +7969,6 @@ Version: `1`. Stratum: 1.
 | `inferred.feature_checks` | `unique:pk` | `unique:pk:inferred.feature_checks@1` |
 | `inferred.feature_requirements` | `unique:pk` | `unique:pk:inferred.feature_requirements@1` |
 | `inferred.initialization_order` | `unique:pk` | `unique:pk:inferred.initialization_order@1` |
-| `inferred.instance_features` | `typed_value_alternative` | `typed_value_alternative:inferred.instance_features@1` |
 | `inferred.instance_features` | `unique:pk` | `unique:pk:inferred.instance_features@1` |
 | `inferred.instance_guard_violations` | `child_guards_decided` | `child_guards_decided:inferred.instance_guard_violations@1` |
 | `inferred.instance_guard_violations` | `unique:pk` | `unique:pk:inferred.instance_guard_violations@1` |
@@ -8099,7 +8086,6 @@ Version: `1`. Stratum: 1.
 | `normalized.candidate_index_members` | `unique:pk` | `unique:pk:normalized.candidate_index_members@1` |
 | `normalized.candidate_index_tuples` | `unique:pk` | `unique:pk:normalized.candidate_index_tuples@1` |
 | `normalized.config_values` | `foreign_key:source_relation_id` | `foreign_key:source_relation_id:normalized.config_values@1` |
-| `normalized.config_values` | `typed_value_alternative` | `typed_value_alternative:normalized.config_values@1` |
 | `normalized.config_values` | `unique:pk` | `unique:pk:normalized.config_values@1` |
 | `normalized.connections` | `unique:pk` | `unique:pk:normalized.connections@1` |
 | `normalized.continuous_domains` | `foreign_key:domain_id` | `foreign_key:domain_id:normalized.continuous_domains@1` |

@@ -244,6 +244,8 @@ fn parameter_instance(
     let selected = value
         .value
         .semantic_id
+        .as_ref()
+        .map(|arm| arm.value)
         .ok_or_else(|| TemplateError::Binding {
             instance: requester,
             detail: "instance parameter has no actual identity".to_owned(),

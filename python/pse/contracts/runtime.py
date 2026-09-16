@@ -89,17 +89,36 @@ class RuntimeIterationsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeKernelEvaluationOutcomesFieldResultFailure:
+    """Declared relation row or nested value."""
+
+    reason_code: e.KernelFailure = attrs.field(validator=attrs.validators.instance_of(e.KernelFailure))
+    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeKernelEvaluationOutcomesFieldResult:
+    """Declared relation row or nested value."""
+
+    kind: e.KernelOutcome = attrs.field(validator=attrs.validators.instance_of(e.KernelOutcome))
+    success: v.QuantityValue | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.QuantityValue)))
+    failure: RuntimeKernelEvaluationOutcomesFieldResultFailure | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimeKernelEvaluationOutcomesFieldResultFailure)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "domain_failure" and self.failure is not None and self.success is None) or (self.kind == "implementation_failure" and self.failure is not None and self.success is None) or (self.kind == "missing_input" and self.failure is not None and self.success is None) or (self.kind == "success" and self.failure is None and self.success is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeKernelEvaluationOutcomesRow:
     """Declared relation row or nested value."""
 
     evaluation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    row_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     output_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    outcome: e.KernelOutcome = attrs.field(validator=attrs.validators.instance_of(e.KernelOutcome))
-    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    reason_code: e.KernelFailure | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.KernelFailure)))
+    result: RuntimeKernelEvaluationOutcomesFieldResult = attrs.field(validator=attrs.validators.instance_of(RuntimeKernelEvaluationOutcomesFieldResult))
 
 
 @attrs.frozen(kw_only=True)
@@ -113,6 +132,27 @@ class RuntimeKernelEvaluationsRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimePublicationsFieldInputsItemSelectionRevision:
+    """Declared relation row or nested value."""
+
+    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimePublicationsFieldInputsItemSelection:
+    """Declared relation row or nested value."""
+
+    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision: RuntimePublicationsFieldInputsItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimePublicationsFieldInputsItemSelectionRevision)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class RuntimePublicationsFieldInputsItem:
     """Declared relation row or nested value."""
 
@@ -123,9 +163,29 @@ class RuntimePublicationsFieldInputsItem:
     relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    selection: RuntimePublicationsFieldInputsItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimePublicationsFieldInputsItemSelection))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimePublicationsFieldMembersItemSelectionRevision:
+    """Declared relation row or nested value."""
+
+    column: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimePublicationsFieldMembersItemSelection:
+    """Declared relation row or nested value."""
+
+    kind: e.MemberSelectionKind = attrs.field(validator=attrs.validators.instance_of(e.MemberSelectionKind))
+    revision: RuntimePublicationsFieldMembersItemSelectionRevision | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(RuntimePublicationsFieldMembersItemSelectionRevision)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "full" and self.revision is None) or (self.kind == "revision" and self.revision is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -139,9 +199,8 @@ class RuntimePublicationsFieldMembersItem:
     relation_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     contract_fingerprint: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     table_uri: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    delta_version: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    revision_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    delta_version: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    selection: RuntimePublicationsFieldMembersItemSelection = attrs.field(validator=attrs.validators.instance_of(RuntimePublicationsFieldMembersItemSelection))
 
 
 @attrs.frozen(kw_only=True)

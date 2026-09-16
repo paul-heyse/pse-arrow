@@ -47,7 +47,6 @@ fn describe_field(source: &mut String, field: &FieldContract, path: &str) {
     let quantity = match field.quantity() {
         QuantityContract::None => "—".to_owned(),
         QuantityContract::Column(name) => format!("`{name}`"),
-        QuantityContract::PerRow => "Per row".to_owned(),
     };
     let _ = writeln!(
         source,
@@ -82,6 +81,12 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             describe_field(source, column, column.name());
         }
         source.push('\n');
+        for (name, sql) in &relation.checks {
+            let _ = writeln!(
+                source,
+                "Native row check `{name}` (must be true):\n\n```sql\n{sql}\n```\n"
+            );
+        }
     }
     let mut index = format!(
         "# Generated registry reference\n\nProjected from the admitted registry `{}`. This identity is not evidence of runtime validity.\n\n",

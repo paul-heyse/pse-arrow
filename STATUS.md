@@ -38,17 +38,65 @@ their recorded declarations reopen without the registry. A narrow adapter execut
 native collection expressions that the pinned Delta CHECK parser cannot parse; the
 expressions and required dialect are persisted and cold-compiled. Scalar checks run
 with only native Delta/DataFusion functions. Exact implementation, limitations and
-verification are in the [latest Plan 08 receipt](docs/plans/08-schema-first-native-data-pivot.md#signed-extensions-and-native-value-predicates--2026-09-16).
+verification are in the [native-check receipt](docs/plans/08-schema-first-native-data-pivot.md#signed-extensions-and-native-value-predicates--2026-09-16).
 
-**Tested, baseline 0:** the seven-package run passed 586 tests with force validation,
-0 failures/skips. Python unit/component tests pass all 83 cases. Workspace compilation,
-scoped Clippy, quality, formatting, regeneration and environment diagnostics pass.
-All 9 targeted engine cases pass in CI mode with force validation; the final metadata-key
-refinement also passes 202 catalog tests and the cold-source engine rerun. Exact
-commands and conditions are in Plan 08. Ordinary unsigned PSE scalars, alternatives/
-quantities/keys, coherent math/numerical rows, general invariant/domain transfer,
+**Implemented — signed metadata and tagged configuration:** registry metadata,
+publication versions/outcomes, package depth, change batches, case sampling and runtime
+evidence use signed fields with generated bounds. Native Delta version conversions are
+checked; DataFusion's native unsigned DML count protocol and full-width unsigned values
+remain supported. Configuration and feature values now have one declared selected struct
+arm. Generated Rust constructors/selectors, Python validation, JSON Schema alternatives
+and native DataFusion/Delta checks enforce that declaration. The quantity arm carries
+its value, quantity type and unit together. Former flat payload readers, duplicated
+configuration shape rules and the feature-value copy are deleted. Normalized reference
+metadata now targets generated domains and child instances correctly. See the
+[current Plan 08 receipt](docs/plans/08-schema-first-native-data-pivot.md#signed-metadata-and-tagged-configuration--2026-09-16).
+
+**Tested, baseline 0:** the expanded eight-package run passed 617 tests with force
+validation, 0 failures/skips. Python unit/component tests pass all 84 cases. Focused
+tagged-value tests include cold native Delta refusal of malformed arms and masked-parent
+admission. The CI/force-validation engine runs pass 16 normalization/template/change/
+source/terminal cases and, after correcting normalized references, all 4 heater/mixer
+source-to-P10 cases. Workspace compilation, scoped Clippy and Python/repository quality pass.
+Exact commands, conditions and engine receipts are in Plan 08. Remaining unsigned PSE
+ordinals/counts, alternatives outside configuration/features, general quantities/keys,
+coherent math/numerical rows, general invariant/domain transfer,
 complete table/root policies and compiler/store/Python replacement remain open.
 Full workspace Clippy and terminal architecture gates remain open.
+
+**Implemented — schema/publication continuation:** math declarations now reside in
+`pse-schema`, removing its dependency on `pse-mathir`. Payload-free/shared alternatives
+cover publication selections, kernel outcomes and incidence. The sibling-based
+quantity contract is deleted. Lists declare order/cardinality/uniqueness, with generated
+language checks and native DataFusion/Delta predicates. Publication roots install
+declared checks before the first data commit; root/member opens verify persisted
+contracts. Native session-builder configuration and opaque extensions survive binding.
+See the [continuation receipt](docs/plans/08-schema-first-native-data-pivot.md#schema-and-publication-contract-continuation--2026-09-16)
+for replacements, qualification and remaining work.
+
+**Tested, baseline 0:** the continuation's four-package force-validation run passes
+434 tests; the CI/force-validation Delta source reopen/reparse test passes; Python
+unit/component tests pass 86 cases. `just quality` passes. `just clippy` still reports
+65 errors in `pse-compiler`; the target remains zero. No plan package is closed:
+coherent math/numerical rows, remaining schema/reference contracts, common invariants,
+complete provider/compiler/store/Python replacement, member-attempt reuse, native
+change/retention and terminal deletion/measurement gates remain open.
+
+**Implemented — native nested references and row predicates:** publication FK checks
+and source-span checks share native nested occurrence plans. Typed quantity values
+resolve their selected type, canonical unit, dimensions and reference restrictions.
+Named native SQL row checks now participate in exact schema identity, candidate
+admission and persisted Delta CHECK; implicit systems use one such declaration for
+equal unknown/equation cardinality. Focused catalog tests pass 130 cases with force
+validation, baseline 0. See the [native reference/predicate receipt](docs/plans/08-schema-first-native-data-pivot.md#native-nested-references-and-row-predicates--2026-09-16)
+for scope and verification. Complete caller replacement and legacy deletion remain open.
+
+**Tested, baseline 0 — latest continuation:** the four-package force-validation run
+passes **446 tests**; the final Delta suite passes **24**, governance **69**, and
+Python unit/component **86**. The exact-source CI journey passes. Scoped Clippy,
+workspace compilation, generation and `just quality` pass; the final editable rebuild
+passes `just doctor`. Exact commands and conditions are in the receipt above.
+Full workspace Clippy and the plan's terminal gates remain open.
 
 The plan covers every finding in the schema engineering review and eight additional
 opportunities grounded in current code and the pinned DataFusion/Delta skills. It

@@ -8,8 +8,8 @@
 //! collecting rows or re-planning the source. Delta still owns validation and commit.
 use datafusion::{
     arrow::{
-        array::{RecordBatch, UInt64Array},
-        datatypes::{DataType, Field, Schema, SchemaRef},
+        array::{Int64Array, RecordBatch},
+        datatypes::{Schema, SchemaRef},
     },
     catalog::{Session, TableProvider},
     common::{DFSchema, DFSchemaRef, DataFusionError, Result},
@@ -100,11 +100,9 @@ impl DeltaWrite {
         commit: CommitProperties,
         contract: Option<super::contract::DeclaredCheck>,
     ) -> Result<LogicalPlan> {
-        let schema = Arc::new(DFSchema::try_from(Schema::new(vec![Field::new(
-            "version",
-            DataType::UInt64,
-            false,
-        )]))?);
+        let schema = Arc::new(DFSchema::try_from(Schema::new(vec![
+            pse_schema::model::IntegerRange::NONNEGATIVE.field("version"),
+        ]))?);
         Ok(LogicalPlan::Extension(Extension {
             node: Arc::new(Self {
                 request: Arc::new(WriteRequest {
@@ -338,9 +336,15 @@ impl ExecutionPlan for WriteExec {
             let version = table.version().ok_or_else(|| {
                 DataFusionError::Execution("Delta write omitted its committed version".into())
             })?;
+            let version = super::provider::signed_version(version).map_err(|error| {
+                DataFusionError::External(Box::new(super::dml::MutationError::Committed {
+                    version,
+                    source: Box::new(error),
+                }))
+            })?;
             Ok(RecordBatch::try_new(
                 schema,
-                vec![Arc::new(UInt64Array::from(vec![version]))],
+                vec![Arc::new(Int64Array::from(vec![version]))],
             )?)
         });
         Ok(Box::pin(RecordBatchStreamAdapter::new(

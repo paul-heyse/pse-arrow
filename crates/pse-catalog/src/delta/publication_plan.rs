@@ -64,12 +64,11 @@ pub fn plan(
             schema_name: member.reference.schema.to_string(),
             table_name: member.reference.table.to_string(),
             relation_id: spec.id,
-            relation_version: spec.key.version,
+            relation_version: i64::from(spec.key.version),
             contract_fingerprint: spec.fingerprint,
             table_uri: member.table.table_url().to_string(),
             delta_version: 0,
-            revision_column: None,
-            revision_id: None,
+            selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
         };
         let mode = if member.table.version().is_none() {
             SaveMode::ErrorIfExists

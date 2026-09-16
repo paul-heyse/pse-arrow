@@ -23,13 +23,13 @@ use crate::model::Cell;
 
 /// Projects the sole operator table; no quantity package is bound in the schema registry.
 pub(crate) fn rows() -> Vec<Vec<Cell>> {
-    pse_mathir::OPERATOR_TABLE
+    crate::math::operators::OPERATOR_TABLE
         .iter()
         .map(|spec| {
             let (arity, count) = match spec.arity {
-                pse_mathir::Arity::Fixed(count) => ("fixed", Cell::U64(u64::from(count))),
-                pse_mathir::Arity::Variadic => ("variadic", Cell::Null),
-                pse_mathir::Arity::Payload => ("payload", Cell::Null),
+                crate::math::Arity::Fixed(count) => ("fixed", Cell::U64(u64::from(count))),
+                crate::math::Arity::Variadic => ("variadic", Cell::Null),
+                crate::math::Arity::Payload => ("payload", Cell::Null),
             };
             vec![
                 Cell::Enum(spec.opcode.as_str()),
@@ -126,7 +126,7 @@ fn declare_operator_family_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
         "OperatorFamily",
-        pse_mathir::opspec::OperatorFamily::ALL
+        crate::math::operators::OperatorFamily::ALL
             .iter()
             .map(|v| v.as_str()),
     );
@@ -136,7 +136,7 @@ fn declare_argument_evaluation_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
         "ArgumentEvaluation",
-        pse_mathir::opspec::ArgumentEvaluation::ALL
+        crate::math::operators::ArgumentEvaluation::ALL
             .iter()
             .map(|v| v.as_str()),
     );
@@ -146,7 +146,7 @@ fn declare_kernel_failure_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
         "KernelFailure",
-        pse_mathir::opspec::KernelFailure::ALL
+        crate::math::operators::KernelFailure::ALL
             .iter()
             .map(|v| v.as_str()),
     );
@@ -156,7 +156,7 @@ fn declare_differentiability_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
         "Differentiability",
-        pse_mathir::opspec::Differentiability::ALL
+        crate::math::operators::Differentiability::ALL
             .iter()
             .map(|v| v.as_str()),
     );
@@ -166,7 +166,7 @@ fn declare_relation_op_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
         "RelationOp",
-        pse_mathir::opspec::RelationOp::ALL
+        crate::math::operators::RelationOp::ALL
             .iter()
             .map(|v| v.as_str()),
     );
@@ -176,7 +176,7 @@ fn declare_backend_binding_vocabulary(builder: &mut RegistryBuilder) {
     super::declarations::enumeration(
         builder,
         "BackendBinding",
-        pse_mathir::opspec::BackendBinding::ALL
+        crate::math::operators::BackendBinding::ALL
             .iter()
             .map(|v| v.as_str()),
     );

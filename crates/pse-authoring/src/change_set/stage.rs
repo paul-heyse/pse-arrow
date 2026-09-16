@@ -69,7 +69,7 @@ impl ChangeSet {
         before: &[Cell],
         after: Option<&[Cell]>,
     ) -> Result<(), AuthoringError> {
-        let ordinal = u32::try_from(self.ops.len()).map_err(|_| contract("too many operations"))?;
+        let ordinal = i64::try_from(self.ops.len()).map_err(|_| contract("too many operations"))?;
         let key_port = format!("operation/{ordinal}/key");
         let row_port = if op == ChangeOpKind::Insert {
             key_port.clone()
@@ -272,7 +272,7 @@ fn append(
             (false, false) => return Err(contract("native difference has no source side")),
         };
         let ordinal =
-            u32::try_from(changes.ops.len()).map_err(|_| contract("operation ordinal overflow"))?;
+            i64::try_from(changes.ops.len()).map_err(|_| contract("operation ordinal overflow"))?;
         let change_set_id = changes.header.change_set_id;
         changes.data_mut().ops.push(authored::change_ops::Row {
             change_set_id,
@@ -297,8 +297,8 @@ fn append(
             }),
             precondition: None,
         });
-        before_ordinal += u64::from(has_before);
-        after_ordinal += u64::from(has_after);
+        before_ordinal += i64::from(has_before);
+        after_ordinal += i64::from(has_after);
     }
     Ok(())
 }

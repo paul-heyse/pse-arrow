@@ -5,9 +5,10 @@
 //! Existing mathematical callbacks write direct generated columns.
 use pse_ids::{ContentHash, SemanticId};
 use pse_mathir::{
-    MathIrError, NodeId, Opcode, equation::Sense,
+    MathIrError, NodeId, Opcode,
     relations::{MathRelationSink, InputBinding, ParameterBinding},
 };
+use pse_schema::math::Sense;
 use pse_quantity::{
     BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId,
     ReductionKind, UnitId, WeightNormalization, infer::BuiltInRule,
@@ -1099,7 +1100,7 @@ impl MathRelationSink for RelationSink<'_> {
                 let row = pse_relations::generated::r#normalized::r#template_expr_symbol_refs::Row {
                     r#node_id: self.node(node)?,
                     r#symbol_id: None,
-                    r#kind: pse_mathir::Payload::PENDING_PATH_KIND
+                    r#kind: pse_schema::math::PENDING_PATH_KIND
                         .parse()
                         .map_err(adapter_error)?,
                     r#template_id: None,
@@ -1122,7 +1123,7 @@ impl MathRelationSink for RelationSink<'_> {
                 let row = pse_relations::generated::r#normalized::r#instance_expr_symbol_refs::Row {
                     r#node_id: self.node(node)?,
                     r#symbol_id: None,
-                    r#kind: pse_mathir::Payload::PENDING_PATH_KIND
+                    r#kind: pse_schema::math::PENDING_PATH_KIND
                         .parse()
                         .map_err(adapter_error)?,
                     r#template_id: None,
@@ -1145,7 +1146,7 @@ impl MathRelationSink for RelationSink<'_> {
                 let row = pse_relations::generated::r#normalized::r#display_expr_symbol_refs::Row {
                     r#node_id: self.node(node)?,
                     r#symbol_id: None,
-                    r#kind: pse_mathir::Payload::PENDING_PATH_KIND
+                    r#kind: pse_schema::math::PENDING_PATH_KIND
                         .parse()
                         .map_err(adapter_error)?,
                     r#template_id: None,
@@ -1168,7 +1169,7 @@ impl MathRelationSink for RelationSink<'_> {
                 let row = pse_relations::generated::r#normalized::r#contribution_expr_symbol_refs::Row {
                     r#node_id: self.node(node)?,
                     r#symbol_id: None,
-                    r#kind: pse_mathir::Payload::PENDING_PATH_KIND
+                    r#kind: pse_schema::math::PENDING_PATH_KIND
                         .parse()
                         .map_err(adapter_error)?,
                     r#template_id: None,
@@ -1191,7 +1192,7 @@ impl MathRelationSink for RelationSink<'_> {
                 let row = pse_relations::generated::r#normalized::r#guard_expr_symbol_refs::Row {
                     r#node_id: self.node(node)?,
                     r#symbol_id: None,
-                    r#kind: pse_mathir::Payload::PENDING_PATH_KIND
+                    r#kind: pse_schema::math::PENDING_PATH_KIND
                         .parse()
                         .map_err(adapter_error)?,
                     r#template_id: None,

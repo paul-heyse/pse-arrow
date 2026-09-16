@@ -31,6 +31,8 @@ pub const KEY_CONTRACT_VERSION: &str = "pse.contract.version";
 pub const KEY_CONTRACT_FINGERPRINT: &str = "pse.contract.fingerprint";
 /// `pse.namespace`: the relation's namespace.
 pub const KEY_NAMESPACE: &str = "pse.namespace";
+/// Named native SQL predicates, encoded as a canonical JSON object in name order.
+pub const KEY_CHECKS: &str = "pse.contract.checks";
 /// `pse.semantic.logical_type`: the registry logical-type name.
 pub const KEY_LOGICAL_TYPE: &str = "pse.semantic.logical_type";
 /// `pse.semantic.quantity_type`: the column's single quantity contract.
@@ -72,8 +74,38 @@ pub fn relation_schema(reg: &Registry, spec: &RelationSpec) -> Result<Schema, Sc
             KEY_NAMESPACE.to_owned(),
             spec.key.namespace.as_str().to_owned(),
         ),
+        (KEY_CHECKS.to_owned(), checks_json(&spec.checks)?),
     ]);
     Ok(Schema::new_with_metadata(fields, metadata))
+}
+
+/// Decode the exact native row-check declarations from an Arrow schema.
+/// # Errors
+/// Malformed or noncanonical metadata is refused.
+pub fn native_checks(
+    schema: &Schema,
+) -> Result<std::collections::BTreeMap<String, String>, SchemaError> {
+    let Some(text) = schema.metadata().get(KEY_CHECKS) else {
+        return Ok(std::collections::BTreeMap::new());
+    };
+    let checks = serde_json::from_str(text)
+        .map_err(|error| crate::checks::invalid(KEY_CHECKS, error.to_string()))?;
+    if checks_json(&checks)? != *text
+        || checks
+            .iter()
+            .any(|(name, sql)| name.is_empty() || sql.trim().is_empty())
+    {
+        return Err(crate::checks::invalid(
+            KEY_CHECKS,
+            "invalid or noncanonical native checks",
+        ));
+    }
+    Ok(checks)
+}
+
+fn checks_json(checks: &std::collections::BTreeMap<String, String>) -> Result<String, SchemaError> {
+    serde_json::to_string(checks)
+        .map_err(|error| crate::checks::invalid(KEY_CHECKS, error.to_string()))
 }
 
 /// The Arrow field of one declared column (blueprint §4.3).
@@ -247,7 +279,7 @@ mod tests {
     use crate::registry;
 
     #[test]
-    fn the_schema_carries_the_four_contract_keys() {
+    fn the_schema_carries_its_declared_contract_keys() {
         let reg = registry().expect("the registry assembles");
         let spec = reg
             .relation("reference.schema_relations")
@@ -261,7 +293,8 @@ mod tests {
             Some(&spec.fingerprint.to_hex())
         );
         assert_eq!(metadata.get(KEY_NAMESPACE), Some(&"reference".to_owned()));
-        assert_eq!(metadata.len(), 4, "no undeclared schema metadata key");
+        assert_eq!(metadata.get(KEY_CHECKS), Some(&"{}".to_owned()));
+        assert_eq!(metadata.len(), 5, "no undeclared schema metadata key");
     }
 
     #[test]

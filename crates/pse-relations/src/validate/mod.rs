@@ -160,7 +160,6 @@ pub fn validate_batch(
                 }
             }
         }
-        values::validate_quantities(spec, &cells, row, &mut errors);
     }
     finish(errors)
 }

@@ -12,13 +12,13 @@
 //!
 //! Blueprint §4.1: a relation is declared exactly once and the registry is stored as
 //! relations. This test is the check that the declarations are internally closed — every
-//! foreign key, enumeration, per-row quantity contract and ordinal reference lands
+//! foreign key, enumeration, quantity value and ordinal reference lands
 //! somewhere — and that the self-describing rows are ordered and reproducible, because
 //! they are the preimage of the registry fingerprint.
 
 use pse_schema::model::{
     Authority, Cell, DerivationGranularity, EXTENSION_TYPES, ExtensionUse, FieldContract,
-    QuantityContract, RelationSpec, SnapshotClass, render_data_type,
+    RelationSpec, SnapshotClass, render_data_type,
 };
 use pse_schema::{catalog, registry};
 
@@ -187,25 +187,6 @@ fn every_enum_and_ordinal_reference_resolves() {
                     _ => {}
                 }
             }
-        }
-    }
-}
-
-#[test]
-fn every_per_row_quantity_has_its_sibling() {
-    let reg = registry().expect("the shipped catalog assembles");
-    for spec in reg.relations() {
-        for column in &spec.columns {
-            if column.quantity() != QuantityContract::PerRow {
-                continue;
-            }
-            let sibling = column.per_row_quantity_sibling();
-            assert!(
-                spec.column(&sibling).is_some(),
-                "{}.{} declares a per-row quantity contract with no {sibling} column",
-                spec.key,
-                column.name()
-            );
         }
     }
 }
@@ -450,6 +431,7 @@ fn order_key(cell: &Cell) -> String {
         Cell::Id(value) => value.to_hex(),
         Cell::Hash(value) => value.to_hex(),
         Cell::U64(value) => format!("{value:020}"),
+        Cell::I64(value) => format!("{:020}", i128::from(*value) - i128::from(i64::MIN)),
         Cell::Text(value) => value.clone(),
         Cell::Enum(value) => (*value).to_owned(),
         Cell::Null => String::new(),

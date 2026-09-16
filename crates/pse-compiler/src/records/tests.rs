@@ -89,7 +89,7 @@ fn mixed_aggregate_preserves_every_actual_finding_and_first_non_cancel_class() {
         Cell::List(vec![]),
         Cell::List(vec![]),
         Cell::F64(1.0),
-        Cell::U64(4),
+        Cell::I64(4),
         Cell::Enum(report.status.as_str()),
         Cell::List(report.findings),
         Cell::Enum(report.failure_class.expect("failed class")),

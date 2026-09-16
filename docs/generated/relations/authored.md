@@ -11,7 +11,7 @@ Version: 1. Snapshot class: `case`. Primary key: `activation_id, ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `activation_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `instance_id` | `semantic_id` | false | `payload` | — | — |
 | `member_kind` | `enum:TargetKind` | false | `payload` | — | — |
 | `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
@@ -87,7 +87,7 @@ Version: 1. Snapshot class: `case`. Primary key: `case_set_id, sample_ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `case_set_id` | `semantic_id` | false | `key` | — | — |
-| `sample_ordinal` | `UInt64` | false | `key` | — | — |
+| `sample_ordinal` | `Int64` | false | `key` | — | — |
 | `case_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `case_sets`
@@ -106,7 +106,7 @@ Version: 1. Snapshot class: `case`. Primary key: `case_set_id`.
 | `generator_params.item.key` | `Utf8` | false | `payload` | — | — |
 | `generator_params.item.value` | `Utf8` | false | `payload` | — | — |
 | `seed` | `UInt64` | true | `payload` | — | — |
-| `sample_count` | `UInt64` | false | `payload` | — | — |
+| `sample_count` | `Int64` | false | `payload` | — | — |
 
 ## `case_spec_targets`
 
@@ -117,7 +117,7 @@ Version: 1. Snapshot class: `case`. Primary key: `spec_id, ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `spec_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `instance_id` | `semantic_id` | false | `payload` | — | — |
 | `member_kind` | `enum:TargetKind` | false | `payload` | — | — |
 | `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
@@ -171,15 +171,15 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `change_set_id, ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `change_set_id` | `semantic_id` | false | `key` | `authored.change_sets.change_set_id` | — |
-| `ordinal` | `UInt32` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `op` | `enum:ChangeOpKind` | false | `label` | — | — |
 | `relation_id` | `semantic_id` | false | `reference` | `reference.schema_relations.relation_id` | — |
 | `row_key` | `Struct` | false | `payload` | — | — |
 | `row_key.staged_port` | `Utf8` | false | `payload` | — | — |
-| `row_key.staged_ordinal` | `UInt64` | false | `payload` | — | — |
+| `row_key.staged_ordinal` | `Int64` | false | `payload` | — | — |
 | `row` | `Struct` | true | `payload` | — | — |
 | `row.staged_port` | `Utf8` | false | `payload` | — | — |
-| `row.staged_ordinal` | `UInt64` | false | `payload` | — | — |
+| `row.staged_ordinal` | `Int64` | false | `payload` | — | — |
 | `precondition` | `Utf8` | true | `payload` | — | — |
 
 ## `change_sets`
@@ -475,7 +475,7 @@ Version: 1. Snapshot class: `case`. Primary key: `observation_id, ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `observation_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `instance_id` | `semantic_id` | false | `payload` | — | — |
 | `member_kind` | `enum:TargetKind` | false | `payload` | — | — |
 | `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |

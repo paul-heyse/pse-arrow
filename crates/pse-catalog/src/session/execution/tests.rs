@@ -35,7 +35,7 @@ impl QueryPlanner for Capture {
 }
 
 fn session(capture: Arc<Capture>, cancel: &CancellationToken) -> SnapshotSession {
-    use crate::session::{ExecutionSettings, ThreadBudget};
+    use datafusion::execution::config::SessionConfig;
     let original = create_udf(
         "actual_caller_function",
         vec![],
@@ -44,6 +44,13 @@ fn session(capture: Arc<Capture>, cancel: &CancellationToken) -> SnapshotSession
         Arc::new(|_| Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(731))))),
     );
     let builder = SessionStateBuilder::new_with_default_features()
+        .with_config(
+            SessionConfig::new()
+                .with_default_catalog_and_schema("model", "authored")
+                .with_create_default_catalog_and_schema(false)
+                .with_repartition_joins(false)
+                .with_extension(Arc::new(NativeOption(219))),
+        )
         .with_query_planner(capture)
         .with_scalar_functions(vec![Arc::new(original)]);
     let mut policy = ProviderPolicy::new(
@@ -60,15 +67,9 @@ fn session(capture: Arc<Capture>, cancel: &CancellationToken) -> SnapshotSession
     let factory = SessionFactory::from_builder(
         Arc::new(RuntimeEnv::default()),
         pse_ids::FixedBudget::new(128 << 20),
-        ExecutionSettings::default(),
-        ThreadBudget {
-            pool_threads: 1.try_into().unwrap(),
-            target_partitions: 1.try_into().unwrap(),
-        },
         "actual-caller",
         builder,
     )
-    .unwrap()
     .with_policies(vec![policy])
     .unwrap();
     let registry = pse_schema::shared_registry().unwrap();
@@ -81,6 +82,9 @@ fn session(capture: Arc<Capture>, cancel: &CancellationToken) -> SnapshotSession
         .unwrap()
         .with_purpose(OperationPurpose::Publish)
 }
+
+#[derive(Debug)]
+struct NativeOption(u64);
 
 #[tokio::test]
 async fn native_algorithms_keep_functions_configuration_scopes_and_resource_ceiling() {
@@ -113,6 +117,16 @@ async fn native_algorithms_keep_functions_configuration_scopes_and_resource_ceil
     assert!(!Arc::ptr_eq(&services, &next_services));
     assert!(Arc::ptr_eq(services.reserver(), next_services.reserver()));
     assert_eq!(state.config_options().execution.batch_size.get(), 7);
+    assert!(!state.config().repartition_joins());
+    assert_eq!(
+        state.config().get_extension::<NativeOption>().unwrap().0,
+        219
+    );
+    assert!(!next.config().repartition_joins());
+    assert!(Arc::ptr_eq(
+        &state.config().get_extension::<NativeOption>().unwrap(),
+        &next.config().get_extension::<NativeOption>().unwrap()
+    ));
     let key = services
         .registry()
         .relation("authored.packages")

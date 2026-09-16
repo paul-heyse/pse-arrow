@@ -9,25 +9,10 @@ use pse_ids::SemanticId;
 use pse_quantity::{QuantityRegistry, QuantityTypeId, ScaleKind, UnitId};
 use pse_relations::generated::{
     enums::ConfigValueKind as Kind,
-    normalized::config_values::NormalizedConfigValuesFieldValue as Value,
+    extension_values::ExtensionQuantityValue,
+    normalized::config_values::{self as cv, NormalizedConfigValuesFieldValue as Value},
 };
 use pse_schema::Registry;
-
-pub(super) fn empty(kind: Kind) -> Value {
-    Value {
-        kind,
-        boolean: None,
-        signed: None,
-        unsigned: None,
-        real: None,
-        text: None,
-        semantic_id: None,
-        enum_id: None,
-        index: None,
-        quantity_type_id: None,
-        unit_id: None,
-    }
-}
 
 pub(super) fn parse(
     text: &str,
@@ -36,16 +21,14 @@ pub(super) fn parse(
     registry: &Registry,
     physical: Option<&QuantityRegistry>,
 ) -> Result<Value, CompilerError> {
-    let mut value = empty(Kind::Text);
-    match logical {
-        "bool" => {
-            value.kind = Kind::Boolean;
-            value.boolean = Some(match text {
+    let value = match logical {
+        "bool" => Value::from_boolean(cv::NormalizedConfigValuesFieldValueBoolean {
+            value: match text {
                 "true" => true,
                 "false" => false,
                 _ => return Err(invalid("Boolean configuration requires true or false")),
-            });
-        }
+            },
+        }),
         "i32" | "i64" => {
             let n = text
                 .parse::<i64>()
@@ -53,8 +36,7 @@ pub(super) fn parse(
             if logical == "i32" && i32::try_from(n).is_err() {
                 return Err(invalid("configuration integer exceeds declared i32 range"));
             }
-            value.kind = Kind::Signed;
-            value.signed = Some(n);
+            Value::from_signed(cv::NormalizedConfigValuesFieldValueSigned { value: n })
         }
         "u8" | "u16" | "u32" | "u64" => {
             let n = text
@@ -71,33 +53,29 @@ pub(super) fn parse(
                     "configuration integer exceeds declared unsigned range",
                 ));
             }
-            value.kind = Kind::Unsigned;
-            value.unsigned = Some(n);
+            Value::from_unsigned(cv::NormalizedConfigValuesFieldValueUnsigned { value: n })
         }
-        "f64" => {
-            value.kind = Kind::Real;
-            value.real = Some(finite(text)?);
-        }
-        "text" => value.text = Some(text.to_owned()),
-        "semantic_id" => {
-            value.kind = Kind::SemanticId;
-            value.semantic_id = Some(id(text)?);
-        }
+        "f64" => Value::from_real(cv::NormalizedConfigValuesFieldValueReal {
+            value: finite(text)?,
+        }),
+        "text" => Value::from_text(cv::NormalizedConfigValuesFieldValueText {
+            value: text.to_owned(),
+        }),
+        "semantic_id" => Value::from_semantic_id(cv::NormalizedConfigValuesFieldValueSemanticId {
+            value: id(text)?,
+        }),
         "index_tuple" => {
             let members: Vec<String> = serde_json::from_str(text).map_err(|_| {
                 invalid("index configuration requires an array of semantic ID strings")
             })?;
-            value.kind = Kind::Index;
-            value.index = Some(
-                members
+            Value::from_index(cv::NormalizedConfigValuesFieldValueIndex {
+                value: members
                     .iter()
                     .map(|member| id(member))
                     .collect::<Result<_, _>>()?,
-            );
+            })
         }
-        "quantity_value" => {
-            parse_quantity(text, physical, &mut value)?;
-        }
+        "quantity_value" => parse_quantity(text, physical)?,
         name if name.starts_with("enum:") || name == "enum" => {
             let declared = enum_id
                 .and_then(|id| registry.enums().iter().find(|item| item.id == id))
@@ -116,16 +94,17 @@ pub(super) fn parse(
             {
                 return Err(invalid("configuration enum member is absent or deprecated"));
             }
-            value.kind = Kind::Enum;
-            value.enum_id = Some(declared.id);
-            value.text = Some(text.to_owned());
+            Value::from_enum(cv::NormalizedConfigValuesFieldValueEnumeration {
+                enum_id: declared.id,
+                member: text.to_owned(),
+            })
         }
         _ => {
             return Err(invalid(
                 "logical type has no declared scalar configuration grammar",
             ));
         }
-    }
+    };
     if value.kind != Kind::Enum && enum_id.is_some() {
         return Err(invalid(
             "non-enum configuration declaration carries an enum dictionary",
@@ -134,11 +113,7 @@ pub(super) fn parse(
     Ok(value)
 }
 
-fn parse_quantity(
-    text: &str,
-    physical: Option<&QuantityRegistry>,
-    value: &mut Value,
-) -> Result<(), CompilerError> {
+fn parse_quantity(text: &str, physical: Option<&QuantityRegistry>) -> Result<Value, CompilerError> {
     let physical = physical.ok_or_else(|| {
         invalid("quantity configuration requires actual physical registry bindings")
     })?;
@@ -174,11 +149,11 @@ fn parse_quantity(
             "quantity configuration unit has incompatible dimension, datum or scale kind",
         ));
     }
-    value.kind = Kind::Quantity;
-    value.real = Some(number);
-    value.quantity_type_id = Some(quantity_id);
-    value.unit_id = Some(unit_id);
-    Ok(())
+    Ok(Value::from_quantity(ExtensionQuantityValue {
+        value: number,
+        quantity_type_id: quantity_id,
+        unit_id,
+    }))
 }
 
 /// Transfer an already parsed value under the child's actual declared type.
@@ -192,17 +167,37 @@ pub(super) fn bind(
     let valid = match logical {
         "bool" => value.kind == Kind::Boolean,
         "i32" => {
-            value.kind == Kind::Signed && value.signed.is_some_and(|n| i32::try_from(n).is_ok())
+            value.kind == Kind::Signed
+                && value
+                    .signed
+                    .as_ref()
+                    .map(|arm| arm.value)
+                    .is_some_and(|n| i32::try_from(n).is_ok())
         }
         "i64" => value.kind == Kind::Signed,
         "u8" => {
-            value.kind == Kind::Unsigned && value.unsigned.is_some_and(|n| u8::try_from(n).is_ok())
+            value.kind == Kind::Unsigned
+                && value
+                    .unsigned
+                    .as_ref()
+                    .map(|arm| arm.value)
+                    .is_some_and(|n| u8::try_from(n).is_ok())
         }
         "u16" => {
-            value.kind == Kind::Unsigned && value.unsigned.is_some_and(|n| u16::try_from(n).is_ok())
+            value.kind == Kind::Unsigned
+                && value
+                    .unsigned
+                    .as_ref()
+                    .map(|arm| arm.value)
+                    .is_some_and(|n| u16::try_from(n).is_ok())
         }
         "u32" => {
-            value.kind == Kind::Unsigned && value.unsigned.is_some_and(|n| u32::try_from(n).is_ok())
+            value.kind == Kind::Unsigned
+                && value
+                    .unsigned
+                    .as_ref()
+                    .map(|arm| arm.value)
+                    .is_some_and(|n| u32::try_from(n).is_ok())
         }
         "u64" => value.kind == Kind::Unsigned,
         "f64" => value.kind == Kind::Real,
@@ -213,7 +208,7 @@ pub(super) fn bind(
         name if name.starts_with("enum:") || name == "enum" => {
             value.kind == Kind::Enum
                 && enum_id.is_some()
-                && value.enum_id == enum_id
+                && value.enumeration.as_ref().map(|arm| arm.enum_id) == enum_id
                 && registry.enums().iter().any(|declared| {
                     Some(declared.id) == enum_id
                         && (name == "enum" || name.strip_prefix("enum:") == Some(declared.name))
@@ -235,13 +230,25 @@ pub(super) fn numeric_constraint(value: &Value, spec: &str) -> Result<bool, Comp
     }
     let valid = match spec {
         "positive" => {
-            value.real.is_some_and(|n| n > 0.0)
-                || value.signed.is_some_and(|n| n > 0)
-                || value.unsigned.is_some_and(|n| n > 0)
+            floating_value(value).is_some_and(|n| n > 0.0)
+                || value
+                    .signed
+                    .as_ref()
+                    .map(|arm| arm.value)
+                    .is_some_and(|n| n > 0)
+                || value
+                    .unsigned
+                    .as_ref()
+                    .map(|arm| arm.value)
+                    .is_some_and(|n| n > 0)
         }
         "nonnegative" => {
-            value.real.is_some_and(|n| n >= 0.0)
-                || value.signed.is_some_and(|n| n >= 0)
+            floating_value(value).is_some_and(|n| n >= 0.0)
+                || value
+                    .signed
+                    .as_ref()
+                    .map(|arm| arm.value)
+                    .is_some_and(|n| n >= 0)
                 || value.unsigned.is_some()
         }
         _ => range(value, spec)?,
@@ -260,7 +267,7 @@ fn range(value: &Value, spec: &str) -> Result<bool, CompilerError> {
         .and_then(|s| s.strip_suffix(']'))
         .and_then(|s| s.split_once(','))
         .ok_or_else(|| invalid("range requires range[lower,upper]"))?;
-    if let Some(number) = value.signed {
+    if let Some(number) = value.signed.as_ref().map(|arm| arm.value) {
         let (lower, upper) = (lower.parse::<i64>(), upper.parse::<i64>());
         return match (lower, upper) {
             (Ok(l), Ok(u)) if l <= u => Ok(l <= number && number <= u),
@@ -269,7 +276,7 @@ fn range(value: &Value, spec: &str) -> Result<bool, CompilerError> {
             )),
         };
     }
-    if let Some(number) = value.unsigned {
+    if let Some(number) = value.unsigned.as_ref().map(|arm| arm.value) {
         let (lower, upper) = (lower.parse::<u64>(), upper.parse::<u64>());
         return match (lower, upper) {
             (Ok(l), Ok(u)) if l <= u => Ok(l <= number && number <= u),
@@ -282,9 +289,14 @@ fn range(value: &Value, spec: &str) -> Result<bool, CompilerError> {
     if lower > upper {
         return Err(invalid("range endpoints are reversed"));
     }
-    Ok(value
+    Ok(floating_value(value).is_some_and(|number| lower <= number && number <= upper))
+}
+fn floating_value(value: &Value) -> Option<f64> {
+    value
         .real
-        .is_some_and(|number| lower <= number && number <= upper))
+        .as_ref()
+        .map(|arm| arm.value)
+        .or_else(|| value.quantity.as_ref().map(|arm| arm.value))
 }
 fn finite(text: &str) -> Result<f64, CompilerError> {
     text.parse::<f64>()
@@ -312,7 +324,10 @@ mod tests {
         let registry = pse_schema::registry().unwrap();
         let physical = standard_registry().unwrap();
         let value = parse("9007199254740993", "u64", None, registry, Some(&physical)).unwrap();
-        assert_eq!(value.unsigned, Some(9_007_199_254_740_993));
+        assert_eq!(
+            value.unsigned.as_ref().unwrap().value,
+            9_007_199_254_740_993
+        );
         assert!(numeric_constraint(&value, "range[9007199254740993,9007199254740993]").is_ok());
         assert!(numeric_constraint(&value, "range[9007199254740992,9007199254740992]").is_err());
         assert!(parse("256", "u8", None, registry, Some(&physical)).is_err());
@@ -330,6 +345,7 @@ mod tests {
                 .unwrap()
                 .real
                 .unwrap()
+                .value
                 .to_bits(),
             (-0.0_f64).to_bits()
         );
@@ -394,8 +410,12 @@ mod tests {
         assert!(bind(&value, "text", None, registry).is_err());
         let integer = parse("9007199254740993", "u64", None, registry, None).unwrap();
         assert_eq!(
-            bind(&integer, "u64", None, registry).unwrap().unsigned,
-            Some(9_007_199_254_740_993)
+            bind(&integer, "u64", None, registry)
+                .unwrap()
+                .unsigned
+                .unwrap()
+                .value,
+            9_007_199_254_740_993
         );
         assert!(bind(&integer, "u32", None, registry).is_err());
         assert!(bind(&integer, "bool", None, registry).is_err());
@@ -405,6 +425,7 @@ mod tests {
                 .unwrap()
                 .real
                 .unwrap()
+                .value
                 .to_bits(),
             (-0.0_f64).to_bits()
         );
@@ -418,16 +439,18 @@ mod tests {
             .find(|ty| ty.id == ids::quantity("temperature.point"))
             .unwrap();
         let input = serde_json::json!({"value":300.0,"quantity_type_id":quantity.id.as_id().to_hex(),"unit_id":quantity.canonical_unit.as_id().to_hex()});
-        assert!(
-            parse(
-                &input.to_string(),
-                "quantity_value",
-                None,
-                registry,
-                Some(&physical)
-            )
-            .is_ok()
-        );
+        let value = parse(
+            &input.to_string(),
+            "quantity_value",
+            None,
+            registry,
+            Some(&physical),
+        )
+        .unwrap();
+        assert!(numeric_constraint(&value, "positive").is_ok());
+        assert!(numeric_constraint(&value, "nonnegative").is_ok());
+        assert!(numeric_constraint(&value, "range[299,301]").is_ok());
+        assert!(numeric_constraint(&value, "range[301,302]").is_err());
         let mut wrong = input.clone();
         wrong["unit_id"] = serde_json::Value::String(ids::unit("m").as_id().to_hex());
         assert!(

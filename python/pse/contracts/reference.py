@@ -729,7 +729,6 @@ class ReferenceSchemaColumnsRow:
     logical_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     nullable: b.bool = attrs.field(validator=v.exact_type(b.bool))
     quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    per_row_quantity: b.bool = attrs.field(validator=v.exact_type(b.bool))
     fk_relation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     fk_column: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     role: e.ColumnRole = attrs.field(validator=attrs.validators.instance_of(e.ColumnRole))
@@ -821,6 +820,14 @@ class ReferenceSchemaMigrationsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ReferenceSchemaRelationsFieldChecksItem:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    sql: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
 class ReferenceSchemaRelationsRow:
     """Declared relation row or nested value."""
 
@@ -834,6 +841,7 @@ class ReferenceSchemaRelationsRow:
     derivation_granularity: e.DerivationGranularity | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.DerivationGranularity)))
     stability: e.Stability = attrs.field(validator=attrs.validators.instance_of(e.Stability))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    checks: b.tuple[ReferenceSchemaRelationsFieldChecksItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ReferenceSchemaRelationsFieldChecksItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
 
 @attrs.frozen(kw_only=True)

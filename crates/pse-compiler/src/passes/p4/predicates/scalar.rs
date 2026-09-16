@@ -6,8 +6,9 @@ use super::{
     ValueRef, invalid, inventory, n, required,
 };
 mod paths;
-use pse_mathir::{Opcode, TemplateValueKind};
+use pse_mathir::Opcode;
 use pse_quantity::{QuantityTypeId, UnitId};
+use pse_schema::math::TemplateValueKind;
 
 #[derive(Clone, Debug)]
 pub(super) enum Value {
@@ -302,50 +303,28 @@ impl Evaluation<'_, '_> {
         // Both generated value structs are read directly. Their common registry
         // discriminator governs the scalar interpretation; no Cell mirror is built.
         macro_rules! scalar_value {
-            ($value:expr) => {{
-                use pse_relations::generated::enums::ConfigValueKind as Kind;
-                let value = $value;
-                match value.kind {
-                    Kind::Boolean => Ok(Value::Bool(required(
-                        value.boolean,
-                        "Boolean configuration",
-                    )?)),
-                    Kind::Signed => Ok(Value::Integer(i128::from(required(
-                        value.signed,
-                        "signed configuration",
-                    )?))),
-                    Kind::Unsigned => Ok(Value::Integer(i128::from(required(
-                        value.unsigned,
-                        "unsigned configuration",
-                    )?))),
-                    Kind::Real => Ok(Value::Real {
-                        value: required(value.real, "real configuration")?,
+            ($value:expr, $selection:path) => {{
+                use $selection as Selected;
+                match $value.selected()? {
+                    Selected::Boolean(arm) => Ok(Value::Bool(arm.value)),
+                    Selected::Signed(arm) => Ok(Value::Integer(i128::from(arm.value))),
+                    Selected::Unsigned(arm) => Ok(Value::Integer(i128::from(arm.value))),
+                    Selected::Real(arm) => Ok(Value::Real {
+                        value: arm.value,
                         unit: None,
                         quantity: None,
                     }),
-                    Kind::Text => Ok(Value::Text(
-                        required(value.text.as_ref(), "text configuration")?.clone(),
-                    )),
-                    Kind::SemanticId => Ok(Value::Id(required(
-                        value.semantic_id,
-                        "identity configuration",
-                    )?)),
-                    Kind::Enum => Ok(Value::Enum(
-                        required(value.enum_id, "enum configuration identity")?,
-                        required(value.text.as_ref(), "enum configuration member")?.clone(),
-                    )),
-                    Kind::Quantity => Ok(Value::Real {
-                        value: required(value.real, "quantity configuration")?,
-                        unit: Some(UnitId::from_id(required(
-                            value.unit_id,
-                            "configuration unit",
-                        )?)),
-                        quantity: Some(QuantityTypeId::from_id(required(
-                            value.quantity_type_id,
-                            "configuration quantity",
-                        )?)),
+                    Selected::Text(arm) => Ok(Value::Text(arm.value.clone())),
+                    Selected::SemanticId(arm) => Ok(Value::Id(arm.value)),
+                    Selected::Enum(arm) => Ok(Value::Enum(arm.enum_id, arm.member.clone())),
+                    Selected::Quantity(arm) => Ok(Value::Real {
+                        value: arm.value,
+                        unit: Some(UnitId::from_id(arm.unit_id)),
+                        quantity: Some(QuantityTypeId::from_id(arm.quantity_type_id)),
                     }),
-                    _ => Err(invalid("configuration value is not a predicate scalar")),
+                    Selected::Index(_) => {
+                        Err(invalid("configuration value is not a predicate scalar"))
+                    }
                 }
             }};
         }
@@ -362,7 +341,7 @@ impl Evaluation<'_, '_> {
                 return Err(invalid("feature repeats its semantic key"));
             }
             self.support.insert(self.inventory.origin(row)?);
-            scalar_value!(&row.row.value)
+            scalar_value!(&row.row.value, pse_relations::generated::inferred::instance_features::InferredInstanceFeaturesFieldValueSelected)
         } else {
             let mut rows = self.inventory.configuration.iter().filter(|row| {
                 row.row.owner_id == owner
@@ -376,7 +355,7 @@ impl Evaluation<'_, '_> {
                 return Err(invalid("configuration repeats its semantic key"));
             }
             self.support.insert(self.inventory.origin(row)?);
-            scalar_value!(&row.row.value)
+            scalar_value!(&row.row.value, pse_relations::generated::normalized::config_values::NormalizedConfigValuesFieldValueSelected)
         }
     }
 }

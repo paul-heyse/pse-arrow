@@ -71,7 +71,7 @@ pub fn declare_relations(builder: &mut RegistryBuilder) {
             ),
             FieldContract::payload(
                 "version",
-                FieldContract::native(arrow_schema::DataType::UInt32),
+                FieldContract::nonnegative(i64::from(u32::MAX)),
                 "The schema version.",
             ),
             FieldContract::label(
@@ -105,6 +105,14 @@ pub fn declare_relations(builder: &mut RegistryBuilder) {
                 FieldContract::native(arrow_schema::DataType::Utf8),
                 "What the relation means.",
             ),
+            FieldContract::payload(
+                "checks",
+                FieldContract::list(FieldContract::structure(vec![
+                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("name"),
+                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("sql"),
+                ])),
+                "Native DataFusion SQL predicates; every predicate must evaluate to true.",
+            ),
         ]),
     );
 }
@@ -122,7 +130,7 @@ fn declare_columns(builder: &mut RegistryBuilder) {
                 .with_fk("reference.schema_relations", "relation_id"),
             FieldContract::key(
                 "ordinal",
-                FieldContract::native(arrow_schema::DataType::UInt16),
+                FieldContract::nonnegative(i64::from(u16::MAX)),
                 "The column's position, which is its ordinal.",
             ),
             FieldContract::label("name", FieldContract::native(arrow_schema::DataType::Utf8), "The column name."),
@@ -143,11 +151,6 @@ fn declare_columns(builder: &mut RegistryBuilder) {
                 "One quantity contract for the whole column.",
             )
             .optional(),
-            FieldContract::payload(
-                "per_row_quantity",
-                FieldContract::native(arrow_schema::DataType::Boolean),
-                "True when a sibling column named `<name>_quantity_type_id` carries the contract.",
-            ),
             FieldContract::reference(
                 "fk_relation_id",
                 FieldContract::id(),
@@ -227,7 +230,7 @@ fn declare_enums(builder: &mut RegistryBuilder) {
             ),
             FieldContract::key(
                 "member_ordinal",
-                FieldContract::native(arrow_schema::DataType::UInt16),
+                FieldContract::nonnegative(i64::from(u16::MAX)),
                 "The member's declaration position.",
             ),
             FieldContract::label(
@@ -311,12 +314,12 @@ fn declare_migrations(builder: &mut RegistryBuilder) {
                 .with_fk("reference.schema_relations", "relation_id"),
             FieldContract::key(
                 "from_version",
-                FieldContract::native(arrow_schema::DataType::UInt32),
+                FieldContract::nonnegative(i64::from(u32::MAX)),
                 "The version the migration reads.",
             ),
             FieldContract::key(
                 "to_version",
-                FieldContract::native(arrow_schema::DataType::UInt32),
+                FieldContract::nonnegative(i64::from(u32::MAX)),
                 "The version the migration writes.",
             ),
             FieldContract::payload(
@@ -387,7 +390,7 @@ fn declare_document_sections(builder: &mut RegistryBuilder) {
             .with_fk("reference.schema_documents", "document_name"),
             FieldContract::key(
                 "ordinal",
-                FieldContract::native(arrow_schema::DataType::UInt32),
+                FieldContract::nonnegative(i64::from(u32::MAX)),
                 "Section declaration ordinal.",
             ),
             FieldContract::label(

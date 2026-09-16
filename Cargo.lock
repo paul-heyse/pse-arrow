@@ -4310,6 +4310,7 @@ dependencies = [
  "proptest",
  "pse-ids",
  "pse-quantity",
+ "pse-schema",
  "serde",
  "thiserror 2.0.20",
 ]
@@ -4443,7 +4444,6 @@ dependencies = [
  "proc-macro2",
  "pse-ids",
  "pse-material",
- "pse-mathir",
  "pse-quantity",
  "quote",
  "serde",

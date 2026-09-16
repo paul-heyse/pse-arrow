@@ -320,7 +320,7 @@ impl Registry {
                 "reference.schema_relations" => self.schema_relations_rows(),
                 "reference.schema_columns" => self.schema_columns_rows()?,
                 "reference.schema_logical_types" => self.schema_logical_types_rows(),
-                "reference.schema_enums" => self.schema_enums_rows(),
+                "reference.schema_enums" => self.schema_enums_rows()?,
                 "reference.schema_invariants" => self.schema_invariants_rows(),
                 "reference.schema_migrations" => self.schema_migrations_rows(),
                 "reference.pass_specs" => self.pass_specs_rows(),
@@ -337,7 +337,7 @@ impl Registry {
                 "reference.rule_expr_edges" => self.rule_expression_rows().edges,
                 "reference.rule_expr_calls" => self.rule_expression_rows().calls,
                 "reference.schema_documents" => self.document_rows(),
-                "reference.schema_document_sections" => self.document_section_rows(),
+                "reference.schema_document_sections" => self.document_section_rows()?,
                 _ => crate::catalog::s7_operators::rows(),
             };
             let key = spec.map_or_else(
@@ -363,7 +363,7 @@ impl Registry {
             .collect()
     }
 
-    fn document_section_rows(&self) -> Vec<Vec<Cell>> {
+    fn document_section_rows(&self) -> Result<Vec<Vec<Cell>>, SchemaError> {
         self.documents
             .iter()
             .flat_map(|document| {
@@ -372,9 +372,9 @@ impl Registry {
                     .iter()
                     .enumerate()
                     .map(move |(ordinal, section)| {
-                        vec![
+                        Ok(vec![
                             Cell::text(document.name),
-                            Cell::U64(u64::try_from(ordinal).unwrap_or(u64::MAX)),
+                            signed_ordinal(ordinal)?,
                             Cell::text(section.key),
                             self.relation(section.relation)
                                 .map_or(Cell::Null, |relation| Cell::Id(relation.id)),
@@ -402,7 +402,7 @@ impl Registry {
                                     })
                                     .collect(),
                             ),
-                        ]
+                        ])
                     })
             })
             .collect()
@@ -414,7 +414,7 @@ impl Registry {
             Cell::Id(spec.id),
             Cell::Enum(spec.key.namespace.as_str()),
             Cell::text(spec.key.name),
-            Cell::U64(u64::from(spec.key.version)),
+            Cell::I64(i64::from(spec.key.version)),
             Cell::Enum(spec.authority.as_str()),
             Cell::Enum(spec.snapshot_class.as_str()),
             Cell::List(
@@ -429,6 +429,12 @@ impl Registry {
             ),
             Cell::Enum(spec.stability.as_str()),
             Cell::text(spec.doc),
+            Cell::List(
+                spec.checks
+                    .iter()
+                    .map(|(name, sql)| Cell::Struct(vec![Cell::text(name), Cell::text(sql)]))
+                    .collect(),
+            ),
         ]
     }
 
@@ -454,15 +460,14 @@ impl Registry {
                     .map(|row| row.id);
                 Ok(vec![
                     Cell::Id(spec.id),
-                    Cell::U64(count(ordinal)),
+                    signed_ordinal(ordinal)?,
                     Cell::text(column.name()),
                     Cell::opt_id(logical_type_id),
                     Cell::Bool(column.nullable()),
                     Cell::opt_id(match column.quantity() {
                         QuantityContract::Column(name) => Some(quantity_type_id(name)),
-                        QuantityContract::None | QuantityContract::PerRow => None,
+                        QuantityContract::None => None,
                     }),
-                    Cell::Bool(matches!(column.quantity(), QuantityContract::PerRow)),
                     Cell::opt_id(
                         column
                             .fk()
@@ -506,29 +511,30 @@ impl Registry {
     }
 
     /// The `reference.schema_enums` rows of one enumeration.
-    pub(crate) fn schema_enums_rows_of(spec: &EnumSpec) -> Vec<Vec<Cell>> {
+    pub(crate) fn schema_enums_rows_of(spec: &EnumSpec) -> Result<Vec<Vec<Cell>>, SchemaError> {
         spec.members
             .iter()
             .enumerate()
             .map(|(ordinal, member)| {
-                vec![
+                Ok(vec![
                     Cell::Id(spec.id),
-                    Cell::U64(count(ordinal)),
+                    signed_ordinal(ordinal)?,
                     Cell::text(member.name),
                     Cell::opt_text(member.idaes_name),
                     Cell::Bool(member.deprecated),
                     Cell::text(member.doc),
-                ]
+                ])
             })
             .collect()
     }
 
     /// Every `reference.schema_enums` row.
-    fn schema_enums_rows(&self) -> Vec<Vec<Cell>> {
-        self.enums
-            .iter()
-            .flat_map(Self::schema_enums_rows_of)
-            .collect()
+    fn schema_enums_rows(&self) -> Result<Vec<Vec<Cell>>, SchemaError> {
+        let mut rows = Vec::new();
+        for spec in &self.enums {
+            rows.extend(Self::schema_enums_rows_of(spec)?);
+        }
+        Ok(rows)
     }
 
     /// Every `reference.schema_invariants` row.
@@ -555,8 +561,8 @@ impl Registry {
             .map(|migration| {
                 vec![
                     Cell::opt_id(self.relation(migration.relation).map(|spec| spec.id)),
-                    Cell::U64(u64::from(migration.from_version)),
-                    Cell::U64(u64::from(migration.to_version)),
+                    Cell::I64(i64::from(migration.from_version)),
+                    Cell::I64(i64::from(migration.to_version)),
                     Cell::text(migration.plan_spec()),
                     Cell::text(migration.doc),
                 ]
@@ -1085,6 +1091,16 @@ fn expression_children(node: ExpressionNode<'_>) -> Vec<ExpressionNode<'_>> {
 /// The path of the root plan node.
 const ROOT_NODE_PATH: &str = "0";
 
+/// Checked projection of a declaration position into canonical signed storage.
+fn signed_ordinal(ordinal: usize) -> Result<Cell, SchemaError> {
+    i64::try_from(ordinal)
+        .map(Cell::I64)
+        .map_err(|error| SchemaError::InvalidDeclaration {
+            context: "registry ordinal".into(),
+            reason: error.to_string(),
+        })
+}
+
 /// An ordinal as a row count cell.
 ///
 /// The saturating conversion is unreachable on every supported target; it exists because
@@ -1441,6 +1457,7 @@ impl RegistryBuilder {
                 stability: decl.stability,
                 primary_key: decl.primary_key.clone(),
                 columns: decl.columns.clone(),
+                checks: decl.checks.clone(),
                 doc: decl.doc,
                 fingerprint: ContentHash::NIL,
             });
@@ -1650,21 +1667,52 @@ fn check_column(
     check_field(
         registry,
         column,
-        &spec.columns,
         &format!("column {}.{}", spec.key, column.name()),
     )?;
     let field = crate::arrow::field_for(registry, column)?;
     crate::field_contract::declaration(&arrow_schema::Schema::new(vec![field]))
 }
 
+fn check_alternative(
+    registry: &Registry,
+    column: &FieldContract,
+    context: &str,
+) -> Result<(), SchemaError> {
+    if let Some(alternative) = crate::model::TaggedAlternative::from_field(column.field())? {
+        let children = column.children();
+        if let Some(tag) = children
+            .iter()
+            .find(|child| child.name() == alternative.discriminator)
+            && let Some(name) = tag.enum_name()
+        {
+            let declared = registry.enum_spec(name).ok_or_else(|| {
+                crate::checks::invalid(context, "unknown alternative tag enumeration")
+            })?;
+            if declared.members.len() != alternative.arms.len()
+                || declared
+                    .members
+                    .iter()
+                    .any(|member| !alternative.arms.contains_key(member.name))
+            {
+                return Err(crate::checks::invalid(
+                    context,
+                    "alternative arms must cover the discriminator enumeration exactly",
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn check_field(
     registry: &Registry,
     column: &FieldContract,
-    siblings: &[FieldContract],
     context: &str,
 ) -> Result<(), SchemaError> {
     column.validate_facets(context)?;
     crate::model::IntegerRange::from_field(column.field())?;
+    crate::model::CollectionContract::from_field(column.field())?;
+    check_alternative(registry, column, context)?;
     let context = context.to_owned();
     if let Some(fk) = column.fk() {
         let target =
@@ -1692,31 +1740,6 @@ fn check_field(
             ));
         }
     }
-    if column.quantity() == QuantityContract::PerRow
-        && siblings
-            .iter()
-            .find(|field| field.name() == column.per_row_quantity_sibling())
-            .is_none()
-    {
-        return Err(SchemaError::UnknownReference {
-            context: context.clone(),
-            reference: column.per_row_quantity_sibling(),
-        });
-    }
-    if column.quantity() == QuantityContract::PerRow {
-        let sibling = siblings
-            .iter()
-            .find(|field| field.name() == column.per_row_quantity_sibling());
-        if sibling.is_some_and(|sibling| {
-            sibling.value_type() != FieldContract::id()
-                || (sibling.nullable() && !column.nullable())
-        }) {
-            return Err(crate::checks::invalid(
-                &context,
-                "per-row quantity sibling must be a semantic ID and cannot be nullable when its value is required",
-            ));
-        }
-    }
     match column.extension() {
         Some(ExtensionUse::Enum(name)) if registry.enum_spec(name).is_none() => {
             return Err(SchemaError::UnknownReference {
@@ -1735,12 +1758,7 @@ fn check_field(
     if column.extension().is_none() {
         let children = column.children();
         for child in &children {
-            check_field(
-                registry,
-                child,
-                &children,
-                &format!("{context}.{}", child.name()),
-            )?;
+            check_field(registry, child, &format!("{context}.{}", child.name()))?;
         }
     }
     Ok(())
@@ -2096,9 +2114,7 @@ fn resolve_documents(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{
-        Authority, ColumnRole, DerivationGranularity, EnumMember, Namespace, SnapshotClass,
-    };
+    use crate::model::{Authority, DerivationGranularity, EnumMember, Namespace, SnapshotClass};
 
     /// A one-column relation with a semantic-ID primary key.
     fn simple(name: &'static str) -> RelationDecl {
@@ -2197,49 +2213,6 @@ mod tests {
             builder.build().unwrap_err(),
             SchemaError::UnknownReference { .. }
         ));
-    }
-
-    #[test]
-    fn a_per_row_quantity_without_its_sibling_is_rejected() {
-        let mut builder = RegistryBuilder::new();
-        builder.declare_relation(simple("a").columns(vec![
-            FieldContract::key("id", FieldContract::id(), "the identity"),
-            FieldContract::new(
-                "value",
-                FieldContract::native(arrow_schema::DataType::Float64),
-                false,
-                ColumnRole::Measure,
-                "a measure",
-            )
-            .with_per_row_quantity(),
-        ]));
-        let error = builder.build().unwrap_err();
-        assert!(matches!(
-            &error,
-            SchemaError::UnknownReference { reference, .. } if reference == "value_quantity_type_id"
-        ));
-    }
-
-    #[test]
-    fn a_per_row_quantity_with_its_sibling_is_accepted() {
-        let mut builder = RegistryBuilder::new();
-        builder.declare_relation(simple("a").columns(vec![
-            FieldContract::key("id", FieldContract::id(), "the identity"),
-            FieldContract::new(
-                "value",
-                FieldContract::native(arrow_schema::DataType::Float64),
-                false,
-                ColumnRole::Measure,
-                "a measure",
-            )
-            .with_per_row_quantity(),
-            FieldContract::reference(
-                "value_quantity_type_id",
-                FieldContract::id(),
-                "the per-row contract",
-            ),
-        ]));
-        assert!(builder.build().is_ok());
     }
 
     #[test]

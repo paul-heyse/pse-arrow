@@ -39,6 +39,18 @@ pub(crate) fn cell_value(
         }
         _ => {}
     }
+    match crate::model::TaggedAlternative::from_field(ty.field()) {
+        Err(_) => return false,
+        Ok(Some(alternative)) if !alternative.accepts(ty.field(), value) => return false,
+        _ => {}
+    }
+    match crate::model::CollectionContract::from_field(ty.field()) {
+        Err(_) => return false,
+        Ok(Some(contract)) if !matches!(value, Cell::List(values) if contract.accepts(values)) => {
+            return false;
+        }
+        _ => {}
+    }
     match (value, ty.extension(), ty.data_type()) {
         (Cell::Enum(value), Some(ExtensionUse::Enum(name)), _) => registry
             .enum_spec(name)
@@ -102,6 +114,16 @@ pub(crate) fn invalid(context: impl Into<String>, reason: impl Into<String>) -> 
 
 pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaError> {
     let context = decl.key.to_string();
+    if decl
+        .checks
+        .iter()
+        .any(|(name, sql)| name.is_empty() || sql.trim().is_empty())
+    {
+        return Err(invalid(
+            &context,
+            "native check names and expressions must be nonempty",
+        ));
+    }
     if decl.primary_key.is_empty() {
         return Err(invalid(
             &context,

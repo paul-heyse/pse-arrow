@@ -165,7 +165,7 @@ class CompiledEquationOrderRow:
 
     problem_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     equation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     active: b.bool = attrs.field(validator=v.exact_type(b.bool))
     scale: b.float = attrs.field(validator=v.finite_float)
     kind: e.RowKind = attrs.field(validator=attrs.validators.instance_of(e.RowKind))
@@ -188,8 +188,8 @@ class CompiledEvaluationProgramsRow:
     problem_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     program_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     artifact_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    instruction_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    workspace_size: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    instruction_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    workspace_size: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -296,14 +296,33 @@ class CompiledGroupReindexingsRow:
 
 
 @attrs.frozen(kw_only=True)
+class CompiledIncidenceFieldDependenceLinear:
+    """Declared relation row or nested value."""
+
+    coefficient: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledIncidenceFieldDependence:
+    """Declared relation row or nested value."""
+
+    kind: e.IncidenceKind = attrs.field(validator=attrs.validators.instance_of(e.IncidenceKind))
+    linear: CompiledIncidenceFieldDependenceLinear | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledIncidenceFieldDependenceLinear)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "linear" and self.linear is not None) or (self.kind == "nonlinear" and self.linear is None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class CompiledIncidenceRow:
     """Declared relation row or nested value."""
 
     problem_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     equation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    linear: b.bool = attrs.field(validator=v.exact_type(b.bool))
-    coefficient: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
+    dependence: CompiledIncidenceFieldDependence = attrs.field(validator=attrs.validators.instance_of(CompiledIncidenceFieldDependence))
 
 
 @attrs.frozen(kw_only=True)
@@ -576,8 +595,8 @@ class CompiledMathImplicitSystemsRow:
     """Declared relation row or nested value."""
 
     implicit_system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    unknown_symbol_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    equation_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    unknown_symbol_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
+    equation_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.and_(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)), v.collection(0, None, unique=True)))
     branch_policy: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kernel_binding_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
@@ -832,10 +851,10 @@ class CompiledProblemsRow:
     model_revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     discretization_policy_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    variable_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    equation_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    inequality_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    objective_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    variable_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    equation_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    inequality_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    objective_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     degrees_of_freedom: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
     input_bundle_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
 
@@ -970,7 +989,7 @@ class CompiledVariableOrderRow:
 
     problem_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    position: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     treatment: e.Treatment = attrs.field(validator=attrs.validators.instance_of(e.Treatment))
     lower: v.Bound = attrs.field(validator=attrs.validators.instance_of(v.Bound))
     upper: v.Bound = attrs.field(validator=attrs.validators.instance_of(v.Bound))
