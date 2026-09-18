@@ -5,13 +5,13 @@
 //! Existing mathematical callbacks write direct generated columns.
 use pse_ids::{ContentHash, SemanticId};
 use pse_mathir::{
-    MathIrError, NodeId, Opcode,
+    MathIrError, NodeId, Opcode, Payload,
     relations::{MathRelationSink, InputBinding, ParameterBinding},
 };
 use pse_schema::math::Sense;
 use pse_quantity::{
     BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId,
-    ReductionKind, UnitId, WeightNormalization, infer::BuiltInRule,
+    UnitId, infer::BuiltInRule,
 };
 use crate::mathir_relations::{Family, RelationSink, malformed, sink::adapter_error};
 impl MathRelationSink for RelationSink<'_> {
@@ -19,16 +19,942 @@ impl MathRelationSink for RelationSink<'_> {
         &mut self,
         node: NodeId,
         opcode: Opcode,
+        children: &[NodeId],
+        payload: &Payload,
         quantity_type: Option<QuantityTypeId>,
         scope: Option<SemanticId>,
         hash: ContentHash,
     ) -> Result<(), MathIrError> {
         match self.family.clone() {
             Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
+                let _row_allocation = self
+                    .reserve_row(
+                        size_of_val(children)
+                            .checked_add(payload.allocation_extent()?)
+                            .ok_or_else(|| malformed(
+                                "whole-node allocation extent overflow",
+                            ))?,
+                    )?;
+                if let Payload::Affine { terms, .. } = payload
+                    && !terms.iter().map(|term| term.child).eq(children.iter().copied())
+                {
+                    return Err(
+                        malformed(
+                            "affine coefficients must follow the ordered child list",
+                        ),
+                    );
+                }
+                crate::mathir_relations::check_payload_family(
+                    payload,
+                    matches!(self.family, Family::Normalized { .. }),
+                    !matches!(self.family, Family::Compiled),
+                )?;
                 let row = pse_relations::generated::r#compiled::r#math_expr_nodes::Row {
                     r#node_id: self.node(node)?,
                     r#opcode: opcode.as_str().parse().map_err(adapter_error)?,
+                    r#children: children
+                        .iter()
+                        .map(|child| self.node(*child))
+                        .collect::<Result<_, MathIrError>>()?,
+                    r#payload: match payload {
+                        Payload::None => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "none".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SymbolRef { symbol } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                r#symbol: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbol {
+                                    r#reference: match symbol {
+                                        pse_mathir::ValueRef::ActualSymbol(id) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                                r#symbol: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceSymbol {
+                                                    r#symbol_id: *id,
+                                                }),
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Template {
+                                            template_id,
+                                            kind,
+                                            name,
+                                        } => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#member_kind: kind
+                                                        .as_str()
+                                                        .parse()
+                                                        .map_err(adapter_error)?,
+                                                    r#name: name.clone(),
+                                                }),
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Domain(domain) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "domain".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceDomain {
+                                                    r#value: match domain {
+                                                        pse_mathir::DomainRef::Actual(id) => {
+                                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                                r#actual: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueActual {
+                                                                    r#domain_id: id.as_id(),
+                                                                }),
+                                                                r#template: None,
+                                                            }
+                                                        }
+                                                        pse_mathir::DomainRef::Template {
+                                                            template_id,
+                                                            domain_name,
+                                                        } => {
+                                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                                r#actual: None,
+                                                                r#template: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueTemplate {
+                                                                    r#template_id: *template_id,
+                                                                    r#name: domain_name.clone(),
+                                                                }),
+                                                            }
+                                                        }
+                                                    },
+                                                }),
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Index(id) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "index".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSymbolReferenceIndex {
+                                                    r#bound_index_id: id.as_id(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::FloatConst { value, unit } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "float".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadFloat {
+                                    r#value: *value,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::IntConst { value } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "integer".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadInteger {
+                                    r#value: *value,
+                                }),
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Affine {
+                            constant,
+                            constant_quantity_type,
+                            constant_unit,
+                            terms,
+                        } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "affine".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadAffine {
+                                    r#constant: *constant,
+                                    r#constant_quantity_type_id: constant_quantity_type
+                                        .map(QuantityTypeId::as_id),
+                                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
+                                    r#coefficients: terms
+                                        .iter()
+                                        .map(|term| term.coefficient)
+                                        .collect(),
+                                }),
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::WeightedMean {
+                            pairs,
+                            normalization,
+                            unit_sum_invariant,
+                        } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "weighted_mean".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadWeightedMean {
+                                    r#pairs: pairs
+                                        .iter()
+                                        .map(|pair| Ok(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadWeightedMeanPairsItem {
+                                            r#weight_node_id: self.node(pair.weight)?,
+                                            r#value_node_id: self.node(pair.value)?,
+                                        }))
+                                        .collect::<Result<_, MathIrError>>()?,
+                                    r#normalization: normalization
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#unit_sum_invariant_id: unit_sum_invariant
+                                        .map(InvariantId::as_id),
+                                }),
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Reduction { kind, domain, bound_index, filter } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "reduction".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReduction {
+                                    r#reduction_kind: kind
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadReductionFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Gather { group, coordinate_map } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadGather {
+                                    r#group_id: *group,
+                                    r#coordinates: coordinate_map
+                                        .iter()
+                                        .map(|(id, position)| pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadGatherCoordinatesItem {
+                                            r#bound_index_id: id.as_id(),
+                                            r#position: i64::from(*position),
+                                        })
+                                        .collect(),
+                                }),
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingGather { group, indices } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "pending_gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadPendingGather {
+                                    r#group_id: *group,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingPath { source_id, path_id, indices } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "pending_path".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadPendingPath {
+                                    r#source_id: *source_id,
+                                    r#path_id: *path_id,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Broadcast { domain, bound_index } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "broadcast".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadBroadcast {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadBroadcastDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadBroadcastDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                }),
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Derivative { wrt_domain: domain, order } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "derivative".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadDerivative {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadDerivativeDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadDerivativeDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#order: i64::from(*order),
+                                }),
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Integral {
+                            domain,
+                            bound_index,
+                            quadrature_policy,
+                            filter,
+                        } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "integral".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegral {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#quadrature_policy_id: *quadrature_policy,
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadIntegralFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SmoothOp { eps } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadSmooth {
+                                    r#eps: *eps,
+                                }),
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingSmoothOp { eps, unit } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "pending_smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadPendingSmooth {
+                                    r#eps: *eps,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Conditional { guard } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "conditional".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadConditional {
+                                    r#guard: match guard {
+                                        pse_mathir::GuardRef::Math(node) => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "math".parse().map_err(adapter_error)?,
+                                                r#math: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadConditionalGuardMath {
+                                                    r#node_id: self.node(*node)?,
+                                                }),
+                                                r#predicate: None,
+                                            }
+                                        }
+                                        pse_mathir::GuardRef::Predicate {
+                                            source_id,
+                                            predicate_id,
+                                        } => {
+                                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                r#math: None,
+                                                r#predicate: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadConditionalGuardPredicate {
+                                                    r#source_id: *source_id,
+                                                    r#predicate_id: *predicate_id,
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::KernelCall { kernel_binding, output_ordinal } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "kernel_call".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadKernelCall {
+                                    r#binding_id: *kernel_binding,
+                                    r#output_ordinal: i64::from(*output_ordinal),
+                                }),
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::ImplicitRef { implicit_system, unknown_ordinal } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "implicit_ref".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadImplicitRef {
+                                    r#system_id: *implicit_system,
+                                    r#unknown_ordinal: i64::from(*unknown_ordinal),
+                                }),
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::UnitConvert(
+                            pse_quantity::UnitConvertSpec { scale, offset, from, to },
+                        ) => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "unit_convert".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadUnitConvert {
+                                    r#scale: *scale,
+                                    r#offset: *offset,
+                                    r#from_unit_id: from.as_id(),
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingUnitConvert { to } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "pending_unit_convert"
+                                    .parse()
+                                    .map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadPendingUnitConvert {
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PiecewiseLinear { breakpoints, input, output } => {
+                            pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayload {
+                                r#kind: "piecewise_linear".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: Some(pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadPiecewiseLinear {
+                                    r#breakpoints: breakpoints
+                                        .iter()
+                                        .map(|(x, y)| pse_relations::generated::r#compiled::r#math_expr_nodes::r#CompiledMathExprNodesFieldPayloadPiecewiseLinearBreakpointsItem {
+                                            r#x: *x,
+                                            r#y: *y,
+                                        })
+                                        .collect(),
+                                    r#input_quantity_type_id: input.as_id(),
+                                    r#output_quantity_type_id: output.as_id(),
+                                }),
+                            }
+                        }
+                        _ => return Err(malformed("unsupported mathematical payload")),
+                    },
                     r#quantity_type_id: quantity_type.map(QuantityTypeId::as_id),
                     r#scope_instance_id: scope,
                     r#subtree_hash: hash,
@@ -36,10 +962,934 @@ impl MathRelationSink for RelationSink<'_> {
                 self.columns.push(row).map_err(adapter_error)
             }
             Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
+                let _row_allocation = self
+                    .reserve_row(
+                        size_of_val(children)
+                            .checked_add(payload.allocation_extent()?)
+                            .ok_or_else(|| malformed(
+                                "whole-node allocation extent overflow",
+                            ))?,
+                    )?;
+                if let Payload::Affine { terms, .. } = payload
+                    && !terms.iter().map(|term| term.child).eq(children.iter().copied())
+                {
+                    return Err(
+                        malformed(
+                            "affine coefficients must follow the ordered child list",
+                        ),
+                    );
+                }
+                crate::mathir_relations::check_payload_family(
+                    payload,
+                    matches!(self.family, Family::Normalized { .. }),
+                    !matches!(self.family, Family::Compiled),
+                )?;
                 let row = pse_relations::generated::r#inferred::r#math_expr_nodes::Row {
                     r#node_id: self.node(node)?,
                     r#opcode: opcode.as_str().parse().map_err(adapter_error)?,
+                    r#children: children
+                        .iter()
+                        .map(|child| self.node(*child))
+                        .collect::<Result<_, MathIrError>>()?,
+                    r#payload: match payload {
+                        Payload::None => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "none".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SymbolRef { symbol } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                r#symbol: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbol {
+                                    r#reference: match symbol {
+                                        pse_mathir::ValueRef::ActualSymbol(id) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                                r#symbol: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceSymbol {
+                                                    r#symbol_id: *id,
+                                                }),
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Template {
+                                            template_id,
+                                            kind,
+                                            name,
+                                        } => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#member_kind: kind
+                                                        .as_str()
+                                                        .parse()
+                                                        .map_err(adapter_error)?,
+                                                    r#name: name.clone(),
+                                                }),
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Domain(domain) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "domain".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceDomain {
+                                                    r#value: match domain {
+                                                        pse_mathir::DomainRef::Actual(id) => {
+                                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                                r#actual: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceDomainValueActual {
+                                                                    r#domain_id: id.as_id(),
+                                                                }),
+                                                                r#template: None,
+                                                            }
+                                                        }
+                                                        pse_mathir::DomainRef::Template {
+                                                            template_id,
+                                                            domain_name,
+                                                        } => {
+                                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                                r#actual: None,
+                                                                r#template: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceDomainValueTemplate {
+                                                                    r#template_id: *template_id,
+                                                                    r#name: domain_name.clone(),
+                                                                }),
+                                                            }
+                                                        }
+                                                    },
+                                                }),
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Index(id) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "index".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSymbolReferenceIndex {
+                                                    r#bound_index_id: id.as_id(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::FloatConst { value, unit } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "float".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadFloat {
+                                    r#value: *value,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::IntConst { value } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "integer".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadInteger {
+                                    r#value: *value,
+                                }),
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Affine {
+                            constant,
+                            constant_quantity_type,
+                            constant_unit,
+                            terms,
+                        } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "affine".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadAffine {
+                                    r#constant: *constant,
+                                    r#constant_quantity_type_id: constant_quantity_type
+                                        .map(QuantityTypeId::as_id),
+                                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
+                                    r#coefficients: terms
+                                        .iter()
+                                        .map(|term| term.coefficient)
+                                        .collect(),
+                                }),
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::WeightedMean {
+                            pairs,
+                            normalization,
+                            unit_sum_invariant,
+                        } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "weighted_mean".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadWeightedMean {
+                                    r#pairs: pairs
+                                        .iter()
+                                        .map(|pair| Ok(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadWeightedMeanPairsItem {
+                                            r#weight_node_id: self.node(pair.weight)?,
+                                            r#value_node_id: self.node(pair.value)?,
+                                        }))
+                                        .collect::<Result<_, MathIrError>>()?,
+                                    r#normalization: normalization
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#unit_sum_invariant_id: unit_sum_invariant
+                                        .map(InvariantId::as_id),
+                                }),
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Reduction { kind, domain, bound_index, filter } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "reduction".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReduction {
+                                    r#reduction_kind: kind
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadReductionFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Gather { group, coordinate_map } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadGather {
+                                    r#group_id: *group,
+                                    r#coordinates: coordinate_map
+                                        .iter()
+                                        .map(|(id, position)| pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadGatherCoordinatesItem {
+                                            r#bound_index_id: id.as_id(),
+                                            r#position: i64::from(*position),
+                                        })
+                                        .collect(),
+                                }),
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingGather { group, indices } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "pending_gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadPendingGather {
+                                    r#group_id: *group,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingPath { source_id, path_id, indices } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "pending_path".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadPendingPath {
+                                    r#source_id: *source_id,
+                                    r#path_id: *path_id,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Broadcast { domain, bound_index } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "broadcast".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadBroadcast {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadBroadcastDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadBroadcastDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                }),
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Derivative { wrt_domain: domain, order } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "derivative".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadDerivative {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadDerivativeDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadDerivativeDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#order: i64::from(*order),
+                                }),
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Integral {
+                            domain,
+                            bound_index,
+                            quadrature_policy,
+                            filter,
+                        } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "integral".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegral {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#quadrature_policy_id: *quadrature_policy,
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadIntegralFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SmoothOp { eps } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadSmooth {
+                                    r#eps: *eps,
+                                }),
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingSmoothOp { eps, unit } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "pending_smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadPendingSmooth {
+                                    r#eps: *eps,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Conditional { guard } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "conditional".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadConditional {
+                                    r#guard: match guard {
+                                        pse_mathir::GuardRef::Math(node) => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "math".parse().map_err(adapter_error)?,
+                                                r#math: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadConditionalGuardMath {
+                                                    r#node_id: self.node(*node)?,
+                                                }),
+                                                r#predicate: None,
+                                            }
+                                        }
+                                        pse_mathir::GuardRef::Predicate {
+                                            source_id,
+                                            predicate_id,
+                                        } => {
+                                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                r#math: None,
+                                                r#predicate: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadConditionalGuardPredicate {
+                                                    r#source_id: *source_id,
+                                                    r#predicate_id: *predicate_id,
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::KernelCall { kernel_binding, output_ordinal } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "kernel_call".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadKernelCall {
+                                    r#binding_id: *kernel_binding,
+                                    r#output_ordinal: i64::from(*output_ordinal),
+                                }),
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::ImplicitRef { implicit_system, unknown_ordinal } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "implicit_ref".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadImplicitRef {
+                                    r#system_id: *implicit_system,
+                                    r#unknown_ordinal: i64::from(*unknown_ordinal),
+                                }),
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::UnitConvert(
+                            pse_quantity::UnitConvertSpec { scale, offset, from, to },
+                        ) => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "unit_convert".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadUnitConvert {
+                                    r#scale: *scale,
+                                    r#offset: *offset,
+                                    r#from_unit_id: from.as_id(),
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingUnitConvert { to } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "pending_unit_convert"
+                                    .parse()
+                                    .map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadPendingUnitConvert {
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PiecewiseLinear { breakpoints, input, output } => {
+                            pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayload {
+                                r#kind: "piecewise_linear".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: Some(pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadPiecewiseLinear {
+                                    r#breakpoints: breakpoints
+                                        .iter()
+                                        .map(|(x, y)| pse_relations::generated::r#inferred::r#math_expr_nodes::r#InferredMathExprNodesFieldPayloadPiecewiseLinearBreakpointsItem {
+                                            r#x: *x,
+                                            r#y: *y,
+                                        })
+                                        .collect(),
+                                    r#input_quantity_type_id: input.as_id(),
+                                    r#output_quantity_type_id: output.as_id(),
+                                }),
+                            }
+                        }
+                        _ => return Err(malformed("unsupported mathematical payload")),
+                    },
                     r#quantity_type_id: quantity_type.map(QuantityTypeId::as_id),
                     r#scope_instance_id: scope,
                     r#subtree_hash: hash,
@@ -47,11 +1897,935 @@ impl MathRelationSink for RelationSink<'_> {
                 self.columns.push(row).map_err(adapter_error)
             }
             Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
+                let _row_allocation = self
+                    .reserve_row(
+                        size_of_val(children)
+                            .checked_add(payload.allocation_extent()?)
+                            .ok_or_else(|| malformed(
+                                "whole-node allocation extent overflow",
+                            ))?,
+                    )?;
+                if let Payload::Affine { terms, .. } = payload
+                    && !terms.iter().map(|term| term.child).eq(children.iter().copied())
+                {
+                    return Err(
+                        malformed(
+                            "affine coefficients must follow the ordered child list",
+                        ),
+                    );
+                }
+                crate::mathir_relations::check_payload_family(
+                    payload,
+                    matches!(self.family, Family::Normalized { .. }),
+                    !matches!(self.family, Family::Compiled),
+                )?;
                 let (derivation, span) = self.provenance()?;
                 let row = pse_relations::generated::r#normalized::r#template_expr_nodes::Row {
                     r#node_id: self.node(node)?,
                     r#opcode: opcode.as_str().parse().map_err(adapter_error)?,
+                    r#children: children
+                        .iter()
+                        .map(|child| self.node(*child))
+                        .collect::<Result<_, MathIrError>>()?,
+                    r#payload: match payload {
+                        Payload::None => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "none".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SymbolRef { symbol } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                r#symbol: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbol {
+                                    r#reference: match symbol {
+                                        pse_mathir::ValueRef::ActualSymbol(id) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                                r#symbol: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceSymbol {
+                                                    r#symbol_id: *id,
+                                                }),
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Template {
+                                            template_id,
+                                            kind,
+                                            name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#member_kind: kind
+                                                        .as_str()
+                                                        .parse()
+                                                        .map_err(adapter_error)?,
+                                                    r#name: name.clone(),
+                                                }),
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Domain(domain) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "domain".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceDomain {
+                                                    r#value: match domain {
+                                                        pse_mathir::DomainRef::Actual(id) => {
+                                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                                r#actual: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceDomainValueActual {
+                                                                    r#domain_id: id.as_id(),
+                                                                }),
+                                                                r#template: None,
+                                                            }
+                                                        }
+                                                        pse_mathir::DomainRef::Template {
+                                                            template_id,
+                                                            domain_name,
+                                                        } => {
+                                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                                r#actual: None,
+                                                                r#template: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceDomainValueTemplate {
+                                                                    r#template_id: *template_id,
+                                                                    r#name: domain_name.clone(),
+                                                                }),
+                                                            }
+                                                        }
+                                                    },
+                                                }),
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Index(id) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "index".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSymbolReferenceIndex {
+                                                    r#bound_index_id: id.as_id(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::FloatConst { value, unit } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "float".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadFloat {
+                                    r#value: *value,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::IntConst { value } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "integer".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadInteger {
+                                    r#value: *value,
+                                }),
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Affine {
+                            constant,
+                            constant_quantity_type,
+                            constant_unit,
+                            terms,
+                        } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "affine".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadAffine {
+                                    r#constant: *constant,
+                                    r#constant_quantity_type_id: constant_quantity_type
+                                        .map(QuantityTypeId::as_id),
+                                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
+                                    r#coefficients: terms
+                                        .iter()
+                                        .map(|term| term.coefficient)
+                                        .collect(),
+                                }),
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::WeightedMean {
+                            pairs,
+                            normalization,
+                            unit_sum_invariant,
+                        } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "weighted_mean".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadWeightedMean {
+                                    r#pairs: pairs
+                                        .iter()
+                                        .map(|pair| Ok(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadWeightedMeanPairsItem {
+                                            r#weight_node_id: self.node(pair.weight)?,
+                                            r#value_node_id: self.node(pair.value)?,
+                                        }))
+                                        .collect::<Result<_, MathIrError>>()?,
+                                    r#normalization: normalization
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#unit_sum_invariant_id: unit_sum_invariant
+                                        .map(InvariantId::as_id),
+                                }),
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Reduction { kind, domain, bound_index, filter } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "reduction".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReduction {
+                                    r#reduction_kind: kind
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadReductionFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Gather { group, coordinate_map } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadGather {
+                                    r#group_id: *group,
+                                    r#coordinates: coordinate_map
+                                        .iter()
+                                        .map(|(id, position)| pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadGatherCoordinatesItem {
+                                            r#bound_index_id: id.as_id(),
+                                            r#position: i64::from(*position),
+                                        })
+                                        .collect(),
+                                }),
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingGather { group, indices } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "pending_gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadPendingGather {
+                                    r#group_id: *group,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingPath { source_id, path_id, indices } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "pending_path".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadPendingPath {
+                                    r#source_id: *source_id,
+                                    r#path_id: *path_id,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Broadcast { domain, bound_index } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "broadcast".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadBroadcast {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadBroadcastDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadBroadcastDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                }),
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Derivative { wrt_domain: domain, order } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "derivative".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadDerivative {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadDerivativeDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadDerivativeDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#order: i64::from(*order),
+                                }),
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Integral {
+                            domain,
+                            bound_index,
+                            quadrature_policy,
+                            filter,
+                        } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "integral".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegral {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#quadrature_policy_id: *quadrature_policy,
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadIntegralFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SmoothOp { eps } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadSmooth {
+                                    r#eps: *eps,
+                                }),
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingSmoothOp { eps, unit } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "pending_smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadPendingSmooth {
+                                    r#eps: *eps,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Conditional { guard } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "conditional".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadConditional {
+                                    r#guard: match guard {
+                                        pse_mathir::GuardRef::Math(node) => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "math".parse().map_err(adapter_error)?,
+                                                r#math: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadConditionalGuardMath {
+                                                    r#node_id: self.node(*node)?,
+                                                }),
+                                                r#predicate: None,
+                                            }
+                                        }
+                                        pse_mathir::GuardRef::Predicate {
+                                            source_id,
+                                            predicate_id,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                r#math: None,
+                                                r#predicate: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadConditionalGuardPredicate {
+                                                    r#source_id: *source_id,
+                                                    r#predicate_id: *predicate_id,
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::KernelCall { kernel_binding, output_ordinal } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "kernel_call".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadKernelCall {
+                                    r#binding_id: *kernel_binding,
+                                    r#output_ordinal: i64::from(*output_ordinal),
+                                }),
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::ImplicitRef { implicit_system, unknown_ordinal } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "implicit_ref".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadImplicitRef {
+                                    r#system_id: *implicit_system,
+                                    r#unknown_ordinal: i64::from(*unknown_ordinal),
+                                }),
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::UnitConvert(
+                            pse_quantity::UnitConvertSpec { scale, offset, from, to },
+                        ) => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "unit_convert".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadUnitConvert {
+                                    r#scale: *scale,
+                                    r#offset: *offset,
+                                    r#from_unit_id: from.as_id(),
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingUnitConvert { to } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "pending_unit_convert"
+                                    .parse()
+                                    .map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadPendingUnitConvert {
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PiecewiseLinear { breakpoints, input, output } => {
+                            pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayload {
+                                r#kind: "piecewise_linear".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: Some(pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadPiecewiseLinear {
+                                    r#breakpoints: breakpoints
+                                        .iter()
+                                        .map(|(x, y)| pse_relations::generated::r#normalized::r#template_expr_nodes::r#NormalizedTemplateExprNodesFieldPayloadPiecewiseLinearBreakpointsItem {
+                                            r#x: *x,
+                                            r#y: *y,
+                                        })
+                                        .collect(),
+                                    r#input_quantity_type_id: input.as_id(),
+                                    r#output_quantity_type_id: output.as_id(),
+                                }),
+                            }
+                        }
+                        _ => return Err(malformed("unsupported mathematical payload")),
+                    },
                     r#quantity_type_id: quantity_type.map(QuantityTypeId::as_id),
                     r#scope_instance_id: scope,
                     r#subtree_hash: hash,
@@ -65,11 +2839,935 @@ impl MathRelationSink for RelationSink<'_> {
                 self.columns.push(row).map_err(adapter_error)
             }
             Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
+                let _row_allocation = self
+                    .reserve_row(
+                        size_of_val(children)
+                            .checked_add(payload.allocation_extent()?)
+                            .ok_or_else(|| malformed(
+                                "whole-node allocation extent overflow",
+                            ))?,
+                    )?;
+                if let Payload::Affine { terms, .. } = payload
+                    && !terms.iter().map(|term| term.child).eq(children.iter().copied())
+                {
+                    return Err(
+                        malformed(
+                            "affine coefficients must follow the ordered child list",
+                        ),
+                    );
+                }
+                crate::mathir_relations::check_payload_family(
+                    payload,
+                    matches!(self.family, Family::Normalized { .. }),
+                    !matches!(self.family, Family::Compiled),
+                )?;
                 let (derivation, span) = self.provenance()?;
                 let row = pse_relations::generated::r#normalized::r#instance_expr_nodes::Row {
                     r#node_id: self.node(node)?,
                     r#opcode: opcode.as_str().parse().map_err(adapter_error)?,
+                    r#children: children
+                        .iter()
+                        .map(|child| self.node(*child))
+                        .collect::<Result<_, MathIrError>>()?,
+                    r#payload: match payload {
+                        Payload::None => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "none".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SymbolRef { symbol } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                r#symbol: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbol {
+                                    r#reference: match symbol {
+                                        pse_mathir::ValueRef::ActualSymbol(id) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                                r#symbol: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceSymbol {
+                                                    r#symbol_id: *id,
+                                                }),
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Template {
+                                            template_id,
+                                            kind,
+                                            name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#member_kind: kind
+                                                        .as_str()
+                                                        .parse()
+                                                        .map_err(adapter_error)?,
+                                                    r#name: name.clone(),
+                                                }),
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Domain(domain) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "domain".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceDomain {
+                                                    r#value: match domain {
+                                                        pse_mathir::DomainRef::Actual(id) => {
+                                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                                r#actual: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceDomainValueActual {
+                                                                    r#domain_id: id.as_id(),
+                                                                }),
+                                                                r#template: None,
+                                                            }
+                                                        }
+                                                        pse_mathir::DomainRef::Template {
+                                                            template_id,
+                                                            domain_name,
+                                                        } => {
+                                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                                r#actual: None,
+                                                                r#template: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceDomainValueTemplate {
+                                                                    r#template_id: *template_id,
+                                                                    r#name: domain_name.clone(),
+                                                                }),
+                                                            }
+                                                        }
+                                                    },
+                                                }),
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Index(id) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "index".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSymbolReferenceIndex {
+                                                    r#bound_index_id: id.as_id(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::FloatConst { value, unit } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "float".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadFloat {
+                                    r#value: *value,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::IntConst { value } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "integer".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadInteger {
+                                    r#value: *value,
+                                }),
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Affine {
+                            constant,
+                            constant_quantity_type,
+                            constant_unit,
+                            terms,
+                        } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "affine".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadAffine {
+                                    r#constant: *constant,
+                                    r#constant_quantity_type_id: constant_quantity_type
+                                        .map(QuantityTypeId::as_id),
+                                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
+                                    r#coefficients: terms
+                                        .iter()
+                                        .map(|term| term.coefficient)
+                                        .collect(),
+                                }),
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::WeightedMean {
+                            pairs,
+                            normalization,
+                            unit_sum_invariant,
+                        } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "weighted_mean".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadWeightedMean {
+                                    r#pairs: pairs
+                                        .iter()
+                                        .map(|pair| Ok(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadWeightedMeanPairsItem {
+                                            r#weight_node_id: self.node(pair.weight)?,
+                                            r#value_node_id: self.node(pair.value)?,
+                                        }))
+                                        .collect::<Result<_, MathIrError>>()?,
+                                    r#normalization: normalization
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#unit_sum_invariant_id: unit_sum_invariant
+                                        .map(InvariantId::as_id),
+                                }),
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Reduction { kind, domain, bound_index, filter } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "reduction".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReduction {
+                                    r#reduction_kind: kind
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadReductionFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Gather { group, coordinate_map } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadGather {
+                                    r#group_id: *group,
+                                    r#coordinates: coordinate_map
+                                        .iter()
+                                        .map(|(id, position)| pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadGatherCoordinatesItem {
+                                            r#bound_index_id: id.as_id(),
+                                            r#position: i64::from(*position),
+                                        })
+                                        .collect(),
+                                }),
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingGather { group, indices } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "pending_gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadPendingGather {
+                                    r#group_id: *group,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingPath { source_id, path_id, indices } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "pending_path".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadPendingPath {
+                                    r#source_id: *source_id,
+                                    r#path_id: *path_id,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Broadcast { domain, bound_index } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "broadcast".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadBroadcast {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadBroadcastDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadBroadcastDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                }),
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Derivative { wrt_domain: domain, order } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "derivative".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadDerivative {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadDerivativeDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadDerivativeDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#order: i64::from(*order),
+                                }),
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Integral {
+                            domain,
+                            bound_index,
+                            quadrature_policy,
+                            filter,
+                        } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "integral".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegral {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#quadrature_policy_id: *quadrature_policy,
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadIntegralFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SmoothOp { eps } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadSmooth {
+                                    r#eps: *eps,
+                                }),
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingSmoothOp { eps, unit } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "pending_smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadPendingSmooth {
+                                    r#eps: *eps,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Conditional { guard } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "conditional".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadConditional {
+                                    r#guard: match guard {
+                                        pse_mathir::GuardRef::Math(node) => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "math".parse().map_err(adapter_error)?,
+                                                r#math: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadConditionalGuardMath {
+                                                    r#node_id: self.node(*node)?,
+                                                }),
+                                                r#predicate: None,
+                                            }
+                                        }
+                                        pse_mathir::GuardRef::Predicate {
+                                            source_id,
+                                            predicate_id,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                r#math: None,
+                                                r#predicate: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadConditionalGuardPredicate {
+                                                    r#source_id: *source_id,
+                                                    r#predicate_id: *predicate_id,
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::KernelCall { kernel_binding, output_ordinal } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "kernel_call".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadKernelCall {
+                                    r#binding_id: *kernel_binding,
+                                    r#output_ordinal: i64::from(*output_ordinal),
+                                }),
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::ImplicitRef { implicit_system, unknown_ordinal } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "implicit_ref".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadImplicitRef {
+                                    r#system_id: *implicit_system,
+                                    r#unknown_ordinal: i64::from(*unknown_ordinal),
+                                }),
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::UnitConvert(
+                            pse_quantity::UnitConvertSpec { scale, offset, from, to },
+                        ) => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "unit_convert".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadUnitConvert {
+                                    r#scale: *scale,
+                                    r#offset: *offset,
+                                    r#from_unit_id: from.as_id(),
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingUnitConvert { to } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "pending_unit_convert"
+                                    .parse()
+                                    .map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadPendingUnitConvert {
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PiecewiseLinear { breakpoints, input, output } => {
+                            pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayload {
+                                r#kind: "piecewise_linear".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: Some(pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadPiecewiseLinear {
+                                    r#breakpoints: breakpoints
+                                        .iter()
+                                        .map(|(x, y)| pse_relations::generated::r#normalized::r#instance_expr_nodes::r#NormalizedInstanceExprNodesFieldPayloadPiecewiseLinearBreakpointsItem {
+                                            r#x: *x,
+                                            r#y: *y,
+                                        })
+                                        .collect(),
+                                    r#input_quantity_type_id: input.as_id(),
+                                    r#output_quantity_type_id: output.as_id(),
+                                }),
+                            }
+                        }
+                        _ => return Err(malformed("unsupported mathematical payload")),
+                    },
                     r#quantity_type_id: quantity_type.map(QuantityTypeId::as_id),
                     r#scope_instance_id: scope,
                     r#subtree_hash: hash,
@@ -83,11 +3781,935 @@ impl MathRelationSink for RelationSink<'_> {
                 self.columns.push(row).map_err(adapter_error)
             }
             Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
+                let _row_allocation = self
+                    .reserve_row(
+                        size_of_val(children)
+                            .checked_add(payload.allocation_extent()?)
+                            .ok_or_else(|| malformed(
+                                "whole-node allocation extent overflow",
+                            ))?,
+                    )?;
+                if let Payload::Affine { terms, .. } = payload
+                    && !terms.iter().map(|term| term.child).eq(children.iter().copied())
+                {
+                    return Err(
+                        malformed(
+                            "affine coefficients must follow the ordered child list",
+                        ),
+                    );
+                }
+                crate::mathir_relations::check_payload_family(
+                    payload,
+                    matches!(self.family, Family::Normalized { .. }),
+                    !matches!(self.family, Family::Compiled),
+                )?;
                 let (derivation, span) = self.provenance()?;
                 let row = pse_relations::generated::r#normalized::r#display_expr_nodes::Row {
                     r#node_id: self.node(node)?,
                     r#opcode: opcode.as_str().parse().map_err(adapter_error)?,
+                    r#children: children
+                        .iter()
+                        .map(|child| self.node(*child))
+                        .collect::<Result<_, MathIrError>>()?,
+                    r#payload: match payload {
+                        Payload::None => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "none".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SymbolRef { symbol } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                r#symbol: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbol {
+                                    r#reference: match symbol {
+                                        pse_mathir::ValueRef::ActualSymbol(id) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                                r#symbol: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceSymbol {
+                                                    r#symbol_id: *id,
+                                                }),
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Template {
+                                            template_id,
+                                            kind,
+                                            name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#member_kind: kind
+                                                        .as_str()
+                                                        .parse()
+                                                        .map_err(adapter_error)?,
+                                                    r#name: name.clone(),
+                                                }),
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Domain(domain) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "domain".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceDomain {
+                                                    r#value: match domain {
+                                                        pse_mathir::DomainRef::Actual(id) => {
+                                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                                r#actual: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceDomainValueActual {
+                                                                    r#domain_id: id.as_id(),
+                                                                }),
+                                                                r#template: None,
+                                                            }
+                                                        }
+                                                        pse_mathir::DomainRef::Template {
+                                                            template_id,
+                                                            domain_name,
+                                                        } => {
+                                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                                r#actual: None,
+                                                                r#template: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceDomainValueTemplate {
+                                                                    r#template_id: *template_id,
+                                                                    r#name: domain_name.clone(),
+                                                                }),
+                                                            }
+                                                        }
+                                                    },
+                                                }),
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Index(id) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "index".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSymbolReferenceIndex {
+                                                    r#bound_index_id: id.as_id(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::FloatConst { value, unit } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "float".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadFloat {
+                                    r#value: *value,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::IntConst { value } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "integer".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadInteger {
+                                    r#value: *value,
+                                }),
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Affine {
+                            constant,
+                            constant_quantity_type,
+                            constant_unit,
+                            terms,
+                        } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "affine".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadAffine {
+                                    r#constant: *constant,
+                                    r#constant_quantity_type_id: constant_quantity_type
+                                        .map(QuantityTypeId::as_id),
+                                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
+                                    r#coefficients: terms
+                                        .iter()
+                                        .map(|term| term.coefficient)
+                                        .collect(),
+                                }),
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::WeightedMean {
+                            pairs,
+                            normalization,
+                            unit_sum_invariant,
+                        } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "weighted_mean".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadWeightedMean {
+                                    r#pairs: pairs
+                                        .iter()
+                                        .map(|pair| Ok(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadWeightedMeanPairsItem {
+                                            r#weight_node_id: self.node(pair.weight)?,
+                                            r#value_node_id: self.node(pair.value)?,
+                                        }))
+                                        .collect::<Result<_, MathIrError>>()?,
+                                    r#normalization: normalization
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#unit_sum_invariant_id: unit_sum_invariant
+                                        .map(InvariantId::as_id),
+                                }),
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Reduction { kind, domain, bound_index, filter } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "reduction".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReduction {
+                                    r#reduction_kind: kind
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadReductionFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Gather { group, coordinate_map } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadGather {
+                                    r#group_id: *group,
+                                    r#coordinates: coordinate_map
+                                        .iter()
+                                        .map(|(id, position)| pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadGatherCoordinatesItem {
+                                            r#bound_index_id: id.as_id(),
+                                            r#position: i64::from(*position),
+                                        })
+                                        .collect(),
+                                }),
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingGather { group, indices } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "pending_gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadPendingGather {
+                                    r#group_id: *group,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingPath { source_id, path_id, indices } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "pending_path".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadPendingPath {
+                                    r#source_id: *source_id,
+                                    r#path_id: *path_id,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Broadcast { domain, bound_index } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "broadcast".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadBroadcast {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadBroadcastDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadBroadcastDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                }),
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Derivative { wrt_domain: domain, order } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "derivative".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadDerivative {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadDerivativeDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadDerivativeDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#order: i64::from(*order),
+                                }),
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Integral {
+                            domain,
+                            bound_index,
+                            quadrature_policy,
+                            filter,
+                        } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "integral".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegral {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#quadrature_policy_id: *quadrature_policy,
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadIntegralFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SmoothOp { eps } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadSmooth {
+                                    r#eps: *eps,
+                                }),
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingSmoothOp { eps, unit } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "pending_smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadPendingSmooth {
+                                    r#eps: *eps,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Conditional { guard } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "conditional".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadConditional {
+                                    r#guard: match guard {
+                                        pse_mathir::GuardRef::Math(node) => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "math".parse().map_err(adapter_error)?,
+                                                r#math: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadConditionalGuardMath {
+                                                    r#node_id: self.node(*node)?,
+                                                }),
+                                                r#predicate: None,
+                                            }
+                                        }
+                                        pse_mathir::GuardRef::Predicate {
+                                            source_id,
+                                            predicate_id,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                r#math: None,
+                                                r#predicate: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadConditionalGuardPredicate {
+                                                    r#source_id: *source_id,
+                                                    r#predicate_id: *predicate_id,
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::KernelCall { kernel_binding, output_ordinal } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "kernel_call".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadKernelCall {
+                                    r#binding_id: *kernel_binding,
+                                    r#output_ordinal: i64::from(*output_ordinal),
+                                }),
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::ImplicitRef { implicit_system, unknown_ordinal } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "implicit_ref".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadImplicitRef {
+                                    r#system_id: *implicit_system,
+                                    r#unknown_ordinal: i64::from(*unknown_ordinal),
+                                }),
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::UnitConvert(
+                            pse_quantity::UnitConvertSpec { scale, offset, from, to },
+                        ) => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "unit_convert".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadUnitConvert {
+                                    r#scale: *scale,
+                                    r#offset: *offset,
+                                    r#from_unit_id: from.as_id(),
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingUnitConvert { to } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "pending_unit_convert"
+                                    .parse()
+                                    .map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadPendingUnitConvert {
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PiecewiseLinear { breakpoints, input, output } => {
+                            pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayload {
+                                r#kind: "piecewise_linear".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: Some(pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadPiecewiseLinear {
+                                    r#breakpoints: breakpoints
+                                        .iter()
+                                        .map(|(x, y)| pse_relations::generated::r#normalized::r#display_expr_nodes::r#NormalizedDisplayExprNodesFieldPayloadPiecewiseLinearBreakpointsItem {
+                                            r#x: *x,
+                                            r#y: *y,
+                                        })
+                                        .collect(),
+                                    r#input_quantity_type_id: input.as_id(),
+                                    r#output_quantity_type_id: output.as_id(),
+                                }),
+                            }
+                        }
+                        _ => return Err(malformed("unsupported mathematical payload")),
+                    },
                     r#quantity_type_id: quantity_type.map(QuantityTypeId::as_id),
                     r#scope_instance_id: scope,
                     r#subtree_hash: hash,
@@ -101,11 +4723,935 @@ impl MathRelationSink for RelationSink<'_> {
                 self.columns.push(row).map_err(adapter_error)
             }
             Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
+                let _row_allocation = self
+                    .reserve_row(
+                        size_of_val(children)
+                            .checked_add(payload.allocation_extent()?)
+                            .ok_or_else(|| malformed(
+                                "whole-node allocation extent overflow",
+                            ))?,
+                    )?;
+                if let Payload::Affine { terms, .. } = payload
+                    && !terms.iter().map(|term| term.child).eq(children.iter().copied())
+                {
+                    return Err(
+                        malformed(
+                            "affine coefficients must follow the ordered child list",
+                        ),
+                    );
+                }
+                crate::mathir_relations::check_payload_family(
+                    payload,
+                    matches!(self.family, Family::Normalized { .. }),
+                    !matches!(self.family, Family::Compiled),
+                )?;
                 let (derivation, span) = self.provenance()?;
                 let row = pse_relations::generated::r#normalized::r#contribution_expr_nodes::Row {
                     r#node_id: self.node(node)?,
                     r#opcode: opcode.as_str().parse().map_err(adapter_error)?,
+                    r#children: children
+                        .iter()
+                        .map(|child| self.node(*child))
+                        .collect::<Result<_, MathIrError>>()?,
+                    r#payload: match payload {
+                        Payload::None => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "none".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SymbolRef { symbol } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                r#symbol: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbol {
+                                    r#reference: match symbol {
+                                        pse_mathir::ValueRef::ActualSymbol(id) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                                r#symbol: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceSymbol {
+                                                    r#symbol_id: *id,
+                                                }),
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Template {
+                                            template_id,
+                                            kind,
+                                            name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#member_kind: kind
+                                                        .as_str()
+                                                        .parse()
+                                                        .map_err(adapter_error)?,
+                                                    r#name: name.clone(),
+                                                }),
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Domain(domain) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "domain".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceDomain {
+                                                    r#value: match domain {
+                                                        pse_mathir::DomainRef::Actual(id) => {
+                                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                                r#actual: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceDomainValueActual {
+                                                                    r#domain_id: id.as_id(),
+                                                                }),
+                                                                r#template: None,
+                                                            }
+                                                        }
+                                                        pse_mathir::DomainRef::Template {
+                                                            template_id,
+                                                            domain_name,
+                                                        } => {
+                                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                                r#actual: None,
+                                                                r#template: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceDomainValueTemplate {
+                                                                    r#template_id: *template_id,
+                                                                    r#name: domain_name.clone(),
+                                                                }),
+                                                            }
+                                                        }
+                                                    },
+                                                }),
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Index(id) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "index".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSymbolReferenceIndex {
+                                                    r#bound_index_id: id.as_id(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::FloatConst { value, unit } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "float".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadFloat {
+                                    r#value: *value,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::IntConst { value } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "integer".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadInteger {
+                                    r#value: *value,
+                                }),
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Affine {
+                            constant,
+                            constant_quantity_type,
+                            constant_unit,
+                            terms,
+                        } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "affine".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadAffine {
+                                    r#constant: *constant,
+                                    r#constant_quantity_type_id: constant_quantity_type
+                                        .map(QuantityTypeId::as_id),
+                                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
+                                    r#coefficients: terms
+                                        .iter()
+                                        .map(|term| term.coefficient)
+                                        .collect(),
+                                }),
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::WeightedMean {
+                            pairs,
+                            normalization,
+                            unit_sum_invariant,
+                        } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "weighted_mean".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadWeightedMean {
+                                    r#pairs: pairs
+                                        .iter()
+                                        .map(|pair| Ok(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadWeightedMeanPairsItem {
+                                            r#weight_node_id: self.node(pair.weight)?,
+                                            r#value_node_id: self.node(pair.value)?,
+                                        }))
+                                        .collect::<Result<_, MathIrError>>()?,
+                                    r#normalization: normalization
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#unit_sum_invariant_id: unit_sum_invariant
+                                        .map(InvariantId::as_id),
+                                }),
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Reduction { kind, domain, bound_index, filter } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "reduction".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReduction {
+                                    r#reduction_kind: kind
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadReductionFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Gather { group, coordinate_map } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadGather {
+                                    r#group_id: *group,
+                                    r#coordinates: coordinate_map
+                                        .iter()
+                                        .map(|(id, position)| pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadGatherCoordinatesItem {
+                                            r#bound_index_id: id.as_id(),
+                                            r#position: i64::from(*position),
+                                        })
+                                        .collect(),
+                                }),
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingGather { group, indices } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "pending_gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadPendingGather {
+                                    r#group_id: *group,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingPath { source_id, path_id, indices } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "pending_path".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadPendingPath {
+                                    r#source_id: *source_id,
+                                    r#path_id: *path_id,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Broadcast { domain, bound_index } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "broadcast".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadBroadcast {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadBroadcastDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadBroadcastDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                }),
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Derivative { wrt_domain: domain, order } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "derivative".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadDerivative {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadDerivativeDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadDerivativeDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#order: i64::from(*order),
+                                }),
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Integral {
+                            domain,
+                            bound_index,
+                            quadrature_policy,
+                            filter,
+                        } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "integral".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegral {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#quadrature_policy_id: *quadrature_policy,
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadIntegralFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SmoothOp { eps } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadSmooth {
+                                    r#eps: *eps,
+                                }),
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingSmoothOp { eps, unit } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "pending_smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadPendingSmooth {
+                                    r#eps: *eps,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Conditional { guard } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "conditional".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadConditional {
+                                    r#guard: match guard {
+                                        pse_mathir::GuardRef::Math(node) => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "math".parse().map_err(adapter_error)?,
+                                                r#math: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadConditionalGuardMath {
+                                                    r#node_id: self.node(*node)?,
+                                                }),
+                                                r#predicate: None,
+                                            }
+                                        }
+                                        pse_mathir::GuardRef::Predicate {
+                                            source_id,
+                                            predicate_id,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                r#math: None,
+                                                r#predicate: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadConditionalGuardPredicate {
+                                                    r#source_id: *source_id,
+                                                    r#predicate_id: *predicate_id,
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::KernelCall { kernel_binding, output_ordinal } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "kernel_call".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadKernelCall {
+                                    r#binding_id: *kernel_binding,
+                                    r#output_ordinal: i64::from(*output_ordinal),
+                                }),
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::ImplicitRef { implicit_system, unknown_ordinal } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "implicit_ref".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadImplicitRef {
+                                    r#system_id: *implicit_system,
+                                    r#unknown_ordinal: i64::from(*unknown_ordinal),
+                                }),
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::UnitConvert(
+                            pse_quantity::UnitConvertSpec { scale, offset, from, to },
+                        ) => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "unit_convert".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadUnitConvert {
+                                    r#scale: *scale,
+                                    r#offset: *offset,
+                                    r#from_unit_id: from.as_id(),
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingUnitConvert { to } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "pending_unit_convert"
+                                    .parse()
+                                    .map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadPendingUnitConvert {
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PiecewiseLinear { breakpoints, input, output } => {
+                            pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayload {
+                                r#kind: "piecewise_linear".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: Some(pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadPiecewiseLinear {
+                                    r#breakpoints: breakpoints
+                                        .iter()
+                                        .map(|(x, y)| pse_relations::generated::r#normalized::r#contribution_expr_nodes::r#NormalizedContributionExprNodesFieldPayloadPiecewiseLinearBreakpointsItem {
+                                            r#x: *x,
+                                            r#y: *y,
+                                        })
+                                        .collect(),
+                                    r#input_quantity_type_id: input.as_id(),
+                                    r#output_quantity_type_id: output.as_id(),
+                                }),
+                            }
+                        }
+                        _ => return Err(malformed("unsupported mathematical payload")),
+                    },
                     r#quantity_type_id: quantity_type.map(QuantityTypeId::as_id),
                     r#scope_instance_id: scope,
                     r#subtree_hash: hash,
@@ -119,11 +5665,935 @@ impl MathRelationSink for RelationSink<'_> {
                 self.columns.push(row).map_err(adapter_error)
             }
             Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
+                let _row_allocation = self
+                    .reserve_row(
+                        size_of_val(children)
+                            .checked_add(payload.allocation_extent()?)
+                            .ok_or_else(|| malformed(
+                                "whole-node allocation extent overflow",
+                            ))?,
+                    )?;
+                if let Payload::Affine { terms, .. } = payload
+                    && !terms.iter().map(|term| term.child).eq(children.iter().copied())
+                {
+                    return Err(
+                        malformed(
+                            "affine coefficients must follow the ordered child list",
+                        ),
+                    );
+                }
+                crate::mathir_relations::check_payload_family(
+                    payload,
+                    matches!(self.family, Family::Normalized { .. }),
+                    !matches!(self.family, Family::Compiled),
+                )?;
                 let (derivation, span) = self.provenance()?;
                 let row = pse_relations::generated::r#normalized::r#guard_expr_nodes::Row {
                     r#node_id: self.node(node)?,
                     r#opcode: opcode.as_str().parse().map_err(adapter_error)?,
+                    r#children: children
+                        .iter()
+                        .map(|child| self.node(*child))
+                        .collect::<Result<_, MathIrError>>()?,
+                    r#payload: match payload {
+                        Payload::None => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "none".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SymbolRef { symbol } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                r#symbol: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbol {
+                                    r#reference: match symbol {
+                                        pse_mathir::ValueRef::ActualSymbol(id) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "symbol".parse().map_err(adapter_error)?,
+                                                r#symbol: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceSymbol {
+                                                    r#symbol_id: *id,
+                                                }),
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Template {
+                                            template_id,
+                                            kind,
+                                            name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#member_kind: kind
+                                                        .as_str()
+                                                        .parse()
+                                                        .map_err(adapter_error)?,
+                                                    r#name: name.clone(),
+                                                }),
+                                                r#domain: None,
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Domain(domain) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "domain".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceDomain {
+                                                    r#value: match domain {
+                                                        pse_mathir::DomainRef::Actual(id) => {
+                                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                                r#actual: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceDomainValueActual {
+                                                                    r#domain_id: id.as_id(),
+                                                                }),
+                                                                r#template: None,
+                                                            }
+                                                        }
+                                                        pse_mathir::DomainRef::Template {
+                                                            template_id,
+                                                            domain_name,
+                                                        } => {
+                                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceDomainValue {
+                                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                                r#actual: None,
+                                                                r#template: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceDomainValueTemplate {
+                                                                    r#template_id: *template_id,
+                                                                    r#name: domain_name.clone(),
+                                                                }),
+                                                            }
+                                                        }
+                                                    },
+                                                }),
+                                                r#index: None,
+                                            }
+                                        }
+                                        pse_mathir::ValueRef::Index(id) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReference {
+                                                r#kind: "index".parse().map_err(adapter_error)?,
+                                                r#symbol: None,
+                                                r#template: None,
+                                                r#domain: None,
+                                                r#index: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSymbolReferenceIndex {
+                                                    r#bound_index_id: id.as_id(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::FloatConst { value, unit } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "float".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadFloat {
+                                    r#value: *value,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::IntConst { value } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "integer".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadInteger {
+                                    r#value: *value,
+                                }),
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Affine {
+                            constant,
+                            constant_quantity_type,
+                            constant_unit,
+                            terms,
+                        } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "affine".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadAffine {
+                                    r#constant: *constant,
+                                    r#constant_quantity_type_id: constant_quantity_type
+                                        .map(QuantityTypeId::as_id),
+                                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
+                                    r#coefficients: terms
+                                        .iter()
+                                        .map(|term| term.coefficient)
+                                        .collect(),
+                                }),
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::WeightedMean {
+                            pairs,
+                            normalization,
+                            unit_sum_invariant,
+                        } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "weighted_mean".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadWeightedMean {
+                                    r#pairs: pairs
+                                        .iter()
+                                        .map(|pair| Ok(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadWeightedMeanPairsItem {
+                                            r#weight_node_id: self.node(pair.weight)?,
+                                            r#value_node_id: self.node(pair.value)?,
+                                        }))
+                                        .collect::<Result<_, MathIrError>>()?,
+                                    r#normalization: normalization
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#unit_sum_invariant_id: unit_sum_invariant
+                                        .map(InvariantId::as_id),
+                                }),
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Reduction { kind, domain, bound_index, filter } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "reduction".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReduction {
+                                    r#reduction_kind: kind
+                                        .as_str()
+                                        .parse()
+                                        .map_err(adapter_error)?,
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadReductionFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Gather { group, coordinate_map } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadGather {
+                                    r#group_id: *group,
+                                    r#coordinates: coordinate_map
+                                        .iter()
+                                        .map(|(id, position)| pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadGatherCoordinatesItem {
+                                            r#bound_index_id: id.as_id(),
+                                            r#position: i64::from(*position),
+                                        })
+                                        .collect(),
+                                }),
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingGather { group, indices } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "pending_gather".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadPendingGather {
+                                    r#group_id: *group,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingPath { source_id, path_id, indices } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "pending_path".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadPendingPath {
+                                    r#source_id: *source_id,
+                                    r#path_id: *path_id,
+                                    r#indices: indices
+                                        .iter()
+                                        .map(|id| self.node(*id))
+                                        .collect::<Result<_, _>>()?,
+                                }),
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Broadcast { domain, bound_index } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "broadcast".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadBroadcast {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadBroadcastDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadBroadcastDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadBroadcastDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                }),
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Derivative { wrt_domain: domain, order } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "derivative".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadDerivative {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadDerivativeDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadDerivativeDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadDerivativeDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#order: i64::from(*order),
+                                }),
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Integral {
+                            domain,
+                            bound_index,
+                            quadrature_policy,
+                            filter,
+                        } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "integral".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegral {
+                                    r#domain: match domain {
+                                        pse_mathir::DomainRef::Actual(id) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "actual".parse().map_err(adapter_error)?,
+                                                r#actual: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralDomainActual {
+                                                    r#domain_id: id.as_id(),
+                                                }),
+                                                r#template: None,
+                                            }
+                                        }
+                                        pse_mathir::DomainRef::Template {
+                                            template_id,
+                                            domain_name,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralDomain {
+                                                r#kind: "template".parse().map_err(adapter_error)?,
+                                                r#actual: None,
+                                                r#template: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralDomainTemplate {
+                                                    r#template_id: *template_id,
+                                                    r#name: domain_name.clone(),
+                                                }),
+                                            }
+                                        }
+                                    },
+                                    r#bound_index_id: bound_index.as_id(),
+                                    r#quadrature_policy_id: *quadrature_policy,
+                                    r#filter: match filter {
+                                        Some(guard) => {
+                                            Some(
+                                                match guard {
+                                                    pse_mathir::GuardRef::Math(node) => {
+                                                        pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "math".parse().map_err(adapter_error)?,
+                                                            r#math: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralFilterMath {
+                                                                r#node_id: self.node(*node)?,
+                                                            }),
+                                                            r#predicate: None,
+                                                        }
+                                                    }
+                                                    pse_mathir::GuardRef::Predicate {
+                                                        source_id,
+                                                        predicate_id,
+                                                    } => {
+                                                        pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralFilter {
+                                                            r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                            r#math: None,
+                                                            r#predicate: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadIntegralFilterPredicate {
+                                                                r#source_id: *source_id,
+                                                                r#predicate_id: *predicate_id,
+                                                            }),
+                                                        }
+                                                    }
+                                                },
+                                            )
+                                        }
+                                        None => None,
+                                    },
+                                }),
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::SmoothOp { eps } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadSmooth {
+                                    r#eps: *eps,
+                                }),
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingSmoothOp { eps, unit } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "pending_smooth".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadPendingSmooth {
+                                    r#eps: *eps,
+                                    r#unit_id: unit.as_id(),
+                                }),
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::Conditional { guard } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "conditional".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadConditional {
+                                    r#guard: match guard {
+                                        pse_mathir::GuardRef::Math(node) => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "math".parse().map_err(adapter_error)?,
+                                                r#math: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadConditionalGuardMath {
+                                                    r#node_id: self.node(*node)?,
+                                                }),
+                                                r#predicate: None,
+                                            }
+                                        }
+                                        pse_mathir::GuardRef::Predicate {
+                                            source_id,
+                                            predicate_id,
+                                        } => {
+                                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadConditionalGuard {
+                                                r#kind: "predicate".parse().map_err(adapter_error)?,
+                                                r#math: None,
+                                                r#predicate: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadConditionalGuardPredicate {
+                                                    r#source_id: *source_id,
+                                                    r#predicate_id: *predicate_id,
+                                                }),
+                                            }
+                                        }
+                                    },
+                                }),
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::KernelCall { kernel_binding, output_ordinal } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "kernel_call".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadKernelCall {
+                                    r#binding_id: *kernel_binding,
+                                    r#output_ordinal: i64::from(*output_ordinal),
+                                }),
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::ImplicitRef { implicit_system, unknown_ordinal } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "implicit_ref".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadImplicitRef {
+                                    r#system_id: *implicit_system,
+                                    r#unknown_ordinal: i64::from(*unknown_ordinal),
+                                }),
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::UnitConvert(
+                            pse_quantity::UnitConvertSpec { scale, offset, from, to },
+                        ) => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "unit_convert".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadUnitConvert {
+                                    r#scale: *scale,
+                                    r#offset: *offset,
+                                    r#from_unit_id: from.as_id(),
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PendingUnitConvert { to } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "pending_unit_convert"
+                                    .parse()
+                                    .map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadPendingUnitConvert {
+                                    r#to_unit_id: to.as_id(),
+                                }),
+                                r#piecewise_linear: None,
+                            }
+                        }
+                        Payload::PiecewiseLinear { breakpoints, input, output } => {
+                            pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayload {
+                                r#kind: "piecewise_linear".parse().map_err(adapter_error)?,
+                                r#symbol: None,
+                                r#float: None,
+                                r#integer: None,
+                                r#affine: None,
+                                r#weighted_mean: None,
+                                r#reduction: None,
+                                r#gather: None,
+                                r#pending_gather: None,
+                                r#pending_path: None,
+                                r#broadcast: None,
+                                r#derivative: None,
+                                r#integral: None,
+                                r#smooth: None,
+                                r#pending_smooth: None,
+                                r#conditional: None,
+                                r#kernel_call: None,
+                                r#implicit_ref: None,
+                                r#unit_convert: None,
+                                r#pending_unit_convert: None,
+                                r#piecewise_linear: Some(pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadPiecewiseLinear {
+                                    r#breakpoints: breakpoints
+                                        .iter()
+                                        .map(|(x, y)| pse_relations::generated::r#normalized::r#guard_expr_nodes::r#NormalizedGuardExprNodesFieldPayloadPiecewiseLinearBreakpointsItem {
+                                            r#x: *x,
+                                            r#y: *y,
+                                        })
+                                        .collect(),
+                                    r#input_quantity_type_id: input.as_id(),
+                                    r#output_quantity_type_id: output.as_id(),
+                                }),
+                            }
+                        }
+                        _ => return Err(malformed("unsupported mathematical payload")),
+                    },
                     r#quantity_type_id: quantity_type.map(QuantityTypeId::as_id),
                     r#scope_instance_id: scope,
                     r#subtree_hash: hash,
@@ -133,2312 +6603,6 @@ impl MathRelationSink for RelationSink<'_> {
                         start: i64::from(span.start),
                         end: i64::from(span.end),
                     },
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn expr_arg(
-        &mut self,
-        parent: NodeId,
-        ordinal: u16,
-        child: NodeId,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#compiled::r#math_expr_args::Row {
-                    r#parent_node_id: self.node(parent)?,
-                    r#argument_ordinal: ordinal,
-                    r#child_node_id: self.node(child)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#inferred::r#math_expr_args::Row {
-                    r#parent_node_id: self.node(parent)?,
-                    r#argument_ordinal: ordinal,
-                    r#child_node_id: self.node(child)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_args::Row {
-                    r#parent_node_id: self.node(parent)?,
-                    r#argument_ordinal: ordinal,
-                    r#child_node_id: self.node(child)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_args::Row {
-                    r#parent_node_id: self.node(parent)?,
-                    r#argument_ordinal: ordinal,
-                    r#child_node_id: self.node(child)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_args::Row {
-                    r#parent_node_id: self.node(parent)?,
-                    r#argument_ordinal: ordinal,
-                    r#child_node_id: self.node(child)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_args::Row {
-                    r#parent_node_id: self.node(parent)?,
-                    r#argument_ordinal: ordinal,
-                    r#child_node_id: self.node(child)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_args::Row {
-                    r#parent_node_id: self.node(parent)?,
-                    r#argument_ordinal: ordinal,
-                    r#child_node_id: self.node(child)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn symbol_ref(
-        &mut self,
-        node: NodeId,
-        symbol: r#pse_mathir::ValueRef,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let pse_mathir::ValueRef::ActualSymbol(symbol) = symbol else {
-                    return Err(
-                        malformed(
-                            "unresolved declaration reference in instantiated output",
-                        ),
-                    );
-                };
-                let row = pse_relations::generated::r#compiled::r#math_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: symbol,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let pse_mathir::ValueRef::ActualSymbol(symbol) = symbol else {
-                    return Err(
-                        malformed(
-                            "unresolved declaration reference in instantiated output",
-                        ),
-                    );
-                };
-                let row = pse_relations::generated::r#inferred::r#math_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: symbol,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (kind, symbol, template, name, domain, index) = Self::reference_parts(
-                    symbol,
-                );
-                let row = pse_relations::generated::r#normalized::r#template_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: symbol,
-                    r#kind: kind.parse().map_err(adapter_error)?,
-                    r#template_id: template,
-                    r#name,
-                    r#path_source_id: None,
-                    r#path_id: None,
-                    r#path_index_nodes: None,
-                    r#domain_id: domain,
-                    r#bound_index_id: index,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (kind, symbol, template, name, domain, index) = Self::reference_parts(
-                    symbol,
-                );
-                let row = pse_relations::generated::r#normalized::r#instance_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: symbol,
-                    r#kind: kind.parse().map_err(adapter_error)?,
-                    r#template_id: template,
-                    r#name,
-                    r#path_source_id: None,
-                    r#path_id: None,
-                    r#path_index_nodes: None,
-                    r#domain_id: domain,
-                    r#bound_index_id: index,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (kind, symbol, template, name, domain, index) = Self::reference_parts(
-                    symbol,
-                );
-                let row = pse_relations::generated::r#normalized::r#display_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: symbol,
-                    r#kind: kind.parse().map_err(adapter_error)?,
-                    r#template_id: template,
-                    r#name,
-                    r#path_source_id: None,
-                    r#path_id: None,
-                    r#path_index_nodes: None,
-                    r#domain_id: domain,
-                    r#bound_index_id: index,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (kind, symbol, template, name, domain, index) = Self::reference_parts(
-                    symbol,
-                );
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: symbol,
-                    r#kind: kind.parse().map_err(adapter_error)?,
-                    r#template_id: template,
-                    r#name,
-                    r#path_source_id: None,
-                    r#path_id: None,
-                    r#path_index_nodes: None,
-                    r#domain_id: domain,
-                    r#bound_index_id: index,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (kind, symbol, template, name, domain, index) = Self::reference_parts(
-                    symbol,
-                );
-                let row = pse_relations::generated::r#normalized::r#guard_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: symbol,
-                    r#kind: kind.parse().map_err(adapter_error)?,
-                    r#template_id: template,
-                    r#name,
-                    r#path_source_id: None,
-                    r#path_id: None,
-                    r#path_index_nodes: None,
-                    r#domain_id: domain,
-                    r#bound_index_id: index,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn float_constant(
-        &mut self,
-        node: NodeId,
-        value: f64,
-        unit: UnitId,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#compiled::r#math_float_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                    r#unit_id: unit.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#inferred::r#math_float_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                    r#unit_id: unit.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_float_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                    r#unit_id: unit.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_float_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                    r#unit_id: unit.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_float_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                    r#unit_id: unit.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_float_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                    r#unit_id: unit.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_float_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                    r#unit_id: unit.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn int_constant(&mut self, node: NodeId, value: i64) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#compiled::r#math_int_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#inferred::r#math_int_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_int_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_int_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_int_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_int_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_int_constants::Row {
-                    r#node_id: self.node(node)?,
-                    r#value,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn affine(
-        &mut self,
-        node: NodeId,
-        constant: f64,
-        constant_quantity_type: Option<QuantityTypeId>,
-        constant_unit: Option<UnitId>,
-        terms: &[(f64, NodeId)],
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(size_of_val(terms))?;
-                let row = pse_relations::generated::r#compiled::r#math_affine::Row {
-                    r#node_id: self.node(node)?,
-                    r#constant,
-                    r#constant_quantity_type_id: constant_quantity_type
-                        .map(QuantityTypeId::as_id),
-                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
-                    r#terms: terms
-                        .iter()
-                        .map(|(coefficient, child)| Ok(pse_relations::generated::r#compiled::r#math_affine::r#CompiledMathAffineFieldTermsItem {
-                            coefficient: *coefficient,
-                            child_node_id: self.node(*child)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(size_of_val(terms))?;
-                let row = pse_relations::generated::r#inferred::r#math_affine::Row {
-                    r#node_id: self.node(node)?,
-                    r#constant,
-                    r#constant_quantity_type_id: constant_quantity_type
-                        .map(QuantityTypeId::as_id),
-                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
-                    r#terms: terms
-                        .iter()
-                        .map(|(coefficient, child)| Ok(pse_relations::generated::r#inferred::r#math_affine::r#InferredMathAffineFieldTermsItem {
-                            coefficient: *coefficient,
-                            child_node_id: self.node(*child)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(terms))?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_affine::Row {
-                    r#node_id: self.node(node)?,
-                    r#constant,
-                    r#constant_quantity_type_id: constant_quantity_type
-                        .map(QuantityTypeId::as_id),
-                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
-                    r#terms: terms
-                        .iter()
-                        .map(|(coefficient, child)| Ok(pse_relations::generated::r#normalized::r#template_expr_affine::r#NormalizedTemplateExprAffineFieldTermsItem {
-                            coefficient: *coefficient,
-                            child_node_id: self.node(*child)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(terms))?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_affine::Row {
-                    r#node_id: self.node(node)?,
-                    r#constant,
-                    r#constant_quantity_type_id: constant_quantity_type
-                        .map(QuantityTypeId::as_id),
-                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
-                    r#terms: terms
-                        .iter()
-                        .map(|(coefficient, child)| Ok(pse_relations::generated::r#normalized::r#instance_expr_affine::r#NormalizedInstanceExprAffineFieldTermsItem {
-                            coefficient: *coefficient,
-                            child_node_id: self.node(*child)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(terms))?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_affine::Row {
-                    r#node_id: self.node(node)?,
-                    r#constant,
-                    r#constant_quantity_type_id: constant_quantity_type
-                        .map(QuantityTypeId::as_id),
-                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
-                    r#terms: terms
-                        .iter()
-                        .map(|(coefficient, child)| Ok(pse_relations::generated::r#normalized::r#display_expr_affine::r#NormalizedDisplayExprAffineFieldTermsItem {
-                            coefficient: *coefficient,
-                            child_node_id: self.node(*child)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(terms))?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_affine::Row {
-                    r#node_id: self.node(node)?,
-                    r#constant,
-                    r#constant_quantity_type_id: constant_quantity_type
-                        .map(QuantityTypeId::as_id),
-                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
-                    r#terms: terms
-                        .iter()
-                        .map(|(coefficient, child)| Ok(pse_relations::generated::r#normalized::r#contribution_expr_affine::r#NormalizedContributionExprAffineFieldTermsItem {
-                            coefficient: *coefficient,
-                            child_node_id: self.node(*child)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(terms))?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_affine::Row {
-                    r#node_id: self.node(node)?,
-                    r#constant,
-                    r#constant_quantity_type_id: constant_quantity_type
-                        .map(QuantityTypeId::as_id),
-                    r#constant_unit_id: constant_unit.map(UnitId::as_id),
-                    r#terms: terms
-                        .iter()
-                        .map(|(coefficient, child)| Ok(pse_relations::generated::r#normalized::r#guard_expr_affine::r#NormalizedGuardExprAffineFieldTermsItem {
-                            coefficient: *coefficient,
-                            child_node_id: self.node(*child)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn weighted_mean(
-        &mut self,
-        node: NodeId,
-        pairs: &[(NodeId, NodeId)],
-        normalization: WeightNormalization,
-        certificate: Option<InvariantId>,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(size_of_val(pairs))?;
-                let row = pse_relations::generated::r#compiled::r#math_weighted_means::Row {
-                    r#node_id: self.node(node)?,
-                    r#pairs: pairs
-                        .iter()
-                        .map(|(weight, value)| Ok(pse_relations::generated::r#compiled::r#math_weighted_means::r#CompiledMathWeightedMeansFieldPairsItem {
-                            weight_node_id: self.node(*weight)?,
-                            value_node_id: self.node(*value)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                    r#normalization: normalization
-                        .as_str()
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#unit_sum_invariant_id: certificate.map(InvariantId::as_id),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(size_of_val(pairs))?;
-                let row = pse_relations::generated::r#inferred::r#math_weighted_means::Row {
-                    r#node_id: self.node(node)?,
-                    r#pairs: pairs
-                        .iter()
-                        .map(|(weight, value)| Ok(pse_relations::generated::r#inferred::r#math_weighted_means::r#InferredMathWeightedMeansFieldPairsItem {
-                            weight_node_id: self.node(*weight)?,
-                            value_node_id: self.node(*value)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                    r#normalization: normalization
-                        .as_str()
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#unit_sum_invariant_id: certificate.map(InvariantId::as_id),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(pairs))?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_weighted_means::Row {
-                    r#node_id: self.node(node)?,
-                    r#pairs: pairs
-                        .iter()
-                        .map(|(weight, value)| Ok(pse_relations::generated::r#normalized::r#template_expr_weighted_means::r#NormalizedTemplateExprWeightedMeansFieldPairsItem {
-                            weight_node_id: self.node(*weight)?,
-                            value_node_id: self.node(*value)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                    r#normalization: normalization
-                        .as_str()
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#unit_sum_invariant_id: certificate.map(InvariantId::as_id),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(pairs))?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_weighted_means::Row {
-                    r#node_id: self.node(node)?,
-                    r#pairs: pairs
-                        .iter()
-                        .map(|(weight, value)| Ok(pse_relations::generated::r#normalized::r#instance_expr_weighted_means::r#NormalizedInstanceExprWeightedMeansFieldPairsItem {
-                            weight_node_id: self.node(*weight)?,
-                            value_node_id: self.node(*value)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                    r#normalization: normalization
-                        .as_str()
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#unit_sum_invariant_id: certificate.map(InvariantId::as_id),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(pairs))?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_weighted_means::Row {
-                    r#node_id: self.node(node)?,
-                    r#pairs: pairs
-                        .iter()
-                        .map(|(weight, value)| Ok(pse_relations::generated::r#normalized::r#display_expr_weighted_means::r#NormalizedDisplayExprWeightedMeansFieldPairsItem {
-                            weight_node_id: self.node(*weight)?,
-                            value_node_id: self.node(*value)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                    r#normalization: normalization
-                        .as_str()
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#unit_sum_invariant_id: certificate.map(InvariantId::as_id),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(pairs))?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_weighted_means::Row {
-                    r#node_id: self.node(node)?,
-                    r#pairs: pairs
-                        .iter()
-                        .map(|(weight, value)| Ok(pse_relations::generated::r#normalized::r#contribution_expr_weighted_means::r#NormalizedContributionExprWeightedMeansFieldPairsItem {
-                            weight_node_id: self.node(*weight)?,
-                            value_node_id: self.node(*value)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                    r#normalization: normalization
-                        .as_str()
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#unit_sum_invariant_id: certificate.map(InvariantId::as_id),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(pairs))?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_weighted_means::Row {
-                    r#node_id: self.node(node)?,
-                    r#pairs: pairs
-                        .iter()
-                        .map(|(weight, value)| Ok(pse_relations::generated::r#normalized::r#guard_expr_weighted_means::r#NormalizedGuardExprWeightedMeansFieldPairsItem {
-                            weight_node_id: self.node(*weight)?,
-                            value_node_id: self.node(*value)?,
-                        }))
-                        .collect::<Result<_, MathIrError>>()?,
-                    r#normalization: normalization
-                        .as_str()
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#unit_sum_invariant_id: certificate.map(InvariantId::as_id),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn reduction(
-        &mut self,
-        node: NodeId,
-        kind: ReductionKind,
-        domain: r#pse_mathir::DomainRef,
-        bound_index: BoundIndexId,
-        filter: Option<r#pse_mathir::GuardRef>,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let _ = (guard_source, guard_predicate);
-                let row = pse_relations::generated::r#compiled::r#math_reductions::Row {
-                    r#node_id: self.node(node)?,
-                    r#kind: kind.as_str().parse().map_err(adapter_error)?,
-                    r#domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let _ = (guard_source, guard_predicate);
-                let row = pse_relations::generated::r#inferred::r#math_reductions::Row {
-                    r#node_id: self.node(node)?,
-                    r#kind: kind.as_str().parse().map_err(adapter_error)?,
-                    r#domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_reductions::Row {
-                    r#node_id: self.node(node)?,
-                    r#kind: kind.as_str().parse().map_err(adapter_error)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_reductions::Row {
-                    r#node_id: self.node(node)?,
-                    r#kind: kind.as_str().parse().map_err(adapter_error)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_reductions::Row {
-                    r#node_id: self.node(node)?,
-                    r#kind: kind.as_str().parse().map_err(adapter_error)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_reductions::Row {
-                    r#node_id: self.node(node)?,
-                    r#kind: kind.as_str().parse().map_err(adapter_error)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_reductions::Row {
-                    r#node_id: self.node(node)?,
-                    r#kind: kind.as_str().parse().map_err(adapter_error)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn gather(
-        &mut self,
-        node: NodeId,
-        group: SemanticId,
-        coordinates: &[(BoundIndexId, u16)],
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(size_of_val(coordinates))?;
-                let row = pse_relations::generated::r#compiled::r#math_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: coordinates
-                        .iter()
-                        .map(|(index, position)| pse_relations::generated::r#compiled::r#math_gathers::r#CompiledMathGathersFieldCoordinateMapItem {
-                            bound_index_id: index.as_id(),
-                            position: *position,
-                        })
-                        .collect(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(size_of_val(coordinates))?;
-                let row = pse_relations::generated::r#inferred::r#math_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: coordinates
-                        .iter()
-                        .map(|(index, position)| pse_relations::generated::r#inferred::r#math_gathers::r#InferredMathGathersFieldCoordinateMapItem {
-                            bound_index_id: index.as_id(),
-                            position: *position,
-                        })
-                        .collect(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(coordinates))?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: Some(
-                        coordinates
-                            .iter()
-                            .map(|(index, position)| pse_relations::generated::r#normalized::r#template_expr_gathers::r#NormalizedTemplateExprGathersFieldCoordinateMapItem {
-                                bound_index_id: index.as_id(),
-                                position: *position,
-                            })
-                            .collect(),
-                    ),
-                    r#gather_state: "resolved".parse().map_err(adapter_error)?,
-                    r#index_nodes: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(coordinates))?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: Some(
-                        coordinates
-                            .iter()
-                            .map(|(index, position)| pse_relations::generated::r#normalized::r#instance_expr_gathers::r#NormalizedInstanceExprGathersFieldCoordinateMapItem {
-                                bound_index_id: index.as_id(),
-                                position: *position,
-                            })
-                            .collect(),
-                    ),
-                    r#gather_state: "resolved".parse().map_err(adapter_error)?,
-                    r#index_nodes: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(coordinates))?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: Some(
-                        coordinates
-                            .iter()
-                            .map(|(index, position)| pse_relations::generated::r#normalized::r#display_expr_gathers::r#NormalizedDisplayExprGathersFieldCoordinateMapItem {
-                                bound_index_id: index.as_id(),
-                                position: *position,
-                            })
-                            .collect(),
-                    ),
-                    r#gather_state: "resolved".parse().map_err(adapter_error)?,
-                    r#index_nodes: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(coordinates))?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: Some(
-                        coordinates
-                            .iter()
-                            .map(|(index, position)| pse_relations::generated::r#normalized::r#contribution_expr_gathers::r#NormalizedContributionExprGathersFieldCoordinateMapItem {
-                                bound_index_id: index.as_id(),
-                                position: *position,
-                            })
-                            .collect(),
-                    ),
-                    r#gather_state: "resolved".parse().map_err(adapter_error)?,
-                    r#index_nodes: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(coordinates))?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: Some(
-                        coordinates
-                            .iter()
-                            .map(|(index, position)| pse_relations::generated::r#normalized::r#guard_expr_gathers::r#NormalizedGuardExprGathersFieldCoordinateMapItem {
-                                bound_index_id: index.as_id(),
-                                position: *position,
-                            })
-                            .collect(),
-                    ),
-                    r#gather_state: "resolved".parse().map_err(adapter_error)?,
-                    r#index_nodes: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn pending_path(
-        &mut self,
-        node: NodeId,
-        r#source_id: SemanticId,
-        r#path_id: u64,
-        r#indices: &[NodeId],
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: None,
-                    r#kind: pse_schema::math::PENDING_PATH_KIND
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#template_id: None,
-                    r#name: None,
-                    r#path_source_id: Some(source_id),
-                    r#path_id: Some(path_id),
-                    r#path_index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                    r#domain_id: None,
-                    r#bound_index_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: None,
-                    r#kind: pse_schema::math::PENDING_PATH_KIND
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#template_id: None,
-                    r#name: None,
-                    r#path_source_id: Some(source_id),
-                    r#path_id: Some(path_id),
-                    r#path_index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                    r#domain_id: None,
-                    r#bound_index_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: None,
-                    r#kind: pse_schema::math::PENDING_PATH_KIND
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#template_id: None,
-                    r#name: None,
-                    r#path_source_id: Some(source_id),
-                    r#path_id: Some(path_id),
-                    r#path_index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                    r#domain_id: None,
-                    r#bound_index_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: None,
-                    r#kind: pse_schema::math::PENDING_PATH_KIND
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#template_id: None,
-                    r#name: None,
-                    r#path_source_id: Some(source_id),
-                    r#path_id: Some(path_id),
-                    r#path_index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                    r#domain_id: None,
-                    r#bound_index_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_symbol_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#symbol_id: None,
-                    r#kind: pse_schema::math::PENDING_PATH_KIND
-                        .parse()
-                        .map_err(adapter_error)?,
-                    r#template_id: None,
-                    r#name: None,
-                    r#path_source_id: Some(source_id),
-                    r#path_id: Some(path_id),
-                    r#path_index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                    r#domain_id: None,
-                    r#bound_index_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } | Family::Compiled | Family::Inferred => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn pending_gather(
-        &mut self,
-        node: NodeId,
-        r#group: SemanticId,
-        r#indices: &[NodeId],
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: None,
-                    r#gather_state: "pending".parse().map_err(adapter_error)?,
-                    r#index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: None,
-                    r#gather_state: "pending".parse().map_err(adapter_error)?,
-                    r#index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: None,
-                    r#gather_state: "pending".parse().map_err(adapter_error)?,
-                    r#index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: None,
-                    r#gather_state: "pending".parse().map_err(adapter_error)?,
-                    r#index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(indices))?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_gathers::Row {
-                    r#node_id: self.node(node)?,
-                    r#group_id: group,
-                    r#coordinate_map: None,
-                    r#gather_state: "pending".parse().map_err(adapter_error)?,
-                    r#index_nodes: Some(
-                        indices
-                            .iter()
-                            .map(|node| self.node(*node))
-                            .collect::<Result<_, _>>()?,
-                    ),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } | Family::Compiled | Family::Inferred => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn broadcast(
-        &mut self,
-        node: NodeId,
-        domain: r#pse_mathir::DomainRef,
-        bound_index: BoundIndexId,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let row = pse_relations::generated::r#compiled::r#math_broadcasts::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#bound_index_id: bound_index.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let row = pse_relations::generated::r#inferred::r#math_broadcasts::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#bound_index_id: bound_index.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_broadcasts::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_broadcasts::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_broadcasts::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_broadcasts::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_broadcasts::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn derivative(
-        &mut self,
-        node: NodeId,
-        domain: r#pse_mathir::DomainRef,
-        order: u8,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let row = pse_relations::generated::r#compiled::r#math_derivatives::Row {
-                    r#node_id: self.node(node)?,
-                    r#wrt_domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#order,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let row = pse_relations::generated::r#inferred::r#math_derivatives::Row {
-                    r#node_id: self.node(node)?,
-                    r#wrt_domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#order,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_derivatives::Row {
-                    r#node_id: self.node(node)?,
-                    r#wrt_domain_id: actual,
-                    r#order,
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_derivatives::Row {
-                    r#node_id: self.node(node)?,
-                    r#wrt_domain_id: actual,
-                    r#order,
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_derivatives::Row {
-                    r#node_id: self.node(node)?,
-                    r#wrt_domain_id: actual,
-                    r#order,
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_derivatives::Row {
-                    r#node_id: self.node(node)?,
-                    r#wrt_domain_id: actual,
-                    r#order,
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_derivatives::Row {
-                    r#node_id: self.node(node)?,
-                    r#wrt_domain_id: actual,
-                    r#order,
-                    r#template_id: template,
-                    r#domain_name: name,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn integral(
-        &mut self,
-        node: NodeId,
-        domain: r#pse_mathir::DomainRef,
-        bound_index: BoundIndexId,
-        policy: Option<SemanticId>,
-        filter: Option<r#pse_mathir::GuardRef>,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let _ = (guard_source, guard_predicate);
-                let row = pse_relations::generated::r#compiled::r#math_integrals::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#quadrature_policy_id: policy,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let _ = (template, name);
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let _ = (guard_source, guard_predicate);
-                let row = pse_relations::generated::r#inferred::r#math_integrals::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual
-                        .ok_or_else(|| malformed("actual domain absent"))?,
-                    r#quadrature_policy_id: policy,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_integrals::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#quadrature_policy_id: policy,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_integrals::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#quadrature_policy_id: policy,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_integrals::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#quadrature_policy_id: policy,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_integrals::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#quadrature_policy_id: policy,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (actual, template, name) = self.domain_parts(domain)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(filter)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_integrals::Row {
-                    r#node_id: self.node(node)?,
-                    r#domain_id: actual,
-                    r#quadrature_policy_id: policy,
-                    r#bound_index_id: bound_index.as_id(),
-                    r#filter_node_id: guard_node,
-                    r#template_id: template,
-                    r#domain_name: name,
-                    r#filter_source_id: guard_source,
-                    r#filter_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn smooth_op(&mut self, node: NodeId, eps: f64) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#compiled::r#math_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#inferred::r#math_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "coordinate".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#template_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "coordinate".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#instance_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "coordinate".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#display_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "coordinate".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "coordinate".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#guard_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "coordinate".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: None,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn pending_smooth_op(
-        &mut self,
-        node: NodeId,
-        r#eps: f64,
-        r#unit: UnitId,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#inferred::r#math_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "pending_unit".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: Some(unit.as_id()),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#template_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "pending_unit".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: Some(unit.as_id()),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#instance_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "pending_unit".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: Some(unit.as_id()),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#display_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "pending_unit".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: Some(unit.as_id()),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "pending_unit".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: Some(unit.as_id()),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                if !eps.is_finite() || eps <= 0.0 {
-                    return Err(
-                        malformed("smoothing epsilon must be finite and positive"),
-                    );
-                }
-                let row = pse_relations::generated::r#normalized::r#guard_expr_smooth_ops::Row {
-                    r#node_id: self.node(node)?,
-                    r#eps,
-                    r#epsilon_state: "pending_unit".parse().map_err(adapter_error)?,
-                    r#eps_unit_id: Some(unit.as_id()),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } | Family::Compiled => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn conditional(
-        &mut self,
-        node: NodeId,
-        guard: r#pse_mathir::GuardRef,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(Some(guard))?;
-                let _ = (guard_source, guard_predicate);
-                let row = pse_relations::generated::r#compiled::r#math_conditionals::Row {
-                    r#node_id: self.node(node)?,
-                    r#guard_node_id: guard_node
-                        .ok_or_else(|| malformed("required actual guard absent"))?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(Some(guard))?;
-                let _ = (guard_source, guard_predicate);
-                let row = pse_relations::generated::r#inferred::r#math_conditionals::Row {
-                    r#node_id: self.node(node)?,
-                    r#guard_node_id: guard_node
-                        .ok_or_else(|| malformed("required actual guard absent"))?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(Some(guard))?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_conditionals::Row {
-                    r#node_id: self.node(node)?,
-                    r#guard_node_id: guard_node,
-                    r#guard_source_id: guard_source,
-                    r#guard_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(Some(guard))?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_conditionals::Row {
-                    r#node_id: self.node(node)?,
-                    r#guard_node_id: guard_node,
-                    r#guard_source_id: guard_source,
-                    r#guard_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(Some(guard))?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_conditionals::Row {
-                    r#node_id: self.node(node)?,
-                    r#guard_node_id: guard_node,
-                    r#guard_source_id: guard_source,
-                    r#guard_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(Some(guard))?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_conditionals::Row {
-                    r#node_id: self.node(node)?,
-                    r#guard_node_id: guard_node,
-                    r#guard_source_id: guard_source,
-                    r#guard_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let (guard_node, guard_source, guard_predicate) = self
-                    .guard_parts(Some(guard))?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_conditionals::Row {
-                    r#node_id: self.node(node)?,
-                    r#guard_node_id: guard_node,
-                    r#guard_source_id: guard_source,
-                    r#guard_predicate_id: guard_predicate,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn kernel_call(
-        &mut self,
-        node: NodeId,
-        binding: SemanticId,
-        output: u16,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#compiled::r#math_kernel_calls::Row {
-                    r#node_id: self.node(node)?,
-                    r#kernel_binding_id: binding,
-                    r#output_ordinal: output,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#inferred::r#math_kernel_calls::Row {
-                    r#node_id: self.node(node)?,
-                    r#kernel_binding_id: binding,
-                    r#output_ordinal: output,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_kernel_calls::Row {
-                    r#node_id: self.node(node)?,
-                    r#kernel_binding_id: binding,
-                    r#output_ordinal: output,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_kernel_calls::Row {
-                    r#node_id: self.node(node)?,
-                    r#kernel_binding_id: binding,
-                    r#output_ordinal: output,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_kernel_calls::Row {
-                    r#node_id: self.node(node)?,
-                    r#kernel_binding_id: binding,
-                    r#output_ordinal: output,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_kernel_calls::Row {
-                    r#node_id: self.node(node)?,
-                    r#kernel_binding_id: binding,
-                    r#output_ordinal: output,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_kernel_calls::Row {
-                    r#node_id: self.node(node)?,
-                    r#kernel_binding_id: binding,
-                    r#output_ordinal: output,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn implicit_ref(
-        &mut self,
-        node: NodeId,
-        system: SemanticId,
-        unknown: u16,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#compiled::r#math_implicit_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#implicit_system_id: system,
-                    r#unknown_ordinal: unknown,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#inferred::r#math_implicit_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#implicit_system_id: system,
-                    r#unknown_ordinal: unknown,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_implicit_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#implicit_system_id: system,
-                    r#unknown_ordinal: unknown,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_implicit_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#implicit_system_id: system,
-                    r#unknown_ordinal: unknown,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_implicit_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#implicit_system_id: system,
-                    r#unknown_ordinal: unknown,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_implicit_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#implicit_system_id: system,
-                    r#unknown_ordinal: unknown,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_implicit_refs::Row {
-                    r#node_id: self.node(node)?,
-                    r#implicit_system_id: system,
-                    r#unknown_ordinal: unknown,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn unit_convert(
-        &mut self,
-        node: NodeId,
-        scale: f64,
-        offset: f64,
-        from: UnitId,
-        to: UnitId,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#compiled::r#math_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale,
-                    r#offset,
-                    r#from_unit_id: from.as_id(),
-                    r#to_unit_id: to.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#inferred::r#math_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: Some(scale),
-                    r#offset: Some(offset),
-                    r#from_unit_id: Some(from.as_id()),
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "resolved".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: Some(scale),
-                    r#offset: Some(offset),
-                    r#from_unit_id: Some(from.as_id()),
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "resolved".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: Some(scale),
-                    r#offset: Some(offset),
-                    r#from_unit_id: Some(from.as_id()),
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "resolved".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: Some(scale),
-                    r#offset: Some(offset),
-                    r#from_unit_id: Some(from.as_id()),
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "resolved".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: Some(scale),
-                    r#offset: Some(offset),
-                    r#from_unit_id: Some(from.as_id()),
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "resolved".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: Some(scale),
-                    r#offset: Some(offset),
-                    r#from_unit_id: Some(from.as_id()),
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "resolved".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn pending_unit_convert(
-        &mut self,
-        node: NodeId,
-        r#to: UnitId,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#inferred::r#math_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: None,
-                    r#offset: None,
-                    r#from_unit_id: None,
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "pending".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: None,
-                    r#offset: None,
-                    r#from_unit_id: None,
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "pending".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: None,
-                    r#offset: None,
-                    r#from_unit_id: None,
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "pending".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: None,
-                    r#offset: None,
-                    r#from_unit_id: None,
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "pending".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: None,
-                    r#offset: None,
-                    r#from_unit_id: None,
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "pending".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(0usize)?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_unit_converts::Row {
-                    r#node_id: self.node(node)?,
-                    r#scale: None,
-                    r#offset: None,
-                    r#from_unit_id: None,
-                    r#to_unit_id: to.as_id(),
-                    r#conversion_state: "pending".parse().map_err(adapter_error)?,
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { .. } | Family::Compiled => {
-                Err(
-                    malformed(
-                        "mathematical callback is unavailable in this declared storage family",
-                    ),
-                )
-            }
-        }
-    }
-    fn piecewise_linear(
-        &mut self,
-        node: NodeId,
-        points: &[(f64, f64)],
-        input: QuantityTypeId,
-        output: QuantityTypeId,
-    ) -> Result<(), MathIrError> {
-        match self.family.clone() {
-            Family::Compiled => {
-                let _row_allocation = self.reserve_row(size_of_val(points))?;
-                let row = pse_relations::generated::r#compiled::r#math_piecewise_linear::Row {
-                    r#node_id: self.node(node)?,
-                    r#breakpoints: points
-                        .iter()
-                        .map(|(x, y)| pse_relations::generated::r#compiled::r#math_piecewise_linear::r#CompiledMathPiecewiseLinearFieldBreakpointsItem {
-                            x: *x,
-                            y: *y,
-                        })
-                        .collect(),
-                    r#input_quantity_type_id: input.as_id(),
-                    r#output_quantity_type_id: output.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Inferred => {
-                let _row_allocation = self.reserve_row(size_of_val(points))?;
-                let row = pse_relations::generated::r#inferred::r#math_piecewise_linear::Row {
-                    r#node_id: self.node(node)?,
-                    r#breakpoints: points
-                        .iter()
-                        .map(|(x, y)| pse_relations::generated::r#inferred::r#math_piecewise_linear::r#InferredMathPiecewiseLinearFieldBreakpointsItem {
-                            x: *x,
-                            y: *y,
-                        })
-                        .collect(),
-                    r#input_quantity_type_id: input.as_id(),
-                    r#output_quantity_type_id: output.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "template", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(points))?;
-                let row = pse_relations::generated::r#normalized::r#template_expr_piecewise_linear::Row {
-                    r#node_id: self.node(node)?,
-                    r#breakpoints: points
-                        .iter()
-                        .map(|(x, y)| pse_relations::generated::r#normalized::r#template_expr_piecewise_linear::r#NormalizedTemplateExprPiecewiseLinearFieldBreakpointsItem {
-                            x: *x,
-                            y: *y,
-                        })
-                        .collect(),
-                    r#input_quantity_type_id: input.as_id(),
-                    r#output_quantity_type_id: output.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "instance", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(points))?;
-                let row = pse_relations::generated::r#normalized::r#instance_expr_piecewise_linear::Row {
-                    r#node_id: self.node(node)?,
-                    r#breakpoints: points
-                        .iter()
-                        .map(|(x, y)| pse_relations::generated::r#normalized::r#instance_expr_piecewise_linear::r#NormalizedInstanceExprPiecewiseLinearFieldBreakpointsItem {
-                            x: *x,
-                            y: *y,
-                        })
-                        .collect(),
-                    r#input_quantity_type_id: input.as_id(),
-                    r#output_quantity_type_id: output.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "display", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(points))?;
-                let row = pse_relations::generated::r#normalized::r#display_expr_piecewise_linear::Row {
-                    r#node_id: self.node(node)?,
-                    r#breakpoints: points
-                        .iter()
-                        .map(|(x, y)| pse_relations::generated::r#normalized::r#display_expr_piecewise_linear::r#NormalizedDisplayExprPiecewiseLinearFieldBreakpointsItem {
-                            x: *x,
-                            y: *y,
-                        })
-                        .collect(),
-                    r#input_quantity_type_id: input.as_id(),
-                    r#output_quantity_type_id: output.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "contribution", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(points))?;
-                let row = pse_relations::generated::r#normalized::r#contribution_expr_piecewise_linear::Row {
-                    r#node_id: self.node(node)?,
-                    r#breakpoints: points
-                        .iter()
-                        .map(|(x, y)| pse_relations::generated::r#normalized::r#contribution_expr_piecewise_linear::r#NormalizedContributionExprPiecewiseLinearFieldBreakpointsItem {
-                            x: *x,
-                            y: *y,
-                        })
-                        .collect(),
-                    r#input_quantity_type_id: input.as_id(),
-                    r#output_quantity_type_id: output.as_id(),
-                };
-                self.columns.push(row).map_err(adapter_error)
-            }
-            Family::Normalized { prefix: "guard", .. } => {
-                let _row_allocation = self.reserve_row(size_of_val(points))?;
-                let row = pse_relations::generated::r#normalized::r#guard_expr_piecewise_linear::Row {
-                    r#node_id: self.node(node)?,
-                    r#breakpoints: points
-                        .iter()
-                        .map(|(x, y)| pse_relations::generated::r#normalized::r#guard_expr_piecewise_linear::r#NormalizedGuardExprPiecewiseLinearFieldBreakpointsItem {
-                            x: *x,
-                            y: *y,
-                        })
-                        .collect(),
-                    r#input_quantity_type_id: input.as_id(),
-                    r#output_quantity_type_id: output.as_id(),
                 };
                 self.columns.push(row).map_err(adapter_error)
             }
@@ -2478,9 +6642,50 @@ impl MathRelationSink for RelationSink<'_> {
                     r#product_id: product,
                     r#filter_node_id: self.optional_node(filter)?,
                     r#body_node_id: self.node(body)?,
-                    r#sense: sense.as_str().parse().map_err(adapter_error)?,
-                    r#lower_node_id: self.optional_node(lower)?,
-                    r#upper_node_id: self.optional_node(upper)?,
+                    r#constraint: {
+                        let (selected_single, selected_range) = match (
+                            sense,
+                            lower,
+                            upper,
+                        ) {
+                            (Sense::Range, Some(lower), Some(upper)) => {
+                                (
+                                    None,
+                                    Some(pse_relations::generated::r#compiled::r#math_indexed_equations::r#CompiledMathIndexedEquationsFieldConstraintRange {
+                                        r#lower_node_id: self.node(lower)?,
+                                        r#upper_node_id: self.node(upper)?,
+                                    }),
+                                )
+                            }
+                            (
+                                Sense::Ge | Sense::Eq | Sense::Definition,
+                                Some(target),
+                                None,
+                            )
+                            | (
+                                Sense::Le | Sense::Eq | Sense::Definition,
+                                None,
+                                Some(target),
+                            ) => {
+                                (
+                                    Some(pse_relations::generated::r#compiled::r#math_indexed_equations::r#CompiledMathIndexedEquationsFieldConstraintSingle {
+                                        r#node_id: self.node(target)?,
+                                    }),
+                                    None,
+                                )
+                            }
+                            _ => {
+                                return Err(
+                                    malformed("equation bound shape disagrees with its sense"),
+                                );
+                            }
+                        };
+                        pse_relations::generated::r#compiled::r#math_indexed_equations::r#CompiledMathIndexedEquationsFieldConstraint {
+                            r#kind: sense.as_str().parse().map_err(adapter_error)?,
+                            r#single: selected_single,
+                            r#range: selected_range,
+                        }
+                    },
                     r#residual_quantity_type_id: residual.map(QuantityTypeId::as_id),
                     r#law_instance_id: law,
                     r#derivation_id: derivation,
@@ -2497,9 +6702,50 @@ impl MathRelationSink for RelationSink<'_> {
                     r#product_id: product,
                     r#filter_node_id: self.optional_node(filter)?,
                     r#body_node_id: self.node(body)?,
-                    r#sense: sense.as_str().parse().map_err(adapter_error)?,
-                    r#lower_node_id: self.optional_node(lower)?,
-                    r#upper_node_id: self.optional_node(upper)?,
+                    r#constraint: {
+                        let (selected_single, selected_range) = match (
+                            sense,
+                            lower,
+                            upper,
+                        ) {
+                            (Sense::Range, Some(lower), Some(upper)) => {
+                                (
+                                    None,
+                                    Some(pse_relations::generated::r#inferred::r#math_indexed_equations::r#InferredMathIndexedEquationsFieldConstraintRange {
+                                        r#lower_node_id: self.node(lower)?,
+                                        r#upper_node_id: self.node(upper)?,
+                                    }),
+                                )
+                            }
+                            (
+                                Sense::Ge | Sense::Eq | Sense::Definition,
+                                Some(target),
+                                None,
+                            )
+                            | (
+                                Sense::Le | Sense::Eq | Sense::Definition,
+                                None,
+                                Some(target),
+                            ) => {
+                                (
+                                    Some(pse_relations::generated::r#inferred::r#math_indexed_equations::r#InferredMathIndexedEquationsFieldConstraintSingle {
+                                        r#node_id: self.node(target)?,
+                                    }),
+                                    None,
+                                )
+                            }
+                            _ => {
+                                return Err(
+                                    malformed("equation bound shape disagrees with its sense"),
+                                );
+                            }
+                        };
+                        pse_relations::generated::r#inferred::r#math_indexed_equations::r#InferredMathIndexedEquationsFieldConstraint {
+                            r#kind: sense.as_str().parse().map_err(adapter_error)?,
+                            r#single: selected_single,
+                            r#range: selected_range,
+                        }
+                    },
                     r#residual_quantity_type_id: residual.map(QuantityTypeId::as_id),
                     r#law_instance_id: law,
                     r#derivation_id: derivation,
@@ -2529,7 +6775,7 @@ impl MathRelationSink for RelationSink<'_> {
                     r#indexed_equation_id: equation,
                     r#bound_index_id: binder.as_id(),
                     r#domain_id: domain.as_id(),
-                    r#position,
+                    r#position: i64::from(position),
                 };
                 self.columns.push(row).map_err(adapter_error)
             }
@@ -2539,7 +6785,7 @@ impl MathRelationSink for RelationSink<'_> {
                     r#indexed_equation_id: equation,
                     r#bound_index_id: binder.as_id(),
                     r#domain_id: domain.as_id(),
-                    r#position,
+                    r#position: i64::from(position),
                 };
                 self.columns.push(row).map_err(adapter_error)
             }
@@ -2577,11 +6823,15 @@ impl MathRelationSink for RelationSink<'_> {
                     r#builtin_rule: builtin
                         .map(|value| value.as_str().parse().map_err(adapter_error))
                         .transpose()?,
-                    r#operand_permutation: permutation.to_vec(),
+                    r#operand_permutation: permutation
+                        .iter()
+                        .copied()
+                        .map(i64::from)
+                        .collect(),
                     r#conversions: conversions
                         .iter()
                         .map(|(operand, conversion)| pse_relations::generated::r#compiled::r#math_quantity_selections::r#CompiledMathQuantitySelectionsFieldConversionsItem {
-                            operand: *operand,
+                            operand: i64::from(*operand),
                             conversion_id: conversion.as_id(),
                         })
                         .collect(),
@@ -2604,11 +6854,15 @@ impl MathRelationSink for RelationSink<'_> {
                     r#builtin_rule: builtin
                         .map(|value| value.as_str().parse().map_err(adapter_error))
                         .transpose()?,
-                    r#operand_permutation: permutation.to_vec(),
+                    r#operand_permutation: permutation
+                        .iter()
+                        .copied()
+                        .map(i64::from)
+                        .collect(),
                     r#conversions: conversions
                         .iter()
                         .map(|(operand, conversion)| pse_relations::generated::r#inferred::r#math_quantity_selections::r#InferredMathQuantitySelectionsFieldConversionsItem {
-                            operand: *operand,
+                            operand: i64::from(*operand),
                             conversion_id: conversion.as_id(),
                         })
                         .collect(),
@@ -2655,13 +6909,53 @@ impl MathRelationSink for RelationSink<'_> {
                     r#scope_instance_id: scope,
                     r#parameter_bindings: parameters
                         .iter()
-                        .map(|(name, symbol, value, unit)| pse_relations::generated::r#compiled::r#kernel_bindings::r#CompiledKernelBindingsFieldParameterBindingsItem {
-                            name: name.clone(),
-                            symbol_id: *symbol,
-                            value: *value,
-                            unit_id: unit.map(UnitId::as_id),
-                        })
-                        .collect(),
+                        .map(|(name, symbol, value, unit)| Ok({
+                            let (kind, selected_symbol, selected_literal) = match (
+                                *symbol,
+                                *value,
+                                *unit,
+                            ) {
+                                (Some(bound_symbol), None, None) => {
+                                    (
+                                        "symbol",
+                                        Some(pse_relations::generated::r#compiled::r#kernel_bindings::r#CompiledKernelBindingsFieldParameterBindingsItemBindingSymbol {
+                                            r#symbol_id: bound_symbol,
+                                        }),
+                                        None,
+                                    )
+                                }
+                                (
+                                    None,
+                                    Some(bound_value),
+                                    Some(bound_unit),
+                                ) if bound_value.is_finite() => {
+                                    (
+                                        "literal",
+                                        None,
+                                        Some(pse_relations::generated::r#compiled::r#kernel_bindings::r#CompiledKernelBindingsFieldParameterBindingsItemBindingLiteral {
+                                            r#value: bound_value,
+                                            r#unit_id: bound_unit.as_id(),
+                                        }),
+                                    )
+                                }
+                                _ => {
+                                    return Err(
+                                        malformed(
+                                            "kernel parameter requires a symbol or finite literal with unit",
+                                        ),
+                                    );
+                                }
+                            };
+                            pse_relations::generated::r#compiled::r#kernel_bindings::r#CompiledKernelBindingsFieldParameterBindingsItem {
+                                r#name: name.clone(),
+                                r#binding: pse_relations::generated::r#compiled::r#kernel_bindings::r#CompiledKernelBindingsFieldParameterBindingsItemBinding {
+                                    r#kind: kind.parse().map_err(adapter_error)?,
+                                    r#symbol: selected_symbol,
+                                    r#literal: selected_literal,
+                                },
+                            }
+                        }))
+                        .collect::<Result<_, MathIrError>>()?,
                     r#input_bindings: inputs
                         .iter()
                         .map(|(name, node)| Ok(pse_relations::generated::r#compiled::r#kernel_bindings::r#CompiledKernelBindingsFieldInputBindingsItem {
@@ -2693,13 +6987,53 @@ impl MathRelationSink for RelationSink<'_> {
                     r#scope_instance_id: scope,
                     r#parameter_bindings: parameters
                         .iter()
-                        .map(|(name, symbol, value, unit)| pse_relations::generated::r#inferred::r#kernel_bindings::r#InferredKernelBindingsFieldParameterBindingsItem {
-                            name: name.clone(),
-                            symbol_id: *symbol,
-                            value: *value,
-                            unit_id: unit.map(UnitId::as_id),
-                        })
-                        .collect(),
+                        .map(|(name, symbol, value, unit)| Ok({
+                            let (kind, selected_symbol, selected_literal) = match (
+                                *symbol,
+                                *value,
+                                *unit,
+                            ) {
+                                (Some(bound_symbol), None, None) => {
+                                    (
+                                        "symbol",
+                                        Some(pse_relations::generated::r#inferred::r#kernel_bindings::r#InferredKernelBindingsFieldParameterBindingsItemBindingSymbol {
+                                            r#symbol_id: bound_symbol,
+                                        }),
+                                        None,
+                                    )
+                                }
+                                (
+                                    None,
+                                    Some(bound_value),
+                                    Some(bound_unit),
+                                ) if bound_value.is_finite() => {
+                                    (
+                                        "literal",
+                                        None,
+                                        Some(pse_relations::generated::r#inferred::r#kernel_bindings::r#InferredKernelBindingsFieldParameterBindingsItemBindingLiteral {
+                                            r#value: bound_value,
+                                            r#unit_id: bound_unit.as_id(),
+                                        }),
+                                    )
+                                }
+                                _ => {
+                                    return Err(
+                                        malformed(
+                                            "kernel parameter requires a symbol or finite literal with unit",
+                                        ),
+                                    );
+                                }
+                            };
+                            pse_relations::generated::r#inferred::r#kernel_bindings::r#InferredKernelBindingsFieldParameterBindingsItem {
+                                r#name: name.clone(),
+                                r#binding: pse_relations::generated::r#inferred::r#kernel_bindings::r#InferredKernelBindingsFieldParameterBindingsItemBinding {
+                                    r#kind: kind.parse().map_err(adapter_error)?,
+                                    r#symbol: selected_symbol,
+                                    r#literal: selected_literal,
+                                },
+                            }
+                        }))
+                        .collect::<Result<_, MathIrError>>()?,
                     r#input_bindings: inputs
                         .iter()
                         .map(|(name, node)| Ok(pse_relations::generated::r#inferred::r#kernel_bindings::r#InferredKernelBindingsFieldInputBindingsItem {

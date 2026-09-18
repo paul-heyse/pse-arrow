@@ -15,10 +15,411 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    104u8, 22u8, 145u8, 102u8, 228u8, 89u8, 109u8, 163u8, 17u8, 101u8, 242u8, 189u8,
-    79u8, 217u8, 26u8, 16u8, 119u8, 77u8, 5u8, 79u8, 155u8, 102u8, 157u8, 155u8, 38u8,
-    253u8, 81u8, 35u8, 175u8, 171u8, 137u8, 52u8,
+    94u8, 32u8, 156u8, 39u8, 194u8, 70u8, 44u8, 35u8, 120u8, 139u8, 23u8, 232u8, 188u8,
+    34u8, 118u8, 154u8, 163u8, 202u8, 112u8, 155u8, 106u8, 221u8, 102u8, 61u8, 127u8,
+    36u8, 189u8, 8u8, 31u8, 105u8, 245u8, 168u8,
 ]);
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct CompiledMathEquationsFieldConstraintSingle {
+    ///node_id
+    pub r#node_id: i64,
+}
+impl crate::typed::CellCodec for CompiledMathEquationsFieldConstraintSingle {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![crate::typed::CellCodec::into_cell(self.r#node_id)],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(CompiledMathEquationsFieldConstraintSingle),
+                ),
+            );
+        };
+        if values.len() != 1usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(CompiledMathEquationsFieldConstraintSingle),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#node_id: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledMathEquationsFieldConstraintSingle),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for CompiledMathEquationsFieldConstraintSingle {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#node_id, children[0usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <i64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#node_id: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct CompiledMathEquationsFieldConstraintRange {
+    ///lower_node_id
+    pub r#lower_node_id: i64,
+    ///upper_node_id
+    pub r#upper_node_id: i64,
+}
+impl crate::typed::CellCodec for CompiledMathEquationsFieldConstraintRange {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#lower_node_id),
+                crate::typed::CellCodec::into_cell(self.r#upper_node_id),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(CompiledMathEquationsFieldConstraintRange),
+                ),
+            );
+        };
+        if values.len() != 2usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(CompiledMathEquationsFieldConstraintRange),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#lower_node_id: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledMathEquationsFieldConstraintRange),
+                    ))?,
+            )?,
+            r#upper_node_id: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledMathEquationsFieldConstraintRange),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for CompiledMathEquationsFieldConstraintRange {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#lower_node_id,
+            children[0usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#upper_node_id,
+            children[1usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <i64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#lower_node_id: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#upper_node_id: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct CompiledMathEquationsFieldConstraint {
+    ///kind
+    pub r#kind: crate::generated::enums::Sense,
+    ///single
+    pub r#single: Option<CompiledMathEquationsFieldConstraintSingle>,
+    ///range
+    pub r#range: Option<CompiledMathEquationsFieldConstraintRange>,
+}
+impl crate::typed::CellCodec for CompiledMathEquationsFieldConstraint {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#single),
+                crate::typed::CellCodec::into_cell(self.r#range),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(stringify!(CompiledMathEquationsFieldConstraint)),
+            );
+        };
+        if values.len() != 3usize {
+            return Err(
+                crate::typed::mismatch(stringify!(CompiledMathEquationsFieldConstraint)),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#kind: <crate::generated::enums::Sense as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledMathEquationsFieldConstraint),
+                    ))?,
+            )?,
+            r#single: <Option<
+                CompiledMathEquationsFieldConstraintSingle,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledMathEquationsFieldConstraint),
+                    ))?,
+            )?,
+            r#range: <Option<
+                CompiledMathEquationsFieldConstraintRange,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(CompiledMathEquationsFieldConstraint),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for CompiledMathEquationsFieldConstraint {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#single, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#range, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::Sense as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            CompiledMathEquationsFieldConstraintSingle,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            CompiledMathEquationsFieldConstraintRange,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::Sense as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#single: <Option<
+                CompiledMathEquationsFieldConstraintSingle,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#range: <Option<
+                CompiledMathEquationsFieldConstraintRange,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// The declared selected payload, borrowed without a second row representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CompiledMathEquationsFieldConstraintSelected<'a> {
+    ///definition
+    Definition(&'a CompiledMathEquationsFieldConstraintSingle),
+    ///eq
+    Eq(&'a CompiledMathEquationsFieldConstraintSingle),
+    ///ge
+    Ge(&'a CompiledMathEquationsFieldConstraintSingle),
+    ///le
+    Le(&'a CompiledMathEquationsFieldConstraintSingle),
+    ///range
+    Range(&'a CompiledMathEquationsFieldConstraintRange),
+}
+impl CompiledMathEquationsFieldConstraint {
+    #[doc = concat!("Construct the ", "definition", " arm with every other arm absent.")]
+    pub fn from_definition(value: CompiledMathEquationsFieldConstraintSingle) -> Self {
+        Self {
+            r#kind: crate::generated::enums::Sense::Definition,
+            r#range: None,
+            r#single: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "eq", " arm with every other arm absent.")]
+    pub fn from_eq(value: CompiledMathEquationsFieldConstraintSingle) -> Self {
+        Self {
+            r#kind: crate::generated::enums::Sense::Eq,
+            r#range: None,
+            r#single: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "ge", " arm with every other arm absent.")]
+    pub fn from_ge(value: CompiledMathEquationsFieldConstraintSingle) -> Self {
+        Self {
+            r#kind: crate::generated::enums::Sense::Ge,
+            r#range: None,
+            r#single: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "le", " arm with every other arm absent.")]
+    pub fn from_le(value: CompiledMathEquationsFieldConstraintSingle) -> Self {
+        Self {
+            r#kind: crate::generated::enums::Sense::Le,
+            r#range: None,
+            r#single: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "range", " arm with every other arm absent.")]
+    pub fn from_range(value: CompiledMathEquationsFieldConstraintRange) -> Self {
+        Self {
+            r#kind: crate::generated::enums::Sense::Range,
+            r#range: Some(value),
+            r#single: None,
+        }
+    }
+    /// Select exactly the declared payload.
+    /// # Errors
+    /// Unknown tag, missing selected arm or any overlapping arm.
+    pub fn selected(
+        &self,
+    ) -> Result<CompiledMathEquationsFieldConstraintSelected<'_>, crate::RelationError> {
+        match (self.r#kind.as_str(), self.r#range.as_ref(), self.r#single.as_ref()) {
+            ("definition", None, Some(value)) => {
+                Ok(CompiledMathEquationsFieldConstraintSelected::Definition(value))
+            }
+            ("eq", None, Some(value)) => {
+                Ok(CompiledMathEquationsFieldConstraintSelected::Eq(value))
+            }
+            ("ge", None, Some(value)) => {
+                Ok(CompiledMathEquationsFieldConstraintSelected::Ge(value))
+            }
+            ("le", None, Some(value)) => {
+                Ok(CompiledMathEquationsFieldConstraintSelected::Le(value))
+            }
+            ("range", Some(value), None) => {
+                Ok(CompiledMathEquationsFieldConstraintSelected::Range(value))
+            }
+            _ => {
+                Err(
+                    crate::typed::mismatch(
+                        "tagged value requires exactly its selected arm",
+                    ),
+                )
+            }
+        }
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -30,7 +431,7 @@ pub struct CompiledMathEquationsRow {
     ///equation_id
     pub r#equation_id: pse_ids::SemanticId,
     ///ordinal
-    pub r#ordinal: u64,
+    pub r#ordinal: i64,
     ///owner_instance_id
     pub r#owner_instance_id: pse_ids::SemanticId,
     ///equation_decl_id
@@ -42,13 +443,9 @@ pub struct CompiledMathEquationsRow {
     ///index
     pub r#index: Vec<pse_ids::SemanticId>,
     ///body_node_id
-    pub r#body_node_id: u64,
-    ///sense
-    pub r#sense: crate::generated::enums::Sense,
-    ///lower_node_id
-    pub r#lower_node_id: Option<u64>,
-    ///upper_node_id
-    pub r#upper_node_id: Option<u64>,
+    pub r#body_node_id: i64,
+    ///constraint
+    pub r#constraint: CompiledMathEquationsFieldConstraint,
     ///residual_quantity_type_id
     pub r#residual_quantity_type_id: pse_ids::SemanticId,
     ///family
@@ -82,9 +479,7 @@ impl crate::typed::CellCodec for CompiledMathEquationsRow {
                 crate::typed::CellCodec::into_cell(self.r#qualified_name),
                 crate::typed::CellCodec::into_cell(self.r#index),
                 crate::typed::CellCodec::into_cell(self.r#body_node_id),
-                crate::typed::CellCodec::into_cell(self.r#sense),
-                crate::typed::CellCodec::into_cell(self.r#lower_node_id),
-                crate::typed::CellCodec::into_cell(self.r#upper_node_id),
+                crate::typed::CellCodec::into_cell(self.r#constraint),
                 crate::typed::CellCodec::into_cell(self.r#residual_quantity_type_id),
                 crate::typed::CellCodec::into_cell(self.r#family),
                 crate::typed::CellCodec::into_cell(self.r#role),
@@ -102,7 +497,7 @@ impl crate::typed::CellCodec for CompiledMathEquationsRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(CompiledMathEquationsRow)));
         };
-        if values.len() != 21usize {
+        if values.len() != 19usize {
             return Err(crate::typed::mismatch(stringify!(CompiledMathEquationsRow)));
         }
         let mut values = values.into_iter();
@@ -114,7 +509,7 @@ impl crate::typed::CellCodec for CompiledMathEquationsRow {
                         stringify!(CompiledMathEquationsRow),
                     ))?,
             )?,
-            r#ordinal: <u64 as crate::typed::CellCodec>::from_cell(
+            r#ordinal: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -162,32 +557,14 @@ impl crate::typed::CellCodec for CompiledMathEquationsRow {
                         stringify!(CompiledMathEquationsRow),
                     ))?,
             )?,
-            r#body_node_id: <u64 as crate::typed::CellCodec>::from_cell(
+            r#body_node_id: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(CompiledMathEquationsRow),
                     ))?,
             )?,
-            r#sense: <crate::generated::enums::Sense as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(CompiledMathEquationsRow),
-                    ))?,
-            )?,
-            r#lower_node_id: <Option<
-                u64,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(CompiledMathEquationsRow),
-                    ))?,
-            )?,
-            r#upper_node_id: <Option<
-                u64,
-            > as crate::typed::CellCodec>::from_cell(
+            r#constraint: <CompiledMathEquationsFieldConstraint as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -306,48 +683,43 @@ impl crate::columnar::ArrowValue for CompiledMathEquationsRow {
             &self.r#body_node_id,
             children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#sense, children[8usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#lower_node_id,
-            children[9usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#upper_node_id,
-            children[10usize].as_mut(),
+            &self.r#constraint,
+            children[8usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#residual_quantity_type_id,
-            children[11usize].as_mut(),
+            children[9usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#family, children[12usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#role, children[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#family, children[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#role, children[11usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#differentiability,
-            children[14usize].as_mut(),
+            children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#convexity,
-            children[15usize].as_mut(),
+            children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#monotonicity,
-            children[16usize].as_mut(),
+            children[14usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#default_active,
-            children[17usize].as_mut(),
+            children[15usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#group_id,
-            children[18usize].as_mut(),
+            children[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#law_instance_id,
-            children[19usize].as_mut(),
+            children[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#derivation_id,
-            children[20usize].as_mut(),
+            children[18usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -362,7 +734,7 @@ impl crate::columnar::ArrowValue for CompiledMathEquationsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
@@ -376,43 +748,37 @@ impl crate::columnar::ArrowValue for CompiledMathEquationsRow {
         <Vec<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <crate::generated::enums::Sense as crate::columnar::ArrowValue>::append_null(
+        <i64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <CompiledMathEquationsFieldConstraint as crate::columnar::ArrowValue>::append_null(
             children[8usize].as_mut(),
         )?;
-        <Option<
-            u64,
-        > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <Option<
-            u64,
-        > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[11usize].as_mut(),
+            children[9usize].as_mut(),
         )?;
         <crate::generated::enums::EquationFamily as crate::columnar::ArrowValue>::append_null(
-            children[12usize].as_mut(),
+            children[10usize].as_mut(),
         )?;
         <crate::generated::enums::EquationRole as crate::columnar::ArrowValue>::append_null(
-            children[13usize].as_mut(),
+            children[11usize].as_mut(),
         )?;
         <crate::generated::enums::Differentiability as crate::columnar::ArrowValue>::append_null(
-            children[14usize].as_mut(),
+            children[12usize].as_mut(),
         )?;
         <crate::generated::enums::Convexity as crate::columnar::ArrowValue>::append_null(
-            children[15usize].as_mut(),
+            children[13usize].as_mut(),
         )?;
         <crate::generated::enums::Monotonicity as crate::columnar::ArrowValue>::append_null(
-            children[16usize].as_mut(),
+            children[14usize].as_mut(),
         )?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         <Option<
             pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
         <Option<
             pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[19usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[20usize].as_mut(),
+            children[18usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -428,7 +794,7 @@ impl crate::columnar::ArrowValue for CompiledMathEquationsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#ordinal: <u64 as crate::columnar::ArrowValue>::read(
+            r#ordinal: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -458,68 +824,56 @@ impl crate::columnar::ArrowValue for CompiledMathEquationsRow {
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#body_node_id: <u64 as crate::columnar::ArrowValue>::read(
+            r#body_node_id: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#sense: <crate::generated::enums::Sense as crate::columnar::ArrowValue>::read(
+            r#constraint: <CompiledMathEquationsFieldConstraint as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#lower_node_id: <Option<
-                u64,
-            > as crate::columnar::ArrowValue>::read(
+            r#residual_quantity_type_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,
             )?,
-            r#upper_node_id: <Option<
-                u64,
-            > as crate::columnar::ArrowValue>::read(
+            r#family: <crate::generated::enums::EquationFamily as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
                 index,
             )?,
-            r#residual_quantity_type_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#role: <crate::generated::enums::EquationRole as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
                 index,
             )?,
-            r#family: <crate::generated::enums::EquationFamily as crate::columnar::ArrowValue>::read(
+            r#differentiability: <crate::generated::enums::Differentiability as crate::columnar::ArrowValue>::read(
                 input.column(12usize).as_ref(),
                 index,
             )?,
-            r#role: <crate::generated::enums::EquationRole as crate::columnar::ArrowValue>::read(
+            r#convexity: <crate::generated::enums::Convexity as crate::columnar::ArrowValue>::read(
                 input.column(13usize).as_ref(),
                 index,
             )?,
-            r#differentiability: <crate::generated::enums::Differentiability as crate::columnar::ArrowValue>::read(
+            r#monotonicity: <crate::generated::enums::Monotonicity as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
                 index,
             )?,
-            r#convexity: <crate::generated::enums::Convexity as crate::columnar::ArrowValue>::read(
-                input.column(15usize).as_ref(),
-                index,
-            )?,
-            r#monotonicity: <crate::generated::enums::Monotonicity as crate::columnar::ArrowValue>::read(
-                input.column(16usize).as_ref(),
-                index,
-            )?,
             r#default_active: <bool as crate::columnar::ArrowValue>::read(
-                input.column(17usize).as_ref(),
+                input.column(15usize).as_ref(),
                 index,
             )?,
             r#group_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(18usize).as_ref(),
+                input.column(16usize).as_ref(),
                 index,
             )?,
             r#law_instance_id: <Option<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
-                input.column(19usize).as_ref(),
+                input.column(17usize).as_ref(),
                 index,
             )?,
             r#derivation_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
-                input.column(20usize).as_ref(),
+                input.column(18usize).as_ref(),
                 index,
             )?,
         })
@@ -543,9 +897,7 @@ impl CompiledMathEquationsRow {
             crate::typed::CellCodec::into_cell(self.r#qualified_name),
             crate::typed::CellCodec::into_cell(self.r#index),
             crate::typed::CellCodec::into_cell(self.r#body_node_id),
-            crate::typed::CellCodec::into_cell(self.r#sense),
-            crate::typed::CellCodec::into_cell(self.r#lower_node_id),
-            crate::typed::CellCodec::into_cell(self.r#upper_node_id),
+            crate::typed::CellCodec::into_cell(self.r#constraint),
             crate::typed::CellCodec::into_cell(self.r#residual_quantity_type_id),
             crate::typed::CellCodec::into_cell(self.r#family),
             crate::typed::CellCodec::into_cell(self.r#role),
@@ -569,7 +921,7 @@ impl CompiledMathEquationsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c7132098dde53cf437e31a68527f41fd\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"math_equations\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"equation_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"ordinal\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"owner_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"owner_instance_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"owner_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"equation_decl_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_decl_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"equation_decl_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"parent_indexed_equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"parent_indexed_equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"parent_indexed_equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"qualified_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"qualified_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"qualified_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"index\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"index\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.index_tuple\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"index\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.index_tuple\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"index_tuple\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"index_tuple\"],[\"text\",\"pse.index_tuple\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"Ordered domain member identities (blueprint §5.1).\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[]]]],[\"null\",null],[\"list\",[]]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"body_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"body_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"body_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"sense\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"sense\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Sense\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"sense\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Sense\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Sense\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"],[\"struct\",[[\"id\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"],[\"text\",\"Sense\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"eq\"]]],[\"struct\",[[\"text\",\"le\"],[\"null\",null],[\"bool\",false],[\"text\",\"le\"]]],[\"struct\",[[\"text\",\"ge\"],[\"null\",null],[\"bool\",false],[\"text\",\"ge\"]]],[\"struct\",[[\"text\",\"range\"],[\"null\",null],[\"bool\",false],[\"text\",\"range\"]]],[\"struct\",[[\"text\",\"definition\"],[\"null\",null],[\"bool\",false],[\"text\",\"definition\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"lower_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"lower_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"lower_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"upper_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"upper_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"upper_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"residual_quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"residual_quantity_type_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"residual_quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"family\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"family\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"EquationFamily\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"family\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e8a79c34cd54f582892d5c570f0f3719\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"e8a79c34cd54f582892d5c570f0f3719\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EquationFamily\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EquationFamily\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e8a79c34cd54f582892d5c570f0f3719\\\"}\"],[\"struct\",[[\"id\",\"e8a79c34cd54f582892d5c570f0f3719\"],[\"text\",\"EquationFamily\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"BOUND\"],[\"null\",null],[\"bool\",false],[\"text\",\"BOUND\"]]],[\"struct\",[[\"text\",\"AFFINE_EQUALITY\"],[\"null\",null],[\"bool\",false],[\"text\",\"AFFINE_EQUALITY\"]]],[\"struct\",[[\"text\",\"AFFINE_INEQUALITY\"],[\"null\",null],[\"bool\",false],[\"text\",\"AFFINE_INEQUALITY\"]]],[\"struct\",[[\"text\",\"NETWORK_BALANCE\"],[\"null\",null],[\"bool\",false],[\"text\",\"NETWORK_BALANCE\"]]],[\"struct\",[[\"text\",\"SIMPLEX_ALLOCATION\"],[\"null\",null],[\"bool\",false],[\"text\",\"SIMPLEX_ALLOCATION\"]]],[\"struct\",[[\"text\",\"BILINEAR\"],[\"null\",null],[\"bool\",false],[\"text\",\"BILINEAR\"]]],[\"struct\",[[\"text\",\"SMOOTH_TRANSCENDENTAL\"],[\"null\",null],[\"bool\",false],[\"text\",\"SMOOTH_TRANSCENDENTAL\"]]],[\"struct\",[[\"text\",\"NONSMOOTH_CONVEX\"],[\"null\",null],[\"bool\",false],[\"text\",\"NONSMOOTH_CONVEX\"]]],[\"struct\",[[\"text\",\"BLACK_BOX\"],[\"null\",null],[\"bool\",false],[\"text\",\"BLACK_BOX\"]]],[\"struct\",[[\"text\",\"DEFINITION\"],[\"null\",null],[\"bool\",false],[\"text\",\"DEFINITION\"]]],[\"struct\",[[\"text\",\"REPORTING_DEFINITION\"],[\"null\",null],[\"bool\",false],[\"text\",\"REPORTING_DEFINITION\"]]],[\"struct\",[[\"text\",\"GENERAL_NONLINEAR\"],[\"null\",null],[\"bool\",false],[\"text\",\"GENERAL_NONLINEAR\"]]],[\"struct\",[[\"text\",\"UNCLASSIFIED\"],[\"null\",null],[\"bool\",false],[\"text\",\"UNCLASSIFIED\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"role\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"EquationRole\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"9f8087f1edafd10613b03f5093759b4a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"9f8087f1edafd10613b03f5093759b4a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EquationRole\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EquationRole\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"9f8087f1edafd10613b03f5093759b4a\\\"}\"],[\"struct\",[[\"id\",\"9f8087f1edafd10613b03f5093759b4a\"],[\"text\",\"EquationRole\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"HARD_FEASIBILITY\"],[\"null\",null],[\"bool\",false],[\"text\",\"HARD_FEASIBILITY\"]]],[\"struct\",[[\"text\",\"DEFINITION\"],[\"null\",null],[\"bool\",false],[\"text\",\"DEFINITION\"]]],[\"struct\",[[\"text\",\"LINKING\"],[\"null\",null],[\"bool\",false],[\"text\",\"LINKING\"]]],[\"struct\",[[\"text\",\"DOMAIN_GUARD\"],[\"null\",null],[\"bool\",false],[\"text\",\"DOMAIN_GUARD\"]]],[\"struct\",[[\"text\",\"REPORTING\"],[\"null\",null],[\"bool\",false],[\"text\",\"REPORTING\"]]],[\"struct\",[[\"text\",\"APPROXIMATION\"],[\"null\",null],[\"bool\",false],[\"text\",\"APPROXIMATION\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"differentiability\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"differentiability\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Differentiability\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"differentiability\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"933fef7efc1a4f528a5b25be43f04e26\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"933fef7efc1a4f528a5b25be43f04e26\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Differentiability\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Differentiability\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"933fef7efc1a4f528a5b25be43f04e26\\\"}\"],[\"struct\",[[\"id\",\"933fef7efc1a4f528a5b25be43f04e26\"],[\"text\",\"Differentiability\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"c_infinity\"],[\"null\",null],[\"bool\",false],[\"text\",\"c_infinity\"]]],[\"struct\",[[\"text\",\"c0\"],[\"null\",null],[\"bool\",false],[\"text\",\"c0\"]]],[\"struct\",[[\"text\",\"branchwise_c1\"],[\"null\",null],[\"bool\",false],[\"text\",\"branchwise_c1\"]]],[\"struct\",[[\"text\",\"as_children\"],[\"null\",null],[\"bool\",false],[\"text\",\"as_children\"]]],[\"struct\",[[\"text\",\"discontinuous\"],[\"null\",null],[\"bool\",false],[\"text\",\"discontinuous\"]]],[\"struct\",[[\"text\",\"declared\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"convexity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"convexity\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Convexity\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"convexity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c0fc975af17e6e9a32eff7dcd68d9170\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"c0fc975af17e6e9a32eff7dcd68d9170\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Convexity\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Convexity\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c0fc975af17e6e9a32eff7dcd68d9170\\\"}\"],[\"struct\",[[\"id\",\"c0fc975af17e6e9a32eff7dcd68d9170\"],[\"text\",\"Convexity\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"affine\"],[\"null\",null],[\"bool\",false],[\"text\",\"affine\"]]],[\"struct\",[[\"text\",\"convex\"],[\"null\",null],[\"bool\",false],[\"text\",\"convex\"]]],[\"struct\",[[\"text\",\"concave\"],[\"null\",null],[\"bool\",false],[\"text\",\"concave\"]]],[\"struct\",[[\"text\",\"nonconvex\"],[\"null\",null],[\"bool\",false],[\"text\",\"nonconvex\"]]],[\"struct\",[[\"text\",\"unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"unknown\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"monotonicity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"monotonicity\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Monotonicity\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"monotonicity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"7c83c8d168e76f99494e18a638265b60\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"7c83c8d168e76f99494e18a638265b60\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Monotonicity\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Monotonicity\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"7c83c8d168e76f99494e18a638265b60\\\"}\"],[\"struct\",[[\"id\",\"7c83c8d168e76f99494e18a638265b60\"],[\"text\",\"Monotonicity\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"increasing\"],[\"null\",null],[\"bool\",false],[\"text\",\"increasing\"]]],[\"struct\",[[\"text\",\"decreasing\"],[\"null\",null],[\"bool\",false],[\"text\",\"decreasing\"]]],[\"struct\",[[\"text\",\"constant\"],[\"null\",null],[\"bool\",false],[\"text\",\"constant\"]]],[\"struct\",[[\"text\",\"nonmonotone\"],[\"null\",null],[\"bool\",false],[\"text\",\"nonmonotone\"]]],[\"struct\",[[\"text\",\"unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"unknown\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"default_active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"default_active\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"default_active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"group_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"group_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"group_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"law_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"law_instance_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"law_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"derivation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.9 math: math_equations.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c7132098dde53cf437e31a68527f41fd\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c7132098dde53cf437e31a68527f41fd\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"math_equations\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"equation_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"ordinal\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"owner_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"owner_instance_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"owner_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"equation_decl_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_decl_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"equation_decl_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"parent_indexed_equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"parent_indexed_equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"parent_indexed_equation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"qualified_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"qualified_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"qualified_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"index\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"index\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.index_tuple\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"index\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.index_tuple\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"index_tuple\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"index_tuple\"],[\"text\",\"pse.index_tuple\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"Ordered domain member identities (blueprint §5.1).\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"item\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[]]]],[\"null\",null],[\"list\",[]]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"body_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"body_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"body_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"constraint\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"Sense\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"node_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"single\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"lower_node_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"upper_node_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"range\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"constraint\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"definition\\\":\\\"single\\\",\\\"eq\\\":\\\"single\\\",\\\"ge\\\":\\\"single\\\",\\\"le\\\":\\\"single\\\",\\\"range\\\":\\\"range\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"text\",\"constraint\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:Sense\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.fk\\\":\\\"compiled.math_expr_nodes.node_id\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"node_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.fk.column\\\\\\\":\\\\\\\"node_id\\\\\\\",\\\\\\\"pse.domain.fk.relation\\\\\\\":\\\\\\\"compiled.math_expr_nodes\\\\\\\",\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"node_id\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"single\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.fk\\\":\\\"compiled.math_expr_nodes.node_id\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"lower_node_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.fk\\\":\\\"compiled.math_expr_nodes.node_id\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"upper_node_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.fk.column\\\\\\\":\\\\\\\"node_id\\\\\\\",\\\\\\\"pse.domain.fk.relation\\\\\\\":\\\\\\\"compiled.math_expr_nodes\\\\\\\",\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"lower_node_id\\\\\\\",\\\\\\\"nullable\\\\\\\":false},{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.fk.column\\\\\\\":\\\\\\\"node_id\\\\\\\",\\\\\\\"pse.domain.fk.relation\\\\\\\":\\\\\\\"compiled.math_expr_nodes\\\\\\\",\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"upper_node_id\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"range\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"Sense\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"node_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"single\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"lower_node_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"upper_node_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"range\\\",\\\"nullable\\\":true}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.tagged_alternative\\\":\\\"{\\\\\\\"arms\\\\\\\":{\\\\\\\"definition\\\\\\\":\\\\\\\"single\\\\\\\",\\\\\\\"eq\\\\\\\":\\\\\\\"single\\\\\\\",\\\\\\\"ge\\\\\\\":\\\\\\\"single\\\\\\\",\\\\\\\"le\\\\\\\":\\\\\\\"single\\\\\\\",\\\\\\\"range\\\\\\\":\\\\\\\"range\\\\\\\"},\\\\\\\"discriminator\\\\\\\":\\\\\\\"kind\\\\\\\"}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"definition\\\":\\\"single\\\",\\\"eq\\\":\\\"single\\\",\\\"ge\\\":\\\"single\\\",\\\"le\\\":\\\"single\\\",\\\"range\\\":\\\"range\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Sense\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Sense\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Sense\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"],[\"struct\",[[\"id\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"],[\"text\",\"Sense\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"eq\"]]],[\"struct\",[[\"text\",\"le\"],[\"null\",null],[\"bool\",false],[\"text\",\"le\"]]],[\"struct\",[[\"text\",\"ge\"],[\"null\",null],[\"bool\",false],[\"text\",\"ge\"]]],[\"struct\",[[\"text\",\"range\"],[\"null\",null],[\"bool\",false],[\"text\",\"range\"]]],[\"struct\",[[\"text\",\"definition\"],[\"null\",null],[\"bool\",false],[\"text\",\"definition\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"single\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"node_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"single\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.fk\\\":\\\"compiled.math_expr_nodes.node_id\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"node_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"node_id\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"compiled.math_expr_nodes\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"compiled.math_expr_nodes.node_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"struct\",[[\"id\",\"11861f45079bfe2fef1aa5012e193c5c\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"math_expr_nodes\"],[\"u64\",1]]]]]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"range\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"lower_node_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"upper_node_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"range\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.fk\\\":\\\"compiled.math_expr_nodes.node_id\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"lower_node_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.fk\\\":\\\"compiled.math_expr_nodes.node_id\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"upper_node_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"lower_node_id\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.fk.column\\\":\\\"node_id\\\",\\\"pse.domain.fk.relation\\\":\\\"compiled.math_expr_nodes\\\",\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"upper_node_id\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"lower_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"compiled.math_expr_nodes\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"lower_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"compiled.math_expr_nodes.node_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"struct\",[[\"id\",\"11861f45079bfe2fef1aa5012e193c5c\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"math_expr_nodes\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"upper_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"compiled.math_expr_nodes\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"upper_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"compiled.math_expr_nodes.node_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"struct\",[[\"id\",\"11861f45079bfe2fef1aa5012e193c5c\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"math_expr_nodes\"],[\"u64\",1]]]]]]]]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"residual_quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"residual_quantity_type_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"residual_quantity_type_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"family\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"family\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"EquationFamily\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"family\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e8a79c34cd54f582892d5c570f0f3719\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"e8a79c34cd54f582892d5c570f0f3719\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EquationFamily\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EquationFamily\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"e8a79c34cd54f582892d5c570f0f3719\\\"}\"],[\"struct\",[[\"id\",\"e8a79c34cd54f582892d5c570f0f3719\"],[\"text\",\"EquationFamily\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"BOUND\"],[\"null\",null],[\"bool\",false],[\"text\",\"BOUND\"]]],[\"struct\",[[\"text\",\"AFFINE_EQUALITY\"],[\"null\",null],[\"bool\",false],[\"text\",\"AFFINE_EQUALITY\"]]],[\"struct\",[[\"text\",\"AFFINE_INEQUALITY\"],[\"null\",null],[\"bool\",false],[\"text\",\"AFFINE_INEQUALITY\"]]],[\"struct\",[[\"text\",\"NETWORK_BALANCE\"],[\"null\",null],[\"bool\",false],[\"text\",\"NETWORK_BALANCE\"]]],[\"struct\",[[\"text\",\"SIMPLEX_ALLOCATION\"],[\"null\",null],[\"bool\",false],[\"text\",\"SIMPLEX_ALLOCATION\"]]],[\"struct\",[[\"text\",\"BILINEAR\"],[\"null\",null],[\"bool\",false],[\"text\",\"BILINEAR\"]]],[\"struct\",[[\"text\",\"SMOOTH_TRANSCENDENTAL\"],[\"null\",null],[\"bool\",false],[\"text\",\"SMOOTH_TRANSCENDENTAL\"]]],[\"struct\",[[\"text\",\"NONSMOOTH_CONVEX\"],[\"null\",null],[\"bool\",false],[\"text\",\"NONSMOOTH_CONVEX\"]]],[\"struct\",[[\"text\",\"BLACK_BOX\"],[\"null\",null],[\"bool\",false],[\"text\",\"BLACK_BOX\"]]],[\"struct\",[[\"text\",\"DEFINITION\"],[\"null\",null],[\"bool\",false],[\"text\",\"DEFINITION\"]]],[\"struct\",[[\"text\",\"REPORTING_DEFINITION\"],[\"null\",null],[\"bool\",false],[\"text\",\"REPORTING_DEFINITION\"]]],[\"struct\",[[\"text\",\"GENERAL_NONLINEAR\"],[\"null\",null],[\"bool\",false],[\"text\",\"GENERAL_NONLINEAR\"]]],[\"struct\",[[\"text\",\"UNCLASSIFIED\"],[\"null\",null],[\"bool\",false],[\"text\",\"UNCLASSIFIED\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"role\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"EquationRole\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"role\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"9f8087f1edafd10613b03f5093759b4a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"9f8087f1edafd10613b03f5093759b4a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EquationRole\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EquationRole\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"9f8087f1edafd10613b03f5093759b4a\\\"}\"],[\"struct\",[[\"id\",\"9f8087f1edafd10613b03f5093759b4a\"],[\"text\",\"EquationRole\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"HARD_FEASIBILITY\"],[\"null\",null],[\"bool\",false],[\"text\",\"HARD_FEASIBILITY\"]]],[\"struct\",[[\"text\",\"DEFINITION\"],[\"null\",null],[\"bool\",false],[\"text\",\"DEFINITION\"]]],[\"struct\",[[\"text\",\"LINKING\"],[\"null\",null],[\"bool\",false],[\"text\",\"LINKING\"]]],[\"struct\",[[\"text\",\"DOMAIN_GUARD\"],[\"null\",null],[\"bool\",false],[\"text\",\"DOMAIN_GUARD\"]]],[\"struct\",[[\"text\",\"REPORTING\"],[\"null\",null],[\"bool\",false],[\"text\",\"REPORTING\"]]],[\"struct\",[[\"text\",\"APPROXIMATION\"],[\"null\",null],[\"bool\",false],[\"text\",\"APPROXIMATION\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"differentiability\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"differentiability\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Differentiability\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"differentiability\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"933fef7efc1a4f528a5b25be43f04e26\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"933fef7efc1a4f528a5b25be43f04e26\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Differentiability\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Differentiability\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"933fef7efc1a4f528a5b25be43f04e26\\\"}\"],[\"struct\",[[\"id\",\"933fef7efc1a4f528a5b25be43f04e26\"],[\"text\",\"Differentiability\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"c_infinity\"],[\"null\",null],[\"bool\",false],[\"text\",\"c_infinity\"]]],[\"struct\",[[\"text\",\"c0\"],[\"null\",null],[\"bool\",false],[\"text\",\"c0\"]]],[\"struct\",[[\"text\",\"branchwise_c1\"],[\"null\",null],[\"bool\",false],[\"text\",\"branchwise_c1\"]]],[\"struct\",[[\"text\",\"as_children\"],[\"null\",null],[\"bool\",false],[\"text\",\"as_children\"]]],[\"struct\",[[\"text\",\"discontinuous\"],[\"null\",null],[\"bool\",false],[\"text\",\"discontinuous\"]]],[\"struct\",[[\"text\",\"declared\"],[\"null\",null],[\"bool\",false],[\"text\",\"declared\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"convexity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"convexity\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Convexity\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"convexity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c0fc975af17e6e9a32eff7dcd68d9170\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"c0fc975af17e6e9a32eff7dcd68d9170\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Convexity\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Convexity\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"c0fc975af17e6e9a32eff7dcd68d9170\\\"}\"],[\"struct\",[[\"id\",\"c0fc975af17e6e9a32eff7dcd68d9170\"],[\"text\",\"Convexity\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"affine\"],[\"null\",null],[\"bool\",false],[\"text\",\"affine\"]]],[\"struct\",[[\"text\",\"convex\"],[\"null\",null],[\"bool\",false],[\"text\",\"convex\"]]],[\"struct\",[[\"text\",\"concave\"],[\"null\",null],[\"bool\",false],[\"text\",\"concave\"]]],[\"struct\",[[\"text\",\"nonconvex\"],[\"null\",null],[\"bool\",false],[\"text\",\"nonconvex\"]]],[\"struct\",[[\"text\",\"unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"unknown\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"monotonicity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"monotonicity\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Monotonicity\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"monotonicity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"7c83c8d168e76f99494e18a638265b60\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"7c83c8d168e76f99494e18a638265b60\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Monotonicity\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Monotonicity\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"7c83c8d168e76f99494e18a638265b60\\\"}\"],[\"struct\",[[\"id\",\"7c83c8d168e76f99494e18a638265b60\"],[\"text\",\"Monotonicity\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"increasing\"],[\"null\",null],[\"bool\",false],[\"text\",\"increasing\"]]],[\"struct\",[[\"text\",\"decreasing\"],[\"null\",null],[\"bool\",false],[\"text\",\"decreasing\"]]],[\"struct\",[[\"text\",\"constant\"],[\"null\",null],[\"bool\",false],[\"text\",\"constant\"]]],[\"struct\",[[\"text\",\"nonmonotone\"],[\"null\",null],[\"bool\",false],[\"text\",\"nonmonotone\"]]],[\"struct\",[[\"text\",\"unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"unknown\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"default_active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"default_active\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"default_active\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"group_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"group_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"group_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"law_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"law_instance_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"law_instance_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"derivation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.9 math: math_equations.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c7132098dde53cf437e31a68527f41fd\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -645,10 +997,10 @@ impl crate::columnar::RelationRow for CompiledMathEquationsRow {
         CompiledMathEquationsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        242_600_usize + size_of::<Self::Builder>()
+        343_464_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        416usize
+        456usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -708,28 +1060,56 @@ impl crate::columnar::RelationRow for CompiledMathEquationsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#sense).as_str().len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#lower_node_id).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#upper_node_id).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#constraint).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#constraint).r#single).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#constraint).r#range).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
             }?,
         )?;
         bytes = crate::columnar::allocation_add(
@@ -799,7 +1179,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 21usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 19usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "equation_id",
@@ -842,68 +1222,58 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 21usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "sense",
+        name: "constraint",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "lower_node_id",
+        name: "residual_quantity_type_id",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "upper_node_id",
+        name: "family",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "residual_quantity_type_id",
+        name: "role",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "family",
+        name: "differentiability",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "role",
+        name: "convexity",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "differentiability",
+        name: "monotonicity",
         position: 14usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "convexity",
+        name: "default_active",
         position: 15usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "monotonicity",
+        name: "group_id",
         position: 16usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "default_active",
+        name: "law_instance_id",
         position: 17usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "group_id",
-        position: 18usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "law_instance_id",
-        position: 19usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "derivation_id",
-        position: 20usize,
+        position: 18usize,
     },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
@@ -912,16 +1282,14 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 21usize] = [
 pub struct CompiledMathEquationsView<'a> {
     batch: &'a crate::RecordBatch,
     equation_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    ordinal_column: &'a arrow_array::UInt64Array,
+    ordinal_column: &'a arrow_array::Int64Array,
     owner_instance_id_column: &'a arrow_array::FixedSizeBinaryArray,
     equation_decl_id_column: &'a arrow_array::FixedSizeBinaryArray,
     parent_indexed_equation_id_column: &'a arrow_array::FixedSizeBinaryArray,
     qualified_name_column: &'a arrow_array::StringArray,
     index_column: &'a arrow_array::ListArray,
-    body_node_id_column: &'a arrow_array::UInt64Array,
-    sense_column: &'a arrow_array::StringArray,
-    lower_node_id_column: &'a arrow_array::UInt64Array,
-    upper_node_id_column: &'a arrow_array::UInt64Array,
+    body_node_id_column: &'a arrow_array::Int64Array,
+    constraint_column: &'a arrow_array::StructArray,
     residual_quantity_type_id_column: &'a arrow_array::FixedSizeBinaryArray,
     family_column: &'a arrow_array::StringArray,
     role_column: &'a arrow_array::StringArray,
@@ -973,7 +1341,7 @@ impl<'a> CompiledMathEquationsView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
             ordinal_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
             owner_instance_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
@@ -991,47 +1359,41 @@ impl<'a> CompiledMathEquationsView<'a> {
                 arrow_array::ListArray,
             >(batch.column(6usize).as_ref())?,
             body_node_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(7usize).as_ref())?,
-            sense_column: crate::columnar::array::<
-                arrow_array::StringArray,
+            constraint_column: crate::columnar::array::<
+                arrow_array::StructArray,
             >(batch.column(8usize).as_ref())?,
-            lower_node_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(9usize).as_ref())?,
-            upper_node_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(10usize).as_ref())?,
             residual_quantity_type_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             family_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             role_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             differentiability_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             convexity_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             monotonicity_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(16usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
             default_active_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(17usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
             group_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(18usize).as_ref())?,
+            >(batch.column(16usize).as_ref())?,
             law_instance_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(19usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
             derivation_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(20usize).as_ref())?,
+            >(batch.column(18usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -1063,7 +1425,7 @@ impl<'a> CompiledMathEquationsView<'a> {
         "ordinal",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn ordinal_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn ordinal_column(&self) -> &'a arrow_array::Int64Array {
         self.ordinal_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "ordinal", "`.")]
@@ -1145,7 +1507,7 @@ impl<'a> CompiledMathEquationsView<'a> {
         "body_node_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn body_node_id_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn body_node_id_column(&self) -> &'a arrow_array::Int64Array {
         self.body_node_id_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "body_node_id", "`.")]
@@ -1154,39 +1516,15 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "sense",
+        "constraint",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn sense_column(&self) -> &'a arrow_array::StringArray {
-        self.sense_column
+    pub const fn constraint_column(&self) -> &'a arrow_array::StructArray {
+        self.constraint_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "sense", "`.")]
-    pub fn sense_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "constraint", "`.")]
+    pub fn constraint_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[8usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "lower_node_id",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn lower_node_id_column(&self) -> &'a arrow_array::UInt64Array {
-        self.lower_node_id_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "lower_node_id", "`.")]
-    pub fn lower_node_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "upper_node_id",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn upper_node_id_column(&self) -> &'a arrow_array::UInt64Array {
-        self.upper_node_id_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "upper_node_id", "`.")]
-    pub fn upper_node_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1204,7 +1542,7 @@ impl<'a> CompiledMathEquationsView<'a> {
         "`.",
     )]
     pub fn residual_quantity_type_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1216,7 +1554,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "family", "`.")]
     pub fn family_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1228,7 +1566,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "role", "`.")]
     pub fn role_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1240,7 +1578,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "differentiability", "`.")]
     pub fn differentiability_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1252,7 +1590,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "convexity", "`.")]
     pub fn convexity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1264,7 +1602,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "monotonicity", "`.")]
     pub fn monotonicity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[16usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1276,7 +1614,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "default_active", "`.")]
     pub fn default_active_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[17usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1288,7 +1626,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "group_id", "`.")]
     pub fn group_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[18usize]
+        &self.batch.schema_ref().fields()[16usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1300,7 +1638,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "law_instance_id", "`.")]
     pub fn law_instance_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[19usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1312,7 +1650,7 @@ impl<'a> CompiledMathEquationsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "derivation_id", "`.")]
     pub fn derivation_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[20usize]
+        &self.batch.schema_ref().fields()[18usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1352,13 +1690,8 @@ impl<'a> CompiledMathEquationsView<'a> {
                 self.body_node_id_column,
                 index,
             )?,
-            r#sense: crate::columnar::ArrowValue::read(self.sense_column, index)?,
-            r#lower_node_id: crate::columnar::ArrowValue::read(
-                self.lower_node_id_column,
-                index,
-            )?,
-            r#upper_node_id: crate::columnar::ArrowValue::read(
-                self.upper_node_id_column,
+            r#constraint: crate::columnar::ArrowValue::read(
+                self.constraint_column,
                 index,
             )?,
             r#residual_quantity_type_id: crate::columnar::ArrowValue::read(
@@ -1456,6 +1789,74 @@ impl CompiledMathEquationsBuilder {
         &mut self,
         row: CompiledMathEquationsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&(row.r#ordinal).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "ordinal",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&(row.r#body_node_id).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "body_node_id",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if (row.r#constraint).selected().is_err() {
+            return Err(
+                crate::columnar::value_error(
+                    "constraint",
+                    row_index,
+                    "tagged value requires exactly its selected arm",
+                ),
+            );
+        }
+        if let Some(value) = ((row.r#constraint).r#single).as_ref()
+            && !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#node_id).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "constraint.single.node_id",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if let Some(value) = ((row.r#constraint).r#range).as_ref() {
+            if !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#lower_node_id).to_owned()))
+            {
+                return Err(
+                    crate::columnar::value_error(
+                        "constraint.range.lower_node_id",
+                        row_index,
+                        "value outside declared integer domain",
+                    ),
+                );
+            }
+            if !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#upper_node_id).to_owned()))
+            {
+                return Err(
+                    crate::columnar::value_error(
+                        "constraint.range.upper_node_id",
+                        row_index,
+                        "value outside declared integer domain",
+                    ),
+                );
+            }
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -1492,56 +1893,48 @@ impl CompiledMathEquationsBuilder {
                     columns[7usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#sense,
+                    &row.r#constraint,
                     columns[8usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#lower_node_id,
+                    &row.r#residual_quantity_type_id,
                     columns[9usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#upper_node_id,
+                    &row.r#family,
                     columns[10usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#residual_quantity_type_id,
+                    &row.r#role,
                     columns[11usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#family,
+                    &row.r#differentiability,
                     columns[12usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#role,
+                    &row.r#convexity,
                     columns[13usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#differentiability,
+                    &row.r#monotonicity,
                     columns[14usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#convexity,
+                    &row.r#default_active,
                     columns[15usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#monotonicity,
+                    &row.r#group_id,
                     columns[16usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#default_active,
+                    &row.r#law_instance_id,
                     columns[17usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#group_id,
-                    columns[18usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#law_instance_id,
-                    columns[19usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
                     &row.r#derivation_id,
-                    columns[20usize].as_mut(),
+                    columns[18usize].as_mut(),
                 )?;
                 Ok(())
             })

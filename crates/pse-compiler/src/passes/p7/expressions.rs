@@ -14,6 +14,10 @@ use pse_relations::generated::{
 use pse_templates::InstantiationEnvironment;
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "expressions keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn expressions(&mut self) -> Result<(), CompilerError> {
         let mut instances = self.inventory.instances.clone();
         instances.sort_by_key(|row| row.instance_id);
@@ -265,7 +269,7 @@ impl Realizer<'_> {
     pub(super) fn instantiate_roots(
         &mut self,
         source: &normalized::expression_sources::Row,
-        roots: &[u64],
+        roots: &[i64],
         env: &InstantiationEnvironment,
     ) -> Result<Vec<NodeId>, CompilerError> {
         let family = self
@@ -293,7 +297,7 @@ impl Realizer<'_> {
             pse_templates::instantiate(family, &roots, &env, &mut self.graph, self.cancel)?;
         for ordinal in first_new..self.graph.len() {
             let node =
-                NodeId(u64::try_from(ordinal).map_err(|_| invalid("graph ordinal overflow"))?);
+                NodeId(i64::try_from(ordinal).map_err(|_| invalid("graph ordinal overflow"))?);
             self.node_support
                 .entry(node)
                 .or_default()
@@ -343,7 +347,7 @@ impl Realizer<'_> {
             ));
         }
         for (position, (index, member)) in indices.into_iter().zip(tuple).enumerate() {
-            if index.position.map(usize::from) != Some(position) {
+            if index.position.and_then(|value| usize::try_from(value).ok()) != Some(position) {
                 return Err(invalid(
                     "source outer axes are not a complete ordered inventory",
                 ));
@@ -399,7 +403,7 @@ impl Realizer<'_> {
                     })
                     .map(|(axis, member)| {
                         Ok((
-                            u16::try_from(axis).map_err(|_| invalid("predicate axis overflow"))?,
+                            i64::try_from(axis).map_err(|_| invalid("predicate axis overflow"))?,
                             member,
                         ))
                     })
@@ -513,7 +517,11 @@ impl Realizer<'_> {
             .sources
             .iter()
             .filter(|source| {
-                source.owner_template_id == Some(instance.template_id)
+                source
+                    .owner
+                    .template
+                    .as_ref()
+                    .is_some_and(|owner| owner.template_id == instance.template_id)
                     && source.family.as_str() == "display"
                     && source.syntax.as_str() == "expression"
             })

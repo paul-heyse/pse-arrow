@@ -3,18 +3,22 @@
   "rows": {
     "normalized.template_expr_nodes": [
       {
+        "children": "[\"list\",[]]",
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "node_id": "[\"u64\",1]",
+        "node_id": "[\"i64\",1]",
         "opcode": "[\"enum\",\"Const\"]",
+        "payload": "[\"struct\",[[\"text\",\"affine\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"f64\",\"3ff0000000000000\"],[\"id\",\"01010101010101010101010101010101\"],[\"id\",\"01010101010101010101010101010101\"],[\"list\",[]]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "scope_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]",
         "subtree_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
       },
       {
+        "children": "[\"list\",[]]",
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "node_id": "[\"u64\",1]",
+        "node_id": "[\"i64\",1]",
         "opcode": "[\"enum\",\"Const\"]",
+        "payload": "[\"struct\",[[\"text\",\"affine\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"f64\",\"3ff0000000000000\"],[\"id\",\"01010101010101010101010101010101\"],[\"id\",\"01010101010101010101010101010101\"],[\"list\",[]]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "scope_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]",
@@ -24,7 +28,7 @@
   },
   "expected_keys": [
     [
-      "[\"u64\",1]"
+      "[\"i64\",1]"
     ]
   ]
 }

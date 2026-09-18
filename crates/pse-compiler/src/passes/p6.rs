@@ -4,15 +4,15 @@
 //! P6 constructs native finite keys, then executes the declared demand rules.
 mod framing;
 use super::{native_outputs::Sources, native_rows::workspace};
-use crate::{CompilerError, InputBundle, PassContext};
-use pse_catalog::computation::ProducedStage;
-use pse_schema::{Registry, model::PassSpec};
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
+use pse_schema::{Registry, model::AlgorithmSpec};
 use std::collections::BTreeMap;
 
 /// Finite demand closure over exact immutable sources and declared methods.
 #[derive(Debug)]
 pub struct P6 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 impl P6 {
     /// Bind the complete registered P6 contract.
@@ -21,21 +21,21 @@ impl P6 {
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         Ok(Self {
             spec: registry
-                .pass("P6@1")
+                .algorithm("P6@1")
                 .ok_or_else(|| super::p4::invalid("P6 declaration missing"))?
                 .clone(),
         })
     }
 }
-impl crate::Pass for P6 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P6 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             inputs.validate(&self.spec, ctx.registry)?;
             let base = ctx.session;
@@ -78,7 +78,7 @@ impl crate::Pass for P6 {
                         .relation(&port.relation)
                         .ok_or_else(|| super::p4::invalid("P6 output contract absent"))?;
                     Ok((
-                        port.port.to_owned(),
+                        port.port.clone(),
                         rows.get(&spec.key)
                             .ok_or_else(|| {
                                 super::p4::invalid(format!("P6 omitted {}", port.relation))
@@ -87,7 +87,7 @@ impl crate::Pass for P6 {
                     ))
                 })
                 .collect::<Result<_, CompilerError>>()?;
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: Vec::new(),
                 derivations,

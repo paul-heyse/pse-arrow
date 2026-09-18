@@ -4,9 +4,8 @@
 //! Union complete native branches without discarding their independent supports.
 
 use super::{
-    Arc, BTreeMap, CancellationToken, FieldCheckedBatch, LogicalPlan, NativeInput, RelationSpec,
-    ReservationLease, RuleError, SnapshotSession, declare_relation_output, engine, internal,
-    provenance, relational, require_empty, witness,
+    Arc, BTreeMap, CancellationToken, NativeInput, ReservationLease, RuleError, SnapshotSession,
+    internal, materialize_with_constraint, provenance, relational, witness,
 };
 
 impl NativeInput {
@@ -74,23 +73,25 @@ impl NativeInput {
             })
             .collect::<Result<Vec<_>, _>>()?;
         let plan = relational::union(values)?;
-        require_empty(
-            witness::duplicate_keys(plan.clone(), target)?,
+        let checked = materialize_with_constraint(
+            plan,
+            target,
             &owner,
             cancel,
+            |values| witness::duplicate_keys(values, target),
             "native branches conflict on a declared complete key",
         )
         .await?;
-        let checked = materialize(plan, target, &owner, cancel).await?;
         let support = relational::union(support)?;
-        require_empty(
-            relational::identity_collisions(support.clone(), "mapping_id")?,
+        let support = materialize_with_constraint(
+            support,
+            support_spec,
             &owner,
             cancel,
+            |values| relational::identity_collisions(values, "mapping_id"),
             "native branch support identity collision",
         )
         .await?;
-        let support = materialize(support, support_spec, &owner, cancel).await?;
         let derivations = provenance::materialize(
             &checked,
             &support,
@@ -111,18 +112,4 @@ impl NativeInput {
             _receipt: ReservationLease::new(receipt),
         }))
     }
-}
-
-async fn materialize(
-    plan: LogicalPlan,
-    target: &RelationSpec,
-    session: &SnapshotSession,
-    cancel: &CancellationToken,
-) -> Result<FieldCheckedBatch, RuleError> {
-    let plan = declare_relation_output(plan, session.registry(), target).map_err(engine)?;
-    let complete = session
-        .prepare_rule_plan(plan, cancel)?
-        .execute(cancel)
-        .await?;
-    Ok(complete.into_checked_relation(session.registry(), target, cancel)?)
 }

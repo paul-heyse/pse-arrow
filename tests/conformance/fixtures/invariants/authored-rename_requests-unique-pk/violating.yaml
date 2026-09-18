@@ -1,0 +1,22 @@
+{
+  "invariant": "authored.rename_requests:unique:pk",
+  "rows": {
+    "authored.rename_requests": [
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expected_name": "[\"text\",\"value-1\"]",
+        "new_name": "[\"text\",\"value-1\"]"
+      },
+      {
+        "entity_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expected_name": "[\"text\",\"value-1\"]",
+        "new_name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

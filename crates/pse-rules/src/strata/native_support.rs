@@ -27,7 +27,7 @@ pub(super) fn plan(
     registry: &Registry,
 ) -> Result<LogicalPlan, RuleError> {
     let head = registry
-        .relation(rule.head.relation())
+        .relation(rule.head.as_str())
         .ok_or_else(|| internal("support head absent"))?;
     let assertion = registry
         .relation(
@@ -233,20 +233,17 @@ pub(super) fn selection(
     target: &pse_schema::model::RelationSpec,
     registry: &Registry,
 ) -> Result<Expr, RuleError> {
-    use pse_relations::typed::CellCodec;
+    use pse_relations::columnar::ArrowValue;
     let column = target
         .column("input_selection")
         .ok_or_else(|| internal("support selection absent"))?;
     let field = pse_schema::arrow::field_for(registry, column)
         .map_err(|error| internal(error.to_string()))?;
     let value = match location {
-        RuleInputLocation::Facts(facts) => facts
-            .selection()
-            .cloned()
-            .map_or(pse_schema::model::Cell::Null, CellCodec::into_cell),
-        _ => pse_schema::model::Cell::Null,
+        RuleInputLocation::Facts(facts) => facts.selection().cloned(),
+        _ => None,
     };
-    let array = pse_relations::cells::array_from_cells(registry, &field, &[value])?;
+    let array = value.to_array(field.data_type())?;
     relational::declared_literal(
         registry,
         column,

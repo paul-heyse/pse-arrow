@@ -44,7 +44,7 @@ impl SessionFactory {
             unique
                 .entry((key.namespace, key.name))
                 .and_modify(|provider| *provider = None)
-                .or_insert_with(|| Some((key, binding.clone())));
+                .or_insert_with(|| Some((key, binding.as_ref().clone())));
         }
         for (key, mut binding) in unique.into_values().flatten() {
             binding.reference = TableReference::full("workspace", key.namespace.as_str(), key.name);
@@ -213,7 +213,7 @@ impl SnapshotSession {
         self.bindings
             .input(role)
             .map(|binding| provider_as_source(Arc::clone(&binding.provider)))
-            .ok_or_else(|| invalid("input role is absent"))
+            .ok_or_else(|| invalid(&format!("input role {role:?} is absent")))
     }
     /// Native scan retaining the actual role provider and its complete declared schema.
     /// # Errors
@@ -222,7 +222,7 @@ impl SnapshotSession {
         let binding = self
             .bindings
             .input(role)
-            .ok_or_else(|| invalid("input role is absent"))?;
+            .ok_or_else(|| invalid(&format!("input role {role:?} is absent")))?;
         LogicalPlanBuilder::scan(binding.reference.clone(), self.role_source(role)?, None)
             .and_then(LogicalPlanBuilder::build)
             .map_err(engine)
@@ -241,5 +241,68 @@ fn invalid(reason: &str) -> CatalogError {
     CatalogError::Admission {
         path: "session.input_roles".to_owned(),
         reason: reason.to_owned(),
+    }
+}
+
+impl SnapshotSession {
+    /// Bind generated restricted argument views without retaining a whole-relation
+    /// access path. Schema annotations certify fields only, never keys or membership.
+    /// # Errors
+    /// Duplicate role, foreign field, incompatible declaration, cancellation or memory.
+    pub fn with_projected_argument_roles(
+        &self,
+        rows: BTreeMap<String, (RelationKey, RecordBatch)>,
+        cancel: &CancellationToken,
+    ) -> Result<Self, CatalogError> {
+        let mut session = self.clone();
+        for (role, (key, batch)) in rows {
+            cancel.checkpoint()?;
+            if role.is_empty() || session.bindings.input(&role).is_some() {
+                return Err(invalid("restricted argument role already bound"));
+            }
+            let spec = session
+                .registry
+                .relation_by_key(key)
+                .ok_or_else(|| invalid("argument declaration absent"))?;
+            let schema = pse_schema::arrow::relation_schema(&session.registry, spec)
+                .map_err(|error| invalid(&error.to_string()))?;
+            for field in batch.schema().fields() {
+                if schema.field_with_name(field.name()).ok() != Some(field.as_ref()) {
+                    return Err(invalid(
+                        "projected argument field differs from its declaration",
+                    ));
+                }
+            }
+            let batch = pse_ids::owned_buffer::OwnedRecordBatch::export(
+                batch,
+                session.reserver.as_ref(),
+                cancel,
+            )?
+            .into_batch();
+            let provider: Arc<dyn TableProvider> = Arc::new(
+                datafusion::datasource::MemTable::try_new(batch.schema(), vec![vec![batch]])
+                    .map_err(engine)?,
+            );
+            let binding = TableBinding::new(
+                TableReference::full("roles", "inputs", role.clone()),
+                provider,
+                Some(key),
+                None,
+            );
+            session
+                .bindings
+                .insert(BindingKey::Input(role), binding.clone())
+                .map_err(engine)?;
+            if session.bindings.relation(key).is_none() {
+                let mut alias = binding;
+                alias.reference =
+                    TableReference::full("workspace", key.namespace.as_str(), key.name);
+                session
+                    .bindings
+                    .insert(BindingKey::Relation(key), alias)
+                    .map_err(engine)?;
+            }
+        }
+        Ok(session)
     }
 }

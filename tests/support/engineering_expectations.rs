@@ -3,16 +3,23 @@
 
 //! Independently stated outcomes for the shipped single-phase nitrogen examples.
 
-use pse_catalog::Snapshot;
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
+
 use pse_ids::SemanticId;
+use pse_relations::columnar::FieldCheckedBatch;
 use pse_relations::generated::{compiled, enums::SymbolRole, normalized};
+use pse_schema::model::RelationKey;
+use std::collections::BTreeMap;
 
 fn id(value: &str) -> SemanticId {
     SemanticId::parse_hex(value).unwrap()
 }
 
 pub(crate) fn check(
-    canonical: &Snapshot,
+    canonical: &BTreeMap<RelationKey, FieldCheckedBatch>,
     instances: &[normalized::instance_bindings::Row],
     state_template: SemanticId,
     component_flow_state: bool,
@@ -35,17 +42,14 @@ pub(crate) fn check(
 }
 
 fn check_equations(
-    canonical: &Snapshot,
+    canonical: &BTreeMap<RelationKey, FieldCheckedBatch>,
     instances: &[normalized::instance_bindings::Row],
     state_template: SemanticId,
     component_flow_state: bool,
     heater: bool,
 ) {
     let equations = compiled::math_indexed_equations::View::from_checked(
-        canonical
-            .relation("compiled", "math_indexed_equations")
-            .unwrap()
-            .checked(),
+        &canonical[&compiled::math_indexed_equations::RELATION_KEY],
     )
     .unwrap()
     .rows()
@@ -127,7 +131,7 @@ fn check_equations(
 }
 
 fn check_symbols(
-    canonical: &Snapshot,
+    canonical: &BTreeMap<RelationKey, FieldCheckedBatch>,
     instances: &[normalized::instance_bindings::Row],
     state_template: SemanticId,
     component_flow_state: bool,
@@ -136,12 +140,11 @@ fn check_symbols(
     let states = instances
         .iter()
         .filter(|row| row.template_id == state_template);
-    let symbols = compiled::symbols::View::from_checked(
-        canonical.relation("compiled", "symbols").unwrap().checked(),
-    )
-    .unwrap()
-    .rows()
-    .unwrap();
+    let symbols =
+        compiled::symbols::View::from_checked(&canonical[&compiled::symbols::RELATION_KEY])
+            .unwrap()
+            .rows()
+            .unwrap();
     for state in states {
         for (declaration, role, indexed) in if component_flow_state {
             [

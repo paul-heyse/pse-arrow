@@ -3,6 +3,7 @@
 
 //! Physical subjects select actual domain members in the target law arguments.
 use super::{CompilerError, DomainId, Inputs, Output, compiled, invalid, unique};
+use crate::passes::physical_subject::{law_phase, member, phase};
 use pse_ids::SemanticId;
 
 pub(super) fn member(
@@ -16,13 +17,17 @@ pub(super) fn member(
     let mut selected = None;
     for (axis, subject, projected) in [
         (
-            contribution.subject_axis,
-            law.subject_id,
+            member!(&contribution.subject, axis, position),
+            member!(&law.subject, fixed, entity_id),
             law.subject_projection.as_str() != "identity",
         ),
-        (contribution.phase_axis, law.phase_id, false),
+        (
+            phase!(&contribution.subject, axis, position),
+            law_phase!(&law.subject, fixed, entity_id),
+            false,
+        ),
     ] {
-        if projected || axis.map(usize::from) != Some(position) {
+        if projected || axis.and_then(|value| usize::try_from(value).ok()) != Some(position) {
             continue;
         }
         let Some(target) = subject else { continue };
@@ -55,10 +60,17 @@ pub(super) fn broadcast_allowed(
     position: usize,
 ) -> Result<(), CompilerError> {
     for (axis, subject) in [
-        (law.subject_axis, contribution.subject_id),
-        (law.phase_axis, contribution.phase_id),
+        (
+            member!(&law.subject, axis, position),
+            member!(&contribution.subject, fixed, entity_id),
+        ),
+        (
+            law_phase!(&law.subject, axis, position),
+            phase!(&contribution.subject, fixed, entity_id),
+        ),
     ] {
-        if axis.map(usize::from) == Some(position) && subject.is_some() {
+        if axis.and_then(|value| usize::try_from(value).ok()) == Some(position) && subject.is_some()
+        {
             return Err(invalid(
                 "fixed physical contribution cannot broadcast to every law subject without an explicit member mask",
             ));

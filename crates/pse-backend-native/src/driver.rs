@@ -13,6 +13,8 @@ use pse_numerics::EvaluationProgram;
 use std::{ffi::CStr, ptr::NonNull, sync::Arc};
 
 pub(crate) struct Outcome {
+    pub program: pse_relations::generated::runtime::numerical_programs::Row,
+    pub scenario_id: pse_ids::SemanticId,
     pub status: i32,
     pub values: Vec<f64>,
     pub constraints: Vec<f64>,
@@ -141,7 +143,20 @@ pub(crate) fn solve(request: &Request) -> Result<Outcome, NativeError> {
         )
     };
     drop(problem);
+    let scenarios = request
+        .input
+        .column_by_name("scenario_id")
+        .and_then(|values| {
+            values
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+        })
+        .ok_or_else(|| invalid("solver scenario identity is absent"))?;
+    let scenario_id = pse_ids::SemanticId::try_from_slice(scenarios.value(0))
+        .map_err(|error| invalid(error.to_string()))?;
     Ok(Outcome {
+        program: request.program.contract().clone(),
+        scenario_id,
         status,
         values,
         constraints,

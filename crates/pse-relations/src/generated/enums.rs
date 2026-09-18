@@ -19,215 +19,6 @@
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum AggregateEmptyPolicy {
-    ///Zero.
-    #[serde(rename = "zero")]
-    Zero,
-    ///An empty list.
-    #[serde(rename = "empty_list")]
-    EmptyList,
-    ///An error: the input was incomplete.
-    #[serde(rename = "error")]
-    Error,
-}
-impl AggregateEmptyPolicy {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::Zero, Self::EmptyList, Self::Error];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Zero => "zero",
-            Self::EmptyList => "empty_list",
-            Self::Error => "error",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Zero => 0usize,
-            Self::EmptyList => 1usize,
-            Self::Error => 2usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Zero => None,
-            Self::EmptyList => None,
-            Self::Error => None,
-        }
-    }
-}
-impl core::str::FromStr for AggregateEmptyPolicy {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "zero" => Ok(Self::Zero),
-            "empty_list" => Ok(Self::EmptyList),
-            "error" => Ok(Self::Error),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(AggregateEmptyPolicy).to_owned(),
-                    enumeration: stringify!(AggregateEmptyPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for AggregateEmptyPolicy {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(AggregateEmptyPolicy))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for AggregateEmptyPolicy {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum AggregateNullPolicy {
-    ///A null input is an error.
-    #[serde(rename = "reject")]
-    Reject,
-    ///A null input is skipped and counted.
-    #[serde(rename = "skip_missing")]
-    SkipMissing,
-}
-impl AggregateNullPolicy {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Reject, Self::SkipMissing];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Reject => "reject",
-            Self::SkipMissing => "skip_missing",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Reject => 0usize,
-            Self::SkipMissing => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Reject => None,
-            Self::SkipMissing => None,
-        }
-    }
-}
-impl core::str::FromStr for AggregateNullPolicy {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "reject" => Ok(Self::Reject),
-            "skip_missing" => Ok(Self::SkipMissing),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(AggregateNullPolicy).to_owned(),
-                    enumeration: stringify!(AggregateNullPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for AggregateNullPolicy {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(AggregateNullPolicy))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for AggregateNullPolicy {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
 pub enum AliasKind {
     ///reference
     #[serde(rename = "reference")]
@@ -2465,44 +2256,44 @@ impl crate::columnar::ArrowValue for CaseKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum ChangeOpKind {
-    ///Add a row.
+pub enum ChangeKind {
+    ///insert
     #[serde(rename = "insert")]
     Insert,
-    ///Replace a row's non-key values.
-    #[serde(rename = "update")]
-    Update,
-    ///Remove a row.
+    ///delete
     #[serde(rename = "delete")]
     Delete,
-    ///Change an entity's name and qualified name; rejected for a named-policy entity.
-    #[serde(rename = "rename")]
-    Rename,
+    ///update_preimage
+    #[serde(rename = "update_preimage")]
+    UpdatePreimage,
+    ///update_postimage
+    #[serde(rename = "update_postimage")]
+    UpdatePostimage,
 }
-impl ChangeOpKind {
+impl ChangeKind {
     /// All members in declaration order; the ordinal is presentation only.
     pub const ALL: [Self; 4usize] = [
         Self::Insert,
-        Self::Update,
         Self::Delete,
-        Self::Rename,
+        Self::UpdatePreimage,
+        Self::UpdatePostimage,
     ];
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Insert => "insert",
-            Self::Update => "update",
             Self::Delete => "delete",
-            Self::Rename => "rename",
+            Self::UpdatePreimage => "update_preimage",
+            Self::UpdatePostimage => "update_postimage",
         }
     }
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
             Self::Insert => 0usize,
-            Self::Update => 1usize,
-            Self::Delete => 2usize,
-            Self::Rename => 3usize,
+            Self::Delete => 1usize,
+            Self::UpdatePreimage => 2usize,
+            Self::UpdatePostimage => 3usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -2514,42 +2305,42 @@ impl ChangeOpKind {
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
             Self::Insert => None,
-            Self::Update => None,
             Self::Delete => None,
-            Self::Rename => None,
+            Self::UpdatePreimage => None,
+            Self::UpdatePostimage => None,
         }
     }
 }
-impl core::str::FromStr for ChangeOpKind {
+impl core::str::FromStr for ChangeKind {
     type Err = crate::RelationError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
             "insert" => Ok(Self::Insert),
-            "update" => Ok(Self::Update),
             "delete" => Ok(Self::Delete),
-            "rename" => Ok(Self::Rename),
+            "update_preimage" => Ok(Self::UpdatePreimage),
+            "update_postimage" => Ok(Self::UpdatePostimage),
             _ => {
                 Err(crate::RelationError::EnumMember {
-                    field: stringify!(ChangeOpKind).to_owned(),
-                    enumeration: stringify!(ChangeOpKind).to_owned(),
+                    field: stringify!(ChangeKind).to_owned(),
+                    enumeration: stringify!(ChangeKind).to_owned(),
                     value: value.to_owned(),
                 })
             }
         }
     }
 }
-impl crate::typed::CellCodec for ChangeOpKind {
+impl crate::typed::CellCodec for ChangeKind {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Enum(self.as_str())
     }
     fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
         match cell {
             pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(ChangeOpKind))),
+            _ => Err(crate::typed::mismatch(stringify!(ChangeKind))),
         }
     }
 }
-impl crate::columnar::ArrowValue for ChangeOpKind {
+impl crate::columnar::ArrowValue for ChangeKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -4176,6 +3967,107 @@ impl crate::columnar::ArrowValue for ConstraintScalingScheme {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum ContributionSign {
+    ///positive
+    #[serde(rename = "positive")]
+    Positive,
+    ///negative
+    #[serde(rename = "negative")]
+    Negative,
+}
+impl ContributionSign {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Positive, Self::Negative];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Positive => "positive",
+            Self::Negative => "negative",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Positive => 0usize,
+            Self::Negative => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Positive => None,
+            Self::Negative => None,
+        }
+    }
+}
+impl core::str::FromStr for ContributionSign {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "positive" => Ok(Self::Positive),
+            "negative" => Ok(Self::Negative),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(ContributionSign).to_owned(),
+                    enumeration: stringify!(ContributionSign).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for ContributionSign {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(ContributionSign))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for ContributionSign {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum ContributionSubjectKind {
     ///total
     #[serde(rename = "total")]
@@ -5651,13 +5543,13 @@ impl crate::columnar::ArrowValue for DemandSource {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum DependencyMode {
-    ///The rule scans it.
+    ///Native query input or output scope.
     #[serde(rename = "read")]
     Read,
-    ///The rule anti-joins against it.
+    ///Native query input or output scope.
     #[serde(rename = "negate")]
     Negate,
-    ///The rule's head writes it.
+    ///Native query input or output scope.
     #[serde(rename = "write")]
     Write,
 }
@@ -5723,114 +5615,6 @@ impl crate::typed::CellCodec for DependencyMode {
     }
 }
 impl crate::columnar::ArrowValue for DependencyMode {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum DepthBound {
-    ///Declared rule semantic value.
-    #[serde(rename = "fixed_point")]
-    FixedPoint,
-    ///Declared rule semantic value.
-    #[serde(rename = "seed_rows")]
-    SeedRows,
-    ///Declared rule semantic value.
-    #[serde(rename = "bounded")]
-    Bounded,
-}
-impl DepthBound {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 3usize] = [Self::FixedPoint, Self::SeedRows, Self::Bounded];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::FixedPoint => "fixed_point",
-            Self::SeedRows => "seed_rows",
-            Self::Bounded => "bounded",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::FixedPoint => 0usize,
-            Self::SeedRows => 1usize,
-            Self::Bounded => 2usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::FixedPoint => None,
-            Self::SeedRows => None,
-            Self::Bounded => None,
-        }
-    }
-}
-impl core::str::FromStr for DepthBound {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "fixed_point" => Ok(Self::FixedPoint),
-            "seed_rows" => Ok(Self::SeedRows),
-            "bounded" => Ok(Self::Bounded),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(DepthBound).to_owned(),
-                    enumeration: stringify!(DepthBound).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for DepthBound {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(DepthBound))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for DepthBound {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -7396,100 +7180,6 @@ impl crate::typed::CellCodec for ElementProjectionFormula {
     }
 }
 impl crate::columnar::ArrowValue for ElementProjectionFormula {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum EmptyListPolicy {
-    ///An empty list contributes no members.
-    #[serde(rename = "no_members")]
-    NoMembers,
-}
-impl EmptyListPolicy {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 1usize] = [Self::NoMembers];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NoMembers => "no_members",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::NoMembers => 0usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::NoMembers => None,
-        }
-    }
-}
-impl core::str::FromStr for EmptyListPolicy {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "no_members" => Ok(Self::NoMembers),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(EmptyListPolicy).to_owned(),
-                    enumeration: stringify!(EmptyListPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for EmptyListPolicy {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(EmptyListPolicy))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for EmptyListPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -10506,107 +10196,6 @@ impl crate::columnar::ArrowValue for FmaPolicy {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum GatherState {
-    ///resolved
-    #[serde(rename = "resolved")]
-    Resolved,
-    ///pending
-    #[serde(rename = "pending")]
-    Pending,
-}
-impl GatherState {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Resolved, Self::Pending];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Resolved => "resolved",
-            Self::Pending => "pending",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Resolved => 0usize,
-            Self::Pending => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Resolved => None,
-            Self::Pending => None,
-        }
-    }
-}
-impl core::str::FromStr for GatherState {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "resolved" => Ok(Self::Resolved),
-            "pending" => Ok(Self::Pending),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(GatherState).to_owned(),
-                    enumeration: stringify!(GatherState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for GatherState {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(GatherState))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for GatherState {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
 pub enum GeneratorKind {
     ///grid
     #[serde(rename = "grid")]
@@ -12068,6 +11657,107 @@ impl crate::columnar::ArrowValue for InitializationStatus {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum InputConsumptionKind {
+    ///whole
+    #[serde(rename = "whole")]
+    Whole,
+    ///columns
+    #[serde(rename = "columns")]
+    Columns,
+}
+impl InputConsumptionKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Whole, Self::Columns];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Whole => "whole",
+            Self::Columns => "columns",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Whole => 0usize,
+            Self::Columns => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Whole => None,
+            Self::Columns => None,
+        }
+    }
+}
+impl core::str::FromStr for InputConsumptionKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "whole" => Ok(Self::Whole),
+            "columns" => Ok(Self::Columns),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(InputConsumptionKind).to_owned(),
+                    enumeration: stringify!(InputConsumptionKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for InputConsumptionKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(InputConsumptionKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for InputConsumptionKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum InvariantKind {
     ///The named columns are unique.
     #[serde(rename = "unique")]
@@ -12834,6 +12524,107 @@ impl crate::columnar::ArrowValue for KernelOutcome {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum KernelParameterBindingKind {
+    ///symbol
+    #[serde(rename = "symbol")]
+    Symbol,
+    ///literal
+    #[serde(rename = "literal")]
+    Literal,
+}
+impl KernelParameterBindingKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Symbol, Self::Literal];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Symbol => "symbol",
+            Self::Literal => "literal",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Symbol => 0usize,
+            Self::Literal => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Symbol => None,
+            Self::Literal => None,
+        }
+    }
+}
+impl core::str::FromStr for KernelParameterBindingKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "symbol" => Ok(Self::Symbol),
+            "literal" => Ok(Self::Literal),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(KernelParameterBindingKind).to_owned(),
+                    enumeration: stringify!(KernelParameterBindingKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for KernelParameterBindingKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(KernelParameterBindingKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for KernelParameterBindingKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum LawExpansion {
     ///conservation
     #[serde(rename = "conservation")]
@@ -13400,6 +13191,692 @@ impl crate::typed::CellCodec for MaterialFlowBasis {
     }
 }
 impl crate::columnar::ArrowValue for MaterialFlowBasis {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum MathDomainKind {
+    ///actual
+    #[serde(rename = "actual")]
+    Actual,
+    ///template
+    #[serde(rename = "template")]
+    Template,
+}
+impl MathDomainKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Actual, Self::Template];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Actual => "actual",
+            Self::Template => "template",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Actual => 0usize,
+            Self::Template => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Actual => None,
+            Self::Template => None,
+        }
+    }
+}
+impl core::str::FromStr for MathDomainKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "actual" => Ok(Self::Actual),
+            "template" => Ok(Self::Template),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(MathDomainKind).to_owned(),
+                    enumeration: stringify!(MathDomainKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for MathDomainKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(MathDomainKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for MathDomainKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum MathGuardKind {
+    ///math
+    #[serde(rename = "math")]
+    Math,
+    ///predicate
+    #[serde(rename = "predicate")]
+    Predicate,
+}
+impl MathGuardKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Math, Self::Predicate];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Math => "math",
+            Self::Predicate => "predicate",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Math => 0usize,
+            Self::Predicate => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Math => None,
+            Self::Predicate => None,
+        }
+    }
+}
+impl core::str::FromStr for MathGuardKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "math" => Ok(Self::Math),
+            "predicate" => Ok(Self::Predicate),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(MathGuardKind).to_owned(),
+                    enumeration: stringify!(MathGuardKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for MathGuardKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(MathGuardKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for MathGuardKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum MathPayloadKind {
+    ///none
+    #[serde(rename = "none")]
+    None,
+    ///symbol
+    #[serde(rename = "symbol")]
+    Symbol,
+    ///float
+    #[serde(rename = "float")]
+    Float,
+    ///integer
+    #[serde(rename = "integer")]
+    Integer,
+    ///affine
+    #[serde(rename = "affine")]
+    Affine,
+    ///weighted_mean
+    #[serde(rename = "weighted_mean")]
+    WeightedMean,
+    ///reduction
+    #[serde(rename = "reduction")]
+    Reduction,
+    ///gather
+    #[serde(rename = "gather")]
+    Gather,
+    ///pending_gather
+    #[serde(rename = "pending_gather")]
+    PendingGather,
+    ///pending_path
+    #[serde(rename = "pending_path")]
+    PendingPath,
+    ///broadcast
+    #[serde(rename = "broadcast")]
+    Broadcast,
+    ///derivative
+    #[serde(rename = "derivative")]
+    Derivative,
+    ///integral
+    #[serde(rename = "integral")]
+    Integral,
+    ///smooth
+    #[serde(rename = "smooth")]
+    Smooth,
+    ///pending_smooth
+    #[serde(rename = "pending_smooth")]
+    PendingSmooth,
+    ///conditional
+    #[serde(rename = "conditional")]
+    Conditional,
+    ///kernel_call
+    #[serde(rename = "kernel_call")]
+    KernelCall,
+    ///implicit_ref
+    #[serde(rename = "implicit_ref")]
+    ImplicitRef,
+    ///unit_convert
+    #[serde(rename = "unit_convert")]
+    UnitConvert,
+    ///pending_unit_convert
+    #[serde(rename = "pending_unit_convert")]
+    PendingUnitConvert,
+    ///piecewise_linear
+    #[serde(rename = "piecewise_linear")]
+    PiecewiseLinear,
+}
+impl MathPayloadKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 21usize] = [
+        Self::None,
+        Self::Symbol,
+        Self::Float,
+        Self::Integer,
+        Self::Affine,
+        Self::WeightedMean,
+        Self::Reduction,
+        Self::Gather,
+        Self::PendingGather,
+        Self::PendingPath,
+        Self::Broadcast,
+        Self::Derivative,
+        Self::Integral,
+        Self::Smooth,
+        Self::PendingSmooth,
+        Self::Conditional,
+        Self::KernelCall,
+        Self::ImplicitRef,
+        Self::UnitConvert,
+        Self::PendingUnitConvert,
+        Self::PiecewiseLinear,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Symbol => "symbol",
+            Self::Float => "float",
+            Self::Integer => "integer",
+            Self::Affine => "affine",
+            Self::WeightedMean => "weighted_mean",
+            Self::Reduction => "reduction",
+            Self::Gather => "gather",
+            Self::PendingGather => "pending_gather",
+            Self::PendingPath => "pending_path",
+            Self::Broadcast => "broadcast",
+            Self::Derivative => "derivative",
+            Self::Integral => "integral",
+            Self::Smooth => "smooth",
+            Self::PendingSmooth => "pending_smooth",
+            Self::Conditional => "conditional",
+            Self::KernelCall => "kernel_call",
+            Self::ImplicitRef => "implicit_ref",
+            Self::UnitConvert => "unit_convert",
+            Self::PendingUnitConvert => "pending_unit_convert",
+            Self::PiecewiseLinear => "piecewise_linear",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::None => 0usize,
+            Self::Symbol => 1usize,
+            Self::Float => 2usize,
+            Self::Integer => 3usize,
+            Self::Affine => 4usize,
+            Self::WeightedMean => 5usize,
+            Self::Reduction => 6usize,
+            Self::Gather => 7usize,
+            Self::PendingGather => 8usize,
+            Self::PendingPath => 9usize,
+            Self::Broadcast => 10usize,
+            Self::Derivative => 11usize,
+            Self::Integral => 12usize,
+            Self::Smooth => 13usize,
+            Self::PendingSmooth => 14usize,
+            Self::Conditional => 15usize,
+            Self::KernelCall => 16usize,
+            Self::ImplicitRef => 17usize,
+            Self::UnitConvert => 18usize,
+            Self::PendingUnitConvert => 19usize,
+            Self::PiecewiseLinear => 20usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::None => None,
+            Self::Symbol => None,
+            Self::Float => None,
+            Self::Integer => None,
+            Self::Affine => None,
+            Self::WeightedMean => None,
+            Self::Reduction => None,
+            Self::Gather => None,
+            Self::PendingGather => None,
+            Self::PendingPath => None,
+            Self::Broadcast => None,
+            Self::Derivative => None,
+            Self::Integral => None,
+            Self::Smooth => None,
+            Self::PendingSmooth => None,
+            Self::Conditional => None,
+            Self::KernelCall => None,
+            Self::ImplicitRef => None,
+            Self::UnitConvert => None,
+            Self::PendingUnitConvert => None,
+            Self::PiecewiseLinear => None,
+        }
+    }
+}
+impl core::str::FromStr for MathPayloadKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "none" => Ok(Self::None),
+            "symbol" => Ok(Self::Symbol),
+            "float" => Ok(Self::Float),
+            "integer" => Ok(Self::Integer),
+            "affine" => Ok(Self::Affine),
+            "weighted_mean" => Ok(Self::WeightedMean),
+            "reduction" => Ok(Self::Reduction),
+            "gather" => Ok(Self::Gather),
+            "pending_gather" => Ok(Self::PendingGather),
+            "pending_path" => Ok(Self::PendingPath),
+            "broadcast" => Ok(Self::Broadcast),
+            "derivative" => Ok(Self::Derivative),
+            "integral" => Ok(Self::Integral),
+            "smooth" => Ok(Self::Smooth),
+            "pending_smooth" => Ok(Self::PendingSmooth),
+            "conditional" => Ok(Self::Conditional),
+            "kernel_call" => Ok(Self::KernelCall),
+            "implicit_ref" => Ok(Self::ImplicitRef),
+            "unit_convert" => Ok(Self::UnitConvert),
+            "pending_unit_convert" => Ok(Self::PendingUnitConvert),
+            "piecewise_linear" => Ok(Self::PiecewiseLinear),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(MathPayloadKind).to_owned(),
+                    enumeration: stringify!(MathPayloadKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for MathPayloadKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(MathPayloadKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for MathPayloadKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum MathReferenceKind {
+    ///symbol
+    #[serde(rename = "symbol")]
+    Symbol,
+    ///template
+    #[serde(rename = "template")]
+    Template,
+    ///domain
+    #[serde(rename = "domain")]
+    Domain,
+    ///index
+    #[serde(rename = "index")]
+    Index,
+}
+impl MathReferenceKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::Symbol,
+        Self::Template,
+        Self::Domain,
+        Self::Index,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Symbol => "symbol",
+            Self::Template => "template",
+            Self::Domain => "domain",
+            Self::Index => "index",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Symbol => 0usize,
+            Self::Template => 1usize,
+            Self::Domain => 2usize,
+            Self::Index => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Symbol => None,
+            Self::Template => None,
+            Self::Domain => None,
+            Self::Index => None,
+        }
+    }
+}
+impl core::str::FromStr for MathReferenceKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "symbol" => Ok(Self::Symbol),
+            "template" => Ok(Self::Template),
+            "domain" => Ok(Self::Domain),
+            "index" => Ok(Self::Index),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(MathReferenceKind).to_owned(),
+                    enumeration: stringify!(MathReferenceKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for MathReferenceKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(MathReferenceKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for MathReferenceKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum MathTemplateMemberKind {
+    ///parameter
+    #[serde(rename = "parameter")]
+    Parameter,
+    ///feature
+    #[serde(rename = "feature")]
+    Feature,
+    ///port
+    #[serde(rename = "port")]
+    Port,
+}
+impl MathTemplateMemberKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = [Self::Parameter, Self::Feature, Self::Port];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Parameter => "parameter",
+            Self::Feature => "feature",
+            Self::Port => "port",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Parameter => 0usize,
+            Self::Feature => 1usize,
+            Self::Port => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Parameter => None,
+            Self::Feature => None,
+            Self::Port => None,
+        }
+    }
+}
+impl core::str::FromStr for MathTemplateMemberKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "parameter" => Ok(Self::Parameter),
+            "feature" => Ok(Self::Feature),
+            "port" => Ok(Self::Port),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(MathTemplateMemberKind).to_owned(),
+                    enumeration: stringify!(MathTemplateMemberKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for MathTemplateMemberKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(MathTemplateMemberKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for MathTemplateMemberKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -15026,6 +15503,326 @@ impl crate::columnar::ArrowValue for Namespace {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum NativeDependencyEvidenceKind {
+    ///absent
+    #[serde(rename = "absent")]
+    Absent,
+    ///present
+    #[serde(rename = "present")]
+    Present,
+    ///text
+    #[serde(rename = "text")]
+    Text,
+    ///identity
+    #[serde(rename = "identity")]
+    Identity,
+    ///identified_text
+    #[serde(rename = "identified_text")]
+    IdentifiedText,
+    ///fingerprint
+    #[serde(rename = "fingerprint")]
+    Fingerprint,
+    ///selection
+    #[serde(rename = "selection")]
+    Selection,
+    ///projection
+    #[serde(rename = "projection")]
+    Projection,
+}
+impl NativeDependencyEvidenceKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 8usize] = [
+        Self::Absent,
+        Self::Present,
+        Self::Text,
+        Self::Identity,
+        Self::IdentifiedText,
+        Self::Fingerprint,
+        Self::Selection,
+        Self::Projection,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Absent => "absent",
+            Self::Present => "present",
+            Self::Text => "text",
+            Self::Identity => "identity",
+            Self::IdentifiedText => "identified_text",
+            Self::Fingerprint => "fingerprint",
+            Self::Selection => "selection",
+            Self::Projection => "projection",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Absent => 0usize,
+            Self::Present => 1usize,
+            Self::Text => 2usize,
+            Self::Identity => 3usize,
+            Self::IdentifiedText => 4usize,
+            Self::Fingerprint => 5usize,
+            Self::Selection => 6usize,
+            Self::Projection => 7usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Absent => None,
+            Self::Present => None,
+            Self::Text => None,
+            Self::Identity => None,
+            Self::IdentifiedText => None,
+            Self::Fingerprint => None,
+            Self::Selection => None,
+            Self::Projection => None,
+        }
+    }
+}
+impl core::str::FromStr for NativeDependencyEvidenceKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "absent" => Ok(Self::Absent),
+            "present" => Ok(Self::Present),
+            "text" => Ok(Self::Text),
+            "identity" => Ok(Self::Identity),
+            "identified_text" => Ok(Self::IdentifiedText),
+            "fingerprint" => Ok(Self::Fingerprint),
+            "selection" => Ok(Self::Selection),
+            "projection" => Ok(Self::Projection),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(NativeDependencyEvidenceKind).to_owned(),
+                    enumeration: stringify!(NativeDependencyEvidenceKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for NativeDependencyEvidenceKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(NativeDependencyEvidenceKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for NativeDependencyEvidenceKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum NativeDependencyKind {
+    ///operation
+    #[serde(rename = "operation")]
+    Operation,
+    ///input
+    #[serde(rename = "input")]
+    Input,
+    ///contract
+    #[serde(rename = "contract")]
+    Contract,
+    ///function
+    #[serde(rename = "function")]
+    Function,
+    ///rule
+    #[serde(rename = "rule")]
+    Rule,
+    ///setting
+    #[serde(rename = "setting")]
+    Setting,
+    ///policy
+    #[serde(rename = "policy")]
+    Policy,
+    ///provider
+    #[serde(rename = "provider")]
+    Provider,
+    ///scope
+    #[serde(rename = "scope")]
+    Scope,
+    ///observation
+    #[serde(rename = "observation")]
+    Observation,
+}
+impl NativeDependencyKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 10usize] = [
+        Self::Operation,
+        Self::Input,
+        Self::Contract,
+        Self::Function,
+        Self::Rule,
+        Self::Setting,
+        Self::Policy,
+        Self::Provider,
+        Self::Scope,
+        Self::Observation,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Operation => "operation",
+            Self::Input => "input",
+            Self::Contract => "contract",
+            Self::Function => "function",
+            Self::Rule => "rule",
+            Self::Setting => "setting",
+            Self::Policy => "policy",
+            Self::Provider => "provider",
+            Self::Scope => "scope",
+            Self::Observation => "observation",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Operation => 0usize,
+            Self::Input => 1usize,
+            Self::Contract => 2usize,
+            Self::Function => 3usize,
+            Self::Rule => 4usize,
+            Self::Setting => 5usize,
+            Self::Policy => 6usize,
+            Self::Provider => 7usize,
+            Self::Scope => 8usize,
+            Self::Observation => 9usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Operation => None,
+            Self::Input => None,
+            Self::Contract => None,
+            Self::Function => None,
+            Self::Rule => None,
+            Self::Setting => None,
+            Self::Policy => None,
+            Self::Provider => None,
+            Self::Scope => None,
+            Self::Observation => None,
+        }
+    }
+}
+impl core::str::FromStr for NativeDependencyKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "operation" => Ok(Self::Operation),
+            "input" => Ok(Self::Input),
+            "contract" => Ok(Self::Contract),
+            "function" => Ok(Self::Function),
+            "rule" => Ok(Self::Rule),
+            "setting" => Ok(Self::Setting),
+            "policy" => Ok(Self::Policy),
+            "provider" => Ok(Self::Provider),
+            "scope" => Ok(Self::Scope),
+            "observation" => Ok(Self::Observation),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(NativeDependencyKind).to_owned(),
+                    enumeration: stringify!(NativeDependencyKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for NativeDependencyKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(NativeDependencyKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for NativeDependencyKind {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum NegationPolicy {
     ///The rule contains no negation.
     #[serde(rename = "none")]
@@ -15298,352 +16095,6 @@ impl crate::typed::CellCodec for NonfinitePolicy {
     }
 }
 impl crate::columnar::ArrowValue for NonfinitePolicy {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum NormalizedReferenceKind {
-    ///symbol
-    #[serde(rename = "symbol")]
-    Symbol,
-    ///parameter
-    #[serde(rename = "parameter")]
-    Parameter,
-    ///feature
-    #[serde(rename = "feature")]
-    Feature,
-    ///port
-    #[serde(rename = "port")]
-    Port,
-    ///domain
-    #[serde(rename = "domain")]
-    Domain,
-    ///index
-    #[serde(rename = "index")]
-    Index,
-    ///path
-    #[serde(rename = "path")]
-    Path,
-}
-impl NormalizedReferenceKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 7usize] = [
-        Self::Symbol,
-        Self::Parameter,
-        Self::Feature,
-        Self::Port,
-        Self::Domain,
-        Self::Index,
-        Self::Path,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Symbol => "symbol",
-            Self::Parameter => "parameter",
-            Self::Feature => "feature",
-            Self::Port => "port",
-            Self::Domain => "domain",
-            Self::Index => "index",
-            Self::Path => "path",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Symbol => 0usize,
-            Self::Parameter => 1usize,
-            Self::Feature => 2usize,
-            Self::Port => 3usize,
-            Self::Domain => 4usize,
-            Self::Index => 5usize,
-            Self::Path => 6usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Symbol => None,
-            Self::Parameter => None,
-            Self::Feature => None,
-            Self::Port => None,
-            Self::Domain => None,
-            Self::Index => None,
-            Self::Path => None,
-        }
-    }
-}
-impl core::str::FromStr for NormalizedReferenceKind {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "symbol" => Ok(Self::Symbol),
-            "parameter" => Ok(Self::Parameter),
-            "feature" => Ok(Self::Feature),
-            "port" => Ok(Self::Port),
-            "domain" => Ok(Self::Domain),
-            "index" => Ok(Self::Index),
-            "path" => Ok(Self::Path),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(NormalizedReferenceKind).to_owned(),
-                    enumeration: stringify!(NormalizedReferenceKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for NormalizedReferenceKind {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(NormalizedReferenceKind))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for NormalizedReferenceKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum NullEquality {
-    ///SQL equality: a null matches nothing.
-    #[serde(rename = "null_equals_nothing")]
-    NullEqualsNothing,
-    ///`IS NOT DISTINCT FROM`: two nulls match.
-    #[serde(rename = "null_equals_null")]
-    NullEqualsNull,
-}
-impl NullEquality {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::NullEqualsNothing, Self::NullEqualsNull];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::NullEqualsNothing => "null_equals_nothing",
-            Self::NullEqualsNull => "null_equals_null",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::NullEqualsNothing => 0usize,
-            Self::NullEqualsNull => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::NullEqualsNothing => None,
-            Self::NullEqualsNull => None,
-        }
-    }
-}
-impl core::str::FromStr for NullEquality {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "null_equals_nothing" => Ok(Self::NullEqualsNothing),
-            "null_equals_null" => Ok(Self::NullEqualsNull),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(NullEquality).to_owned(),
-                    enumeration: stringify!(NullEquality).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for NullEquality {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(NullEquality))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for NullEquality {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum NullListPolicy {
-    ///A null list is an error.
-    #[serde(rename = "reject")]
-    Reject,
-    ///A null list contributes no members.
-    #[serde(rename = "no_members")]
-    NoMembers,
-}
-impl NullListPolicy {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Reject, Self::NoMembers];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Reject => "reject",
-            Self::NoMembers => "no_members",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Reject => 0usize,
-            Self::NoMembers => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Reject => None,
-            Self::NoMembers => None,
-        }
-    }
-}
-impl core::str::FromStr for NullListPolicy {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "reject" => Ok(Self::Reject),
-            "no_members" => Ok(Self::NoMembers),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(NullListPolicy).to_owned(),
-                    enumeration: stringify!(NullListPolicy).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for NullListPolicy {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(NullListPolicy))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for NullListPolicy {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -16977,10 +17428,7 @@ impl crate::columnar::ArrowValue for ParticipationDecision {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum ParticipationReason {
-    ///matched
-    #[serde(rename = "matched")]
-    Matched,
+pub enum ParticipationExclusionReason {
     ///family_mismatch
     #[serde(rename = "family_mismatch")]
     FamilyMismatch,
@@ -16991,10 +17439,9 @@ pub enum ParticipationReason {
     #[serde(rename = "internal_transfer")]
     InternalTransfer,
 }
-impl ParticipationReason {
+impl ParticipationExclusionReason {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Matched,
+    pub const ALL: [Self; 3usize] = [
         Self::FamilyMismatch,
         Self::SubjectMismatch,
         Self::InternalTransfer,
@@ -17002,7 +17449,6 @@ impl ParticipationReason {
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Matched => "matched",
             Self::FamilyMismatch => "family_mismatch",
             Self::SubjectMismatch => "subject_mismatch",
             Self::InternalTransfer => "internal_transfer",
@@ -17011,10 +17457,9 @@ impl ParticipationReason {
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::Matched => 0usize,
-            Self::FamilyMismatch => 1usize,
-            Self::SubjectMismatch => 2usize,
-            Self::InternalTransfer => 3usize,
+            Self::FamilyMismatch => 0usize,
+            Self::SubjectMismatch => 1usize,
+            Self::InternalTransfer => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -17025,163 +17470,41 @@ impl ParticipationReason {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
-            Self::Matched => None,
             Self::FamilyMismatch => None,
             Self::SubjectMismatch => None,
             Self::InternalTransfer => None,
         }
     }
 }
-impl core::str::FromStr for ParticipationReason {
+impl core::str::FromStr for ParticipationExclusionReason {
     type Err = crate::RelationError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "matched" => Ok(Self::Matched),
             "family_mismatch" => Ok(Self::FamilyMismatch),
             "subject_mismatch" => Ok(Self::SubjectMismatch),
             "internal_transfer" => Ok(Self::InternalTransfer),
             _ => {
                 Err(crate::RelationError::EnumMember {
-                    field: stringify!(ParticipationReason).to_owned(),
-                    enumeration: stringify!(ParticipationReason).to_owned(),
+                    field: stringify!(ParticipationExclusionReason).to_owned(),
+                    enumeration: stringify!(ParticipationExclusionReason).to_owned(),
                     value: value.to_owned(),
                 })
             }
         }
     }
 }
-impl crate::typed::CellCodec for ParticipationReason {
+impl crate::typed::CellCodec for ParticipationExclusionReason {
     fn into_cell(self) -> pse_schema::model::Cell {
         pse_schema::model::Cell::Enum(self.as_str())
     }
     fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
         match cell {
             pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(ParticipationReason))),
+            _ => Err(crate::typed::mismatch(stringify!(ParticipationExclusionReason))),
         }
     }
 }
-impl crate::columnar::ArrowValue for ParticipationReason {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum PassStatus {
-    ///ok
-    #[serde(rename = "ok")]
-    Ok,
-    ///failed
-    #[serde(rename = "failed")]
-    Failed,
-    ///cancelled
-    #[serde(rename = "cancelled")]
-    Cancelled,
-    ///reused
-    #[serde(rename = "reused")]
-    Reused,
-}
-impl PassStatus {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 4usize] = [
-        Self::Ok,
-        Self::Failed,
-        Self::Cancelled,
-        Self::Reused,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Ok => "ok",
-            Self::Failed => "failed",
-            Self::Cancelled => "cancelled",
-            Self::Reused => "reused",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Ok => 0usize,
-            Self::Failed => 1usize,
-            Self::Cancelled => 2usize,
-            Self::Reused => 3usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Ok => None,
-            Self::Failed => None,
-            Self::Cancelled => None,
-            Self::Reused => None,
-        }
-    }
-}
-impl core::str::FromStr for PassStatus {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "ok" => Ok(Self::Ok),
-            "failed" => Ok(Self::Failed),
-            "cancelled" => Ok(Self::Cancelled),
-            "reused" => Ok(Self::Reused),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(PassStatus).to_owned(),
-                    enumeration: stringify!(PassStatus).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for PassStatus {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(PassStatus))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for PassStatus {
+impl crate::columnar::ArrowValue for ParticipationExclusionReason {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -17430,6 +17753,107 @@ impl crate::typed::CellCodec for PhaseType {
     }
 }
 impl crate::columnar::ArrowValue for PhaseType {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum PhysicalCoordinateKind {
+    ///fixed
+    #[serde(rename = "fixed")]
+    Fixed,
+    ///axis
+    #[serde(rename = "axis")]
+    Axis,
+}
+impl PhysicalCoordinateKind {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 2usize] = [Self::Fixed, Self::Axis];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Fixed => "fixed",
+            Self::Axis => "axis",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Fixed => 0usize,
+            Self::Axis => 1usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Fixed => None,
+            Self::Axis => None,
+        }
+    }
+}
+impl core::str::FromStr for PhysicalCoordinateKind {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "fixed" => Ok(Self::Fixed),
+            "axis" => Ok(Self::Axis),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(PhysicalCoordinateKind).to_owned(),
+                    enumeration: stringify!(PhysicalCoordinateKind).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for PhysicalCoordinateKind {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(PhysicalCoordinateKind))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for PhysicalCoordinateKind {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -18103,6 +18527,9 @@ impl crate::columnar::ArrowValue for PropertyCategory {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum PublicationKind {
+    ///relations
+    #[serde(rename = "relations")]
+    Relations,
     ///source
     #[serde(rename = "source")]
     Source,
@@ -18121,7 +18548,8 @@ pub enum PublicationKind {
 }
 impl PublicationKind {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
+    pub const ALL: [Self; 6usize] = [
+        Self::Relations,
         Self::Source,
         Self::Model,
         Self::Case,
@@ -18131,6 +18559,7 @@ impl PublicationKind {
     /// The declared member spelling.
     pub const fn as_str(self) -> &'static str {
         match self {
+            Self::Relations => "relations",
             Self::Source => "source",
             Self::Model => "model",
             Self::Case => "case",
@@ -18141,11 +18570,12 @@ impl PublicationKind {
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::Source => 0usize,
-            Self::Model => 1usize,
-            Self::Case => 2usize,
-            Self::Problem => 3usize,
-            Self::Run => 4usize,
+            Self::Relations => 0usize,
+            Self::Source => 1usize,
+            Self::Model => 2usize,
+            Self::Case => 3usize,
+            Self::Problem => 4usize,
+            Self::Run => 5usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -18156,6 +18586,7 @@ impl PublicationKind {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
+            Self::Relations => None,
             Self::Source => None,
             Self::Model => None,
             Self::Case => None,
@@ -18168,6 +18599,7 @@ impl core::str::FromStr for PublicationKind {
     type Err = crate::RelationError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
+            "relations" => Ok(Self::Relations),
             "source" => Ok(Self::Source),
             "model" => Ok(Self::Model),
             "case" => Ok(Self::Case),
@@ -20091,6 +20523,126 @@ impl crate::columnar::ArrowValue for ResolutionStatus {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
+pub enum RetentionReason {
+    ///publication
+    #[serde(rename = "publication")]
+    Publication,
+    ///output
+    #[serde(rename = "output")]
+    Output,
+    ///attempt
+    #[serde(rename = "attempt")]
+    Attempt,
+    ///changes
+    #[serde(rename = "changes")]
+    Changes,
+}
+impl RetentionReason {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::Publication,
+        Self::Output,
+        Self::Attempt,
+        Self::Changes,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Publication => "publication",
+            Self::Output => "output",
+            Self::Attempt => "attempt",
+            Self::Changes => "changes",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Publication => 0usize,
+            Self::Output => 1usize,
+            Self::Attempt => 2usize,
+            Self::Changes => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Publication => None,
+            Self::Output => None,
+            Self::Attempt => None,
+            Self::Changes => None,
+        }
+    }
+}
+impl core::str::FromStr for RetentionReason {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "publication" => Ok(Self::Publication),
+            "output" => Ok(Self::Output),
+            "attempt" => Ok(Self::Attempt),
+            "changes" => Ok(Self::Changes),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(RetentionReason).to_owned(),
+                    enumeration: stringify!(RetentionReason).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for RetentionReason {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(RetentionReason))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for RetentionReason {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
 pub enum RewriteMode {
     ///guarded_floating
     #[serde(rename = "guarded_floating")]
@@ -20293,771 +20845,6 @@ impl crate::columnar::ArrowValue for RowKind {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum RuleAggregate {
-    ///Row count.
-    #[serde(rename = "count")]
-    Count,
-    ///Exact checked integer sum.
-    #[serde(rename = "sum")]
-    Sum,
-    ///Minimum.
-    #[serde(rename = "min")]
-    Min,
-    ///Maximum.
-    #[serde(rename = "max")]
-    Max,
-    ///Collection in the declared order.
-    #[serde(rename = "collect_ordered")]
-    CollectOrdered,
-}
-impl RuleAggregate {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 5usize] = [
-        Self::Count,
-        Self::Sum,
-        Self::Min,
-        Self::Max,
-        Self::CollectOrdered,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Count => "count",
-            Self::Sum => "sum",
-            Self::Min => "min",
-            Self::Max => "max",
-            Self::CollectOrdered => "collect_ordered",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Count => 0usize,
-            Self::Sum => 1usize,
-            Self::Min => 2usize,
-            Self::Max => 3usize,
-            Self::CollectOrdered => 4usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Count => None,
-            Self::Sum => None,
-            Self::Min => None,
-            Self::Max => None,
-            Self::CollectOrdered => None,
-        }
-    }
-}
-impl core::str::FromStr for RuleAggregate {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "count" => Ok(Self::Count),
-            "sum" => Ok(Self::Sum),
-            "min" => Ok(Self::Min),
-            "max" => Ok(Self::Max),
-            "collect_ordered" => Ok(Self::CollectOrdered),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(RuleAggregate).to_owned(),
-                    enumeration: stringify!(RuleAggregate).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for RuleAggregate {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(RuleAggregate))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for RuleAggregate {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum RuleCmpOp {
-    ///Declared rule semantic value.
-    #[serde(rename = "eq")]
-    Eq,
-    ///Declared rule semantic value.
-    #[serde(rename = "not_eq")]
-    NotEq,
-    ///Declared rule semantic value.
-    #[serde(rename = "lt")]
-    Lt,
-    ///Declared rule semantic value.
-    #[serde(rename = "lt_eq")]
-    LtEq,
-    ///Declared rule semantic value.
-    #[serde(rename = "gt")]
-    Gt,
-    ///Declared rule semantic value.
-    #[serde(rename = "gt_eq")]
-    GtEq,
-}
-impl RuleCmpOp {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = [
-        Self::Eq,
-        Self::NotEq,
-        Self::Lt,
-        Self::LtEq,
-        Self::Gt,
-        Self::GtEq,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Eq => "eq",
-            Self::NotEq => "not_eq",
-            Self::Lt => "lt",
-            Self::LtEq => "lt_eq",
-            Self::Gt => "gt",
-            Self::GtEq => "gt_eq",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Eq => 0usize,
-            Self::NotEq => 1usize,
-            Self::Lt => 2usize,
-            Self::LtEq => 3usize,
-            Self::Gt => 4usize,
-            Self::GtEq => 5usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Eq => None,
-            Self::NotEq => None,
-            Self::Lt => None,
-            Self::LtEq => None,
-            Self::Gt => None,
-            Self::GtEq => None,
-        }
-    }
-}
-impl core::str::FromStr for RuleCmpOp {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "eq" => Ok(Self::Eq),
-            "not_eq" => Ok(Self::NotEq),
-            "lt" => Ok(Self::Lt),
-            "lt_eq" => Ok(Self::LtEq),
-            "gt" => Ok(Self::Gt),
-            "gt_eq" => Ok(Self::GtEq),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(RuleCmpOp).to_owned(),
-                    enumeration: stringify!(RuleCmpOp).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for RuleCmpOp {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(RuleCmpOp))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for RuleCmpOp {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum RuleExprOp {
-    ///Declared rule semantic value.
-    #[serde(rename = "col")]
-    Col,
-    ///Declared rule semantic value.
-    #[serde(rename = "lit")]
-    Lit,
-    ///Declared rule semantic value.
-    #[serde(rename = "call")]
-    Call,
-    ///Declared rule semantic value.
-    #[serde(rename = "and")]
-    And,
-    ///Declared rule semantic value.
-    #[serde(rename = "or")]
-    Or,
-    ///Declared rule semantic value.
-    #[serde(rename = "not")]
-    Not,
-    ///Declared rule semantic value.
-    #[serde(rename = "cmp")]
-    Cmp,
-    ///Declared rule semantic value.
-    #[serde(rename = "is_null")]
-    IsNull,
-    ///Declared rule semantic value.
-    #[serde(rename = "is_not_null")]
-    IsNotNull,
-    ///Declared rule semantic value.
-    #[serde(rename = "is_distinct_from")]
-    IsDistinctFrom,
-    ///Declared rule semantic value.
-    #[serde(rename = "is_not_distinct_from")]
-    IsNotDistinctFrom,
-    ///Declared rule semantic value.
-    #[serde(rename = "in_list")]
-    InList,
-    ///Declared rule semantic value.
-    #[serde(rename = "field")]
-    Field,
-    ///Declared rule semantic value.
-    #[serde(rename = "list_len")]
-    ListLen,
-    ///Declared rule semantic value.
-    #[serde(rename = "is_true")]
-    IsTrue,
-    ///Declared rule semantic value.
-    #[serde(rename = "is_false")]
-    IsFalse,
-    ///Declared rule semantic value.
-    #[serde(rename = "is_unknown")]
-    IsUnknown,
-}
-impl RuleExprOp {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 17usize] = [
-        Self::Col,
-        Self::Lit,
-        Self::Call,
-        Self::And,
-        Self::Or,
-        Self::Not,
-        Self::Cmp,
-        Self::IsNull,
-        Self::IsNotNull,
-        Self::IsDistinctFrom,
-        Self::IsNotDistinctFrom,
-        Self::InList,
-        Self::Field,
-        Self::ListLen,
-        Self::IsTrue,
-        Self::IsFalse,
-        Self::IsUnknown,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Col => "col",
-            Self::Lit => "lit",
-            Self::Call => "call",
-            Self::And => "and",
-            Self::Or => "or",
-            Self::Not => "not",
-            Self::Cmp => "cmp",
-            Self::IsNull => "is_null",
-            Self::IsNotNull => "is_not_null",
-            Self::IsDistinctFrom => "is_distinct_from",
-            Self::IsNotDistinctFrom => "is_not_distinct_from",
-            Self::InList => "in_list",
-            Self::Field => "field",
-            Self::ListLen => "list_len",
-            Self::IsTrue => "is_true",
-            Self::IsFalse => "is_false",
-            Self::IsUnknown => "is_unknown",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Col => 0usize,
-            Self::Lit => 1usize,
-            Self::Call => 2usize,
-            Self::And => 3usize,
-            Self::Or => 4usize,
-            Self::Not => 5usize,
-            Self::Cmp => 6usize,
-            Self::IsNull => 7usize,
-            Self::IsNotNull => 8usize,
-            Self::IsDistinctFrom => 9usize,
-            Self::IsNotDistinctFrom => 10usize,
-            Self::InList => 11usize,
-            Self::Field => 12usize,
-            Self::ListLen => 13usize,
-            Self::IsTrue => 14usize,
-            Self::IsFalse => 15usize,
-            Self::IsUnknown => 16usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Col => None,
-            Self::Lit => None,
-            Self::Call => None,
-            Self::And => None,
-            Self::Or => None,
-            Self::Not => None,
-            Self::Cmp => None,
-            Self::IsNull => None,
-            Self::IsNotNull => None,
-            Self::IsDistinctFrom => None,
-            Self::IsNotDistinctFrom => None,
-            Self::InList => None,
-            Self::Field => None,
-            Self::ListLen => None,
-            Self::IsTrue => None,
-            Self::IsFalse => None,
-            Self::IsUnknown => None,
-        }
-    }
-}
-impl core::str::FromStr for RuleExprOp {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "col" => Ok(Self::Col),
-            "lit" => Ok(Self::Lit),
-            "call" => Ok(Self::Call),
-            "and" => Ok(Self::And),
-            "or" => Ok(Self::Or),
-            "not" => Ok(Self::Not),
-            "cmp" => Ok(Self::Cmp),
-            "is_null" => Ok(Self::IsNull),
-            "is_not_null" => Ok(Self::IsNotNull),
-            "is_distinct_from" => Ok(Self::IsDistinctFrom),
-            "is_not_distinct_from" => Ok(Self::IsNotDistinctFrom),
-            "in_list" => Ok(Self::InList),
-            "field" => Ok(Self::Field),
-            "list_len" => Ok(Self::ListLen),
-            "is_true" => Ok(Self::IsTrue),
-            "is_false" => Ok(Self::IsFalse),
-            "is_unknown" => Ok(Self::IsUnknown),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(RuleExprOp).to_owned(),
-                    enumeration: stringify!(RuleExprOp).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for RuleExprOp {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(RuleExprOp))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for RuleExprOp {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum RuleHeadKind {
-    ///Declared rule semantic value.
-    #[serde(rename = "relation")]
-    Relation,
-    ///Declared rule semantic value.
-    #[serde(rename = "violations")]
-    Violations,
-}
-impl RuleHeadKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Relation, Self::Violations];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Relation => "relation",
-            Self::Violations => "violations",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Relation => 0usize,
-            Self::Violations => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Relation => None,
-            Self::Violations => None,
-        }
-    }
-}
-impl core::str::FromStr for RuleHeadKind {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "relation" => Ok(Self::Relation),
-            "violations" => Ok(Self::Violations),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(RuleHeadKind).to_owned(),
-                    enumeration: stringify!(RuleHeadKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for RuleHeadKind {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(RuleHeadKind))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for RuleHeadKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum RuleLiteralKind {
-    ///Declared rule semantic value.
-    #[serde(rename = "null")]
-    Null,
-    ///Declared rule semantic value.
-    #[serde(rename = "bool")]
-    Bool,
-    ///Declared rule semantic value.
-    #[serde(rename = "i64")]
-    I64,
-    ///Declared rule semantic value.
-    #[serde(rename = "u64")]
-    U64,
-    ///Declared rule semantic value.
-    #[serde(rename = "f64")]
-    F64,
-    ///Declared rule semantic value.
-    #[serde(rename = "text")]
-    Text,
-    ///Declared rule semantic value.
-    #[serde(rename = "id")]
-    Id,
-    ///Declared rule semantic value.
-    #[serde(rename = "hash")]
-    Hash,
-    ///Declared rule semantic value.
-    #[serde(rename = "enum")]
-    Enum,
-    ///Declared rule semantic value.
-    #[serde(rename = "list")]
-    List,
-    ///Declared rule semantic value.
-    #[serde(rename = "struct")]
-    Struct,
-}
-impl RuleLiteralKind {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 11usize] = [
-        Self::Null,
-        Self::Bool,
-        Self::I64,
-        Self::U64,
-        Self::F64,
-        Self::Text,
-        Self::Id,
-        Self::Hash,
-        Self::Enum,
-        Self::List,
-        Self::Struct,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Null => "null",
-            Self::Bool => "bool",
-            Self::I64 => "i64",
-            Self::U64 => "u64",
-            Self::F64 => "f64",
-            Self::Text => "text",
-            Self::Id => "id",
-            Self::Hash => "hash",
-            Self::Enum => "enum",
-            Self::List => "list",
-            Self::Struct => "struct",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Null => 0usize,
-            Self::Bool => 1usize,
-            Self::I64 => 2usize,
-            Self::U64 => 3usize,
-            Self::F64 => 4usize,
-            Self::Text => 5usize,
-            Self::Id => 6usize,
-            Self::Hash => 7usize,
-            Self::Enum => 8usize,
-            Self::List => 9usize,
-            Self::Struct => 10usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Null => None,
-            Self::Bool => None,
-            Self::I64 => None,
-            Self::U64 => None,
-            Self::F64 => None,
-            Self::Text => None,
-            Self::Id => None,
-            Self::Hash => None,
-            Self::Enum => None,
-            Self::List => None,
-            Self::Struct => None,
-        }
-    }
-}
-impl core::str::FromStr for RuleLiteralKind {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "null" => Ok(Self::Null),
-            "bool" => Ok(Self::Bool),
-            "i64" => Ok(Self::I64),
-            "u64" => Ok(Self::U64),
-            "f64" => Ok(Self::F64),
-            "text" => Ok(Self::Text),
-            "id" => Ok(Self::Id),
-            "hash" => Ok(Self::Hash),
-            "enum" => Ok(Self::Enum),
-            "list" => Ok(Self::List),
-            "struct" => Ok(Self::Struct),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(RuleLiteralKind).to_owned(),
-                    enumeration: stringify!(RuleLiteralKind).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for RuleLiteralKind {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(RuleLiteralKind))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for RuleLiteralKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
 pub enum RuleOutcomeReason {
     ///asserted
     #[serde(rename = "asserted")]
@@ -21143,190 +20930,6 @@ impl crate::typed::CellCodec for RuleOutcomeReason {
     }
 }
 impl crate::columnar::ArrowValue for RuleOutcomeReason {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum RulePlanOp {
-    ///Declared rule-plan operator.
-    #[serde(rename = "scan")]
-    Scan,
-    ///Declared rule-plan operator.
-    #[serde(rename = "filter")]
-    Filter,
-    ///Declared rule-plan operator.
-    #[serde(rename = "assert")]
-    Assert,
-    ///Declared rule-plan operator.
-    #[serde(rename = "project")]
-    Project,
-    ///Declared rule-plan operator.
-    #[serde(rename = "equi_join")]
-    EquiJoin,
-    ///Declared rule-plan operator.
-    #[serde(rename = "anti_join")]
-    AntiJoin,
-    ///Declared rule-plan operator.
-    #[serde(rename = "union")]
-    Union,
-    ///Declared rule-plan operator.
-    #[serde(rename = "distinct")]
-    Distinct,
-    ///Declared rule-plan operator.
-    #[serde(rename = "aggregate")]
-    Aggregate,
-    ///Declared rule-plan operator.
-    #[serde(rename = "unnest")]
-    Unnest,
-    ///Declared rule-plan operator.
-    #[serde(rename = "recursive")]
-    Recursive,
-    ///Declared rule-plan operator.
-    #[serde(rename = "recursive_ref")]
-    RecursiveRef,
-}
-impl RulePlanOp {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 12usize] = [
-        Self::Scan,
-        Self::Filter,
-        Self::Assert,
-        Self::Project,
-        Self::EquiJoin,
-        Self::AntiJoin,
-        Self::Union,
-        Self::Distinct,
-        Self::Aggregate,
-        Self::Unnest,
-        Self::Recursive,
-        Self::RecursiveRef,
-    ];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Scan => "scan",
-            Self::Filter => "filter",
-            Self::Assert => "assert",
-            Self::Project => "project",
-            Self::EquiJoin => "equi_join",
-            Self::AntiJoin => "anti_join",
-            Self::Union => "union",
-            Self::Distinct => "distinct",
-            Self::Aggregate => "aggregate",
-            Self::Unnest => "unnest",
-            Self::Recursive => "recursive",
-            Self::RecursiveRef => "recursive_ref",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Scan => 0usize,
-            Self::Filter => 1usize,
-            Self::Assert => 2usize,
-            Self::Project => 3usize,
-            Self::EquiJoin => 4usize,
-            Self::AntiJoin => 5usize,
-            Self::Union => 6usize,
-            Self::Distinct => 7usize,
-            Self::Aggregate => 8usize,
-            Self::Unnest => 9usize,
-            Self::Recursive => 10usize,
-            Self::RecursiveRef => 11usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Scan => None,
-            Self::Filter => None,
-            Self::Assert => None,
-            Self::Project => None,
-            Self::EquiJoin => None,
-            Self::AntiJoin => None,
-            Self::Union => None,
-            Self::Distinct => None,
-            Self::Aggregate => None,
-            Self::Unnest => None,
-            Self::Recursive => None,
-            Self::RecursiveRef => None,
-        }
-    }
-}
-impl core::str::FromStr for RulePlanOp {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "scan" => Ok(Self::Scan),
-            "filter" => Ok(Self::Filter),
-            "assert" => Ok(Self::Assert),
-            "project" => Ok(Self::Project),
-            "equi_join" => Ok(Self::EquiJoin),
-            "anti_join" => Ok(Self::AntiJoin),
-            "union" => Ok(Self::Union),
-            "distinct" => Ok(Self::Distinct),
-            "aggregate" => Ok(Self::Aggregate),
-            "unnest" => Ok(Self::Unnest),
-            "recursive" => Ok(Self::Recursive),
-            "recursive_ref" => Ok(Self::RecursiveRef),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(RulePlanOp).to_owned(),
-                    enumeration: stringify!(RulePlanOp).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for RulePlanOp {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(RulePlanOp))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for RulePlanOp {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -22520,107 +22123,6 @@ impl crate::columnar::ArrowValue for Severity {
     clippy::enum_variant_names,
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
-pub enum SmoothingEpsilonState {
-    ///coordinate
-    #[serde(rename = "coordinate")]
-    Coordinate,
-    ///pending_unit
-    #[serde(rename = "pending_unit")]
-    PendingUnit,
-}
-impl SmoothingEpsilonState {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Coordinate, Self::PendingUnit];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Coordinate => "coordinate",
-            Self::PendingUnit => "pending_unit",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Coordinate => 0usize,
-            Self::PendingUnit => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Coordinate => None,
-            Self::PendingUnit => None,
-        }
-    }
-}
-impl core::str::FromStr for SmoothingEpsilonState {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "coordinate" => Ok(Self::Coordinate),
-            "pending_unit" => Ok(Self::PendingUnit),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(SmoothingEpsilonState).to_owned(),
-                    enumeration: stringify!(SmoothingEpsilonState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for SmoothingEpsilonState {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(SmoothingEpsilonState))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for SmoothingEpsilonState {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
 pub enum SnapshotClass {
     ///A structural authored or reference contract.
     #[serde(rename = "model")]
@@ -22834,6 +22336,126 @@ impl crate::typed::CellCodec for SolvePlanClass {
     }
 }
 impl crate::columnar::ArrowValue for SolvePlanClass {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?.parse()
+    }
+}
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum SolverTermination {
+    ///success
+    #[serde(rename = "success")]
+    Success,
+    ///stopped
+    #[serde(rename = "stopped")]
+    Stopped,
+    ///cancelled
+    #[serde(rename = "cancelled")]
+    Cancelled,
+    ///evaluation_failure
+    #[serde(rename = "evaluation_failure")]
+    EvaluationFailure,
+}
+impl SolverTermination {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 4usize] = [
+        Self::Success,
+        Self::Stopped,
+        Self::Cancelled,
+        Self::EvaluationFailure,
+    ];
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Success => "success",
+            Self::Stopped => "stopped",
+            Self::Cancelled => "cancelled",
+            Self::EvaluationFailure => "evaluation_failure",
+        }
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Success => 0usize,
+            Self::Stopped => 1usize,
+            Self::Cancelled => 2usize,
+            Self::EvaluationFailure => 3usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Success => None,
+            Self::Stopped => None,
+            Self::Cancelled => None,
+            Self::EvaluationFailure => None,
+        }
+    }
+}
+impl core::str::FromStr for SolverTermination {
+    type Err = crate::RelationError;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "success" => Ok(Self::Success),
+            "stopped" => Ok(Self::Stopped),
+            "cancelled" => Ok(Self::Cancelled),
+            "evaluation_failure" => Ok(Self::EvaluationFailure),
+            _ => {
+                Err(crate::RelationError::EnumMember {
+                    field: stringify!(SolverTermination).to_owned(),
+                    enumeration: stringify!(SolverTermination).to_owned(),
+                    value: value.to_owned(),
+                })
+            }
+        }
+    }
+}
+impl crate::typed::CellCodec for SolverTermination {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Enum(self.as_str())
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        match cell {
+            pse_schema::model::Cell::Enum(value) => value.parse(),
+            _ => Err(crate::typed::mismatch(stringify!(SolverTermination))),
+        }
+    }
+}
+impl crate::columnar::ArrowValue for SolverTermination {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,
@@ -25430,107 +25052,6 @@ impl crate::typed::CellCodec for TruthValue {
     }
 }
 impl crate::columnar::ArrowValue for TruthValue {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?.parse()
-    }
-}
-/// A string enumeration projected from the registry.
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    serde::Serialize,
-    serde::Deserialize
-)]
-#[allow(
-    clippy::enum_variant_names,
-    reason = "closed enum spellings preserve registry and sanctioned parity names"
-)]
-pub enum UnitConversionState {
-    ///resolved
-    #[serde(rename = "resolved")]
-    Resolved,
-    ///pending
-    #[serde(rename = "pending")]
-    Pending,
-}
-impl UnitConversionState {
-    /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = [Self::Resolved, Self::Pending];
-    /// The declared member spelling.
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::Resolved => "resolved",
-            Self::Pending => "pending",
-        }
-    }
-    /// The presentation ordinal, never a semantic identity.
-    pub const fn ordinal(self) -> usize {
-        match self {
-            Self::Resolved => 0usize,
-            Self::Pending => 1usize,
-        }
-    }
-    /// The sanctioned IDAES member name, where applicable.
-    #[allow(
-        clippy::match_same_arms,
-        clippy::unnecessary_wraps,
-        reason = "uniform optional parity-name projection follows one member declaration per arm"
-    )]
-    pub const fn idaes_name(self) -> Option<&'static str> {
-        match self {
-            Self::Resolved => None,
-            Self::Pending => None,
-        }
-    }
-}
-impl core::str::FromStr for UnitConversionState {
-    type Err = crate::RelationError;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "resolved" => Ok(Self::Resolved),
-            "pending" => Ok(Self::Pending),
-            _ => {
-                Err(crate::RelationError::EnumMember {
-                    field: stringify!(UnitConversionState).to_owned(),
-                    enumeration: stringify!(UnitConversionState).to_owned(),
-                    value: value.to_owned(),
-                })
-            }
-        }
-    }
-}
-impl crate::typed::CellCodec for UnitConversionState {
-    fn into_cell(self) -> pse_schema::model::Cell {
-        pse_schema::model::Cell::Enum(self.as_str())
-    }
-    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
-        match cell {
-            pse_schema::model::Cell::Enum(value) => value.parse(),
-            _ => Err(crate::typed::mismatch(stringify!(UnitConversionState))),
-        }
-    }
-}
-impl crate::columnar::ArrowValue for UnitConversionState {
     fn append(
         &self,
         output: &mut dyn arrow_array::builder::ArrayBuilder,

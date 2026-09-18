@@ -1,0 +1,14 @@
+{
+  "invariant": "runtime.retained_versions:unique:pk",
+  "rows": {
+    "runtime.retained_versions": [
+      {
+        "from_version": "[\"i64\",1]",
+        "reason": "[\"enum\",\"publication\"]",
+        "table_uri": "[\"text\",\"value-1\"]",
+        "through_version": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

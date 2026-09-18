@@ -3,7 +3,7 @@
 
 //! §6.10 case.
 
-use super::declarations::{column, relation, structure};
+use super::declarations::{column, relation, relation_version, structure};
 use crate::builder::RegistryBuilder;
 use crate::model::{FieldContract as T, Namespace as N, SnapshotClass as S};
 
@@ -81,84 +81,94 @@ fn declare_authored_case_specs(builder: &mut RegistryBuilder) {
 }
 
 fn declare_authored_case_spec_targets(builder: &mut RegistryBuilder) {
-    relation(
+    declare_targets(
         builder,
-        N::Authored,
         "case_spec_targets",
-        S::Case,
-        &["spec_id", "ordinal"],
-        vec![
-            column("spec_id", T::id()),
-            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
-            column("instance_id", T::id()),
-            column("member_kind", T::enumeration("TargetKind")),
-            column("symbol_decl_id", T::id()).optional(),
-            column("equation_decl_id", T::id())
-                .optional()
-                .with_fk("authored.template_equations", "equation_decl_id"),
-            column("port_template_id", T::id())
-                .optional()
-                .with_fk("authored.templates", "template_id"),
-            column("port_name", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("wildcard", T::native(arrow_schema::DataType::Boolean)),
-        ],
-        "blueprint §6.10 case: case_spec_targets.",
+        "spec_id",
+        "authored.case_specs",
     );
 }
-
 fn declare_authored_case_activation_targets(builder: &mut RegistryBuilder) {
-    relation(
+    declare_targets(
+        builder,
+        "case_activation_targets",
+        "activation_id",
+        "authored.case_activations",
+    );
+}
+fn declare_authored_observation_targets(builder: &mut RegistryBuilder) {
+    declare_targets(
+        builder,
+        "observation_targets",
+        "observation_id",
+        "authored.observations",
+    );
+}
+fn declare_targets(
+    builder: &mut RegistryBuilder,
+    name: &'static str,
+    key: &'static str,
+    source: &'static str,
+) {
+    relation_version(
         builder,
         N::Authored,
-        "case_activation_targets",
+        name,
+        2,
         S::Case,
-        &["activation_id", "ordinal"],
+        &[key, "ordinal"],
         vec![
-            column("activation_id", T::id()),
+            column(key, T::id()).with_fk(source, key),
             column("ordinal", T::nonnegative(i64::from(u16::MAX))),
-            column("instance_id", T::id()),
-            column("member_kind", T::enumeration("TargetKind")),
-            column("symbol_decl_id", T::id()).optional(),
-            column("equation_decl_id", T::id())
-                .optional()
-                .with_fk("authored.template_equations", "equation_decl_id"),
-            column("port_template_id", T::id())
-                .optional()
-                .with_fk("authored.templates", "template_id"),
-            column("port_name", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("wildcard", T::native(arrow_schema::DataType::Boolean)),
+            column("instance_id", T::id()).with_fk("authored.instances", "instance_id"),
+            column("member", target_member()),
         ],
-        "blueprint §6.10 case: case_activation_targets.",
+        "Complete selected target: instance plus exactly one member alternative.",
     );
 }
 
-fn declare_authored_observation_targets(builder: &mut RegistryBuilder) {
-    relation(
-        builder,
-        N::Authored,
-        "observation_targets",
-        S::Case,
-        &["observation_id", "ordinal"],
-        vec![
-            column("observation_id", T::id()),
-            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
-            column("instance_id", T::id()),
-            column("member_kind", T::enumeration("TargetKind")),
-            column("symbol_decl_id", T::id()).optional(),
-            column("equation_decl_id", T::id())
-                .optional()
-                .with_fk("authored.template_equations", "equation_decl_id"),
-            column("port_template_id", T::id())
-                .optional()
+/// A member owns its selector. Wildcards cannot carry a declaration or index.
+fn target_member() -> T {
+    let indexed = |name: &str, key: &str, relation: &str| {
+        T::structure(vec![
+            T::id().with_name(key).with_fk(relation, key),
+            T::extended(crate::model::ExtensionUse::IndexTuple)
+                .with_name("index")
+                .optional(),
+        ])
+        .with_name(name)
+        .optional()
+    };
+    T::structure(vec![
+        T::enumeration("TargetKind").with_name("kind"),
+        indexed("symbol", "symbol_decl_id", "authored.template_symbols"),
+        indexed("group", "symbol_decl_id", "authored.template_symbols"),
+        indexed(
+            "equation",
+            "equation_decl_id",
+            "authored.template_equations",
+        ),
+        T::structure(vec![
+            T::id()
+                .with_name("template_id")
                 .with_fk("authored.templates", "template_id"),
-            column("port_name", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("wildcard", T::native(arrow_schema::DataType::Boolean)),
-        ],
-        "blueprint §6.10 case: observation_targets.",
-    );
+            T::native(arrow_schema::DataType::Utf8).with_name("name"),
+        ])
+        .with_name("port")
+        .optional(),
+    ])
+    .with_alternative(
+        &crate::model::TaggedAlternative::new(
+            "kind",
+            [
+                ("symbol".into(), "symbol".into()),
+                ("group".into(), "group".into()),
+                ("equation".into(), "equation".into()),
+                ("port".into(), "port".into()),
+            ],
+        )
+        .with_unit("instance_wildcard"),
+    )
 }
 
 fn declare_authored_case_activations(builder: &mut RegistryBuilder) {
@@ -305,7 +315,7 @@ fn declare_authored_case_sets(builder: &mut RegistryBuilder) {
                     ("value", T::native(arrow_schema::DataType::Utf8)),
                 ])),
             ),
-            column("seed", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("seed", T::nonnegative(i64::MAX)).optional(),
             column("sample_count", T::nonnegative(i64::MAX)),
         ],
         "blueprint §6.10 case: case_sets.",

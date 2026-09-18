@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+#![allow(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
 //! Engineering declarations enter through source admission and the current native pipeline.
 #[path = "../../support/engineering_expectations.rs"]
 mod engineering_expectations;
@@ -9,6 +14,7 @@ mod native_pipeline;
 
 #[path = "../../support/engineering_sources.rs"]
 mod engineering_sources;
+
 use engineering_sources::{FCTP, FTPX, HEATER, MIXER, sources};
 use pse_ids::SemanticId;
 use pse_relations::generated::normalized;
@@ -16,26 +22,20 @@ use std::path::Path;
 
 #[tokio::test]
 async fn material_configuration_keeps_generated_members_and_native_support_together() {
-    use pse_relations::generated::{authored, provenance::pass_records};
+    use pse_relations::generated::authored;
     use std::collections::BTreeSet;
 
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap();
-    let committed = fixture
-        .commit(sources(root, &fixture.registry, HEATER, FTPX))
-        .await;
-    let report = fixture.run(committed, "P3").await.unwrap();
-    let stage = report.stages.last().unwrap();
+    let committed = fixture.source(sources(root, &fixture.registry, HEATER, FTPX));
+    let report = fixture.evaluate(committed, "P3").await.unwrap();
+    let stage = &report;
     let members = normalized::material_domain_members::View::from_checked(
-        stage
-            .snapshot
-            .relation("normalized", "material_domain_members")
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(stage, "normalized", "material_domain_members").unwrap(),
     )
     .unwrap()
     .rows()
@@ -59,11 +59,7 @@ async fn material_configuration_keeps_generated_members_and_native_support_toget
         ])
     );
     let domains = normalized::domain_members::View::from_checked(
-        stage
-            .snapshot
-            .relation("normalized", "domain_members")
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(stage, "normalized", "domain_members").unwrap(),
     )
     .unwrap()
     .rows()
@@ -75,17 +71,15 @@ async fn material_configuration_keeps_generated_members_and_native_support_toget
                 .any(|row| row.domain_id == member.domain_id && row.member_id == member.member_id)
         );
     }
-    let records = pass_records::View::from_checked(stage.record.relation().checked())
-        .unwrap()
-        .rows()
-        .unwrap();
-    let evidence = records
-        .iter()
-        .flat_map(|record| &record.derivations)
-        .filter(|derivation| {
-            derivation.relation_id == normalized::material_domain_members::RELATION_ID
-        })
-        .collect::<Vec<_>>();
+    let evidence = pse_relations::generated::provenance::derivations::View::from_checked(
+        native_pipeline::relation(stage, "provenance", "derivations").unwrap(),
+    )
+    .unwrap()
+    .rows()
+    .unwrap()
+    .into_iter()
+    .filter(|derivation| derivation.relation_id == normalized::material_domain_members::RELATION_ID)
+    .collect::<Vec<_>>();
     assert!(!evidence.is_empty());
     let supporting = evidence
         .iter()
@@ -109,52 +103,29 @@ async fn engineering_workflow(unit: &str, state: &str, expected_states: usize) {
         .with_env_filter("pse_compiler=info,pse_rules=debug")
         .with_ansi(false)
         .try_init();
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap();
     let documents = sources(root, &fixture.registry, unit, state);
-    let committed = fixture.commit(documents).await;
-    let report = fixture.run(committed, "P10").await.unwrap_or_else(|error| {
-        let findings = if let pse_compiler::CompilerError::AttemptFailed { record, .. } = &error {
-            pse_relations::generated::provenance::pass_records::View::from_checked(
-                record.relation().checked(),
-            )
-            .unwrap()
-            .rows()
-            .unwrap()
-            .into_iter()
-            .flat_map(|row| row.findings)
-            .map(|finding| {
-                format!(
-                    "{:?}: {} — {:?}",
-                    finding.check_id, finding.message, finding.evidence
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-        } else {
-            String::new()
-        };
-        let mut causes = vec![error.to_string()];
-        let mut source = std::error::Error::source(&error);
-        while let Some(cause) = source {
-            causes.push(cause.to_string());
-            source = cause.source();
-        }
-        panic!(
-            "engineering source-to-P10 failed: {}\n{findings}",
-            causes.join(": ")
-        );
-    });
-    let configured = &report.stages[0].snapshot;
+    let committed = fixture.source(documents);
+    let report = fixture
+        .evaluate(committed, "P10")
+        .await
+        .unwrap_or_else(|error| {
+            let mut causes = vec![error.to_string()];
+            let mut source = std::error::Error::source(&error);
+            while let Some(cause) = source {
+                causes.push(cause.to_string());
+                source = cause.source();
+            }
+            panic!("engineering source-to-P10 failed: {}", causes.join(": "));
+        });
+    let configured = &report;
     let instances = normalized::instance_bindings::View::from_checked(
-        configured
-            .relation("normalized", "instance_bindings")
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(configured, "normalized", "instance_bindings").unwrap(),
     )
     .unwrap()
     .rows()
@@ -173,7 +144,7 @@ async fn engineering_workflow(unit: &str, state: &str, expected_states: usize) {
         expected_states,
         "heater has two states; a two-inlet mixer has three"
     );
-    let canonical = &report.stages.last().unwrap().snapshot;
+    let canonical = &report;
     engineering_expectations::check(
         canonical,
         &instances,

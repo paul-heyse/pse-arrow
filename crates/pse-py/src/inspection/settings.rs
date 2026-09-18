@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Immutable projection of the sole Rust runtime and store configuration.
+//! Immutable projection of the sole Rust runtime configuration.
 use super::errors;
-use pse_catalog::{CatalogError, ExecutionSettings, ThreadBudget, store::open::StoreLimits};
-use pse_ids::Envelope;
+use pse_catalog::{CatalogError, ExecutionSettings, ThreadBudget};
 use pse_runtime::ResourceBudget;
 use pyo3::prelude::*;
 use std::{num::NonZeroUsize, path::PathBuf};
@@ -14,7 +13,6 @@ use std::{num::NonZeroUsize, path::PathBuf};
 #[derive(Clone, Debug)]
 pub(crate) struct EngineSettings {
     pub(super) budget: ResourceBudget,
-    pub(super) limits: StoreLimits,
 }
 
 #[pymethods]
@@ -22,9 +20,10 @@ impl EngineSettings {
     #[new]
     #[expect(
         clippy::too_many_arguments,
+        clippy::needless_pass_by_value,
         reason = "keyword-only Python projection of the existing Rust resource and execution settings"
     )]
-    #[pyo3(signature = (*, memory_limit_bytes, threads, spill_dir: "str", max_spill_bytes, batch_size, max_object_bytes, max_control_bytes, target_partitions=None, top_consumers=None, hashing_may_use_pool=false, spill_compression=None, max_spill_file_size_bytes=None, sort_spill_reservation_bytes=None, time_zone=None, max_rows=None, max_normalized_bytes=None))]
+    #[pyo3(signature = (*, memory_limit_bytes, threads, spill_dir: "str", max_spill_bytes, batch_size, target_partitions=None, top_consumers=None, hashing_may_use_pool=false, spill_compression=None, max_spill_file_size_bytes=None, sort_spill_reservation_bytes=None, time_zone=None, cache=None))]
     fn new(
         py: Python<'_>,
         memory_limit_bytes: usize,
@@ -32,8 +31,6 @@ impl EngineSettings {
         spill_dir: PathBuf,
         max_spill_bytes: u64,
         batch_size: usize,
-        max_object_bytes: usize,
-        max_control_bytes: usize,
         target_partitions: Option<usize>,
         top_consumers: Option<usize>,
         hashing_may_use_pool: bool,
@@ -41,12 +38,11 @@ impl EngineSettings {
         max_spill_file_size_bytes: Option<u64>,
         sort_spill_reservation_bytes: Option<usize>,
         time_zone: Option<String>,
-        max_rows: Option<u64>,
-        max_normalized_bytes: Option<u64>,
+        cache: Option<PyRef<'_, super::CacheSettings>>,
     ) -> PyResult<Self> {
+        let cache = cache.map(|cache| cache.budget.clone());
         let result = py.detach(|| {
             let defaults = ExecutionSettings::default();
-            let envelope = Envelope::default();
             let threads = positive(threads, "threads must be positive")?;
             let budget = ResourceBudget {
                 memory_limit_bytes: positive(memory_limit_bytes, "memory limit must be positive")?,
@@ -78,26 +74,25 @@ impl EngineSettings {
                     time_zone: time_zone.unwrap_or(defaults.time_zone),
                 },
                 hashing_may_use_pool,
+                cache: cache
+                    .unwrap_or_else(|| pse_runtime::CacheBudget::for_memory(memory_limit_bytes)),
             };
             budget
                 .validate()
                 .map_err(|error| CatalogError::Semantic(std::sync::Arc::new(error)))?;
-            let limits = StoreLimits {
-                max_object_bytes,
-                max_control_bytes,
-                envelope: Envelope::new(
-                    max_rows.unwrap_or(envelope.max_rows),
-                    max_normalized_bytes.unwrap_or(envelope.max_normalized_bytes),
-                )?,
-            };
-            limits.validate()?;
-            Ok(Self { budget, limits })
+            Ok(Self { budget })
         });
         result.map_err(|error: CatalogError| errors::diagnostic(py, &error))
     }
     #[getter]
     fn memory_limit_bytes(&self) -> usize {
         self.budget.memory_limit_bytes.get()
+    }
+    #[getter]
+    fn cache(&self) -> super::CacheSettings {
+        super::CacheSettings {
+            budget: self.budget.cache.clone(),
+        }
     }
     #[getter]
     fn threads(&self) -> usize {
@@ -142,22 +137,6 @@ impl EngineSettings {
     #[getter]
     fn time_zone(&self) -> &str {
         &self.budget.execution.time_zone
-    }
-    #[getter]
-    fn max_object_bytes(&self) -> usize {
-        self.limits.max_object_bytes
-    }
-    #[getter]
-    fn max_control_bytes(&self) -> usize {
-        self.limits.max_control_bytes
-    }
-    #[getter]
-    fn max_rows(&self) -> u64 {
-        self.limits.envelope.max_rows
-    }
-    #[getter]
-    fn max_normalized_bytes(&self) -> u64 {
-        self.limits.envelope.max_normalized_bytes
     }
 }
 

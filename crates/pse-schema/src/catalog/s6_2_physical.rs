@@ -46,7 +46,7 @@ fn declare_reference_dimensions(builder: &mut RegistryBuilder) {
         S::Model,
         &["ordinal"],
         vec![
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("name", T::native(arrow_schema::DataType::Utf8)),
         ],
         "blueprint §6.2 physical type: dimensions.",
@@ -258,23 +258,19 @@ fn declare_reference_quantity_operations(builder: &mut RegistryBuilder) {
             column("reference_rule", T::enumeration("ReferenceRule")),
             column("scale_rule", T::enumeration("QuantityScaleRule")),
             column("shape_rule", T::enumeration("QuantityShapeRule")),
-            column("basis_source", T::native(arrow_schema::DataType::UInt16)).optional(),
-            column(
-                "reference_source",
-                T::native(arrow_schema::DataType::UInt16),
-            )
-            .optional(),
-            column("scale_source", T::native(arrow_schema::DataType::UInt16)).optional(),
-            column("shape_source", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column("basis_source", T::nonnegative(i64::from(u16::MAX))).optional(),
+            column("reference_source", T::nonnegative(i64::from(u16::MAX))).optional(),
+            column("scale_source", T::nonnegative(i64::from(u16::MAX))).optional(),
+            column("shape_source", T::nonnegative(i64::from(u16::MAX))).optional(),
             column("subject_rule", T::enumeration("SubjectRule")),
-            column("subject_source", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column("subject_source", T::nonnegative(i64::from(u16::MAX))).optional(),
             column("result_subject_kind", T::enumeration("SubjectKind")).optional(),
             column("result_basis_id", T::id()).optional(),
             column("result_reference_state_id", T::id()).optional(),
             column(
                 "input_conversions",
                 T::list(structure(vec![
-                    ("operand", T::native(arrow_schema::DataType::UInt16)),
+                    ("operand", T::nonnegative(i64::from(u16::MAX))),
                     ("conversion_id", T::id()),
                 ])),
             ),

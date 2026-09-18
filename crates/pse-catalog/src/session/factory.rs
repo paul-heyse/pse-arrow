@@ -18,15 +18,44 @@ use std::{collections::BTreeMap, sync::Arc};
 /// Reusable session construction settings with one shared deployment memory pool.
 #[derive(Debug)]
 pub struct SessionFactory {
+    pub(super) implementation_generation: pse_ids::SemanticId,
     pub(super) state: SessionState,
     pub(super) reserver: Arc<dyn MemoryReserver>,
     pub(super) profile: EngineProfile,
     pub(super) rules: Arc<super::EngineRules>,
-    pub(super) function_bindings: Arc<super::functions::Functions>,
     pub(super) requirement_planner: Option<Arc<dyn super::policy::RequirementPlanner>>,
     pub(super) policies: Arc<Vec<pse_schema::model::provider::ProviderPolicy>>,
 }
 impl SessionFactory {
+    fn refresh_cache_identity(&mut self) {
+        let config = self.state.config().clone().with_extension(Arc::new(
+            crate::cache_service::resident::CacheIdentity {
+                generation: self.implementation_generation,
+                policies: self.policies.clone(),
+            },
+        ));
+        self.state = SessionStateBuilder::new_from_existing(self.state.clone())
+            .with_config(config)
+            .build();
+    }
+    /// Carry the deployment cache owner in native state; cloning a scope retains it.
+    #[must_use]
+    pub fn with_cache_service(
+        mut self,
+        caches: Arc<crate::cache_service::NativeCacheService>,
+    ) -> Self {
+        let mut config = self.state.config().clone();
+        config
+            .options_mut()
+            .execution
+            .parquet
+            .max_predicate_cache_size = Some(caches.policy().predicate_cache_bytes);
+        let config = config.with_extension(caches);
+        self.state = SessionStateBuilder::new_from_existing(self.state)
+            .with_config(config)
+            .build();
+        self
+    }
     /// Install an explicitly composed native query planner before opening sessions.
     /// All actual functions, rules, settings and resources are retained.
     #[must_use]
@@ -34,23 +63,12 @@ impl SessionFactory {
         mut self,
         planner: Arc<dyn datafusion::execution::context::QueryPlanner + Send + Sync>,
     ) -> Self {
+        self.implementation_generation = new_generation();
         self.state = SessionStateBuilder::new_from_existing(self.state)
             .with_query_planner(planner)
             .build();
+        self.refresh_cache_identity();
         self
-    }
-    /// Open a read-only session over exact admitted snapshots using this factory's
-    /// shared runtime, allocator and immutable engine profile.
-    /// # Errors
-    /// Invalid or ambiguous snapshot bindings, cancellation or configuration failure.
-    pub fn open_session(
-        &self,
-        snapshots: Vec<Arc<crate::Snapshot>>,
-        registry: Arc<Registry>,
-        cancel: &CancellationToken,
-    ) -> Result<SnapshotSession, CatalogError> {
-        cancel.checkpoint()?;
-        super::snapshot_session::bind_snapshots(snapshots, registry, self, cancel)
     }
     /// Bind the already constructed shared runtime and explicit execution profile.
     /// # Errors
@@ -97,6 +115,9 @@ impl SessionFactory {
         builder
             .query_planner()
             .get_or_insert_with(|| Arc::new(super::planner::UnifiedPlanner::default()));
+        builder
+            .cache_factory()
+            .get_or_insert_with(|| Arc::new(super::cache::NativeCacheFactory));
         let state = super::scalar::register(builder, Arc::clone(&reserver))
             .with_runtime_env(runtime)
             .build();
@@ -110,16 +131,17 @@ impl SessionFactory {
             optimizers: state.optimizer().rules.clone(),
             physical: state.physical_optimizers().to_vec(),
         });
-        let function_bindings = super::functions::Functions::from_state(&state);
-        Self {
+        let mut factory = Self {
+            implementation_generation: new_generation(),
             state,
             reserver,
             profile: rules.profile(version),
             rules,
-            function_bindings,
             requirement_planner: None,
             policies: Arc::default(),
-        }
+        };
+        factory.refresh_cache_identity();
+        factory
     }
     /// Construct a constraint-free session over the complete actual candidate rows.
     /// # Errors
@@ -161,22 +183,25 @@ impl SessionFactory {
         cancel: &CancellationToken,
     ) -> Result<SnapshotSession, CatalogError> {
         cancel.checkpoint()?;
-        let publication = crate::delta::publication::Publication::open(
-            root,
-            &registry,
-            Arc::new(self.state.clone()),
+        Ok(
+            crate::delta::publication::Publication::open(root, registry, self, cancel)
+                .await?
+                .into_session(),
         )
-        .await
-        .map_err(super::engine)?;
-        super::facts::bind_publication(&publication, registry, self, cancel).await
     }
+    pub(crate) fn native_state(&self) -> &SessionState {
+        &self.state
+    }
+
     /// Install the actual invariant lowering implementation before opening sessions.
     #[must_use]
     pub fn with_requirement_planner(
         mut self,
         planner: Arc<dyn super::policy::RequirementPlanner>,
     ) -> Self {
+        self.implementation_generation = new_generation();
         self.requirement_planner = Some(planner);
+        self.refresh_cache_identity();
         self
     }
     /// Select the canonical provider policies inherited by every catalog operation.
@@ -206,6 +231,11 @@ impl SessionFactory {
             }),
         )?;
         self.policies = Arc::new(policies);
+        self.refresh_cache_identity();
         Ok(self)
     }
+}
+
+pub(super) fn new_generation() -> pse_ids::SemanticId {
+    pse_ids::SemanticId::from_bytes(*uuid::Uuid::now_v7().as_bytes())
 }

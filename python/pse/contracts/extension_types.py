@@ -192,7 +192,7 @@ class PseOrdinalRef(_PseExtensionType):
     _extension_name = "pse.ordinal_ref"
     _metadata_version = 1
     _binding_key = "target_relation_id"
-    _prototype_binding = "56752e2d6020f4af611a09376e97ac67"
+    _prototype_binding = "e5ee2bd01eccf9dc15f58ccb3db8118c"
 
     @classmethod
     def _declared_storage(cls) -> pa.DataType:
@@ -218,7 +218,7 @@ class PseEnum(_PseExtensionType):
     _extension_name = "pse.enum"
     _metadata_version = 1
     _binding_key = "enum_id"
-    _prototype_binding = "08153de61514e9f76900b32011bbae90"
+    _prototype_binding = "e2fce5f9cac7fb7aa000b274ed712fd0"
 
     @classmethod
     def _declared_storage(cls) -> pa.DataType:

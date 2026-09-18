@@ -24,11 +24,9 @@ import msgspec
 import msgspec.json
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
-from pse.contracts.manifest import Manifest
 from pse.contracts.values import FIELD_NAME_METADATA, ContentHash, SemanticId
 
 __all__ = [
-    "Manifest",
     "converter",
     "decode_json",
     "encode_json",

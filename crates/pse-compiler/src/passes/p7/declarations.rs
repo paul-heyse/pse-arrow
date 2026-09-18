@@ -14,6 +14,10 @@ use pse_templates::{GroupBinding, identity};
 use std::collections::BTreeMap;
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "declare_symbols keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn declare_symbols(&mut self) -> Result<(), CompilerError> {
         let mut instances = self.inventory.instances.clone();
         instances.sort_by_key(|row| row.instance_id);
@@ -101,7 +105,7 @@ impl Realizer<'_> {
                     }
                     let row = compiled::symbols::Row {
                         symbol_id,
-                        ordinal: u64::try_from(self.symbols.len())
+                        ordinal: i64::try_from(self.symbols.len())
                             .map_err(|_| invalid("symbol ordinal overflow"))?,
                         owner_instance_id: instance.instance_id,
                         symbol_decl_id: declaration.symbol_decl_id,

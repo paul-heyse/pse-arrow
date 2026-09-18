@@ -21,15 +21,15 @@
 //!
 //! # Layout
 //!
-//! - [`model`] — the declaration types: relations, columns, logical types, extension
-//!   types, enumerations, invariants, migrations, passes, rules, cells, the manifest.
+//! - [`model`] — native fields, relation and algorithm contracts, extension types,
+//!   enumerations, invariants, inference queries and registry rows.
 //! - [`catalog`] — every declaration the platform ships, in one fixed order.
 //! - [`builder`] — assembly: declarations in, an immutable registry out.
 //! - [`fingerprint`] — the registry and per-relation digests (ADR-0050).
 //! - [`arrow`] — the Arrow schema of a declared relation, metadata attached at
 //!   construction (§4.3).
 //! - [`ext_metadata`] — the canonical `ARROW:extension:metadata` strings (§4.4).
-//! - [`membership`] — snapshot membership, generated from `snapshot_class` (§5.3 step 7).
+//! - [`delta`] — declared native Delta policies and field storage contracts.
 //! - [`codegen`] — the generated trees (ADR-0031, ADR-0051).
 //! - [`error`] — [`SchemaError`] with its §23.2 codes.
 //!
@@ -57,7 +57,6 @@ pub mod ext_metadata;
 pub mod field_contract;
 pub mod fingerprint;
 pub mod math;
-pub mod membership;
 pub mod model;
 mod rule_deps;
 
@@ -78,7 +77,7 @@ static REGISTRY: OnceLock<Result<Arc<Registry>, SchemaError>> = OnceLock::new();
 /// # Errors
 ///
 /// The errors of [`catalog::assemble`]: a duplicate declaration, a dangling reference, a
-/// derived relation without a granularity, a broken stage graph or a rule that keys on a
+/// derived relation without a granularity, an invalid algorithm contract or a rule that keys on a
 /// float.
 ///
 /// ```

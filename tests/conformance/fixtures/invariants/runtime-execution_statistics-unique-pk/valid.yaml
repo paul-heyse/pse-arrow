@@ -1,0 +1,12 @@
+{
+  "invariant": "runtime.execution_statistics:unique:pk",
+  "rows": {
+    "runtime.execution_statistics": [
+      {
+        "count": "[\"i64\",1]",
+        "name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

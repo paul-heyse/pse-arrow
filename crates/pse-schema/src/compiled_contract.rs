@@ -28,6 +28,7 @@ pub fn relation(reg: &Registry, spec: &RelationSpec) -> Result<Cell, SchemaError
         primary_key,
         columns,
         checks: _, // The complete native checks are in relation schema metadata below.
+        delta_properties: _, // Native policies are included in the same metadata.
         doc,
         fingerprint: _,
     } = spec;

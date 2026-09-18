@@ -74,6 +74,10 @@ fn alias(input: LogicalPlan, name: &str) -> Result<LogicalPlan, CompilerError> {
 
 /// Explicit group quantities seed a native finite closure. Projection and reindexing
 /// preserve all physical axes except shape; the exact destination factors supply shape.
+#[expect(
+    clippy::too_many_lines,
+    reason = "groups keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) fn groups(
     session: &SnapshotSession,
     cancel: &CancellationToken,

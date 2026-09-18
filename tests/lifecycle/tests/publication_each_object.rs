@@ -1,222 +1,286 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Every observed object-write boundary preserves the previous complete visible model.
+//! Interrupt actual Delta writes and require a coherent old or committed publication.
 #![allow(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "bounded test fixture construction reports direct assertion failures"
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
 )]
-
 #[path = "../src/fault_store.rs"]
 mod fault_store;
-mod support;
 
+use datafusion::{
+    arrow::array::Int64Array, common::ResolvedTableReference, execution::runtime_env::RuntimeEnv,
+};
 use fault_store::{Fault, FaultPlan, FaultStore};
-use pse_catalog::store::membership::AdmissionContext;
-use pse_catalog::store::publish::{BundleDraft, RelationDraft};
-use pse_catalog::{Catalog, EncodingPolicy, RefName, RelationContract};
-use pse_ids::{CancellationToken, FixedBudget, SnapshotKind};
-use pse_schema::model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass};
-use pse_schema::{Registry, RegistryBuilder};
-use std::collections::BTreeMap;
-use std::sync::Arc;
-
-fn registry() -> Arc<Registry> {
-    let mut builder = RegistryBuilder::new();
-    for name in ["first", "second", "third"] {
-        builder.declare_relation(
-            RelationDecl::new(
-                Namespace::Authored,
-                name,
-                1,
-                Authority::Authored,
-                SnapshotClass::Model,
-                "Multi-object publication fixture",
-            )
-            .pk(&["id"])
-            .columns(vec![
-                FieldContract::key(
-                    "id",
-                    FieldContract::native(arrow::datatypes::DataType::UInt64),
-                    "Key",
-                ),
-                FieldContract::payload(
-                    "value",
-                    FieldContract::native(arrow::datatypes::DataType::UInt64),
-                    "Value",
-                ),
-            ]),
-        );
-    }
-    Arc::new(builder.build().expect("three declared relations"))
+use pse_catalog::{
+    CatalogError,
+    artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
+    delta::publication::{Publication, PublicationRoot},
+    session::{ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile},
+};
+use pse_ids::{CancellationToken, FixedBudget, SemanticId};
+use pse_relations::generated::{enums::PublicationKind, runtime::publications};
+use pse_schema::{
+    Registry, RegistryBuilder,
+    model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
+};
+use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
+fn id(value: u8) -> SemanticId {
+    SemanticId::from_bytes([value; 16])
 }
-
-fn draft(catalog: &Catalog, value: u64, cancel: &CancellationToken) -> BundleDraft {
-    let context = AdmissionContext::default();
-    let relations = catalog
-        .registry()
-        .relations()
-        .iter()
-        .map(|spec| {
-            let batch = pse_relations::cells::batch_from_cells_owned(
-                catalog.registry(),
-                spec,
-                &[vec![Cell::U64(1), Cell::U64(value)]],
-                catalog.reserver().as_ref(),
-                cancel,
-            )
-            .expect("reserved rows");
-            (
-                pse_ids::model_port_name("authored", spec.id),
-                RelationDraft {
-                    contract: Arc::new(
-                        RelationContract::from_spec(
-                            catalog.registry(),
-                            spec,
-                            EncodingPolicy::IpcFileAndParquet,
-                        )
-                        .expect("dual encoding contract"),
+fn name(table: &str) -> ResolvedTableReference {
+    ResolvedTableReference {
+        catalog: "artifact".into(),
+        schema: "authored".into(),
+        table: table.into(),
+    }
+}
+struct Fixture {
+    registry: Arc<Registry>,
+    factory: SessionFactory,
+    store: Arc<FaultStore>,
+    base: url::Url,
+}
+impl Fixture {
+    fn new() -> Self {
+        let mut builder = RegistryBuilder::new();
+        pse_schema::catalog::declare_publications(&mut builder);
+        for table in ["first", "second", "third"] {
+            builder.declare_relation(
+                RelationDecl::new(
+                    Namespace::Authored,
+                    table,
+                    1,
+                    Authority::Authored,
+                    SnapshotClass::Model,
+                    "Delta publication fault fixture",
+                )
+                .pk(&["id"])
+                .delta_properties([("delta.checkpointInterval".into(), "1".into())])
+                .columns(vec![
+                    FieldContract::key(
+                        "id",
+                        FieldContract::native(arrow::datatypes::DataType::Int64),
+                        "Key",
                     ),
-                    batches: vec![batch],
-                },
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
-    BundleDraft {
-        manifest: catalog
-            .manifest_template(SnapshotKind::Model, &context)
-            .expect("manifest"),
-        relations,
-        context,
-    }
-}
-
-async fn successful_trace() -> Vec<String> {
-    let store = FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
-    let budget = FixedBudget::new(64 << 20);
-    let catalog = support::catalog(store.clone(), registry(), budget.clone());
-    let cancel = CancellationToken::default();
-    let name = RefName::parse("main").expect("name");
-    let old = catalog
-        .publish_bundle(draft(&catalog, 1, &cancel), &cancel)
-        .await
-        .expect("old");
-    catalog
-        .compare_and_swap_ref(&name, None, &old, &cancel)
-        .await
-        .expect("initial head");
-    let observed = catalog
-        .read_ref(&name, &cancel)
-        .await
-        .expect("read")
-        .expect("head");
-    store.clear_trace();
-    let next = catalog
-        .publish_bundle(draft(&catalog, 99, &cancel), &cancel)
-        .await
-        .expect("next");
-    catalog
-        .compare_and_swap_ref(&name, Some(&observed), &next, &cancel)
-        .await
-        .expect("CAS");
-    let trace = store.put_trace();
-    assert_eq!(
-        trace.iter().filter(|p| p.starts_with("relations/")).count(),
-        6
-    );
-    assert_eq!(
-        trace.iter().filter(|p| p.starts_with("manifests/")).count(),
-        1
-    );
-    assert_eq!(trace.iter().filter(|p| p.starts_with("refs/")).count(), 1);
-    assert_eq!(
-        trace.iter().filter(|p| p.starts_with("contexts/")).count(),
-        1
-    );
-    drop((old, next, observed, catalog, store));
-    assert_eq!(budget.reserved(), 0);
-    trace
-}
-
-#[tokio::test]
-async fn every_actual_object_write_can_fail_without_publishing_a_mixed_snapshot() {
-    let trace = successful_trace().await;
-    // Observe successful CAS on InMemory, then replay each exact destination on
-    // LocalFileSystem. The latter owns persistent bytes on disk, so abandoned
-    // caller buffers must return to the observed-reference reservation baseline.
-    for (index, interrupted_path) in trace.iter().enumerate() {
-        interrupt_at(index, interrupted_path, &trace).await;
-    }
-}
-
-async fn interrupt_at(index: usize, interrupted_path: &str, trace: &[String]) {
-    let directory = tempfile::tempdir().expect("store");
-    let backend = Arc::new(
-        object_store::local::LocalFileSystem::new_with_prefix(directory.path()).expect("local"),
-    );
-    let store = FaultStore::new(backend);
-    let budget = FixedBudget::new(64 << 20);
-    let catalog = support::catalog(store.clone(), registry(), budget.clone());
-    let cancel = CancellationToken::default();
-    let name = RefName::parse("main").expect("name");
-    let old = catalog
-        .publish_bundle(draft(&catalog, 1, &cancel), &cancel)
-        .await
-        .expect("old");
-    catalog
-        .compare_and_swap_ref(&name, None, &old, &cancel)
-        .await
-        .expect("head");
-    let reference = old.manifest_ref();
-    drop(old);
-    let observed = catalog
-        .read_ref(&name, &cancel)
-        .await
-        .expect("read")
-        .expect("head");
-    let baseline = budget.reserved();
-    store.arm(FaultPlan {
-        operation: "put",
-        prefix: String::new(),
-        call: index + 1,
-        fault: Fault::FailBefore,
-    });
-    let result = match catalog
-        .publish_bundle(draft(&catalog, 99, &cancel), &cancel)
-        .await
-    {
-        Ok(next) => {
-            catalog
-                .compare_and_swap_ref(&name, Some(&observed), &next, &cancel)
-                .await
+                    FieldContract::payload(
+                        "value",
+                        FieldContract::native(arrow::datatypes::DataType::Int64),
+                        "Value",
+                    ),
+                ]),
+            );
         }
-        Err(error) => Err(error),
-    };
-    assert!(result.is_err(), "boundary={interrupted_path}");
-    assert_eq!(store.fired(), 1);
-    assert_eq!(store.put_trace(), trace[..=index]);
-    assert_eq!(
-        budget.reserved(),
-        baseline,
-        "all abandoned candidates released"
-    );
-    let restored = catalog
-        .read_snapshot(&name, &AdmissionContext::default(), &cancel)
-        .await
-        .expect("previous full admission")
-        .expect("head");
-    assert_eq!(restored.manifest_ref(), reference);
-    assert_eq!(restored.relations().len(), 3);
-    for spec in catalog.registry().relations() {
-        let relation = restored
-            .relation("authored", spec.key.name)
-            .expect("old member");
-        assert_eq!(
-            pse_relations::cells::cells_from_batch(catalog.registry(), spec, relation.batch())
-                .expect("actual old values"),
-            vec![vec![Cell::U64(1), Cell::U64(1)]]
-        );
+        let registry = Arc::new(builder.build().unwrap());
+        let runtime = Arc::new(RuntimeEnv::default());
+        let mut cache_policy = pse_catalog::cache_service::CacheBudget::for_memory(64 << 20);
+        cache_policy.crc_replay_max_commits = 16;
+        cache_policy.checksum_interval = 1;
+        let caches =
+            pse_catalog::cache_service::NativeCacheService::new(cache_policy, &runtime.memory_pool)
+                .unwrap();
+        let base = url::Url::parse("memory://lifecycle/").unwrap();
+        let store = FaultStore::new(Arc::new(object_store::memory::InMemory::new()));
+        runtime.register_object_store(&base, store.clone());
+        let factory = SessionFactory::new(
+            runtime,
+            FixedBudget::new(64 << 20),
+            ExecutionSettings::default(),
+            ThreadBudget {
+                pool_threads: NonZeroUsize::MIN,
+                target_partitions: NonZeroUsize::MIN,
+            },
+            native_engine_profile(),
+        )
+        .unwrap()
+        .with_cache_service(caches);
+        Self {
+            registry,
+            factory,
+            store,
+            base,
+        }
     }
-    drop((restored, observed));
-    assert_eq!(budget.reserved(), 0);
+    async fn publish(
+        &self,
+        attempt: u8,
+        parent: Option<u8>,
+        value: i64,
+    ) -> Result<PublicationRoot, CatalogError> {
+        let cancel = CancellationToken::new();
+        let mut batches = BTreeMap::new();
+        for table in ["first", "second", "third"] {
+            let spec = self
+                .registry
+                .relation(&format!("authored.{table}"))
+                .unwrap();
+            batches.insert(
+                spec.key,
+                pse_relations::cells::batch_from_cells(
+                    &self.registry,
+                    spec,
+                    &[vec![Cell::I64(1), Cell::I64(value)]],
+                )
+                .unwrap(),
+            );
+        }
+        let session = self
+            .factory
+            .candidate(batches, self.registry.clone(), &cancel)?;
+        let outputs = session
+            .input_keys()
+            .map(|key| {
+                let reference = session.table_reference(&key).unwrap();
+                let source = session
+                    .relation_plan(&ResolvedTableReference {
+                        catalog: reference.catalog().unwrap().into(),
+                        schema: reference.schema().unwrap().into(),
+                        table: reference.table().into(),
+                    })
+                    .unwrap();
+                (
+                    name(key.name),
+                    RelationOutput {
+                        relation_id: source.relation_id(),
+                        plan: source.plan().clone(),
+                    },
+                )
+            })
+            .collect();
+        let plan = ArtifactPlan::new(session, outputs, &cancel)?;
+        let control = self.base.join("control/").unwrap();
+        let header = publications::Row {
+            workspace_id: id(1),
+            publication_id: id(attempt),
+            parent_publication_id: parent.map(id),
+            attempt_id: id(attempt + 100),
+            kind: PublicationKind::Relations,
+            inputs: vec![],
+            members: vec![],
+        };
+        let destinations = plan
+            .outputs()
+            .keys()
+            .map(|reference| {
+                (
+                    reference.clone(),
+                    self.base
+                        .join(&format!("members/{attempt}/{}/", reference.table))
+                        .unwrap(),
+                )
+            })
+            .collect();
+        let result = plan
+            .prepare_publication(
+                PublicationTarget {
+                    reference: ResolvedTableReference {
+                        catalog: "artifact".into(),
+                        schema: "runtime".into(),
+                        table: "publications".into(),
+                    },
+                    location: control.clone(),
+                },
+                header,
+                destinations,
+                vec![],
+                &cancel,
+            )?
+            .execute(&cancel)
+            .await?;
+        let version = result.batches()[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap()
+            .value(0);
+        Ok(PublicationRoot {
+            location: control,
+            version,
+        })
+    }
+    async fn latest(&self) -> Publication {
+        let control = self.base.join("control/").unwrap();
+        let table = deltalake::DeltaTableBuilder::from_url(control.clone())
+            .unwrap()
+            .with_storage_backend(self.store.clone(), control.clone())
+            .load()
+            .await
+            .unwrap();
+        let root = PublicationRoot {
+            location: control,
+            version: i64::try_from(table.version().unwrap()).unwrap(),
+        };
+        Publication::open(
+            root,
+            self.registry.clone(),
+            &self.factory,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap()
+    }
+    async fn assert_values(&self, publication: &Publication, expected: i64) {
+        assert_eq!(publication.record().members.len(), 3);
+        for table in ["first", "second", "third"] {
+            let value = publication
+                .session()
+                .capture_relation(&name(table), &CancellationToken::new())
+                .await
+                .unwrap();
+            assert_eq!(value.checked().batch().num_rows(), 1);
+            let value = value
+                .checked()
+                .batch()
+                .column(1)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            assert_eq!(value.value(0), expected);
+        }
+    }
+}
+#[tokio::test]
+async fn every_actual_delta_write_boundary_preserves_a_complete_publication() {
+    let complete = Fixture::new();
+    complete.publish(2, None, 1).await.unwrap();
+    complete.store.clear_trace();
+    complete.publish(3, Some(2), 99).await.unwrap();
+    let trace = complete.store.put_trace();
+    assert!(trace.iter().any(|path| path.starts_with("members/3/")));
+    assert!(
+        trace
+            .iter()
+            .any(|path| path.starts_with("control/_delta_log/"))
+    );
+    for (index, path) in trace.iter().enumerate() {
+        let fixture = Fixture::new();
+        let old = fixture.publish(2, None, 1).await.unwrap();
+        fixture.store.arm(FaultPlan {
+            operation: "put",
+            prefix: String::new(),
+            call: index + 1,
+            fault: Fault::FailBefore,
+        });
+        let result = fixture.publish(3, Some(2), 99).await;
+        assert_eq!(fixture.store.fired(), 1, "actual write {index}: {path}");
+        let latest = fixture.latest().await;
+        // A native optional post-commit write may fail after the transaction settled.
+        // In either outcome the visible control row selects one complete vector.
+        if let Ok(root) = result {
+            assert_eq!(latest.root(), &root);
+            fixture.assert_values(&latest, 99).await;
+        } else {
+            assert_eq!(latest.root(), &old);
+            fixture.assert_values(&latest, 1).await;
+        }
+        let original = Publication::open(
+            old,
+            fixture.registry.clone(),
+            &fixture.factory,
+            &CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+        fixture.assert_values(&original, 1).await;
+    }
 }

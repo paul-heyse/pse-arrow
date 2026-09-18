@@ -75,7 +75,7 @@ pub enum GuardRef {
         /// Source expression identity.
         source_id: SemanticId,
         /// Predicate ordinal local to that source.
-        predicate_id: u64,
+        predicate_id: i64,
     },
 }
 impl GuardRef {
@@ -95,26 +95,6 @@ impl GuardRef {
             node,
             kind: "predicate",
         })
-    }
-    /// Admit exact nullable relation alternatives.
-    ///
-    /// # Errors
-    /// Rejects absent, incomplete or overlapping math/predicate alternatives.
-    pub fn from_columns(
-        math: Option<NodeId>,
-        source: Option<SemanticId>,
-        predicate: Option<u64>,
-    ) -> Result<Self, MathIrError> {
-        match (math, source, predicate) {
-            (Some(node), None, None) => Ok(Self::Math(node)),
-            (None, Some(source_id), Some(predicate_id)) => Ok(Self::Predicate {
-                source_id,
-                predicate_id,
-            }),
-            _ => Err(MathIrError::malformed(
-                "guard reference requires exactly one complete alternative",
-            )),
-        }
     }
 }
 impl From<NodeId> for GuardRef {

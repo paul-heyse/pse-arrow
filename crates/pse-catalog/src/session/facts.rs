@@ -3,7 +3,7 @@
 
 //! Finite algorithm inputs own Arrow facts and exact source selections, never a store graph.
 use super::{SnapshotSession, engine};
-use crate::{CatalogError, delta::publication::Publication};
+use crate::CatalogError;
 use datafusion::common::{ResolvedTableReference, TableReference};
 use pse_ids::CancellationToken;
 use pse_relations::{columnar::FieldCheckedBatch, generated::runtime::publications};
@@ -14,8 +14,8 @@ use std::{collections::BTreeMap, sync::Arc};
 /// A durable selection is minted only by executing the actual published provider.
 #[derive(Clone, Debug)]
 pub struct RelationFacts {
-    checked: FieldCheckedBatch,
-    selection: Option<publications::RuntimePublicationsFieldMembersItem>,
+    pub(super) checked: FieldCheckedBatch,
+    pub(super) selection: Option<publications::RuntimePublicationsFieldMembersItem>,
 }
 impl RelationFacts {
     /// Retain generated or already checked temporary facts without allocating or
@@ -44,16 +44,45 @@ impl SnapshotSession {
     pub fn selected_member(
         &self,
         reference: &ResolvedTableReference,
-    ) -> Result<&publications::RuntimePublicationsFieldMembersItem, CatalogError> {
+    ) -> Result<publications::RuntimePublicationsFieldMembersItem, CatalogError> {
         let reference = table_reference(reference);
         self.bindings
             .iter()
             .find_map(|(_, binding)| {
                 (binding.reference == reference)
-                    .then_some(binding.selection.as_ref())
+                    .then(|| binding.selection.clone())
                     .flatten()
             })
             .ok_or_else(|| invalid("no selected Delta member has this native name"))
+    }
+
+    /// Begin a declared relation read through common native policy and execution.
+    /// # Errors
+    /// The qualified name is unbound or native admission/planning fails.
+    pub async fn relation_stream(
+        &self,
+        reference: &ResolvedTableReference,
+        cancel: &CancellationToken,
+    ) -> Result<super::OwnedComputationStream, CatalogError> {
+        let reference = table_reference(reference);
+        let binding = self
+            .bindings
+            .iter()
+            .find_map(|(_, binding)| (binding.reference == reference).then_some(binding))
+            .ok_or_else(|| invalid("declared native relation is absent"))?;
+        if binding.relation.is_none() {
+            return Err(invalid("native binding has no relation declaration"));
+        }
+        let plan = datafusion::logical_expr::LogicalPlanBuilder::scan(
+            reference,
+            datafusion::datasource::provider_as_source(Arc::clone(&binding.provider)),
+            None,
+        )
+        .and_then(datafusion::logical_expr::LogicalPlanBuilder::build)
+        .map_err(engine)?;
+        self.prepare_rule_plan(plan, cancel)?
+            .execute_stream(cancel)
+            .await
     }
 
     /// Materialize one declared relation through the same native admission/policy
@@ -96,8 +125,9 @@ impl SnapshotSession {
     }
 }
 
-pub(super) async fn bind_publication(
-    publication: &Publication,
+pub(crate) async fn bind_publication(
+    record: &publications::Row,
+    state: &datafusion::execution::session_state::SessionState,
     registry: Arc<pse_schema::Registry>,
     factory: &super::SessionFactory,
     cancel: &CancellationToken,
@@ -105,17 +135,22 @@ pub(super) async fn bind_publication(
     use crate::provider::binding::{BindingKey, TableBinding};
     let mut session = factory.candidate(BTreeMap::new(), registry, cancel)?;
     let mut unique = BTreeMap::new();
-    for member in &publication.record().members {
+    for member in &record.members {
         cancel.checkpoint()?;
         let reference = ResolvedTableReference {
             catalog: member.catalog_name.clone().into(),
             schema: member.schema_name.clone().into(),
             table: member.table_name.clone().into(),
         };
-        let provider = publication
-            .member_provider(&reference)
+        let provider = state
+            .catalog_list()
+            .catalog(&reference.catalog)
+            .and_then(|catalog| catalog.schema(&reference.schema))
+            .ok_or_else(|| invalid("selected member namespace is absent"))?
+            .table(&reference.table)
             .await
-            .map_err(engine)?;
+            .map_err(engine)?
+            .ok_or_else(|| invalid("selected member provider is absent"))?;
         let spec = session
             .registry
             .relation_by_id(member.relation_id)
@@ -177,7 +212,7 @@ fn view_dependencies(
     }
     Ok(inputs)
 }
-fn table_reference(reference: &ResolvedTableReference) -> TableReference {
+pub(super) fn table_reference(reference: &ResolvedTableReference) -> TableReference {
     TableReference::full(
         reference.catalog.clone(),
         reference.schema.clone(),

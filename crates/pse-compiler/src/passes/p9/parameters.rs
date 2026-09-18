@@ -4,7 +4,7 @@
 //! Exact selected coefficients are values only through their declared source coordinate map.
 use super::{invalid, selections::Selection};
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     passes::{
         native_outputs::{SourceKey, Sources},
         native_rows::{AlgorithmInputs, Located, located_input},
@@ -28,9 +28,13 @@ pub(super) struct Bindings {
     _lease: Arc<pse_ids::ReservationLease>,
     _arguments: AlgorithmInputs,
 }
+#[expect(
+    clippy::too_many_lines,
+    reason = "bind keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn bind(
     selection: &Selection,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
     session: &SnapshotSession,
     sources: &Sources,
 ) -> Result<Bindings, CompilerError> {
@@ -46,18 +50,21 @@ pub(super) async fn bind(
     for method in selection
         .methods
         .values()
-        .filter(|method| !method.existing_state && method.specification.template_id.is_some())
+        .filter(|method| !method.existing_state)
     {
+        let reference::method_specs::ReferenceMethodSpecsFieldRealizationSelected::EquationTemplate(
+            producer,
+        ) = method.specification.realization.selected()?
+        else {
+            continue;
+        };
         for parameter in inventory
             .parameters
             .iter()
             .filter(|row| row.method_id == method.specification.method_id)
         {
             cancel.checkpoint()?;
-            let template = method
-                .specification
-                .template_id
-                .ok_or_else(|| invalid("selected coefficient template absent"))?;
+            let template = producer.template_id;
             let symbol = unique(
                 inventory
                     .symbols
@@ -261,7 +268,7 @@ impl Inventory {
         arguments: &mut AlgorithmInputs,
         session: &SnapshotSession,
         sources: &Sources,
-        ctx: &PassContext<'_>,
+        ctx: &AlgorithmContext<'_>,
     ) -> Result<Self, CompilerError> {
         Ok(Self {
             parameters: located_input(arguments, session, sources, ctx.registry, ctx.cancel)

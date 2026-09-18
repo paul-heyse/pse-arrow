@@ -6,8 +6,8 @@ use super::{
     CompilerError, Expr, JoinType, LogicalPlan, LogicalPlanBuilder, Plans, append, array_element,
     array_length, c, coalesce, col, error, explode, join, lit, prefix, project, scalar,
 };
+use datafusion::functions_aggregate::expr_fn::array_agg;
 use datafusion::{functions_nested::expr_fn::flatten, logical_expr::ExprFunctionExt};
-use pse_catalog::session::aggregate::array_agg;
 
 impl Plans<'_> {
     /// Bind every ordered axis name against its actual owner's domain relation.

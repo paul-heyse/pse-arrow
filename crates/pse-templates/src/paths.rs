@@ -57,7 +57,7 @@ pub struct PathRequest<'a> {
     /// Explicit actual global root, if any.
     pub root_instance: Option<SemanticId>,
     /// Ordered kind/name/index-count projection from the registered source path row.
-    pub segments: &'a [(ExpressionPathSegmentKind, &'a str, u16)],
+    pub segments: &'a [(ExpressionPathSegmentKind, &'a str, i64)],
     /// Actual index-expression results, preserving the declared segment partition.
     pub coordinates: &'a [Coordinate],
 }
@@ -127,7 +127,7 @@ pub fn resolve(
             "path owner is absent or ambiguous",
         )?;
         let end = cursor
-            .checked_add(usize::from(*count))
+            .checked_add(usize::try_from(*count).map_err(|_| invalid("negative path index count"))?)
             .ok_or_else(|| invalid("path index extent overflow"))?;
         let coordinates = request
             .coordinates

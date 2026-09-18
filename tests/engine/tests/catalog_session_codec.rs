@@ -3,31 +3,20 @@
 
 //! Diagnostic protobuf round trips resolve actual providers and preserve metadata.
 
-#[path = "../../support/native_catalog.rs"]
-mod native_catalog;
+#[path = "../../support/native_publication.rs"]
+mod native_publication;
 
 use std::collections::BTreeMap;
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 use datafusion::arrow::array::RecordBatch;
-use datafusion::execution::{memory_pool::GreedyMemoryPool, runtime_env::RuntimeEnvBuilder};
 use datafusion::logical_expr::{LogicalPlan, LogicalPlanBuilder};
 use datafusion_proto::{
     logical_plan::AsLogicalPlan,
     protobuf::{LogicalPlanNode, logical_plan_node::LogicalPlanType},
 };
-use object_store::memory::InMemory;
-use pse_catalog::session::{
-    ExecutionSettings, SnapshotSession, ThreadBudget, build_session, native_engine_profile,
-};
-use pse_catalog::store::{
-    membership::AdmissionContext,
-    open::Catalog,
-    publish::{BundleDraft, RelationDraft},
-};
-use pse_catalog::{EncodingPolicy, FixedClock, RelationContract, TrustLevel};
-use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId, SnapshotKind};
+use pse_catalog::session::SnapshotSession;
+use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId};
 use pse_schema::{
     RegistryBuilder,
     model::{
@@ -40,9 +29,10 @@ use pse_schema::{
     clippy::expect_used,
     reason = "test fixture helper requires valid declared setup"
 )]
-async fn fixture(value: &str) -> (SnapshotSession, Arc<FixedBudget>) {
+async fn fixture(value: &str) -> (SnapshotSession, Arc<FixedBudget>, tempfile::TempDir) {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
+    pse_schema::catalog::declare_publications(&mut builder);
     builder.declare_enum(EnumDecl::platform(
         "Choice",
         vec![EnumMember::new("one", "One")],
@@ -82,59 +72,10 @@ async fn fixture(value: &str) -> (SnapshotSession, Arc<FixedBudget>) {
     .expect("batch");
     let budget = FixedBudget::new(64 << 20);
     let reserver: Arc<dyn MemoryReserver> = budget.clone();
-    let catalog = Catalog::open(
-        Arc::new(InMemory::new()),
-        Arc::clone(&reg),
-        TrustLevel::Untrusted,
-        Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        native_catalog::from_reserver(Arc::clone(&reserver)),
-    );
-    let catalog = native_catalog::with_invariants(catalog);
-    let context = AdmissionContext::default();
-    let manifest = catalog
-        .manifest_template(SnapshotKind::Model, &context)
-        .expect("manifest");
-    let snapshot = catalog
-        .publish_bundle(
-            BundleDraft {
-                manifest,
-                context,
-                relations: BTreeMap::from([(
-                    pse_ids::model_port_name("authored", spec.id),
-                    RelationDraft {
-                        contract: Arc::new(
-                            RelationContract::from_spec(&reg, spec, EncodingPolicy::IpcFile)
-                                .expect("contract"),
-                        ),
-                        batches: vec![batch],
-                    },
-                )]),
-            },
-            &CancellationToken::default(),
-        )
-        .await
-        .expect("published");
-    let runtime = Arc::new(
-        RuntimeEnvBuilder::new()
-            .with_memory_pool(Arc::new(GreedyMemoryPool::new(64 << 20)))
-            .build()
-            .expect("runtime"),
-    );
-    let one = NonZeroUsize::new(1).expect("one");
-    let session = build_session(
-        vec![snapshot],
-        reg,
-        runtime,
-        reserver,
-        ExecutionSettings::default(),
-        ThreadBudget {
-            pool_threads: one,
-            target_partitions: one,
-        },
-        native_engine_profile(),
-    )
-    .expect("session");
-    (session, budget)
+    let key = spec.key;
+    let (publication, directory, _) =
+        native_publication::publish(reg, BTreeMap::from([(key, batch)]), reserver).await;
+    (publication.into_session(), budget, directory)
 }
 #[expect(
     clippy::expect_used,
@@ -145,14 +86,16 @@ fn scan(session: &SnapshotSession) -> LogicalPlan {
         .registry()
         .relation("authored.items")
         .expect("relation");
-    LogicalPlanBuilder::scan(
-        session.table_reference(&spec.key).expect("name"),
-        session.table_source(&spec.key).expect("source"),
-        None,
+    // Keep the exact selected-provider descriptor. LogicalPlanBuilder::scan
+    // deliberately expands native ViewTables at this DataFusion pin.
+    LogicalPlan::TableScan(
+        datafusion::logical_expr::TableScanBuilder::new(
+            session.table_reference(&spec.key).expect("name"),
+            session.table_source(&spec.key).expect("source"),
+        )
+        .build()
+        .expect("scan"),
     )
-    .expect("scan")
-    .build()
-    .expect("plan")
 }
 #[expect(
     clippy::expect_used,
@@ -166,7 +109,7 @@ fn encode_proto(proto: &LogicalPlanNode) -> Vec<u8> {
 
 #[tokio::test]
 async fn diagnostic_roundtrip_preserves_actual_rows_extensions_and_owned_lifetimes() {
-    let (session, budget) = fixture("λ").await;
+    let (session, budget, _directory) = fixture("λ").await;
     let cancel = CancellationToken::default();
     let plan = scan(&session);
     let bytes = session.encode_plan(&plan, &cancel).expect("encode");
@@ -189,8 +132,8 @@ async fn diagnostic_roundtrip_preserves_actual_rows_extensions_and_owned_lifetim
 }
 
 #[tokio::test]
-async fn changed_manifest_schema_and_codec_are_refused_even_when_protobuf_is_well_formed() {
-    let (session, _budget) = fixture("a").await;
+async fn changed_member_schema_and_codec_are_refused_even_when_protobuf_is_well_formed() {
+    let (session, _budget, _directory) = fixture("a").await;
     let cancel = CancellationToken::default();
     let bytes = session
         .encode_plan(&scan(&session), &cancel)
@@ -214,7 +157,7 @@ async fn changed_manifest_schema_and_codec_are_refused_even_when_protobuf_is_wel
     scan.custom_table_data = serde_json::to_vec(&binding).expect("binding bytes");
     assert!(session.decode_plan(&encode_proto(&proto), &cancel).is_err());
 
-    let (different, _other_budget) = fixture("different actual rows").await;
+    let (different, _other_budget, _other_directory) = fixture("different actual rows").await;
     assert!(different.decode_plan(&bytes, &cancel).is_err());
     let decoded = session
         .decode_plan(&bytes, &cancel)
@@ -230,7 +173,7 @@ async fn changed_manifest_schema_and_codec_are_refused_even_when_protobuf_is_wel
 async fn matching_builtin_names_cannot_substitute_foreign_function_implementations() {
     use datafusion::arrow::datatypes::DataType;
     use datafusion::logical_expr::{Volatility, create_udf, lit};
-    let (session, _budget) = fixture("a").await;
+    let (session, _budget, _directory) = fixture("a").await;
     let cancel = CancellationToken::default();
     let foreign = create_udf(
         "abs",
@@ -244,60 +187,27 @@ async fn matching_builtin_names_cannot_substitute_foreign_function_implementatio
         .expect("foreign typed expression")
         .build()
         .expect("plan");
-    let error = session
+    let values = session
         .execute_plan(plan.clone(), &cancel)
         .await
-        .expect_err("foreign implementation");
-    assert!(
-        error.to_string().contains("retained implementation"),
-        "{error}"
+        .expect("actual native function implementation is executable");
+    assert_eq!(
+        values[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<arrow::array::Int64Array>()
+            .unwrap()
+            .value(0),
+        -3,
+        "the foreign function executes its own implementation, never the registered abs"
     );
     assert!(session.encode_plan(&plan, &cancel).is_err());
     let result = session
         .sql(
-            "SELECT abs(-3) AS positive, count(*) AS n FROM authored.items",
+            "SELECT abs(-3) AS positive, count(*) AS n FROM artifact.authored.items",
             &cancel,
         )
         .await
         .expect("actual registered scalar and aggregate implementations");
     assert_eq!(result.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
-}
-
-#[tokio::test]
-async fn restored_engine_keeps_implementations_and_explicit_absent_settings() {
-    let (session, budget) = fixture("restored").await;
-    let implementation = session.scalar_function("abs").unwrap();
-    let mut captured = session.semantic_inputs();
-    captured
-        .settings
-        .insert("datafusion.execution.batch_size".into(), Some("17".into()));
-    captured
-        .settings
-        .insert("datafusion.execution.time_zone".into(), None);
-    let restored = session.restore_engine(&captured).unwrap();
-    assert!(restored.matches_semantic_inputs(&captured));
-    assert!(Arc::ptr_eq(
-        implementation.inner(),
-        restored.scalar_function("abs").unwrap().inner()
-    ));
-    restored.read_back_settings().await.unwrap();
-    let mut incompatible = captured.clone();
-    incompatible
-        .functions
-        .get_mut("scalar")
-        .unwrap()
-        .push("missing_custom_implementation".into());
-    assert!(restored.clone().restore_engine(&incompatible).is_err());
-    let mut invalid = captured.clone();
-    invalid.settings.insert(
-        "datafusion.execution.batch_size".into(),
-        Some("not a number".into()),
-    );
-    assert!(restored.clone().restore_engine(&invalid).is_err());
-    drop((restored, implementation));
-    assert_eq!(
-        budget.reserved(),
-        0,
-        "the restored configuration owns and releases its reservation"
-    );
 }

@@ -5,14 +5,14 @@
 mod contracts;
 mod production;
 
-use crate::{CompilerError, InputBundle, PassContext};
-use pse_catalog::computation::ProducedStage;
-use pse_schema::{Registry, model::PassSpec};
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
+use pse_schema::{Registry, model::AlgorithmSpec};
 
 /// Physical compilation from the actual registered inputs and explicit context.
 #[derive(Debug)]
 pub struct P10 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 impl P10 {
     /// Binds the production physical compilation declaration.
@@ -20,7 +20,7 @@ impl P10 {
     /// P10 or one of its required mathematical context ports is undeclared.
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         let spec = registry
-            .pass("P10@1")
+            .algorithm("P10@1")
             .ok_or_else(|| invalid("P10 pass is not declared"))?
             .clone();
         for required in [
@@ -40,15 +40,15 @@ impl P10 {
         Ok(Self { spec })
     }
 }
-impl crate::Pass for P10 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P10 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             inputs.validate(&self.spec, ctx.registry)?;
             let mut output = production::run(ctx, inputs, &self.spec).await?;
@@ -64,13 +64,13 @@ impl crate::Pass for P10 {
                     let batch = output
                         .remove(&spec.key)
                         .ok_or_else(|| invalid(format!("P10 output {} missing", spec.key)))?;
-                    Ok((port.port.to_owned(), batch))
+                    Ok((port.port.clone(), batch))
                 })
                 .collect::<Result<_, CompilerError>>()?;
             if !output.is_empty() {
                 return Err(invalid("P10 constructed undeclared outputs"));
             }
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: vec![],
                 derivations: vec![],

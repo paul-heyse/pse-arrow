@@ -5,24 +5,18 @@
 use crate::{
     RegistryBuilder,
     model::{
-        Authority, Determinism, InputPort, Namespace, OutputPort, PassDecl, PortSource,
-        RelationDecl,
+        AlgorithmDecl, ArgumentSpec, Authority, Determinism, Namespace, RelationDecl, ResultSpec,
     },
 };
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
-/// Declare the production semantic graph. Every generated input names one fixed producer.
+/// Declare typed finite algorithm signatures; actual producers are bound native children.
 #[expect(
     clippy::too_many_lines,
     reason = "Keep the declarative relation and native rule family together for schema review"
 )]
 pub fn declare(builder: &mut RegistryBuilder) {
     let relations = builder.declared_relations().to_vec();
-    let mut producers = relations
-        .iter()
-        .filter(|relation| relation.key.namespace == Namespace::Normalized)
-        .map(|relation| (relation.key.qualified_name(), ("P3", relation.key.name)))
-        .collect::<BTreeMap<_, _>>();
     let mut graph_outputs = BTreeSet::new();
     for pass in ["P4", "P5", "P6", "P7", "P8", "P9", "P10"] {
         let mut inputs = BTreeSet::<String>::new();
@@ -43,11 +37,12 @@ pub fn declare(builder: &mut RegistryBuilder) {
             })
             .collect::<Vec<_>>();
         for rule in &rules {
-            outputs.insert(rule.head.relation().to_owned());
+            outputs.insert(rule.head.as_str().to_owned());
             if let Some(assertions) = &rule.assertion_relation {
                 outputs.insert(assertions.clone());
             }
-            for (relation, _, _) in rule.plan.dependencies() {
+            for input in &rule.inputs {
+                let relation = &input.relation;
                 inputs.insert(relation.to_owned());
             }
         }
@@ -157,7 +152,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
         // output remains an explicit input from its fixed previous producer.
         let heads = rules
             .iter()
-            .map(|rule| rule.head.relation())
+            .map(|rule| rule.head.as_str())
             .collect::<BTreeSet<_>>();
         inputs.retain(|name| {
             !(heads.contains(name.as_str())
@@ -167,39 +162,44 @@ pub fn declare(builder: &mut RegistryBuilder) {
         if pass == "P9" {
             inputs.insert("inferred.instances".to_owned());
         }
-        let ports =
-            inputs
-                .into_iter()
-                .map(|name| {
-                    let declaration = relations
-                        .iter()
-                        .find(|relation| relation.key.qualified_name() == name);
-                    let port =
-                        declaration.map_or("__undeclared_relation", |relation| port_name(relation));
-                    let source = producers.get(&name).map_or(
-                        PortSource::Pinned,
-                        |(producer, source_port)| PortSource::Derived {
-                            pass: producer,
-                            port: source_port,
-                        },
-                    );
-                    InputPort {
-                        port,
-                        relation: name,
-                        source,
-                        required: true,
-                    }
-                })
-                .collect();
+        // Obligations read explicit input/result values, including negative reads.
+        // Their dependencies are algorithm arguments unless this invocation produces them.
+        for invariant in builder
+            .declared_invariants()
+            .iter()
+            .filter(|invariant| outputs.contains(&invariant.relation))
+        {
+            inputs.extend(
+                invariant
+                    .inputs
+                    .iter()
+                    .filter(|name| !outputs.contains(*name))
+                    .cloned(),
+            );
+        }
+        let ports = inputs
+            .into_iter()
+            .map(|name| {
+                let declaration = relations
+                    .iter()
+                    .find(|relation| relation.key.qualified_name() == name);
+                let port = declaration.map_or_else(|| "__undeclared_relation".into(), port_name);
+                ArgumentSpec {
+                    port,
+                    relation: name,
+                    required: true,
+                    consumption: crate::model::algorithm::InputConsumption::Whole,
+                }
+            })
+            .collect();
         let output_ports = outputs
             .iter()
             .map(|name| {
                 let declaration = relations
                     .iter()
                     .find(|relation| relation.key.qualified_name() == *name);
-                OutputPort {
-                    port: declaration
-                        .map_or("__undeclared_relation", |relation| port_name(relation)),
+                ResultSpec {
+                    port: declaration.map_or_else(|| "__undeclared_relation".into(), port_name),
                     relation: name.clone(),
                 }
             })
@@ -210,7 +210,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
             .filter(|invariant| outputs.contains(&invariant.relation))
             .map(|invariant| format!("{}:{}", invariant.relation, invariant.name))
             .collect();
-        let declaration = PassDecl::new(pass, "1", Determinism::Deterministic)
+        let declaration = AlgorithmDecl::new(pass, "1", Determinism::Deterministic)
             .inputs(ports)
             .outputs(output_ports)
             .conditions(vec![], postconditions)
@@ -220,19 +220,11 @@ pub fn declare(builder: &mut RegistryBuilder) {
                 "runtime.resource_limit",
                 "kernel.unbound_parameter",
             ]);
-        builder.declare_pass(declaration);
-        for name in outputs {
-            if let Some(relation) = relations
-                .iter()
-                .find(|relation| relation.key.qualified_name() == name)
-            {
-                producers.insert(name, (pass, port_name(relation)));
-            }
-        }
+        builder.declare_algorithm(declaration);
     }
 }
-fn port_name(relation: &RelationDecl) -> &'static str {
-    if relation.key.namespace == Namespace::Authored {
+fn port_name(relation: &RelationDecl) -> String {
+    let name = if relation.key.namespace == Namespace::Authored {
         match relation.key.name {
             "templates" => "authored_templates",
             "template_submodels" => "authored_template_submodels",
@@ -252,13 +244,14 @@ fn port_name(relation: &RelationDecl) -> &'static str {
             "species" => "authored_species",
             "phases" => "authored_phases",
             "species_elements" => "authored_species_elements",
-            _ => "__undeclared_authored_port",
+            _ => return relation.key.qualified_name(),
         }
     } else if relation.key.namespace == Namespace::Normalized && relation.key.name == "units" {
         "normalized_units"
     } else {
         relation.key.name
-    }
+    };
+    name.to_owned()
 }
 fn math(relation: &RelationDecl, namespace: Namespace) -> bool {
     relation.authority == Authority::Derived

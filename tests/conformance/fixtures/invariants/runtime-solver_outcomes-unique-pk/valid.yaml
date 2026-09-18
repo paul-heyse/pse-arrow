@@ -1,0 +1,24 @@
+{
+  "invariant": "runtime.solver_outcomes:unique:pk",
+  "rows": {
+    "runtime.solver_outcomes": [
+      {
+        "constraint_dimension": "[\"i64\",1]",
+        "constraint_duals": "[\"list\",[]]",
+        "constraints": "[\"list\",[]]",
+        "diagnostic": "[\"struct\",[[\"text\",\"value-1\"],[\"text\",\"value-1\"]]]",
+        "ipopt_status": "[\"i64\",1]",
+        "iterations": "[\"list\",[]]",
+        "lower_duals": "[\"list\",[]]",
+        "objective": "[\"f64\",\"3ff0000000000000\"]",
+        "program_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "scenario_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "termination": "[\"enum\",\"success\"]",
+        "upper_duals": "[\"list\",[]]",
+        "values": "[\"list\",[]]",
+        "variable_columns": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

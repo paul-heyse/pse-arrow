@@ -113,6 +113,14 @@ pub fn declare_relations(builder: &mut RegistryBuilder) {
                 ])),
                 "Native DataFusion SQL predicates; every predicate must evaluate to true.",
             ),
+            FieldContract::payload(
+                "delta_properties",
+                FieldContract::list(FieldContract::structure(vec![
+                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("name"),
+                    FieldContract::native(arrow_schema::DataType::Utf8).with_name("value"),
+                ])),
+                "Declared native Delta policies in name order; part of the exact table contract.",
+            ),
         ]),
     );
 }
@@ -218,6 +226,31 @@ fn declare_logical_types(builder: &mut RegistryBuilder) {
 fn declare_enums(builder: &mut RegistryBuilder) {
     builder.declare_relation(
         reference(
+            "schema_enum_types",
+            "One row per declared enumeration identity.",
+        )
+        .pk(&["enum_id"])
+        .columns(vec![
+            FieldContract::key(
+                "enum_id",
+                FieldContract::id(),
+                "The registry enumeration identity.",
+            ),
+            FieldContract::label(
+                "name",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "The declared enumeration name.",
+            ),
+            FieldContract::label(
+                "idaes_source",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "The optional parity enumeration source.",
+            )
+            .optional(),
+        ]),
+    );
+    builder.declare_relation(
+        reference(
             "schema_enums",
             "One row per enumeration member; the member ordinal is presentation, never identity.",
         )
@@ -227,7 +260,8 @@ fn declare_enums(builder: &mut RegistryBuilder) {
                 "enum_id",
                 FieldContract::id(),
                 "`named_id(REGISTRY_PACKAGE_ID, \"enum:<Name>\")` (ADR-0050).",
-            ),
+            )
+            .with_fk("reference.schema_enum_types", "enum_id"),
             FieldContract::key(
                 "member_ordinal",
                 FieldContract::nonnegative(i64::from(u16::MAX)),
@@ -282,10 +316,20 @@ fn declare_invariants(builder: &mut RegistryBuilder) {
                 FieldContract::enumeration("InvariantKind"),
                 "What kind of statement it makes.",
             ),
-            FieldContract::reference(
-                "rule_id",
-                FieldContract::id(),
-                "The typed rule plan that returns the violating keys (blueprint §6.11).",
+            FieldContract::payload(
+                "query",
+                FieldContract::native(arrow_schema::DataType::Utf8),
+                "Native SQL returning offending keys.",
+            ),
+            FieldContract::payload(
+                "inputs",
+                FieldContract::list(FieldContract::native(arrow_schema::DataType::Utf8)),
+                "Explicitly selected semantic input relations.",
+            ),
+            FieldContract::payload(
+                "key_columns",
+                FieldContract::list(FieldContract::native(arrow_schema::DataType::Utf8)),
+                "Ordered offending key columns.",
             ),
             FieldContract::label(
                 "severity",

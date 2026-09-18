@@ -9,8 +9,7 @@
 use crate::{CanonicalGraph, ExprGraph, MathIrError, NodeId, Opcode, Payload};
 use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{
-    BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId, ReductionKind,
-    UnitConvertSpec, UnitId, WeightNormalization, infer::BuiltInRule,
+    BoundIndexId, ConversionId, DomainId, OperationId, QuantityTypeId, UnitId, infer::BuiltInRule,
 };
 use pse_schema::math::Sense;
 
@@ -39,213 +38,11 @@ pub trait MathRelationSink {
         &mut self,
         node: NodeId,
         opcode: Opcode,
+        children: &[NodeId],
+        payload: &Payload,
         quantity_type: Option<QuantityTypeId>,
         scope: Option<SemanticId>,
         hash: ContentHash,
-    ) -> Result<(), MathIrError>;
-    /// Write one ordered argument row.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn expr_arg(&mut self, parent: NodeId, ordinal: u16, child: NodeId) -> Result<(), MathIrError>;
-    /// Write a symbol reference.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn symbol_ref(&mut self, node: NodeId, symbol: crate::ValueRef) -> Result<(), MathIrError>;
-    /// Write an authored-unit floating literal.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn float_constant(&mut self, node: NodeId, value: f64, unit: UnitId)
-    -> Result<(), MathIrError>;
-    /// Write an integer literal.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn int_constant(&mut self, node: NodeId, value: i64) -> Result<(), MathIrError>;
-    /// Write an ordered affine payload.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn affine(
-        &mut self,
-        node: NodeId,
-        constant: f64,
-        constant_quantity_type: Option<QuantityTypeId>,
-        constant_unit: Option<UnitId>,
-        terms: &[(f64, NodeId)],
-    ) -> Result<(), MathIrError>;
-    /// Write an ordered weighted mean.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn weighted_mean(
-        &mut self,
-        node: NodeId,
-        pairs: &[(NodeId, NodeId)],
-        normalization: WeightNormalization,
-        certificate: Option<InvariantId>,
-    ) -> Result<(), MathIrError>;
-    /// Write a reduction and its filter reference.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn reduction(
-        &mut self,
-        node: NodeId,
-        kind: ReductionKind,
-        domain: crate::DomainRef,
-        bound_index: BoundIndexId,
-        filter: Option<crate::GuardRef>,
-    ) -> Result<(), MathIrError>;
-    /// Write a group read with explicit coordinate positions.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn gather(
-        &mut self,
-        node: NodeId,
-        group: SemanticId,
-        coordinates: &[(BoundIndexId, u16)],
-    ) -> Result<(), MathIrError>;
-    /// Preserve an exact normalized source-relative path and its ordered index nodes.
-    /// # Errors
-    /// A sink without normalized path storage refuses the request.
-    fn pending_path(
-        &mut self,
-        node: NodeId,
-        _source_id: SemanticId,
-        _path_id: u64,
-        _indices: &[NodeId],
-    ) -> Result<(), MathIrError> {
-        Err(MathIrError::malformed_at(
-            node,
-            "sink cannot retain an unresolved instance path",
-        ))
-    }
-    /// Preserve a normalized read's ordered actual index expressions.
-    /// # Errors
-    /// A compiled-only sink refuses the unresolved source request.
-    fn pending_gather(
-        &mut self,
-        node: NodeId,
-        _group: SemanticId,
-        _indices: &[NodeId],
-    ) -> Result<(), MathIrError> {
-        Err(MathIrError::malformed_at(
-            node,
-            "sink cannot retain pending indexed read",
-        ))
-    }
-    /// Write an explicit broadcast.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn broadcast(
-        &mut self,
-        node: NodeId,
-        domain: crate::DomainRef,
-        bound_index: BoundIndexId,
-    ) -> Result<(), MathIrError>;
-    /// Write a derivative.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn derivative(
-        &mut self,
-        node: NodeId,
-        domain: crate::DomainRef,
-        order: u8,
-    ) -> Result<(), MathIrError>;
-    /// Write an integral.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn integral(
-        &mut self,
-        node: NodeId,
-        domain: crate::DomainRef,
-        bound_index: BoundIndexId,
-        policy: Option<SemanticId>,
-        filter: Option<crate::GuardRef>,
-    ) -> Result<(), MathIrError>;
-    /// Write a smoothing parameter.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn smooth_op(&mut self, node: NodeId, eps: f64) -> Result<(), MathIrError>;
-    /// Write a normalized unit-bearing epsilon without erasing its physical representation.
-    /// # Errors
-    /// The default refuses adapters that only admit resolved compiled payloads.
-    fn pending_smooth_op(
-        &mut self,
-        node: NodeId,
-        _eps: f64,
-        _unit: UnitId,
-    ) -> Result<(), MathIrError> {
-        Err(MathIrError::malformed_at(
-            node,
-            "sink cannot retain a pending smoothing tolerance",
-        ))
-    }
-
-    /// Write the conditional guard.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn conditional(&mut self, node: NodeId, guard: crate::GuardRef) -> Result<(), MathIrError>;
-    /// Write a kernel call's output selection.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn kernel_call(
-        &mut self,
-        node: NodeId,
-        binding: SemanticId,
-        output: u16,
-    ) -> Result<(), MathIrError>;
-    /// Write an implicit unknown reference.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn implicit_ref(
-        &mut self,
-        node: NodeId,
-        system: SemanticId,
-        unknown: u16,
-    ) -> Result<(), MathIrError>;
-    /// Write an exact unit representation edge.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn unit_convert(
-        &mut self,
-        node: NodeId,
-        scale: f64,
-        offset: f64,
-        from: UnitId,
-        to: UnitId,
-    ) -> Result<(), MathIrError>;
-    /// Write a normalized conversion request lacking a complete source quantity context.
-    /// # Errors
-    /// Compiled-only sinks refuse unresolved conversion requests by default.
-    fn pending_unit_convert(&mut self, node: NodeId, _to: UnitId) -> Result<(), MathIrError> {
-        Err(MathIrError::malformed_at(
-            node,
-            "unresolved unit conversion cannot enter compiled storage",
-        ))
-    }
-    /// Write declared piecewise-linear coordinates.
-    ///
-    /// # Errors
-    /// Propagates the sink adapter's write or admission failure.
-    fn piecewise_linear(
-        &mut self,
-        node: NodeId,
-        points: &[(f64, f64)],
-        input: QuantityTypeId,
-        output: QuantityTypeId,
     ) -> Result<(), MathIrError>;
     /// Write an indexed equation; free indices use their separate callback.
     ///
@@ -322,12 +119,12 @@ pub fn emit(graph: &CanonicalGraph, sink: &mut dyn MathRelationSink) -> Result<(
         sink.expr_node(
             id,
             node.opcode,
+            &node.children,
+            &node.payload,
             Some(node.quantity_type),
             node.scope,
             node.subtree_hash,
         )?;
-        emit_args(id, &node.children, sink)?;
-        emit_payload(id, &node.payload, sink)?;
     }
     for equation in graph.equations() {
         vec_sink::emit_equation(equation, sink)?;
@@ -406,9 +203,15 @@ pub fn emit_untyped_with_bindings(
             crate::hash::structural_hash(node, &dependencies)?
         };
         hashes.insert(id, hash);
-        sink.expr_node(id, node.opcode, node.quantity_type, node.scope, hash)?;
-        emit_args(id, &node.children, sink)?;
-        emit_payload(id, &node.payload, sink)?;
+        sink.expr_node(
+            id,
+            node.opcode,
+            &node.children,
+            &node.payload,
+            node.quantity_type,
+            node.scope,
+            hash,
+        )?;
     }
     for row in bindings.values() {
         sink.kernel_binding(
@@ -439,115 +242,4 @@ pub fn emit_loaded(
         vec_sink::emit_selection(row, sink)?;
     }
     Ok(())
-}
-
-fn emit_args(
-    id: NodeId,
-    children: &[NodeId],
-    sink: &mut dyn MathRelationSink,
-) -> Result<(), MathIrError> {
-    for (position, child) in children.iter().enumerate() {
-        let ordinal = u16::try_from(position)
-            .map_err(|_| MathIrError::malformed_at(id, "argument ordinal exceeds u16"))?;
-        sink.expr_arg(id, ordinal, *child)?;
-    }
-    Ok(())
-}
-fn emit_payload(
-    id: NodeId,
-    payload: &Payload,
-    sink: &mut dyn MathRelationSink,
-) -> Result<(), MathIrError> {
-    match payload {
-        Payload::None => Ok(()),
-        Payload::SymbolRef { symbol } => sink.symbol_ref(id, symbol.clone()),
-        Payload::FloatConst { value, unit } => sink.float_constant(id, *value, *unit),
-        Payload::IntConst { value } => sink.int_constant(id, *value),
-        Payload::Affine {
-            constant,
-            constant_quantity_type,
-            constant_unit,
-            terms,
-        } => sink.affine(
-            id,
-            *constant,
-            *constant_quantity_type,
-            *constant_unit,
-            &terms
-                .iter()
-                .map(|term| (term.coefficient, term.child))
-                .collect::<Vec<_>>(),
-        ),
-        Payload::WeightedMean {
-            pairs,
-            normalization,
-            unit_sum_invariant,
-        } => sink.weighted_mean(
-            id,
-            &pairs
-                .iter()
-                .map(|pair| (pair.weight, pair.value))
-                .collect::<Vec<_>>(),
-            *normalization,
-            *unit_sum_invariant,
-        ),
-        Payload::Reduction {
-            kind,
-            domain,
-            bound_index,
-            filter,
-        } => sink.reduction(id, *kind, domain.clone(), *bound_index, *filter),
-        Payload::Gather {
-            group,
-            coordinate_map,
-        } => sink.gather(id, *group, coordinate_map),
-        Payload::Broadcast {
-            domain,
-            bound_index,
-        } => sink.broadcast(id, domain.clone(), *bound_index),
-        Payload::Derivative { wrt_domain, order } => {
-            sink.derivative(id, wrt_domain.clone(), *order)
-        }
-        Payload::Integral {
-            domain,
-            bound_index,
-            quadrature_policy,
-            filter,
-        } => sink.integral(
-            id,
-            domain.clone(),
-            *bound_index,
-            *quadrature_policy,
-            *filter,
-        ),
-        Payload::SmoothOp { eps } => sink.smooth_op(id, *eps),
-        Payload::PendingSmoothOp { eps, unit } => sink.pending_smooth_op(id, *eps, *unit),
-        Payload::Conditional { guard } => sink.conditional(id, *guard),
-        Payload::KernelCall {
-            kernel_binding,
-            output_ordinal,
-        } => sink.kernel_call(id, *kernel_binding, *output_ordinal),
-        Payload::ImplicitRef {
-            implicit_system,
-            unknown_ordinal,
-        } => sink.implicit_ref(id, *implicit_system, *unknown_ordinal),
-        Payload::PendingUnitConvert { to } => sink.pending_unit_convert(id, *to),
-        Payload::PendingGather { group, indices } => sink.pending_gather(id, *group, indices),
-        Payload::PendingPath {
-            source_id,
-            path_id,
-            indices,
-        } => sink.pending_path(id, *source_id, *path_id, indices),
-        Payload::UnitConvert(UnitConvertSpec {
-            scale,
-            offset,
-            from,
-            to,
-        }) => sink.unit_convert(id, *scale, *offset, *from, *to),
-        Payload::PiecewiseLinear {
-            breakpoints,
-            input,
-            output,
-        } => sink.piecewise_linear(id, breakpoints, *input, *output),
-    }
 }

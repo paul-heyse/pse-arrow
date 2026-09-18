@@ -30,6 +30,10 @@ pub(super) struct Candidate {
     pub provision: reference::method_provisions::Row,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "candidates keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn candidates(
     owner: &mut AlgorithmInputs,
     session: &SnapshotSession,
@@ -42,6 +46,26 @@ pub(super) async fn candidates(
         "q",
     )?;
     let resolutions = scan(session, inferred::method_resolutions::spec(registry)?, "r")?;
+    let fields = resolutions
+        .schema()
+        .columns()
+        .into_iter()
+        .map(datafusion::logical_expr::Expr::Column)
+        .chain(std::iter::once(
+            datafusion::functions::core::get_field()
+                .call(vec![
+                    datafusion::functions::core::get_field()
+                        .call(vec![column("r", "outcome"), lit("resolved")]),
+                    lit("method_id"),
+                ])
+                .alias("selected_method_id"),
+        ))
+        .collect::<Vec<_>>();
+    let resolutions = LogicalPlanBuilder::from(resolutions)
+        .project(fields)
+        .map_err(engine)?
+        .build()
+        .map_err(engine)?;
     crate::passes::native_rows::reject(
         join(
             resolutions.clone(),
@@ -76,14 +100,14 @@ pub(super) async fn candidates(
         joined,
         scan(session, reference::method_specs::spec(registry)?, "m")?,
         JoinType::Inner,
-        &[("r.method_id", "m.method_id")],
+        &[("selected_method_id", "m.method_id")],
     )?;
     let joined = join(
         joined,
         scan(session, reference::method_provisions::spec(registry)?, "p")?,
         JoinType::Inner,
         &[
-            ("r.method_id", "p.method_id"),
+            ("selected_method_id", "p.method_id"),
             ("q.property_kind_id", "p.property_kind_id"),
         ],
     )?;
@@ -268,7 +292,13 @@ pub(super) fn mappings(
         inferred::method_resolutions::spec(registry)?,
         "r",
     )?)
-    .project([column("r", "method_id")])
+    .project([datafusion::functions::core::get_field()
+        .call(vec![
+            datafusion::functions::core::get_field()
+                .call(vec![column("r", "outcome"), lit("resolved")]),
+            lit("method_id"),
+        ])
+        .alias("method_id")])
     .map_err(engine)?
     .filter(col("method_id").is_not_null())
     .map_err(engine)?

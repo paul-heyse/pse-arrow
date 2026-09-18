@@ -1,54 +1,55 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Finished physical encodings preserve logical contents under direct decoded admission.
-
+//! Native Arrow IPC and Parquet preserve declared logical content.
 #[path = "../src/canon_fixtures.rs"]
 mod canon_fixtures;
-
 use canon_fixtures::{canonical, fixture};
-use pse_catalog::store::{encode, verify};
-use pse_ids::{CancellationToken, Envelope, FixedBudget};
-
+use datafusion::arrow::{
+    compute::concat_batches,
+    ipc::{reader::FileReader, writer::FileWriter},
+};
+use parquet::arrow::{ArrowWriter, arrow_reader::ParquetRecordBatchReaderBuilder};
+use std::io::Cursor;
 #[test]
-fn finished_ipc_and_parquet_have_distinct_transport_bytes_and_equal_canonical_contents() {
-    let (reg, contract, batch) = fixture(false);
-    let budget = FixedBudget::new(64 << 20);
-    let cancel = CancellationToken::default();
-    let spec = reg.relation("authored.values").expect("relation");
+fn native_ipc_and_parquet_have_distinct_bytes_and_equal_canonical_content() {
+    let (registry, contract, batch) = fixture(false);
+    let spec = registry.relation("authored.values").expect("relation");
     let expected = canonical(&contract, std::slice::from_ref(&batch));
-    let ipc = encode::ipc_file(&batch, budget.as_ref(), &cancel).expect("finished IPC");
-    let parquet = encode::parquet_file(&batch, budget.as_ref(), &cancel).expect("finished Parquet");
-    assert_ne!(ipc.bytes, parquet.bytes);
+    let mut ipc = FileWriter::try_new(Vec::new(), &batch.schema()).expect("IPC writer");
+    ipc.write(&batch).expect("IPC batch");
+    let ipc = ipc.into_inner().expect("finished IPC");
+    let directory = tempfile::tempdir().expect("directory");
+    let path = directory.path().join("value.parquet");
+    let mut parquet = ArrowWriter::try_new(
+        std::fs::File::create(&path).expect("file"),
+        batch.schema(),
+        None,
+    )
+    .expect("Parquet writer");
+    parquet.write(&batch).expect("Parquet batch");
+    parquet.close().expect("finished Parquet");
+    let parquet_bytes = std::fs::read(&path).expect("bytes");
     assert_ne!(
-        pse_ids::encoding_checksum(&ipc.bytes),
-        pse_ids::encoding_checksum(&parquet.bytes)
+        pse_ids::encoding_checksum(&ipc),
+        pse_ids::encoding_checksum(&parquet_bytes)
     );
-    let ipc_rows = verify::ipc_file(
-        &ipc.bytes,
-        &reg,
-        spec,
-        budget.as_ref(),
-        &cancel,
-        Envelope::DEFAULT,
-    )
-    .expect("admitted IPC");
-    let parquet_rows = verify::parquet_file(
-        &parquet.bytes,
-        &reg,
-        spec,
-        budget.as_ref(),
-        &cancel,
-        Envelope::DEFAULT,
-    )
-    .expect("admitted Parquet");
-    for actual in [ipc_rows, parquet_rows] {
-        pse_relations::validate::validate_batch(&reg, spec, &actual)
-            .expect("registry/value admission");
+    let ipc = FileReader::try_new(Cursor::new(ipc), None)
+        .expect("IPC reader")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("IPC batches");
+    let parquet =
+        ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(&path).expect("file"))
+            .expect("Parquet reader")
+            .build()
+            .expect("reader")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("Parquet batches");
+    for batches in [ipc, parquet] {
+        let actual = concat_batches(&batch.schema(), &batches).expect("decoded relation");
+        pse_relations::validate::validate_batch(&registry, spec, &actual)
+            .expect("exact declared admission");
         let actual = canonical(&contract, &[actual]);
         assert_eq!(actual.preimage, expected.preimage);
         assert_eq!(actual.logical_hash, expected.logical_hash);
     }
-    drop(ipc);
-    drop(parquet);
-    assert_eq!(budget.reserved(), 0);
 }

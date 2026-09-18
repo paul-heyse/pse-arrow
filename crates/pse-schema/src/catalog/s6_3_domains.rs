@@ -55,7 +55,7 @@ fn declare_authored_domain_members(builder: &mut RegistryBuilder) {
         vec![
             column("domain_id", T::id()).with_fk("authored.domains", "domain_id"),
             column("member_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt32)),
+            column("ordinal", T::nonnegative(i64::from(u32::MAX))),
             column("label", T::native(arrow_schema::DataType::Utf8)),
             column("coordinate", T::native(arrow_schema::DataType::Float64)).optional(),
             column("ref_entity_id", T::id())
@@ -135,7 +135,7 @@ fn declare_compiled_meshes(builder: &mut RegistryBuilder) {
             column("mesh_id", T::id()),
             column("domain_id", T::id()),
             column("policy_id", T::id()),
-            column("node_count", T::native(arrow_schema::DataType::UInt32)),
+            column("node_count", T::nonnegative(i64::from(u32::MAX))),
             column("nodes", T::list(T::native(arrow_schema::DataType::Float64))),
         ],
         "blueprint §6.3 domain: meshes.",
@@ -152,7 +152,7 @@ fn declare_compiled_mesh_nodes(builder: &mut RegistryBuilder) {
         vec![
             column("node_id", T::id()),
             column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
-            column("ordinal", T::native(arrow_schema::DataType::UInt32)),
+            column("ordinal", T::nonnegative(i64::from(u32::MAX))),
             column("coordinate", T::native(arrow_schema::DataType::Float64)),
             column("kind", T::enumeration("NodeKind")),
         ],
@@ -170,7 +170,7 @@ fn declare_compiled_stencils(builder: &mut RegistryBuilder) {
         vec![
             column("stencil_id", T::id()),
             column("mesh_id", T::id()).with_fk("compiled.meshes", "mesh_id"),
-            column("derivative_order", T::native(arrow_schema::DataType::UInt8)),
+            column("derivative_order", T::nonnegative(i64::from(u8::MAX))),
             column("scheme", T::enumeration("DiscretizationScheme")),
             column("node_id", T::id()),
             column("neighbor_node_id", T::id()),

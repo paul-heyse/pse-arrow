@@ -7,7 +7,8 @@ pub(crate) mod inventory;
 mod scalar;
 use super::invalid;
 use crate::{
-    CompilerError, InputBundle, PassContext,
+    AlgorithmContext, AlgorithmInputs, CompilerError,
+    mathir_relations::{domain::DomainValue, syntax},
     passes::{
         native_outputs::{self, OutputRows, SourceRole, Sources},
         native_rows::Keyed,
@@ -21,15 +22,12 @@ use pse_ids::SemanticId;
 use pse_mathir::{NodeId, Payload, ValueRef};
 use pse_relations::{
     RecordBatch,
-    generated::{
-        enums::{PredicateKind, TruthValue},
-        inferred as i, normalized as n,
-    },
+    generated::{enums::TruthValue, inferred as i, normalized as n},
 };
 use pse_rules::strata::{
     LocatedRuleInput, RuleInputLocation, StratumOutcome, native_input::NativeInput,
 };
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -97,8 +95,8 @@ impl From<bool> for Truth {
 /// # Errors
 /// Malformed/cyclic graphs, invalid finite domains, native failures or resource refusal.
 pub async fn evaluate(
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
     heads: &StratumOutcome,
 ) -> Result<PredicateOutput, CompilerError> {
     let mut rows = inputs.checked_rows(ctx.registry)?;
@@ -124,7 +122,7 @@ pub async fn evaluate(
     }
     let pass = ctx
         .registry
-        .pass("P4@1")
+        .algorithm("P4@1")
         .ok_or_else(|| invalid("P4 declaration absent"))?;
     let base = ctx.session;
     let selected = base
@@ -137,9 +135,13 @@ pub async fn evaluate(
     evaluate_rows(ctx, pass, &rows, &sources, &session).await
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "evaluate_rows keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(crate) async fn evaluate_rows(
-    ctx: &PassContext<'_>,
-    pass: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    pass: &AlgorithmSpec,
     rows: &Inputs,
     sources: &Sources,
     session: &pse_catalog::session::SnapshotSession,
@@ -253,7 +255,7 @@ pub(crate) async fn evaluate_rows(
                     i::predicate_axes::Row {
                         source_id,
                         predicate_id: *predicate_id,
-                        position: u16::try_from(position)
+                        position: i64::try_from(position)
                             .map_err(|_| invalid("predicate axis count exceeds UInt16"))?,
                         bound_index_id: binder.row.bound_index_id,
                         derivation_id: SemanticId::NIL,
@@ -269,9 +271,7 @@ pub(crate) async fn evaluate_rows(
                     base_support.insert(inventory.origin(binder)?);
                     let domain = inventory.domain(
                         &instance.row,
-                        binder.row.domain_id,
-                        binder.row.template_id,
-                        binder.row.domain_name.as_deref(),
+                        &binder.row.domain.domain_ref()?,
                         &mut base_support,
                     )?;
                     inventory.members(domain, &mut base_support)?;
@@ -333,11 +333,11 @@ pub(crate) async fn evaluate_rows(
     })
 }
 fn collect_predicate(
-    id: u64,
-    predicates: &BTreeMap<u64, Keyed<n::predicate_nodes::Row>>,
+    id: i64,
+    predicates: &BTreeMap<i64, Keyed<n::predicate_nodes::Row>>,
     graph: &pse_mathir::relations::LoadedMath,
     free: &mut BTreeSet<SemanticId>,
-    stack: &mut BTreeSet<u64>,
+    stack: &mut BTreeSet<i64>,
 ) -> Result<(), CompilerError> {
     if !stack.insert(id) {
         return Err(invalid("predicate graph cycle"));
@@ -346,13 +346,10 @@ fn collect_predicate(
         .get(&id)
         .ok_or_else(|| invalid("predicate reference absent"))?
         .row;
-    for node in [row.left_expr, row.right_expr].into_iter().flatten() {
+    for node in syntax::math_dependencies(&row.value)? {
         collect_node(graph, NodeId(node), free)?;
     }
-    for child in [row.left_predicate, row.right_predicate]
-        .into_iter()
-        .flatten()
-    {
+    for child in syntax::predicate_dependencies(&row.value)? {
         collect_predicate(child, predicates, graph, free, stack)?;
     }
     stack.remove(&id);
@@ -416,10 +413,10 @@ fn collect_free_indices(
 }
 
 fn evaluate_predicate(
-    id: u64,
-    predicates: &BTreeMap<u64, Keyed<n::predicate_nodes::Row>>,
+    id: i64,
+    predicates: &BTreeMap<i64, Keyed<n::predicate_nodes::Row>>,
     eval: &mut scalar::Evaluation<'_, '_>,
-    stack: &mut BTreeSet<u64>,
+    stack: &mut BTreeSet<i64>,
 ) -> Result<Truth, CompilerError> {
     eval.cancel.checkpoint()?;
     if !stack.insert(id) {
@@ -430,58 +427,45 @@ fn evaluate_predicate(
         .ok_or_else(|| invalid("predicate reference absent"))?;
     eval.support.insert(eval.inventory.origin(source)?);
     let row = &source.row;
-    let truth = match row.kind {
-        PredicateKind::Boolean => {
-            Truth::from(required(row.boolean_value, "Boolean predicate value")?)
+    let truth = match row.value.selected()? {
+        syntax::PredicateSelected::Boolean(value) => Truth::from(value.value),
+        syntax::PredicateSelected::Null => Truth::Unknown,
+        syntax::PredicateSelected::Atom(value) => {
+            eval.expression(NodeId(value.expression))?.truth()?
         }
-        PredicateKind::Null => Truth::Unknown,
-        PredicateKind::Atom => eval.operand(row, true)?.truth()?,
-        PredicateKind::Compare => {
-            let left = eval.operand(row, true)?;
-            let right = eval.operand(row, false)?;
+        syntax::PredicateSelected::Compare(value) => {
+            let [left, right] = value.operands.as_slice() else {
+                return Err(invalid("comparison requires exactly two ordered operands"));
+            };
+            let left = eval.operand(left)?;
+            let right = eval.operand(right)?;
             scalar::compare(
                 &left,
                 &right,
-                required(row.comparison, "predicate comparison")?.as_str(),
+                value.comparison.as_str(),
                 eval.inventory.physical,
             )?
         }
-        PredicateKind::In => {
-            let value = eval.operand(row, true)?;
-            eval.contains(row, &value)?
+        syntax::PredicateSelected::In(value) => {
+            let member = eval.expression(NodeId(value.expression))?;
+            eval.contains(&value.domain, &member)?
         }
-        PredicateKind::And | PredicateKind::Or => {
-            let left = evaluate_predicate(
-                required(row.left_predicate, "left predicate")?,
-                predicates,
-                eval,
-                stack,
-            )?;
-            let right = evaluate_predicate(
-                required(row.right_predicate, "right predicate")?,
-                predicates,
-                eval,
-                stack,
-            )?;
-            if row.kind == PredicateKind::And {
-                left.and(right)
-            } else {
-                left.or(right)
-            }
+        syntax::PredicateSelected::And(value) => {
+            let left = evaluate_predicate(value.left, predicates, eval, stack)?;
+            let right = evaluate_predicate(value.right, predicates, eval, stack)?;
+            left.and(right)
         }
-        PredicateKind::Not => evaluate_predicate(
-            required(row.left_predicate, "negated predicate")?,
-            predicates,
-            eval,
-            stack,
-        )?
-        .not(),
+        syntax::PredicateSelected::Or(value) => {
+            let left = evaluate_predicate(value.left, predicates, eval, stack)?;
+            let right = evaluate_predicate(value.right, predicates, eval, stack)?;
+            left.or(right)
+        }
+        syntax::PredicateSelected::Not(value) => {
+            evaluate_predicate(value.predicate, predicates, eval, stack)?.not()
+        }
     };
     stack.remove(&id);
     Ok(truth)
-}
-fn required<T>(value: Option<T>, name: &str) -> Result<T, CompilerError> {
-    value.ok_or_else(|| invalid(format!("{name} is absent")))
 }
 
 #[cfg(test)]

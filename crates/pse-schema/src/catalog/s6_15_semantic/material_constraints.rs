@@ -14,10 +14,10 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["template_id"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("min_phases", T::native(arrow_schema::DataType::UInt16)),
-            column("max_phases", T::native(arrow_schema::DataType::UInt16)).optional(),
-            column("min_species", T::native(arrow_schema::DataType::UInt16)),
-            column("max_species", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column("min_phases", T::nonnegative(i64::from(u16::MAX))),
+            column("max_phases", T::nonnegative(i64::from(u16::MAX))).optional(),
+            column("min_species", T::nonnegative(i64::from(u16::MAX))),
+            column("max_species", T::nonnegative(i64::from(u16::MAX))).optional(),
         ],
         "Bounds on the distinct actual phase and species members of the selected material system, evaluated before realization; caller declarations of counts are not evidence.",
     );

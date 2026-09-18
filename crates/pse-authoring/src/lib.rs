@@ -17,18 +17,18 @@
 //! - [`dsl`] — the expression DSL: parse, render, round trip.
 //! - [`document`] — the package and case document loader.
 //! - [`ids`] — entity identity assignment under both policies.
-//! - [`change_set`] — the only write path into `authored`.
+//! - Native source edits preserve exact before-images; provider commands own writes.
 //! - [`targets`] — `pse.target_path` parsing and resolution.
 //! - [`p0`], [`p1`] — package resolution and authoring parse.
 //!
 //! `generated` is added together with the first generated `documents.rs` (packet A-6).
 
-pub mod change_set;
 pub mod document;
 pub mod dsl;
 pub mod error;
 pub mod ids;
 pub mod native;
+mod native_relations;
 pub mod p0;
 pub mod p1;
 pub mod span;

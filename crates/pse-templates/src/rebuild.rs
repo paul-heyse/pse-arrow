@@ -607,7 +607,11 @@ fn finish_coordinates(
             symbol: ValueRef::ActualSymbol(*symbol),
         });
     }
-    let projection = project_group(binding, literals, env)?;
+    let fixed = literals
+        .iter()
+        .map(|(axis, member)| (i64::from(*axis), *member))
+        .collect::<Vec<_>>();
+    let projection = project_group(binding, &fixed, env)?;
     env.require_group_bindings(&projection.group)?;
     let group = projection.group.group;
     if projections

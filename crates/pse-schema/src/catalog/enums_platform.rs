@@ -15,10 +15,9 @@
 
 use crate::builder::RegistryBuilder;
 use crate::model::{
-    AggregateEmptyPolicy, AggregateNullPolicy, Authority, ColumnRole, ConflictPolicy,
-    DependencyMode, DerivationGranularity, Determinism, EmptyListPolicy, EnumDecl, EnumMember,
-    InvariantKind, Namespace, NegationPolicy, NullEquality, NullListPolicy, RuleAggregateFn,
-    Severity, SnapshotClass, Stability,
+    Authority, ColumnRole, ConflictPolicy, DependencyMode, DerivationGranularity, Determinism,
+    EnumDecl, EnumMember, InvariantKind, Namespace, NegationPolicy, Severity, SnapshotClass,
+    Stability,
 };
 
 /// Declares every platform vocabulary.
@@ -217,55 +216,19 @@ fn declare_column_and_invariant_vocabularies(builder: &mut RegistryBuilder) {
 /// The vocabularies the rule algebra is written in (blueprint §6.11, §14.2).
 fn declare_rule_vocabularies(builder: &mut RegistryBuilder) {
     declare_plan_vocabularies(builder);
-    declare_expression_vocabularies(builder);
     declare_policy_vocabularies(builder);
     declare_null_vocabularies(builder);
 }
 
-/// `RulePlanOp`, `RuleAggregate` and `DependencyMode` (blueprint §6.11).
+/// Native rule dependency roles.
 fn declare_plan_vocabularies(builder: &mut RegistryBuilder) {
-    builder
-        .declare_enum(EnumDecl::platform(
-            "RulePlanOp",
-            crate::model::RulePlanOp::ALL
-                .iter()
-                .map(|op| member(op.as_str(), "Declared rule-plan operator."))
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "RuleAggregate",
-            RuleAggregateFn::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            RuleAggregateFn::Count => "Row count.",
-                            RuleAggregateFn::Sum => "Exact checked integer sum.",
-                            RuleAggregateFn::Min => "Minimum.",
-                            RuleAggregateFn::Max => "Maximum.",
-                            RuleAggregateFn::CollectOrdered => "Collection in the declared order.",
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "DependencyMode",
-            DependencyMode::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            DependencyMode::Read => "The rule scans it.",
-                            DependencyMode::Negate => "The rule anti-joins against it.",
-                            DependencyMode::Write => "The rule's head writes it.",
-                        },
-                    )
-                })
-                .collect(),
-        ));
+    builder.declare_enum(EnumDecl::platform(
+        "DependencyMode",
+        DependencyMode::ALL
+            .iter()
+            .map(|value| member(value.as_str(), "Native query input or output scope."))
+            .collect(),
+    ));
 }
 
 /// `NegationPolicy`, `ConflictPolicy` and `Determinism` (blueprint §14.1, §14.2).
@@ -325,100 +288,18 @@ fn declare_policy_vocabularies(builder: &mut RegistryBuilder) {
 
 /// The null, empty and truth-value vocabularies (blueprint §6.11, §7.6, §14.2).
 fn declare_null_vocabularies(builder: &mut RegistryBuilder) {
-    builder
-        .declare_enum(EnumDecl::platform(
-            "NullEquality",
-            NullEquality::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            NullEquality::NullEqualsNothing => {
-                                "SQL equality: a null matches nothing."
-                            }
-                            NullEquality::NullEqualsNull => {
-                                "`IS NOT DISTINCT FROM`: two nulls match."
-                            }
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "AggregateNullPolicy",
-            AggregateNullPolicy::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            AggregateNullPolicy::Reject => "A null input is an error.",
-                            AggregateNullPolicy::SkipMissing => {
-                                "A null input is skipped and counted."
-                            }
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "AggregateEmptyPolicy",
-            AggregateEmptyPolicy::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            AggregateEmptyPolicy::Zero => "Zero.",
-                            AggregateEmptyPolicy::EmptyList => "An empty list.",
-                            AggregateEmptyPolicy::Error => "An error: the input was incomplete.",
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "NullListPolicy",
-            NullListPolicy::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            NullListPolicy::Reject => "A null list is an error.",
-                            NullListPolicy::NoMembers => "A null list contributes no members.",
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "EmptyListPolicy",
-            EmptyListPolicy::ALL
-                .iter()
-                .map(|value| {
-                    member(
-                        value.as_str(),
-                        match value {
-                            EmptyListPolicy::NoMembers => "An empty list contributes no members.",
-                        },
-                    )
-                })
-                .collect(),
-        ))
-        .declare_enum(EnumDecl::platform(
-            "TruthValue",
-            vec![
-                member("true", "Decided true; the row goes to the head relation."),
-                member("false", "Decided false."),
-                member("unknown", "The predicate could not decide."),
-                member(
-                    "conflict",
-                    "Two rules asserted incompatible values for one key.",
-                ),
-            ],
-        ));
+    builder.declare_enum(EnumDecl::platform(
+        "TruthValue",
+        vec![
+            member("true", "Decided true; the row goes to the head relation."),
+            member("false", "Decided false."),
+            member("unknown", "The predicate could not decide."),
+            member(
+                "conflict",
+                "Two rules asserted incompatible values for one key.",
+            ),
+        ],
+    ));
 }
 
 /// The vocabularies §6.1 and §22.2 are written in.
@@ -487,24 +368,12 @@ fn declare_identity_vocabularies(builder: &mut RegistryBuilder) {
                 member("solver_profile", "A solver profile."),
                 member("discretization_policy", "A discretization policy."),
             ],
-        ))
-        .declare_enum(EnumDecl::platform(
-            "ChangeOpKind",
-            vec![
-                member("insert", "Add a row."),
-                member("update", "Replace a row's non-key values."),
-                member("delete", "Remove a row."),
-                member(
-                    "rename",
-                    "Change an entity's name and qualified name; rejected for a named-policy entity.",
-                ),
-            ],
         ));
 }
 
 /// The §23.2 failure classes, as a closed dictionary.
 ///
-/// The member spelling is the diagnostic code, so a `pass_specs.diagnostics` row and a
+/// The member spelling is the diagnostic code, so a `algorithm_specs.diagnostics` row and a
 /// `#[diagnostic(code(...))]` are the same string rather than two spellings of one idea.
 pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
     builder.declare_enum(EnumDecl::platform(
@@ -571,44 +440,5 @@ pub(super) fn declare_failure_classes(builder: &mut RegistryBuilder) {
                 "An authored assertion or user equation failed.",
             ),
         ],
-    ));
-}
-
-/// Typed rule payload vocabularies come from their owning model declarations.
-fn declare_expression_vocabularies(builder: &mut RegistryBuilder) {
-    builder.declare_enum(EnumDecl::platform(
-        "RuleHeadKind",
-        crate::model::RuleHeadKind::ALL
-            .iter()
-            .map(|value| member(value.as_str(), "Declared rule semantic value."))
-            .collect(),
-    ));
-    builder.declare_enum(EnumDecl::platform(
-        "RuleExprOp",
-        crate::model::RuleExprOp::ALL
-            .iter()
-            .map(|value| member(value.as_str(), "Declared rule semantic value."))
-            .collect(),
-    ));
-    builder.declare_enum(EnumDecl::platform(
-        "RuleCmpOp",
-        crate::model::CmpOp::ALL
-            .iter()
-            .map(|value| member(value.as_str(), "Declared rule semantic value."))
-            .collect(),
-    ));
-    builder.declare_enum(EnumDecl::platform(
-        "RuleLiteralKind",
-        crate::model::RuleLiteralKind::ALL
-            .iter()
-            .map(|value| member(value.as_str(), "Declared rule semantic value."))
-            .collect(),
-    ));
-    builder.declare_enum(EnumDecl::platform(
-        "DepthBound",
-        crate::model::DepthBound::ALL
-            .iter()
-            .map(|value| member(value.as_str(), "Declared rule semantic value."))
-            .collect(),
     ));
 }

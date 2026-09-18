@@ -23,7 +23,8 @@ use pse_ids::SemanticId;
 
 use crate::RelationError;
 
-pub(crate) use codec::{ArrowValue, append_string, read_string};
+pub use codec::ArrowValue;
+pub(crate) use codec::{append_string, read_string};
 
 /// A stable reference to a column in a generated relation declaration.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -347,18 +348,21 @@ impl FieldCheckedBatch {
     }
 }
 
-fn declaration(
-    registry: &pse_schema::Registry,
+fn declaration<'a>(
+    registry: &'a pse_schema::Registry,
     spec: &pse_schema::model::RelationSpec,
-) -> Result<String, RelationError> {
+) -> Result<std::borrow::Cow<'a, str>, RelationError> {
     let actual =
         registry
             .relation_by_id(spec.id)
             .ok_or_else(|| RelationError::UnknownRegistry {
                 relation: spec.qualified_name(),
             })?;
-    let declared = pse_schema::compiled_contract::relation(registry, actual)?.literal_spec();
-    if pse_schema::compiled_contract::relation(registry, spec)?.literal_spec() != declared {
+    // The immutable registry already owns this exact lossless projection. Borrow
+    // it for actual declarations; the registry reconstructs external candidates
+    // independently, so matching IDs or fingerprints still confer no authority.
+    let declared = registry.compiled_declaration(actual)?;
+    if registry.compiled_declaration(spec)? != declared {
         return Err(RelationError::Contract {
             relation: spec.qualified_name(),
             reason: "candidate declaration differs from the authoritative registry".to_owned(),

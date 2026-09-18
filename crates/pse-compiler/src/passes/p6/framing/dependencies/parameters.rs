@@ -7,9 +7,13 @@ use super::{
     array_length, c, coalesce, col, emit, error, filter, indices, join, lit, prefix, project,
     scalar, union, when,
 };
+use datafusion::functions_aggregate::expr_fn::array_agg;
 use datafusion::{functions_aggregate::expr_fn::count, functions_nested::expr_fn::flatten};
-use pse_catalog::session::aggregate::array_agg;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "build keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn build(
     plans: &mut Plans<'_>,
     base: LogicalPlan,
@@ -27,7 +31,7 @@ pub(super) async fn build(
     let counts = LogicalPlanBuilder::from(mappings.clone())
         .aggregate(
             [c("mapping", "method_id"), c("mapping", "parameter_kind")],
-            [count(lit(1_u64)).alias("axis_count")],
+            [count(lit(1_i64)).alias("axis_count")],
         )
         .and_then(LogicalPlanBuilder::build)
         .map_err(error)?;
@@ -125,9 +129,9 @@ pub(super) async fn build(
                 &step,
                 coalesce(vec![
                     array_length(c("selected_axis", "members")),
-                    lit(0_u64),
+                    lit(0_i64),
                 ])
-                .lt_eq(lit(1_u64)),
+                .lt_eq(lit(1_i64)),
                 "parameter signature ambiguously repeats a source domain kind",
             )
             .await?;

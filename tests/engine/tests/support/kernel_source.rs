@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
 //! A complete source descriptor advertises binding and deliberately has no implementation.
+
 use super::demand_source::{id, source};
 use pse_authoring::{
     ParseBudget,
@@ -32,15 +37,13 @@ pub(crate) fn kernel_source(registry: &Registry, missing_input: bool) -> Documen
         .map(|document| (document.path.clone(), document.text.clone()))
         .collect::<BTreeMap<_, _>>();
     let mut methods: Value = serde_json::from_str(&texts["methods/closure.yaml"]).unwrap();
-    methods["method_specs"][0]["realization"] = json!("kernel");
-    methods["method_specs"][0]["template_id"] = Value::Null;
-    methods["method_specs"][0]["kernel_id"] = json!(id(120));
+    methods["method_specs"][0]["realization"] =
+        json!({"kind":"kernel","kernel":{"kernel_id":id(120)}});
     methods["method_specs"][0]["parameter_kinds"] = json!([
         {"name":"coefficient","quantity_kind_id":id(21),"indexed_by":[],"required":true}
     ]);
-    methods["method_provisions"][0]["output_kind"] = json!("kernel_output");
-    methods["method_provisions"][0]["symbol_decl_id"] = Value::Null;
-    methods["method_provisions"][0]["kernel_output_ordinal"] = json!(0);
+    methods["method_provisions"][0]["output"] =
+        json!({"kind":"kernel_output","kernel_output":{"ordinal":0}});
     methods["method_provisions"][0]["natural_unit_id"] = json!(id(11));
     methods["method_parameters"] = json!([
         {"method_id":id(80),"name":"coefficient","quantity_type_id":id(31),"natural_unit_id":id(11),"indexed_by":[],"required":true}

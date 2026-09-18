@@ -37,16 +37,27 @@ pub async fn violation_plans(
             member.table_name.clone(),
         );
         let input = context.table(reference).await?.into_unoptimized_plan();
-        checks.push(local_values(&registry, spec, input.clone(), state)?);
+        checks.push(
+            local_values(&registry, spec, input.clone(), state).map_err(|error| {
+                error.context(format!("local values for {}", spec.qualified_name()))
+            })?,
+        );
         let documents = if let Some(documents) = registry.relation("authored.documents") {
             selected_table(record, documents.id, &member.catalog_name, &context).await?
         } else {
             None
         };
-        checks.extend(super::source_spans::plans(&input, documents.as_ref())?);
+        checks.extend(
+            super::source_spans::plans(&input, documents.as_ref()).map_err(|error| {
+                error.context(format!("source spans for {}", spec.qualified_name()))
+            })?,
+        );
         checks.extend(
             super::quantities::plans(&input, record, &registry, &member.catalog_name, &context)
-                .await?,
+                .await
+                .map_err(|error| {
+                    error.context(format!("quantities for {}", spec.qualified_name()))
+                })?,
         );
         // Empty declared keys deliberately mean a singleton relation.
         let keys: Vec<_> = spec.primary_key.iter().map(|name| column(name)).collect();
@@ -65,11 +76,52 @@ pub async fn violation_plans(
                 &member.catalog_name,
                 &context,
             )
-            .await?,
+            .await
+            .map_err(|error| error.context(format!("references for {}", spec.qualified_name())))?,
+        );
+        checks.extend(
+            super::numerical::plans(
+                &input,
+                spec,
+                record,
+                &registry,
+                &member.catalog_name,
+                &context,
+            )
+            .await
+            .map_err(|error| {
+                error.context(format!("numerical contract for {}", spec.qualified_name()))
+            })?,
         );
     }
     Ok(checks)
 }
+/// Validate a complete artifact's declared inventory before reading member values.
+/// Empty relations remain required; a partial checkpoint uses the `relations` kind.
+pub(super) fn admit_profile(record: &publications::Row, registry: &Registry) -> Result<()> {
+    let required = registry
+        .artifact_profile(record.kind.as_str())
+        .ok_or_else(|| invalid("publication kind has no declared completeness profile"))?;
+    let present: std::collections::BTreeSet<_> = record
+        .members
+        .iter()
+        .map(|member| member.relation_id)
+        .collect();
+    if !required.is_subset(&present) {
+        let missing = required
+            .difference(&present)
+            .filter_map(|id| registry.relation_by_id(*id))
+            .map(RelationSpec::qualified_name)
+            .collect::<Vec<_>>();
+        return Err(invalid(&format!(
+            "incomplete {} artifact: {}",
+            record.kind.as_str(),
+            missing.join(", ")
+        )));
+    }
+    Ok(())
+}
+
 fn key_consistency(input: LogicalPlan, spec: &RelationSpec) -> Result<LogicalPlan> {
     let token = crate::session::scalar::key(
         spec.id,
@@ -139,7 +191,9 @@ fn local_values(
     state: &SessionState,
 ) -> Result<LogicalPlan> {
     let schema = pse_schema::arrow::relation_schema(registry, spec).map_err(external)?;
-    let mut predicates = super::row_checks::expressions(&schema, state)?;
+    let mut predicates = crate::contract::row_checks::bind(&schema, state)?
+        .into_values()
+        .collect::<Vec<_>>();
     predicates.push(super::predicates::relation(registry, &schema)?);
     let predicate = super::predicates::combine(predicates);
     violation(
@@ -168,13 +222,32 @@ pub(super) async fn admit(
     registry: Arc<Registry>,
     state: &SessionState,
 ) -> Result<()> {
+    admit_profile(record, &registry)?;
     for check in violation_plans(record, registry, state).await? {
-        let mut rows = execute_stream(state.create_physical_plan(&check).await?, state.task_ctx())?;
-        while let Some(batch) = rows.try_next().await? {
+        let physical = state.create_physical_plan(&check).await.map_err(|error| {
+            error.context(format!("publication obligation {}", check.display_indent()))
+        })?;
+        let mut rows = execute_stream(physical, state.task_ctx()).map_err(|error| {
+            error.context(format!(
+                "executing publication obligation {}",
+                check.display_indent()
+            ))
+        })?;
+        while let Some(batch) = rows.try_next().await.map_err(|error| {
+            error.context(format!(
+                "reading publication obligation {}",
+                check.display_indent()
+            ))
+        })? {
             if batch.num_rows() != 0 {
-                return Err(DataFusionError::Execution(format!(
-                    "candidate violates its relation contract: {}",
-                    check.display_indent()
+                return Err(DataFusionError::External(Box::new(
+                    crate::CatalogError::Admission {
+                        path: "publication.members".into(),
+                        reason: format!(
+                            "candidate violates its relation contract: {}",
+                            check.display_indent()
+                        ),
+                    },
                 )));
             }
         }

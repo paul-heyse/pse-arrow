@@ -6,7 +6,7 @@
         "builtin_rule": "[\"enum\",\"literal\"]",
         "conversions": "[\"list\",[]]",
         "deferred_static_check": "[\"bool\",true]",
-        "node_id": "[\"u64\",1]",
+        "node_id": "[\"i64\",1]",
         "operand_permutation": "[\"list\",[]]",
         "operation_id": "[\"id\",\"01010101010101010101010101010101\"]"
       },
@@ -14,7 +14,7 @@
         "builtin_rule": "[\"enum\",\"literal\"]",
         "conversions": "[\"list\",[]]",
         "deferred_static_check": "[\"bool\",true]",
-        "node_id": "[\"u64\",1]",
+        "node_id": "[\"i64\",1]",
         "operand_permutation": "[\"list\",[]]",
         "operation_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
@@ -22,7 +22,7 @@
   },
   "expected_keys": [
     [
-      "[\"u64\",1]"
+      "[\"i64\",1]"
     ]
   ]
 }

@@ -170,7 +170,7 @@ impl ExecutionPlan for FixedPointExec {
             let session = bind_inputs(&program, &inputs, &state, &services, context)
                 .await
                 .map_err(native_error)?;
-            let settled = super::super::iterate(
+            let settled = Box::pin(super::super::iterate(
                 &program.rules,
                 &program.bindings,
                 &session,
@@ -178,7 +178,7 @@ impl ExecutionPlan for FixedPointExec {
                 &program.outputs,
                 program.limits,
                 services.cancellation(),
-            )
+            ))
             .await
             .map_err(native_error)?;
             program.layout.pack(&settled).map_err(native_error)

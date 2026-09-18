@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# ADR-0069 / Plan 08: removed Appendix B side tables and their coherent replacement.
+# This is a deletion assertion, not a schema alias or an exemption.
+[replacements]
+"compiled.math_affine" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_broadcasts" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_conditionals" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_derivatives" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_expr_args" = { relation = "compiled.math_expr_nodes", column = "children" }
+"compiled.math_float_constants" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_gathers" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_implicit_refs" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_int_constants" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_integrals" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_kernel_calls" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_piecewise_linear" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_reductions" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_smooth_ops" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_symbol_refs" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_unit_converts" = { relation = "compiled.math_expr_nodes", column = "payload" }
+"compiled.math_weighted_means" = { relation = "compiled.math_expr_nodes", column = "payload" }
+
+# Native provider/plan/publication pivot: no predecessor schema aliases.
+"reference.pass_specs" = { relation = "reference.algorithm_specs", column = "algorithm_id" }
+"reference.pass_input_ports" = { relation = "reference.algorithm_arguments", column = "algorithm_id" }
+"reference.pass_output_ports" = { relation = "reference.algorithm_results", column = "algorithm_id" }
+"authored.model_revisions" = { relation = "runtime.publications", column = "publication_id" }
+"authored.case_revisions" = { relation = "runtime.publications", column = "publication_id" }
+"authored.change_sets" = { relation = "runtime.change_events", column = "commit_version" }
+"authored.change_ops" = { relation = "runtime.change_events", column = "kind" }
+"compiled.stage_bundles" = { relation = "runtime.publications", column = "members" }
+"provenance.pass_records" = { relation = "runtime.publications", column = "attempt_id" }
+"provenance.refs" = { relation = "provenance.derivations", column = "supporting" }
+"reference.rule_plan_nodes" = { relation = "reference.rule_specs", column = "queries" }
+"reference.rule_plan_edges" = { relation = "reference.rule_specs", column = "queries" }
+"reference.rule_aggregates" = { relation = "reference.rule_specs", column = "queries" }
+"reference.rule_group_keys" = { relation = "reference.rule_specs", column = "queries" }
+"reference.rule_unnest" = { relation = "reference.rule_specs", column = "queries" }
+"reference.rule_expr_*" = { relation = "reference.rule_specs", column = "queries" }

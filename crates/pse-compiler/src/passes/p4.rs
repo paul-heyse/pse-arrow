@@ -6,14 +6,14 @@ mod augmented;
 pub mod predicates;
 pub(crate) use augmented::evaluate_augmented;
 
-use crate::{CompilerError, InputBundle, PassContext};
-use pse_catalog::computation::ProducedStage;
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use pse_rules::strata::{
     LocatedRuleInput, RuleBindings, RuleInputLocation, StratumLimits, StratumOutcome,
 };
 use pse_schema::{
     Registry,
-    model::{PassSpec, RelationKey, RuleHead, RuleSpec},
+    model::{AlgorithmSpec, RelationKey, RuleSpec},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -23,7 +23,7 @@ use std::{
 /// Executable capability closure bound to its registered complete pass contract.
 #[derive(Debug)]
 pub struct P4 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 impl P4 {
     /// Bind the exact registered P4 declaration.
@@ -32,21 +32,21 @@ impl P4 {
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         Ok(Self {
             spec: registry
-                .pass("P4@1")
+                .algorithm("P4@1")
                 .ok_or_else(|| invalid("P4 declaration missing"))?
                 .clone(),
         })
     }
 }
-impl crate::Pass for P4 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P4 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             inputs.validate(&self.spec, ctx.registry)?;
             let mut outcome = execute_program(&self.spec, ctx, inputs).await?;
@@ -66,10 +66,10 @@ impl crate::Pass for P4 {
                     } else {
                         outcome.completed.relation(spec.key)?.checked().clone()
                     };
-                    Ok((port.port.to_owned(), batch))
+                    Ok((port.port.clone(), batch))
                 })
                 .collect::<Result<_, CompilerError>>()?;
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: Vec::new(),
                 derivations: outcome.derivations,
@@ -84,19 +84,19 @@ impl crate::Pass for P4 {
 /// # Errors
 /// Missing bindings, unfinished closure, conflicts or rule admission/execution failures.
 pub(crate) async fn execute_program(
-    spec: &PassSpec,
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
+    spec: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
 ) -> Result<StratumOutcome, CompilerError> {
     let session = ctx.session;
     execute_selected_program(spec, spec, ctx, inputs, session, &BTreeMap::new()).await
 }
 
 pub(crate) async fn execute_selected_program(
-    selection: &PassSpec,
-    spec: &PassSpec,
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
+    selection: &AlgorithmSpec,
+    spec: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
     session: &pse_catalog::session::SnapshotSession,
     locations: &BTreeMap<RelationKey, RuleInputLocation>,
 ) -> Result<StratumOutcome, CompilerError> {
@@ -105,10 +105,16 @@ pub(crate) async fn execute_selected_program(
         .iter()
         .map(|port| port.relation.as_str())
         .collect::<BTreeSet<_>>();
-    let rules = ctx.registry.rules().iter().filter(|rule| matches!(&rule.head, RuleHead::Relation(name) if declared.contains(name.as_str()))).cloned().collect::<Vec<RuleSpec>>();
+    let rules = ctx
+        .registry
+        .rules()
+        .iter()
+        .filter(|rule| declared.contains(rule.head.as_str()))
+        .cloned()
+        .collect::<Vec<RuleSpec>>();
     let heads = rules
         .iter()
-        .map(|rule| rule.head.relation())
+        .map(|rule| rule.head.as_str())
         .collect::<BTreeSet<_>>();
     let mut outputs = BTreeSet::<RelationKey>::new();
     let mut bindings = BTreeMap::new();
@@ -121,12 +127,9 @@ pub(crate) async fn execute_selected_program(
         );
     }
     for rule in &rules {
-        for name in [
-            Some(rule.head.relation()),
-            rule.assertion_relation.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
+        for name in [Some(rule.head.as_str()), rule.assertion_relation.as_deref()]
+            .into_iter()
+            .flatten()
         {
             outputs.insert(
                 ctx.registry
@@ -136,7 +139,9 @@ pub(crate) async fn execute_selected_program(
             );
         }
         let mut ports = BTreeMap::new();
-        for (name, port, _) in rule.plan.dependencies() {
+        for input in &rule.inputs {
+            let name = input.relation.as_str();
+            let port = input.port;
             let relation = ctx
                 .registry
                 .relation(name)
@@ -152,14 +157,10 @@ pub(crate) async fn execute_selected_program(
                     .find(|input| input.relation == name)
                     .ok_or_else(|| invalid(format!("pass has no input for rule scan {name}")))?;
                 let bound = inputs
-                    .port(input_port.port)
+                    .port(&input_port.port)
                     .and_then(Option::as_ref)
                     .ok_or_else(|| invalid("rule requires a complete present input binding"))?;
-                RuleInputLocation::Facts(std::sync::Arc::new(
-                    pse_catalog::session::RelationFacts::from_checked(
-                        bound.relation().checked().clone(),
-                    ),
-                ))
+                RuleInputLocation::Facts(std::sync::Arc::clone(bound.relation()?))
             };
             ports.insert(
                 port.to_owned(),

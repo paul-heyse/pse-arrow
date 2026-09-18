@@ -3,7 +3,9 @@
 
 //! Explicit remote metadata resolution into retained native provider generations.
 
-use super::{PreparedComputation, SnapshotSession, operation::NativeOperation};
+mod provider;
+
+use super::{PreparedComputation, SnapshotSession};
 use crate::{BoxFut, CatalogError};
 use datafusion::{
     arrow::{
@@ -12,7 +14,6 @@ use datafusion::{
     },
     catalog::{AsyncCatalogProviderList, CatalogProviderList},
     common::TableReference,
-    logical_expr::{Expr, lit},
 };
 use pse_ids::CancellationToken;
 use pse_schema::model::provider::{OperationEffect, OperationPurpose, ProviderScope};
@@ -112,6 +113,7 @@ struct Resolve {
     request: ResolutionRequest,
     consistency: ResolutionConsistency,
     output: Mutex<Option<SnapshotSession>>,
+    started: std::sync::atomic::AtomicBool,
 }
 impl SnapshotSession {
     /// Prepare native asynchronous catalog discovery under the selected provider scope.
@@ -143,36 +145,42 @@ impl SnapshotSession {
             request,
             consistency,
             output: Mutex::default(),
+            started: std::sync::atomic::AtomicBool::new(false),
         });
-        let native = session.prepare_operation(operation.clone(), cancel)?;
+        let reference = TableReference::full(
+            "__pse_metadata",
+            "invocation",
+            format!("resolution_{:p}", Arc::as_ptr(&operation)),
+        );
+        let source: Arc<dyn datafusion::catalog::TableProvider> =
+            Arc::new(provider::ResolutionProvider {
+                operation: Arc::clone(&operation),
+                session: session.clone(),
+            });
+        let bound = session.with_provider(reference.clone(), Arc::clone(&source), cancel)?;
+        let plan = datafusion::logical_expr::LogicalPlanBuilder::scan(
+            reference,
+            datafusion::datasource::provider_as_source(source),
+            None,
+        )
+        .and_then(datafusion::logical_expr::LogicalPlanBuilder::build)
+        .map_err(super::engine)?;
+        let native = bound.prepare(plan, cancel)?;
         Ok(PreparedCatalogResolution { native, operation })
     }
 }
-impl NativeOperation for Resolve {
-    fn name(&self) -> &'static str {
-        "catalog.resolve"
-    }
-    fn schema(&self) -> SchemaRef {
+impl Resolve {
+    fn schema() -> SchemaRef {
         Arc::new(Schema::new(vec![Field::new(
             "count",
             DataType::UInt64,
             false,
         )]))
     }
-    fn effects(&self) -> BTreeSet<OperationEffect> {
+    fn effects() -> BTreeSet<OperationEffect> {
         [OperationEffect::Read, OperationEffect::Observe]
             .into_iter()
             .collect()
-    }
-    fn arguments(&self) -> Vec<Expr> {
-        let mut args = vec![lit(format!("{:?}", self.consistency))];
-        match &self.request {
-            ResolutionRequest::References(references) => {
-                args.extend(references.iter().map(|name| lit(name.to_quoted_string())));
-            }
-            ResolutionRequest::All => args.push(lit("all")),
-        }
-        args
     }
     fn execute<'a>(
         &'a self,
@@ -226,7 +234,7 @@ impl NativeOperation for Resolve {
                     reference.table().to_owned(),
                 ));
             }
-            scoped.effective_policy()?.admit(&self.effects())?;
+            scoped.effective_policy()?.admit(&Self::effects())?;
             let state = scoped.bound_state()?;
             let native = cancel
                 .until_cancelled(revision.resolve(
@@ -250,7 +258,7 @@ impl NativeOperation for Resolve {
                 .lock()
                 .map_err(|_| invalid("resolution lock unavailable"))? = Some(result);
             RecordBatch::try_new(
-                self.schema(),
+                Self::schema(),
                 vec![Arc::new(UInt64Array::from(vec![count]))],
             )
             .map_err(|e| super::engine(e.into()))
@@ -287,11 +295,17 @@ async fn bind_resolved(
         let Some(catalog) = native.catalog(catalog_name) else {
             continue;
         };
-        result.bindings.namespace(catalog_name, None);
+        result
+            .bindings
+            .namespace(catalog_name, None)
+            .map_err(super::engine)?;
         let Some(schema) = catalog.schema(schema_name) else {
             continue;
         };
-        result.bindings.namespace(catalog_name, Some(schema_name));
+        result
+            .bindings
+            .namespace(catalog_name, Some(schema_name))
+            .map_err(super::engine)?;
         let Some(provider) = schema
             .table(reference.table())
             .await
@@ -312,3 +326,6 @@ fn invalid(reason: &str) -> CatalogError {
         reason: reason.into(),
     }
 }
+
+#[cfg(test)]
+mod tests;

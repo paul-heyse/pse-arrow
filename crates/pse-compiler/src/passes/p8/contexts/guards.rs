@@ -59,7 +59,7 @@ pub(super) async fn apply(
             c("instance", "instance_id").eq(c("guard_outcome", "instance_id")),
             c("guard_source", "source_id").eq(c("guard_outcome", "source_id")),
             c("guard_source", "root_id").eq(c("guard_outcome", "predicate_id")),
-            array_length(c("guard_outcome", "index")).eq(lit(0_u64)),
+            array_length(c("guard_outcome", "index")).eq(lit(0_i64)),
         ],
     )?;
     let decided = c("guard_outcome", "outcome")

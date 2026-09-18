@@ -33,6 +33,8 @@ pub const KEY_CONTRACT_FINGERPRINT: &str = "pse.contract.fingerprint";
 pub const KEY_NAMESPACE: &str = "pse.namespace";
 /// Named native SQL predicates, encoded as a canonical JSON object in name order.
 pub const KEY_CHECKS: &str = "pse.contract.checks";
+/// Canonical native Delta policies, reflected in the relation fingerprint.
+pub const KEY_DELTA_PROPERTIES: &str = "pse.contract.delta_properties";
 /// `pse.semantic.logical_type`: the registry logical-type name.
 pub const KEY_LOGICAL_TYPE: &str = "pse.semantic.logical_type";
 /// `pse.semantic.quantity_type`: the column's single quantity contract.
@@ -77,6 +79,11 @@ pub fn relation_schema(reg: &Registry, spec: &RelationSpec) -> Result<Schema, Sc
             spec.key.namespace.as_str().to_owned(),
         ),
         (KEY_CHECKS.to_owned(), checks_json(&spec.checks)?),
+        (
+            KEY_DELTA_PROPERTIES.to_owned(),
+            serde_json::to_string(&spec.delta_properties)
+                .map_err(|error| crate::checks::invalid(KEY_DELTA_PROPERTIES, error.to_string()))?,
+        ),
     ]);
     Ok(Schema::new_with_metadata(fields, metadata))
 }
@@ -108,6 +115,50 @@ pub fn native_checks(
 fn checks_json(checks: &std::collections::BTreeMap<String, String>) -> Result<String, SchemaError> {
     serde_json::to_string(checks)
         .map_err(|error| crate::checks::invalid(KEY_CHECKS, error.to_string()))
+}
+
+/// Read native table policy without requiring a live registry.
+/// # Errors
+/// Missing, malformed, noncanonical or reserved property declarations.
+pub fn delta_properties(
+    schema: &Schema,
+) -> Result<std::collections::BTreeMap<String, String>, SchemaError> {
+    let invalid = |reason: String| crate::checks::invalid(KEY_DELTA_PROPERTIES, reason);
+    let text = schema
+        .metadata()
+        .get(KEY_DELTA_PROPERTIES)
+        .ok_or_else(|| invalid("missing native table policy".into()))?;
+    let properties: std::collections::BTreeMap<String, String> =
+        serde_json::from_str(text).map_err(|error| invalid(error.to_string()))?;
+    if serde_json::to_string(&properties).map_err(|error| invalid(error.to_string()))? != *text {
+        return Err(invalid("noncanonical native table policy".into()));
+    }
+    validate_delta_properties(&properties)?;
+    Ok(properties)
+}
+
+pub(crate) fn validate_delta_properties(
+    properties: &std::collections::BTreeMap<String, String>,
+) -> Result<(), SchemaError> {
+    if let Some(interval) = properties.get("delta.checkpointInterval")
+        && interval.parse::<std::num::NonZeroU64>().is_err()
+    {
+        return Err(crate::checks::invalid(
+            KEY_DELTA_PROPERTIES,
+            "checkpoint interval must be a positive native commit count",
+        ));
+    }
+    if properties.iter().any(|(key, value)| {
+        !key.starts_with("delta.")
+            || key.starts_with("delta.constraints.")
+            || value.trim().is_empty()
+    }) {
+        return Err(crate::checks::invalid(
+            KEY_DELTA_PROPERTIES,
+            "table policies must be nonempty native Delta properties; CHECK constraints are declared separately",
+        ));
+    }
+    Ok(())
 }
 
 /// The Arrow field of one declared column (blueprint §4.3).
@@ -226,7 +277,15 @@ fn semantic_metadata(
     ty: &FieldContract,
     path: &str,
 ) -> Result<HashMap<String, String>, SchemaError> {
-    let mut metadata = HashMap::from([(KEY_LOGICAL_TYPE.to_owned(), ty.type_name()?)]);
+    let name = ty.type_name()?;
+    // Native expressions can construct arbitrary Arrow shapes. A registry alias
+    // is useful only when that alias is actually declared; the native field and
+    // its recursively bound child descriptors otherwise carry the full type.
+    let mut metadata = if ty.extension().is_some() || reg.logical_type(&name).is_some() {
+        HashMap::from([(KEY_LOGICAL_TYPE.to_owned(), name)])
+    } else {
+        HashMap::new()
+    };
     let Some(use_) = ty.extension() else {
         return Ok(metadata);
     };
@@ -296,7 +355,11 @@ mod tests {
         );
         assert_eq!(metadata.get(KEY_NAMESPACE), Some(&"reference".to_owned()));
         assert_eq!(metadata.get(KEY_CHECKS), Some(&"{}".to_owned()));
-        assert_eq!(metadata.len(), 5, "no undeclared schema metadata key");
+        assert_eq!(
+            metadata.get(KEY_DELTA_PROPERTIES),
+            Some(&serde_json::to_string(&spec.delta_properties).unwrap())
+        );
+        assert_eq!(metadata.len(), 6, "no undeclared schema metadata key");
     }
 
     #[test]

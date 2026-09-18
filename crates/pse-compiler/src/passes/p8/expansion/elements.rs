@@ -6,7 +6,7 @@ mod coefficients;
 mod physical;
 use super::super::outputs::Output;
 use super::{Inputs, invalid};
-use crate::{CompilerError, PassContext};
+use crate::{AlgorithmContext, CompilerError};
 use pse_ids::{Reservation, SemanticId};
 use pse_mathir::{ExprGraph, NodeId, Opcode, Payload, payload::AffineTerm, relations::LoadedMath};
 use pse_quantity::{
@@ -18,7 +18,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) struct Context<'a, 'b> {
     pub(super) inputs: &'a Inputs,
-    pub(super) ctx: &'a PassContext<'b>,
+    pub(super) ctx: &'a AlgorithmContext<'b>,
     pub(super) source: &'a LoadedMath,
     pub(super) physical: &'a QuantityRegistry,
     pub(super) checker: &'a (dyn InvariantChecker + Sync),

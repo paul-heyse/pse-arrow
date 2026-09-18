@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    206u8, 229u8, 84u8, 99u8, 5u8, 229u8, 166u8, 2u8, 238u8, 144u8, 11u8, 231u8, 98u8,
-    162u8, 146u8, 188u8, 159u8, 171u8, 254u8, 85u8, 133u8, 117u8, 168u8, 249u8, 166u8,
-    43u8, 169u8, 182u8, 110u8, 81u8, 237u8, 175u8,
+    47u8, 209u8, 71u8, 6u8, 143u8, 169u8, 53u8, 93u8, 105u8, 161u8, 62u8, 239u8, 140u8,
+    202u8, 224u8, 66u8, 72u8, 177u8, 24u8, 126u8, 153u8, 25u8, 117u8, 208u8, 116u8,
+    109u8, 222u8, 167u8, 104u8, 162u8, 8u8, 30u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -32,7 +32,7 @@ pub struct InferredMaterialMemberCountsRow {
     ///kind
     pub r#kind: crate::generated::enums::DomainKind,
     ///count
-    pub r#count: u64,
+    pub r#count: i64,
     ///Exact rule derivation
     pub r#derivation_id: pse_ids::SemanticId,
 }
@@ -74,7 +74,7 @@ impl crate::typed::CellCodec for InferredMaterialMemberCountsRow {
                         stringify!(InferredMaterialMemberCountsRow),
                     ))?,
             )?,
-            r#count: <u64 as crate::typed::CellCodec>::from_cell(
+            r#count: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -126,7 +126,7 @@ impl crate::columnar::ArrowValue for InferredMaterialMemberCountsRow {
         <crate::generated::enums::DomainKind as crate::columnar::ArrowValue>::append_null(
             children[1usize].as_mut(),
         )?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
@@ -148,7 +148,7 @@ impl crate::columnar::ArrowValue for InferredMaterialMemberCountsRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#count: <u64 as crate::columnar::ArrowValue>::read(
+            r#count: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -186,7 +186,7 @@ impl InferredMaterialMemberCountsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"45045687c12b55a28c63d6fb5f60a659\"],[\"struct\",[[\"text\",\"inferred\"],[\"text\",\"material_member_counts\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"material_system_id\"],[\"text\",\"kind\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"material_system_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"material_system_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"material_system_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DomainKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b36f005dc768d1dd27c6bffc14b3dfdd\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"b36f005dc768d1dd27c6bffc14b3dfdd\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DomainKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DomainKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b36f005dc768d1dd27c6bffc14b3dfdd\\\"}\"],[\"struct\",[[\"id\",\"b36f005dc768d1dd27c6bffc14b3dfdd\"],[\"text\",\"DomainKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"time\"],[\"null\",null],[\"bool\",false],[\"text\",\"time\"]]],[\"struct\",[[\"text\",\"length\"],[\"null\",null],[\"bool\",false],[\"text\",\"length\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"phase_species\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase_species\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"element\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"reaction\"]]],[\"struct\",[[\"text\",\"port_set\"],[\"null\",null],[\"bool\",false],[\"text\",\"port_set\"]]],[\"struct\",[[\"text\",\"stage\"],[\"null\",null],[\"bool\",false],[\"text\",\"stage\"]]],[\"struct\",[[\"text\",\"cell\"],[\"null\",null],[\"bool\",false],[\"text\",\"cell\"]]],[\"struct\",[[\"text\",\"face\"],[\"null\",null],[\"bool\",false],[\"text\",\"face\"]]],[\"struct\",[[\"text\",\"node\"],[\"null\",null],[\"bool\",false],[\"text\",\"node\"]]],[\"struct\",[[\"text\",\"custom\"],[\"null\",null],[\"bool\",false],[\"text\",\"custom\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"count\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"count\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"count\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Exact rule derivation\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Exact counts over distinct selected material IDs, including explicit empty lists.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"45045687c12b55a28c63d6fb5f60a659\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"inferred\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"45045687c12b55a28c63d6fb5f60a659\"],[\"struct\",[[\"text\",\"inferred\"],[\"text\",\"material_member_counts\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"material_system_id\"],[\"text\",\"kind\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"material_system_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"material_system_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"material_system_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DomainKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b36f005dc768d1dd27c6bffc14b3dfdd\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"b36f005dc768d1dd27c6bffc14b3dfdd\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DomainKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DomainKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b36f005dc768d1dd27c6bffc14b3dfdd\\\"}\"],[\"struct\",[[\"id\",\"b36f005dc768d1dd27c6bffc14b3dfdd\"],[\"text\",\"DomainKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"time\"],[\"null\",null],[\"bool\",false],[\"text\",\"time\"]]],[\"struct\",[[\"text\",\"length\"],[\"null\",null],[\"bool\",false],[\"text\",\"length\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"phase_species\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase_species\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"element\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"reaction\"]]],[\"struct\",[[\"text\",\"port_set\"],[\"null\",null],[\"bool\",false],[\"text\",\"port_set\"]]],[\"struct\",[[\"text\",\"stage\"],[\"null\",null],[\"bool\",false],[\"text\",\"stage\"]]],[\"struct\",[[\"text\",\"cell\"],[\"null\",null],[\"bool\",false],[\"text\",\"cell\"]]],[\"struct\",[[\"text\",\"face\"],[\"null\",null],[\"bool\",false],[\"text\",\"face\"]]],[\"struct\",[[\"text\",\"node\"],[\"null\",null],[\"bool\",false],[\"text\",\"node\"]]],[\"struct\",[[\"text\",\"custom\"],[\"null\",null],[\"bool\",false],[\"text\",\"custom\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"count\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"count\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"count\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Exact rule derivation\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Exact counts over distinct selected material IDs, including explicit empty lists.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"45045687c12b55a28c63d6fb5f60a659\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"inferred\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -262,7 +262,7 @@ impl crate::columnar::RelationRow for InferredMaterialMemberCountsRow {
         InferredMaterialMemberCountsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        52_816_usize + size_of::<Self::Builder>()
+        55_936_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         80usize
@@ -324,7 +324,7 @@ pub struct InferredMaterialMemberCountsView<'a> {
     batch: &'a crate::RecordBatch,
     material_system_id_column: &'a arrow_array::FixedSizeBinaryArray,
     kind_column: &'a arrow_array::StringArray,
-    count_column: &'a arrow_array::UInt64Array,
+    count_column: &'a arrow_array::Int64Array,
     derivation_id_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> InferredMaterialMemberCountsView<'a> {
@@ -370,7 +370,7 @@ impl<'a> InferredMaterialMemberCountsView<'a> {
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
             count_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(2usize).as_ref())?,
             derivation_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
@@ -424,7 +424,7 @@ impl<'a> InferredMaterialMemberCountsView<'a> {
         "count",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn count_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn count_column(&self) -> &'a arrow_array::Int64Array {
         self.count_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "count", "`.")]
@@ -531,6 +531,17 @@ impl InferredMaterialMemberCountsBuilder {
         &mut self,
         row: InferredMaterialMemberCountsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=9_223_372_036_854_775_807_i64).contains(&(row.r#count).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "count",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

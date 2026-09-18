@@ -3,6 +3,11 @@
 
 //! Complete record agreement and independent scientific checks (ADR-0064).
 
+#![allow(
+    clippy::float_cmp,
+    reason = "test fixture construction and exact independent value assertions"
+)]
+
 use super::*;
 use pse_quantity::{BaseDimension, QuantityOperation, QuantityRegistry};
 
@@ -208,7 +213,7 @@ fn reference_package_admission_scientific_units_and_elements() {
         .expect("datum");
     assert_eq!(
         (reference.temperature, reference.pressure),
-        (Some(298.15), Some(101325.0))
+        (Some(298.15), Some(101_325.0))
     );
     let unit_set = units
         .unit_sets()
@@ -226,8 +231,8 @@ fn reference_package_admission_scientific_units_and_elements() {
         .elements()
         .find(|e| e.symbol == "H")
         .expect("hydrogen");
-    assert_eq!(carbon.atomic_mass, 0.012_011);
-    assert_eq!(hydrogen.atomic_mass, 0.001_008);
+    assert!((carbon.atomic_mass - 0.012_011).abs() <= 0.012_011 * 1e-15);
+    assert!((hydrogen.atomic_mass - 0.001_008).abs() <= 0.001_008 * 1e-15);
     let benzene = pse_material::molecular_weight(
         source.elements(),
         &[

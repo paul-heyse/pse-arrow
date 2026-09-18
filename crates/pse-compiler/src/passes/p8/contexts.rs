@@ -7,7 +7,7 @@ mod choice;
 mod guards;
 mod native;
 
-use crate::{CompilerError, InputBundle, PassContext};
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use datafusion::{
     arrow::datatypes::DataType,
     functions::encoding::expr_fn::encode,
@@ -16,16 +16,20 @@ use datafusion::{
 use native::{Sources, append, c, filter, invalid, join, require};
 use pse_catalog::session::scalar;
 use pse_rules::strata::native_input::NativeInput;
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "build keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn build(
-    spec: &PassSpec,
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
+    spec: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {
     inputs.validate(spec, ctx.registry)?;
     let session = ctx
@@ -126,9 +130,7 @@ pub(super) async fn build(
             scalar::named_id(col("application_id"), lit("P8:context")),
         ),
     ]);
-    for field in ["subject_id", "subject_axis", "phase_axis", "phase_id"] {
-        values.insert(field, c("contract", field));
-    }
+    values.insert("coordinates", c("contract", "coordinates"));
     let context = ctx
         .registry
         .relation("inferred.law_contexts")
@@ -187,7 +189,7 @@ pub(super) async fn build(
     let axis_plan = filter(base, col("axis_position").is_not_null())?;
     let ordinal = Expr::Cast(datafusion::logical_expr::expr::Cast::new(
         Box::new(col("axis_position")),
-        DataType::UInt16,
+        DataType::Int64,
     ));
     let ordinal = owner
         .scalar_function("pse_require_nonnull")?

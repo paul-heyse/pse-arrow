@@ -4,30 +4,30 @@
 //! Demand traversal preserves conditional evaluation regions from the actual syntax graph.
 
 use super::{invalid, lower::Lowered};
-use crate::CompilerError;
+use crate::{CompilerError, mathir_relations::syntax};
 use pse_ids::{CancellationToken, Reservation, SemanticId};
 use pse_mathir::{GuardRef, NodeId, Payload, ValueRef};
-use pse_relations::generated::enums::{EquationSyntax, PredicateKind, PredicateOperandKind};
+use pse_relations::generated::normalized::predicate_nodes;
 use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Task {
     Math(NodeId),
-    Predicate(u64),
-    Equation(u64),
+    Predicate(i64),
+    Equation(i64),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Read {
-    Symbol { symbol: SemanticId, node: u64 },
-    Path { path: u64, node: u64 },
+    Symbol { symbol: SemanticId, node: i64 },
+    Path { path: i64, node: i64 },
 }
 pub(super) fn collect(
     lowered: &mut Lowered,
     source: SemanticId,
-    offset: u64,
+    offset: i64,
     cancel: &CancellationToken,
     work: &mut dyn Reservation,
-) -> Result<BTreeSet<(Read, Option<u64>)>, CompilerError> {
+) -> Result<BTreeSet<(Read, Option<i64>)>, CompilerError> {
     work.try_grow(4096).map_err(pse_ids::CanonError::from)?;
     let root = match lowered.syntax {
         "expression" => Task::Math(local(lowered.root, offset)?),
@@ -67,84 +67,68 @@ pub(super) fn collect(
 struct Walker<'a> {
     lowered: &'a mut Lowered,
     source: SemanticId,
-    offset: u64,
+    offset: i64,
     cancel: &'a CancellationToken,
-    pending: Vec<(Task, Option<u64>)>,
-    demands: BTreeSet<(Read, Option<u64>)>,
-    seen: BTreeSet<(Task, Option<u64>)>,
-    synthesized: std::collections::BTreeMap<(&'static str, u64, Option<u64>), u64>,
+    pending: Vec<(Task, Option<i64>)>,
+    demands: BTreeSet<(Read, Option<i64>)>,
+    seen: BTreeSet<(Task, Option<i64>)>,
+    synthesized: std::collections::BTreeMap<(&'static str, i64, Option<i64>), i64>,
     work: &'a mut dyn Reservation,
 }
-fn ordinal(value: Option<u64>) -> Result<u64, CompilerError> {
+fn ordinal(value: Option<i64>) -> Result<i64, CompilerError> {
     value.ok_or_else(|| invalid("missing demand graph ordinal"))
 }
-fn local(id: u64, offset: u64) -> Result<NodeId, CompilerError> {
+fn local(id: i64, offset: i64) -> Result<NodeId, CompilerError> {
     id.checked_sub(offset)
         .map(NodeId)
         .ok_or_else(|| invalid("demand node is outside source family"))
 }
 impl Walker<'_> {
-    fn push_math(&mut self, value: Option<u64>, guard: Option<u64>) -> Result<(), CompilerError> {
+    fn push_math(&mut self, value: i64, guard: Option<i64>) -> Result<(), CompilerError> {
         self.pending
-            .push((Task::Math(local(ordinal(value)?, self.offset)?), guard));
+            .push((Task::Math(local(value, self.offset)?), guard));
         Ok(())
     }
-    fn predicate(&mut self, id: u64, guard: Option<u64>) -> Result<(), CompilerError> {
+    fn predicate(&mut self, id: i64, guard: Option<i64>) -> Result<(), CompilerError> {
         let row = self
             .lowered
             .predicates
             .get(usize::try_from(id).map_err(|_| invalid("predicate ordinal overflow"))?)
             .cloned()
             .ok_or_else(|| invalid("demand predicate absent"))?;
-        match row.kind {
-            PredicateKind::Atom | PredicateKind::In => self.push_math(row.left_expr, guard)?,
-            PredicateKind::Compare => {
-                if row.left_kind == Some(PredicateOperandKind::Expression) {
-                    self.push_math(row.left_expr, guard)?;
-                }
-                if row.right_kind == Some(PredicateOperandKind::Expression) {
-                    self.push_math(row.right_expr, guard)?;
-                }
-            }
-            PredicateKind::Not => self
-                .pending
-                .push((Task::Predicate(ordinal(row.left_predicate)?), guard)),
-            PredicateKind::And | PredicateKind::Or => {
-                self.pending
-                    .push((Task::Predicate(ordinal(row.left_predicate)?), guard));
-                self.pending
-                    .push((Task::Predicate(ordinal(row.right_predicate)?), guard));
-            }
-            PredicateKind::Boolean | PredicateKind::Null => {}
+        for expression in syntax::math_dependencies(&row.value)? {
+            self.push_math(expression, guard)?;
+        }
+        for child in syntax::predicate_dependencies(&row.value)? {
+            self.pending.push((Task::Predicate(child), guard));
         }
         Ok(())
     }
-    fn equation(&mut self, id: u64, guard: Option<u64>) -> Result<(), CompilerError> {
+    fn equation(&mut self, id: i64, guard: Option<i64>) -> Result<(), CompilerError> {
         let row = self
             .lowered
             .equations
             .get(usize::try_from(id).map_err(|_| invalid("equation ordinal overflow"))?)
             .cloned()
             .ok_or_else(|| invalid("demand equation absent"))?;
-        match row.kind {
-            EquationSyntax::Relation => {
-                self.push_math(row.left_expr, guard)?;
-                self.push_math(row.right_expr, guard)?;
+        match row.value.selected()? {
+            syntax::EquationSelected::Relation(value) => {
+                self.push_math(value.left, guard)?;
+                self.push_math(value.right, guard)?;
             }
-            EquationSyntax::Conditional => {
-                let condition = ordinal(row.guard_predicate)?;
+            syntax::EquationSelected::Conditional(value) => {
+                let condition = value.guard;
                 self.pending.push((Task::Predicate(condition), guard));
                 let yes = self.combine(guard, condition, false)?;
                 let no = self.combine(guard, condition, true)?;
+                self.pending.push((Task::Equation(value.then), Some(yes)));
                 self.pending
-                    .push((Task::Equation(ordinal(row.then_equation)?), Some(yes)));
-                self.pending
-                    .push((Task::Equation(ordinal(row.else_equation)?), Some(no)));
+                    .push((Task::Equation(value.otherwise), Some(no)));
             }
         }
         Ok(())
     }
-    fn math(&mut self, id: NodeId, guard: Option<u64>) -> Result<(), CompilerError> {
+    fn math(&mut self, id: NodeId, guard: Option<i64>) -> Result<(), CompilerError> {
         let children = self.lowered.graph.node(id)?.children.len();
         self.work
             .try_grow(
@@ -224,11 +208,11 @@ impl Walker<'_> {
         }
         Ok(())
     }
-    fn global(&self, id: NodeId) -> Result<u64, CompilerError> {
+    fn global(&self, id: NodeId) -> Result<i64, CompilerError> {
         id.0.checked_add(self.offset)
             .ok_or_else(|| invalid("read occurrence ordinal overflow"))
     }
-    fn guard(&self, guard: &GuardRef) -> Result<u64, CompilerError> {
+    fn guard(&self, guard: &GuardRef) -> Result<i64, CompilerError> {
         match guard {
             GuardRef::Predicate {
                 source_id,
@@ -241,10 +225,10 @@ impl Walker<'_> {
     }
     fn combine(
         &mut self,
-        outer: Option<u64>,
-        inner: u64,
+        outer: Option<i64>,
+        inner: i64,
         negated: bool,
-    ) -> Result<u64, CompilerError> {
+    ) -> Result<i64, CompilerError> {
         let inner = if negated {
             self.insert("not", inner, None)?
         } else {
@@ -255,9 +239,9 @@ impl Walker<'_> {
     fn insert(
         &mut self,
         op: &'static str,
-        left: u64,
-        right: Option<u64>,
-    ) -> Result<u64, CompilerError> {
+        left: i64,
+        right: Option<i64>,
+    ) -> Result<i64, CompilerError> {
         if let Some(id) = self.synthesized.get(&(op, left, right)) {
             return Ok(*id);
         }
@@ -265,17 +249,21 @@ impl Walker<'_> {
         self.work
             .try_grow(4096)
             .map_err(pse_ids::CanonError::from)?;
-        let id = u64::try_from(self.lowered.predicates.len())
+        let id = i64::try_from(self.lowered.predicates.len())
             .map_err(|_| invalid("predicate ordinal overflow"))?;
-        let kind = match op {
-            "not" => PredicateKind::Not,
-            "and" => PredicateKind::And,
+        let value = match op {
+            "not" => syntax::Predicate::from_not(syntax::Not { predicate: left }),
+            "and" => syntax::Predicate::from_and(syntax::And {
+                left,
+                right: ordinal(right)?,
+            }),
             _ => return Err(invalid("unsupported synthesized guard operator")),
         };
-        let mut row = super::lower::predicate_row(self.source, kind);
-        row.predicate_id = id;
-        row.left_predicate = Some(left);
-        row.right_predicate = right;
+        let row = predicate_nodes::Row {
+            source_id: self.source,
+            predicate_id: id,
+            value,
+        };
         self.lowered.predicates.push(row);
         self.synthesized.insert((op, left, right), id);
         Ok(id)

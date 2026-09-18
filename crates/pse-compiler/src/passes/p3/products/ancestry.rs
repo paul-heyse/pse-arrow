@@ -13,6 +13,10 @@ use datafusion::{
 use pse_catalog::session::scalar;
 use std::{ops::Not, sync::Arc};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "build keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn build(
     plans: &mut Plans<'_>,
     shapes: LogicalPlan,

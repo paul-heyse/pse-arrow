@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Identity, framing, accounted allocation and snapshot membership (blueprint §5.1, §5.3,
+//! Identity, framing and accounted allocation (blueprint §5.1, §5.3,
 //! §14.3).
 //!
 //! The only crate in the workspace allowed to depend on `blake3` (governance
@@ -19,7 +19,7 @@
 //!
 //! ADR-0045 separates the second and third because `pse.canon.v1` conflated them and could
 //! then neither survive an IPC-file/Parquet round trip nor detect a truncated object under
-//! a plausible name. [`id::LogicalHash`], [`id::EncodingChecksum`] and [`id::SnapshotId`]
+//! a plausible name. [`id::LogicalHash`], [`id::EncodingChecksum`]
 //! are newtypes over the same 32 bytes for the same reason: the compiler refuses the
 //! substitution the design refuses.
 //!
@@ -39,7 +39,6 @@
 //! - [`frame`] — the unkeyed framing of the canonical preimages (§5.3 steps 4 and 7).
 //! - [`encoding`] — encoded-artifact checksums (§5.3 step 6).
 //! - [`contract`] — what the canonicalizer may consume: layouts, field paths, envelope.
-//! - [`snapshot`] — `pse.snapshot.v2` membership (§5.3 step 7).
 //! - [`resource`] — the reserve-before-allocate interface (§14.3, ADR-0046).
 //! - [`canon`] — the `pse.canon.v2` constants; the canonicalizer itself is packet B-canon.
 //! - [`error`] — every error enum with its §23.2 class.
@@ -54,7 +53,6 @@ pub mod frame;
 pub mod id;
 pub mod owned_buffer;
 pub mod resource;
-pub mod snapshot;
 pub mod validation_extent;
 pub use validation_extent::validation_extent;
 
@@ -67,18 +65,14 @@ pub use crate::derive::{
     symbol_instance_id,
 };
 pub use crate::encoding::{EncodingHasher, encoding_checksum};
-pub use crate::error::{CanonError, EnvelopeBound, IdError, ReserveError, SnapshotError};
+pub use crate::error::{CanonError, EnvelopeBound, IdError, ReserveError};
 pub use crate::float::{
     CANONICAL_F32_NAN_BITS, CANONICAL_F64_NAN_BITS, canonical_f32_bits, canonical_f64_bits,
 };
 pub use crate::frame::FrameSink;
 pub use crate::id::{
-    ContentHash, EncodingChecksum, LogicalHash, Ordinal, SchemaVersion, SemanticId, SnapshotId,
+    ContentHash, EncodingChecksum, LogicalHash, Ordinal, SchemaVersion, SemanticId,
 };
 pub use crate::resource::{
     CancellationToken, FixedBudget, MemoryReserver, Reservation, ReservationLease,
-};
-pub use crate::snapshot::{
-    SNAPSHOT_PROFILE, SnapshotFrame, SnapshotKind, SnapshotMember, SnapshotParent, model_port_name,
-    snapshot_id, snapshot_preimage,
 };

@@ -4,7 +4,7 @@
 //! Generated algorithm columns couple to exact bound sources in one native plan.
 pub(crate) mod support;
 use super::native_rows::{column, engine, join};
-use crate::{CompilerError, InputBundle};
+use crate::{AlgorithmInputs, CompilerError};
 use datafusion::{
     common::ScalarValue,
     logical_expr::{Expr, JoinType, LogicalPlanBuilder, col, lit},
@@ -18,7 +18,7 @@ use pse_rules::strata::{
 };
 use pse_schema::{
     Registry,
-    model::{PassSpec, RelationKey},
+    model::{AlgorithmSpec, RelationKey},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -123,7 +123,10 @@ impl<'a> OutputRows<'a> {
         sources: &BTreeSet<SourceKey>,
     ) -> Result<(), CompilerError> {
         if sources.is_empty() {
-            return Err(invalid("algorithm output has no actual source occurrence"));
+            return Err(invalid(&format!(
+                "algorithm output {} has no actual source occurrence",
+                spec.key.qualified_name()
+            )));
         }
         let extent = sources.iter().try_fold(1024usize, |sum, source| {
             source
@@ -359,7 +362,7 @@ impl Sources {
 
     /// Retain every actual pass input role, even when two roles share a declaration.
     pub(crate) fn from_inputs(
-        inputs: &InputBundle,
+        inputs: &AlgorithmInputs,
         registry: &Registry,
     ) -> Result<Self, CompilerError> {
         let mut sources = Self::new();
@@ -370,15 +373,11 @@ impl Sources {
             let spec = registry
                 .relation_by_id(bound.relation_id())
                 .ok_or_else(|| invalid("algorithm input declaration is absent"))?;
-            let location = RuleInputLocation::Facts(Arc::new(
-                pse_catalog::session::RelationFacts::from_checked(
-                    bound.relation().checked().clone(),
-                ),
-            ));
+            let location = RuleInputLocation::Facts(Arc::clone(bound.relation()?));
             sources.insert(
                 spec.key,
                 (
-                    (*port).to_owned(),
+                    (*port).clone(),
                     LocatedRuleInput {
                         relation: spec.key,
                         location,
@@ -476,7 +475,7 @@ impl Sources {
 pub(crate) async fn materialize(
     generated: GeneratedOutputs,
     sources: &Sources,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {
@@ -497,13 +496,18 @@ pub(crate) async fn materialize(
     Ok(output)
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "materialize_relation keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 async fn materialize_relation(
     key: RelationKey,
     batch: SupportedBatch,
     sources: &Sources,
     positives: &BTreeSet<SourceRole>,
     scopes: &BTreeSet<SourceRole>,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<Arc<NativeInput>, CompilerError> {
@@ -705,7 +709,27 @@ mod tests {
     use crate::passes::native_test;
     use datafusion::arrow::array::Array;
     use pse_ids::FixedBudget;
-    use pse_relations::generated::{authored, normalized::template_expr_int_constants as ints};
+    use pse_relations::generated::{authored, normalized::template_expr_nodes as ints};
+
+    fn integer(node_id: i64, value: i64) -> ints::Row {
+        ints::Row {
+            node_id,
+            opcode: pse_relations::generated::enums::Opcode::Const,
+            children: Vec::new(),
+            payload: ints::NormalizedTemplateExprNodesFieldPayload::from_integer(
+                ints::NormalizedTemplateExprNodesFieldPayloadInteger { value },
+            ),
+            quantity_type_id: None,
+            scope_instance_id: None,
+            subtree_hash: pse_ids::ContentHash::from_bytes([0; 32]),
+            derivation_id: SemanticId::NIL,
+            source_span: pse_relations::generated::extension_values::SourceSpan {
+                document_id: SemanticId::NIL,
+                start: 0,
+                end: 0,
+            },
+        }
+    }
 
     #[tokio::test]
     async fn colocated_support_materializes_exact_membership_and_refuses_an_unbound_key() {
@@ -713,14 +737,7 @@ mod tests {
         let budget = FixedBudget::new(128 << 20);
         let cancel = CancellationToken::new();
         let mut inputs = BTreeMap::new();
-        native_test::put(
-            &mut inputs,
-            &registry,
-            vec![ints::Row {
-                node_id: 2,
-                value: 7,
-            }],
-        );
+        native_test::put(&mut inputs, &registry, vec![integer(2, 7)]);
         let source = inputs.remove(&ints::RELATION_KEY).unwrap();
         let (session, _) =
             native_test::session(&registry, BTreeMap::new(), &budget, &cancel).unwrap();
@@ -752,7 +769,7 @@ mod tests {
             ),
         );
         let pass = registry
-            .passes()
+            .algorithms()
             .iter()
             .find(|pass| pass.name == "P3")
             .unwrap();
@@ -760,10 +777,7 @@ mod tests {
             let mut output = OutputRows::new(&registry, budget.as_ref(), &cancel).unwrap();
             output
                 .push(
-                    ints::Row {
-                        node_id: 9,
-                        value: 11,
-                    },
+                    integer(9, 11),
                     &BTreeSet::from([SourceKey {
                         relation: ints::RELATION_KEY,
                         port: "source".into(),
@@ -783,14 +797,27 @@ mod tests {
                     .unwrap()
                     .rows()
                     .unwrap();
+                assert_eq!(rows.len(), 1);
+                let derivations = result[&ints::RELATION_KEY].derivations().batch();
+                let identities = derivations
+                    .column_by_name("derivation_id")
+                    .unwrap()
+                    .as_any()
+                    .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                    .unwrap();
+                assert_ne!(rows[0].derivation_id, SemanticId::NIL);
+                assert!(
+                    identities
+                        .iter()
+                        .any(|id| id == Some(rows[0].derivation_id.as_bytes().as_slice()))
+                );
                 assert_eq!(
                     rows,
                     [ints::Row {
-                        node_id: 9,
-                        value: 11
+                        derivation_id: rows[0].derivation_id,
+                        ..integer(9, 11)
                     }]
                 );
-                assert!(result[&ints::RELATION_KEY].derivations().batch().num_rows() > 0);
             } else {
                 assert!(
                     result.is_err(),
@@ -803,7 +830,9 @@ mod tests {
     #[test]
     fn appended_batches_keep_source_lists_in_each_row_across_flushes() {
         let registry = pse_schema::catalog::assemble().unwrap();
-        let budget = FixedBudget::new(1 << 20);
+        // This support test now uses the complete nested node declaration. Its
+        // generated construction claim includes that declaration's field tree.
+        let budget = FixedBudget::new(16 << 20);
         let cancel = CancellationToken::new();
         let mut output = OutputRows::new(&registry, budget.as_ref(), &cancel).unwrap();
         output.ensure::<ints::Row>().unwrap();
@@ -817,7 +846,7 @@ mod tests {
                 &registry,
                 nodes
                     .into_iter()
-                    .map(|node_id| ints::Row { node_id, value: 7 })
+                    .map(|node_id| integer(node_id, 7))
                     .collect(),
             );
             output

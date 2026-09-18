@@ -3,7 +3,7 @@
   "rows": {
     "reference.method_kernel_inputs": [
       {
-        "dependency_ordinal": "[\"u64\",1]",
+        "dependency_ordinal": "[\"i64\",1]",
         "input_name": "[\"text\",\"value-1\"]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }

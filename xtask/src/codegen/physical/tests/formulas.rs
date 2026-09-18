@@ -46,7 +46,9 @@ impl Source {
             .expect("actual output provision");
         let expression = rows(&self.templates, "template_symbol_expressions")
             .iter()
-            .find(|row| row["symbol_decl_id"] == provision["symbol_decl_id"])
+            .find(|row| {
+                row["symbol_decl_id"] == provision["output"]["template_symbol"]["symbol_decl_id"]
+            })
             .expect("actual provision expression")["expression"]
             .as_str()
             .expect("source text");
@@ -58,8 +60,12 @@ impl Source {
             .iter()
             .find(|row| row["name"] == package)
             .expect("actual package")["property_package_id"];
-        let mut values =
-            BTreeMap::from([("T".to_owned(), temperature), ("P".to_owned(), 100_000.0)]);
+        let mut values = BTreeMap::from([
+            ("T".to_owned(), temperature),
+            ("P".to_owned(), 100_000.0),
+            ("temperature".to_owned(), temperature),
+            ("pressure".to_owned(), 100_000.0),
+        ]);
         for row in rows(&self.data, "parameter_values") {
             if row["owner_entity_id"] != *owner {
                 continue;
@@ -133,12 +139,16 @@ fn sourced_correlations_match_independent_values_and_integral_identities() {
         10_495.0,
         5.0,
     );
-    // NIST measured liquid benzene Cp at 298.15 K: 135.69 J/(mol K).
-    close(
-        source.value("Perry.liquid.cp", "BT_liquid", "benzene", 298.15),
-        135.69,
-        0.2,
-    );
+    // Perry Table 2-196 independently tabulates Cp at the fit endpoints.
+    // Its printed values have 0.01 J/(mol K) resolution. These are not
+    // interchangeable with NIST's separate 298.15 K measurement (sources.md).
+    for (temperature, expected) in [(278.68, 132.51), (353.24, 150.40)] {
+        close(
+            source.value("Perry.liquid.cp", "BT_liquid", "benzene", temperature),
+            expected,
+            0.005,
+        );
+    }
     for (family, package, species, temperature) in [
         ("NIST.Shomate", "N2_vapor", "nitrogen", 350.0),
         ("RPP4", "BT_vapor", "benzene", 400.0),

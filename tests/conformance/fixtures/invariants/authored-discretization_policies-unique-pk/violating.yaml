@@ -3,8 +3,8 @@
   "rows": {
     "authored.discretization_policies": [
       {
-        "collocation_points": "[\"u64\",1]",
-        "finite_elements": "[\"u64\",1]",
+        "collocation_points": "[\"i64\",1]",
+        "finite_elements": "[\"i64\",1]",
         "method": "[\"enum\",\"finite_difference\"]",
         "name": "[\"text\",\"value-1\"]",
         "package_id": "[\"id\",\"01010101010101010101010101010101\"]",
@@ -12,8 +12,8 @@
         "scheme": "[\"enum\",\"BACKWARD\"]"
       },
       {
-        "collocation_points": "[\"u64\",1]",
-        "finite_elements": "[\"u64\",1]",
+        "collocation_points": "[\"i64\",1]",
+        "finite_elements": "[\"i64\",1]",
         "method": "[\"enum\",\"finite_difference\"]",
         "name": "[\"text\",\"value-1\"]",
         "package_id": "[\"id\",\"01010101010101010101010101010101\"]",

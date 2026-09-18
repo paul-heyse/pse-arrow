@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    16u8, 240u8, 250u8, 72u8, 12u8, 70u8, 181u8, 59u8, 64u8, 80u8, 53u8, 134u8, 222u8,
-    181u8, 226u8, 196u8, 87u8, 232u8, 255u8, 121u8, 20u8, 101u8, 207u8, 152u8, 172u8,
-    64u8, 252u8, 94u8, 246u8, 83u8, 241u8, 18u8,
+    132u8, 94u8, 222u8, 158u8, 87u8, 197u8, 58u8, 112u8, 82u8, 219u8, 9u8, 212u8, 9u8,
+    21u8, 89u8, 161u8, 39u8, 221u8, 46u8, 174u8, 125u8, 129u8, 208u8, 87u8, 249u8, 68u8,
+    30u8, 48u8, 67u8, 124u8, 175u8, 16u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -28,9 +28,9 @@ pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
 )]
 pub struct ProvenanceNodeRewritesRow {
     ///input_node_id
-    pub r#input_node_id: u64,
+    pub r#input_node_id: i64,
     ///output_node_id
-    pub r#output_node_id: u64,
+    pub r#output_node_id: i64,
 }
 impl crate::typed::CellCodec for ProvenanceNodeRewritesRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -50,14 +50,14 @@ impl crate::typed::CellCodec for ProvenanceNodeRewritesRow {
         }
         let mut values = values.into_iter();
         Ok(Self {
-            r#input_node_id: <u64 as crate::typed::CellCodec>::from_cell(
+            r#input_node_id: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(ProvenanceNodeRewritesRow),
                     ))?,
             )?,
-            r#output_node_id: <u64 as crate::typed::CellCodec>::from_cell(
+            r#output_node_id: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -94,8 +94,8 @@ impl crate::columnar::ArrowValue for ProvenanceNodeRewritesRow {
             arrow_array::builder::StructBuilder,
         >(output)?;
         let children = output.field_builders_mut();
-        <u64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -106,11 +106,11 @@ impl crate::columnar::ArrowValue for ProvenanceNodeRewritesRow {
         crate::columnar::visible(input, index)?;
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
-            r#input_node_id: <u64 as crate::columnar::ArrowValue>::read(
+            r#input_node_id: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#output_node_id: <u64 as crate::columnar::ArrowValue>::read(
+            r#output_node_id: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -142,7 +142,7 @@ impl ProvenanceNodeRewritesRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c2593e47b134322eb852ea1314795575\"],[\"struct\",[[\"text\",\"provenance\"],[\"text\",\"node_rewrites\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"sidecar\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"input_node_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"output_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Transient actual MathIR graph-import mapping, scoped to one exact graph/family argument role. Native joins apply this mapping to carrier columns. It cannot replace root-environment-specific canonicalization correspondence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c2593e47b134322eb852ea1314795575\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"provenance\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c2593e47b134322eb852ea1314795575\"],[\"struct\",[[\"text\",\"provenance\"],[\"text\",\"node_rewrites\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"sidecar\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"input_node_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"input_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"output_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"output_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Transient actual MathIR graph-import mapping, scoped to one exact graph/family argument role. Native joins apply this mapping to carrier columns. It cannot replace root-environment-specific canonicalization correspondence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c2593e47b134322eb852ea1314795575\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"provenance\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -218,7 +218,7 @@ impl crate::columnar::RelationRow for ProvenanceNodeRewritesRow {
         ProvenanceNodeRewritesView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        18_096_usize + size_of::<Self::Builder>()
+        22_576_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         32usize
@@ -260,8 +260,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 2usize] = [
 #[derive(Debug)]
 pub struct ProvenanceNodeRewritesView<'a> {
     batch: &'a crate::RecordBatch,
-    input_node_id_column: &'a arrow_array::UInt64Array,
-    output_node_id_column: &'a arrow_array::UInt64Array,
+    input_node_id_column: &'a arrow_array::Int64Array,
+    output_node_id_column: &'a arrow_array::Int64Array,
 }
 impl<'a> ProvenanceNodeRewritesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -300,10 +300,10 @@ impl<'a> ProvenanceNodeRewritesView<'a> {
         Ok(Self {
             batch,
             input_node_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(0usize).as_ref())?,
             output_node_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
         })
     }
@@ -324,7 +324,7 @@ impl<'a> ProvenanceNodeRewritesView<'a> {
         "input_node_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn input_node_id_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn input_node_id_column(&self) -> &'a arrow_array::Int64Array {
         self.input_node_id_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "input_node_id", "`.")]
@@ -336,7 +336,7 @@ impl<'a> ProvenanceNodeRewritesView<'a> {
         "output_node_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn output_node_id_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn output_node_id_column(&self) -> &'a arrow_array::Int64Array {
         self.output_node_id_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "output_node_id", "`.")]
@@ -427,6 +427,29 @@ impl ProvenanceNodeRewritesBuilder {
         &mut self,
         row: ProvenanceNodeRewritesRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&(row.r#input_node_id).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "input_node_id",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&(row.r#output_node_id).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "output_node_id",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

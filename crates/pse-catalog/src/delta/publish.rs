@@ -6,7 +6,6 @@
 use super::{
     layout::DurableLayout,
     publication::{PublicationRoot, read_optional_record, read_record},
-    write::PhysicalInput,
 };
 use datafusion::{
     arrow::{
@@ -33,7 +32,7 @@ use datafusion::{
 use deltalake::{
     DeltaTable,
     delta_datafusion::SessionFallbackPolicy,
-    kernel::{Action, transaction::CommitProperties},
+    kernel::{Transaction, transaction::CommitProperties},
     protocol::SaveMode,
 };
 use futures_util::TryStreamExt;
@@ -74,7 +73,7 @@ struct Request {
 }
 
 /// Native publication command with one real, typed control-row input.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DeltaPublish {
     request: Arc<Request>,
     input: LogicalPlan,
@@ -97,17 +96,21 @@ impl DeltaPublish {
         let schema = Arc::new(DFSchema::try_from(Schema::new(vec![
             pse_schema::model::IntegerRange::NONNEGATIVE.field("version"),
         ]))?);
-        Ok(LogicalPlan::Extension(Extension {
-            node: Arc::new(Self {
-                request: Arc::new(Request {
-                    location,
-                    registry,
-                    started: AtomicBool::new(false),
+        Ok(crate::session::contract::ExecutionContract::plan(
+            LogicalPlan::Extension(Extension {
+                node: Arc::new(Self {
+                    request: Arc::new(Request {
+                        location,
+                        registry,
+                        started: AtomicBool::new(false),
+                    }),
+                    input,
+                    schema,
                 }),
-                input,
-                schema,
             }),
-        }))
+            None,
+            effects(),
+        ))
     }
 }
 impl PartialEq for DeltaPublish {
@@ -128,6 +131,13 @@ impl PartialOrd for DeltaPublish {
             std::cmp::Ordering::Equal => self.input.partial_cmp(&other.input),
             order => Some(order),
         }
+    }
+}
+// Native plan renderers visit children separately. Debug describes this
+// node without recursively duplicating complete subgraphs in JSON.
+impl std::fmt::Debug for DeltaPublish {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        UserDefinedLogicalNodeCore::fmt_for_explain(self, f)
     }
 }
 impl UserDefinedLogicalNodeCore for DeltaPublish {
@@ -188,6 +198,9 @@ impl ExtensionPlanner for PublishPlanner {
         let Some(node) = node.as_any().downcast_ref::<DeltaPublish>() else {
             return Ok(None);
         };
+        crate::session::execution::NativeExecutionContext::from_session(session)?
+            .admit_effects(&effects())
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
         let state = session
             .as_any()
             .downcast_ref::<SessionState>()
@@ -266,15 +279,23 @@ impl ExecutionPlan for PublishExec {
         let schema = self.schema();
         let output = Arc::clone(&schema);
         let stream = futures_util::stream::once(async move {
-            let input = control_input(input)?;
-            let batch = one_row(input, &state).await?;
+            let services =
+                crate::session::execution::NativeExecutionContext::from_session(state.as_ref())?;
+            let _writer = super::lease::write(&request.location, services.cancellation()).await?;
+            services.require_settlement();
+            let input = control_input(input)
+                .map_err(|error| error.context("bind publication control input"))?;
+            let batch = one_row(input, &state)
+                .await
+                .map_err(|error| error.context("collect publication control input"))?;
             let registry = request.registry.as_ref();
             let record = publications::View::try_from_batch_with_registry(registry, &batch)
                 .map_err(external)?
                 .row(0)
                 .map_err(external)?;
-            let version =
-                commit(&request.location, &record, batch, &state, &request.registry).await?;
+            let version = commit(&request.location, &record, batch, &state, &request.registry)
+                .await
+                .map_err(|error| error.context("commit publication control record"))?;
             Ok(RecordBatch::try_new(
                 schema,
                 vec![Arc::new(Int64Array::from(vec![version]))],
@@ -300,8 +321,11 @@ async fn one_row(input: Arc<dyn ExecutionPlan>, state: &SessionState) -> Result<
     }
     row.ok_or_else(|| invalid("publication command requires exactly one row"))
 }
-async fn load(location: &url::Url, state: &SessionState) -> Result<Option<DeltaTable>> {
-    let mut table = super::provider::table_builder(location.clone(), state)?
+async fn load(
+    location: &url::Url,
+    state: &SessionState,
+) -> Result<Option<super::provider::Opened>> {
+    let table = super::provider::table_builder(location.clone(), state)?
         .build()
         .map_err(external)?;
     if !table
@@ -311,9 +335,17 @@ async fn load(location: &url::Url, state: &SessionState) -> Result<Option<DeltaT
     {
         return Ok(None);
     }
-    table.load().await.map_err(external)?;
-    Ok(Some(table))
+    Ok(Some(
+        super::provider::open_native(
+            location.clone(),
+            None,
+            crate::cache_service::snapshot::LoadRequirement::Query,
+            &Arc::new(state.clone()),
+        )
+        .await?,
+    ))
 }
+
 async fn commit(
     location: &url::Url,
     record: &publications::Row,
@@ -325,8 +357,13 @@ async fn commit(
         registry,
         publications::spec(registry).map_err(external)?.id,
     )?;
-    let state = Arc::new(contract.bind(state)?);
-    let base = load(location, &state).await?;
+    let state = Arc::new(
+        contract
+            .bind(state)
+            .map_err(|error| error.context("bind publication control contract"))?,
+    );
+    let base_owner = load(location, &state).await?;
+    let base = base_owner.as_ref().map(|opened| opened.table.clone());
     if let Some(table) = &base {
         contract.verify(table)?;
         if let Some(version) = reconcile(table, record, &state, registry).await? {
@@ -339,14 +376,21 @@ async fn commit(
         return Err(invalid("a publication cannot be its own parent"));
     }
     super::publication::verify_inputs(record, registry, Arc::clone(&state)).await?;
-    let candidate = super::publication::bind_members(record, registry, Arc::clone(&state)).await?;
-    super::admission::admit(record, Arc::clone(registry), &candidate).await?;
-    let physical = encoded_candidate(batch, &state).await?;
-    let commit = commit_properties(record);
+    let candidate = super::publication::bind_members(record, registry, Arc::clone(&state))
+        .await
+        .map_err(|error| error.context("bind publication members"))?;
+    super::admission::admit(record, Arc::clone(registry), &candidate)
+        .await
+        .map_err(|error| error.context("admit publication members"))?;
+    let physical = encoded_candidate(batch, &state)
+        .await
+        .map_err(|error| error.context("encode publication control record"))?;
+    let initialized_owner;
     let (table, has_head) = if let Some(table) = base {
         (table, has_head)
     } else {
-        let table = initialize_control(location, &state, &contract).await?;
+        initialized_owner = initialize_control(location, &state, &contract).await?;
+        let table = initialized_owner.table.clone();
         contract.verify(&table)?;
         if let Some(version) = reconcile(&table, record, &state, registry).await? {
             return Ok(version);
@@ -354,6 +398,10 @@ async fn commit(
         let head = admit_parent(Some(&table), location, record, &state, registry).await?;
         (table, head)
     };
+    let next = version(&table)?
+        .checked_add(1)
+        .ok_or_else(|| invalid("publication version overflows"))?;
+    let commit = commit_properties(record, next);
     let result = if has_head {
         let batch = one_row(physical, &state).await?;
         let parent = record
@@ -380,7 +428,9 @@ async fn commit(
     } else {
         let input = LogicalPlanBuilder::scan(
             "publication_candidate",
-            provider_as_source(Arc::new(PhysicalInput(physical))),
+            provider_as_source(Arc::new(
+                crate::session::physical_input::PhysicalInput::storage(physical),
+            )),
             None,
         )?
         .build()?;
@@ -394,32 +444,50 @@ async fn commit(
             .await
             .map(|table| (table, true))
     };
-    // Even a successful builder result is reconciled against the recorded row. A
-    // post-commit failure and a lost acknowledgment take exactly the same path.
-    let latest = load(location, &state)
+    // Successful builders already return the exact native committed state.
+    // Only ambiguous failures require an uncached log observation/reconciliation.
+    settle_publication(location, record, result, &state, registry).await
+}
+
+async fn settle_publication(
+    location: &url::Url,
+    record: &publications::Row,
+    result: std::result::Result<(DeltaTable, bool), deltalake::DeltaTableError>,
+    state: &Arc<SessionState>,
+    registry: &Arc<pse_schema::Registry>,
+) -> Result<i64> {
+    let error = match result {
+        Ok((table, true)) => {
+            if let Some(version) = reconcile(&table, record, state, registry).await? {
+                super::provider::committed(&table, state).await;
+                return Ok(version);
+            }
+            return Err(unresolved(
+                "native commit has no matching publication receipt".into(),
+            ));
+        }
+        Ok((_, false)) => return Err(external(PublicationError::Conflict)),
+        Err(error) => error,
+    };
+    let latest = load(location, state)
         .await
         .map_err(|error| unresolved(error.to_string()))?;
-    if let Some(table) = latest
-        && let Some(version) = reconcile(&table, record, &state, registry)
+    if let Some(opened) = latest
+        && let Some(version) = reconcile(&opened.table, record, state, registry)
             .await
             .map_err(|error| unresolved(error.to_string()))?
     {
+        super::provider::committed(&opened.table, state).await;
         return Ok(version);
     }
-    match result {
-        Ok((_, false)) => Err(external(PublicationError::Conflict)),
-        Ok(_) => Err(unresolved(
-            "builder returned success without a recorded publication".into(),
-        )),
-        Err(error) => Err(unresolved(error.to_string())),
-    }
+    Err(unresolved(error.to_string()))
 }
 
 async fn initialize_control(
     location: &url::Url,
     state: &SessionState,
     contract: &super::contract::DeclaredCheck,
-) -> Result<DeltaTable> {
+) -> Result<super::provider::Opened> {
     let empty = super::provider::table_builder(location.clone(), state)?
         .build()
         .map_err(external)?;
@@ -430,12 +498,12 @@ async fn initialize_control(
             empty,
             CommitProperties::default()
                 .with_max_retries(0)
-                .with_create_checkpoint(false)
+                .with_create_checkpoint(true)
                 .with_cleanup_expired_logs(Some(false)),
         )
         .await
     {
-        Ok(table) => Ok(table),
+        Ok(table) => Ok(super::provider::Opened { table, owner: None }),
         Err(error) => load(location, state)
             .await?
             .ok_or_else(|| unresolved(error.to_string())),
@@ -492,8 +560,10 @@ async fn encoded_candidate(
     let encoded = layout.encode(input)?;
     state.create_physical_plan(&encoded).await
 }
-fn commit_properties(record: &publications::Row) -> CommitProperties {
+fn commit_properties(record: &publications::Row, version: i64) -> CommitProperties {
     CommitProperties::default()
+        .with_application_transaction(Transaction::new(format!("pse.attempt:{}", record.attempt_id), version))
+        .with_application_transaction(Transaction::new(format!("pse.publication:{}", record.publication_id), version))
         .with_metadata([
             (
                 "pse.attempt".into(),
@@ -507,7 +577,7 @@ fn commit_properties(record: &publications::Row) -> CommitProperties {
         // Concurrent first-head writers must compete for the same native version.
         // Never rebase an append after another writer has published a head.
         .with_max_retries(0)
-        .with_create_checkpoint(false)
+        .with_create_checkpoint(true)
         .with_cleanup_expired_logs(Some(false))
 }
 
@@ -519,39 +589,43 @@ async fn reconcile(
     state: &Arc<SessionState>,
     registry: &Arc<pse_schema::Registry>,
 ) -> Result<Option<i64>> {
-    for version in (0..=version(table)?).rev() {
-        let bytes = table
-            .log_store()
-            .read_commit_entry(super::provider::delta_version(version)?)
-            .await
-            .map_err(external)?
-            .ok_or_else(|| unresolved(format!("control commit {version} is unavailable")))?;
-        for action in serde_json::Deserializer::from_slice(&bytes).into_iter::<Action>() {
-            let Action::CommitInfo(info) = action.map_err(external)? else {
-                continue;
-            };
-            let attempt = serde_json::json!(requested.attempt_id.to_string());
-            let publication = serde_json::json!(requested.publication_id.to_string());
-            if info.info.get("pse.attempt") == Some(&attempt)
-                || info.info.get("pse.publication") == Some(&publication)
-            {
-                let location = table.table_url().clone();
-                let actual = read_record(
-                    &PublicationRoot { location, version },
-                    registry,
-                    Arc::clone(state),
-                )
-                .await?;
-                return if actual == *requested {
-                    Ok(Some(version))
-                } else {
-                    Err(external(PublicationError::IdentityReused))
-                };
-            }
-        }
+    let snapshot = table.snapshot().map_err(external)?;
+    let log = table.log_store();
+    let attempt = snapshot
+        .transaction_version(
+            log.as_ref(),
+            format!("pse.attempt:{}", requested.attempt_id),
+        )
+        .await
+        .map_err(|error| unresolved(error.to_string()))?;
+    let publication = snapshot
+        .transaction_version(
+            log.as_ref(),
+            format!("pse.publication:{}", requested.publication_id),
+        )
+        .await
+        .map_err(|error| unresolved(error.to_string()))?;
+    let selected = match (attempt, publication) {
+        (None, None) => return Ok(None),
+        (Some(left), Some(right)) if left == right => left,
+        _ => return Err(external(PublicationError::IdentityReused)),
+    };
+    let actual = read_record(
+        &PublicationRoot {
+            location: table.table_url().clone(),
+            version: selected,
+        },
+        registry,
+        Arc::clone(state),
+    )
+    .await
+    .map_err(|error| unresolved(error.to_string()))?;
+    if actual != *requested {
+        return Err(external(PublicationError::IdentityReused));
     }
-    Ok(None)
+    Ok(Some(selected))
 }
+
 fn version(table: &DeltaTable) -> Result<i64> {
     let version = table
         .version()
@@ -566,4 +640,9 @@ fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusion
 }
 fn unresolved(detail: String) -> DataFusionError {
     external(PublicationError::Unresolved { detail })
+}
+
+fn effects() -> std::collections::BTreeSet<pse_schema::model::provider::OperationEffect> {
+    use pse_schema::model::provider::OperationEffect::{Publish, Read, Write};
+    [Read, Write, Publish].into_iter().collect()
 }

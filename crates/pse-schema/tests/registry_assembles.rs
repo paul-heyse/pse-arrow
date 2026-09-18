@@ -22,15 +22,59 @@ use pse_schema::model::{
 };
 use pse_schema::{catalog, registry};
 
-/// The six relations blueprint §4.1 declares.
-const SCHEMA_RELATIONS: [&str; 6] = [
+/// The schema reflection relations, including declaration/member normalization.
+const SCHEMA_RELATIONS: [&str; 7] = [
     "reference.schema_relations",
     "reference.schema_columns",
     "reference.schema_logical_types",
     "reference.schema_enums",
+    "reference.schema_enum_types",
     "reference.schema_invariants",
     "reference.schema_migrations",
 ];
+
+#[test]
+fn enumeration_types_supply_unique_targets_for_member_and_law_references() {
+    let registry = registry().expect("registry");
+    let spec = registry
+        .relation("reference.schema_enum_types")
+        .expect("enum types");
+    let (_, rows) = registry
+        .schema_rows_ref()
+        .iter()
+        .find(|(key, _)| *key == spec.key)
+        .expect("type rows");
+    let identities: std::collections::BTreeSet<_> = rows
+        .iter()
+        .map(|row| {
+            let Cell::Id(id) = row[0] else {
+                panic!("enumeration key must be typed");
+            };
+            id
+        })
+        .collect();
+    assert_eq!(rows.len(), registry.enums().len());
+    assert_eq!(identities.len(), rows.len());
+    for enumeration in registry.enums() {
+        assert!(identities.contains(&enumeration.id));
+    }
+    for (relation, field) in [
+        ("reference.schema_enums", "enum_id"),
+        ("authored.template_law_contracts", "balance_enum_id"),
+        ("reference.law_bindings", "balance_enum_id"),
+    ] {
+        let relation = registry.relation(relation).expect("declared enum consumer");
+        assert_eq!(
+            relation
+                .column(field)
+                .expect("enum reference")
+                .fk()
+                .expect("foreign key")
+                .relation,
+            "reference.schema_enum_types"
+        );
+    }
+}
 
 #[test]
 fn the_registry_assembles() {
@@ -388,27 +432,6 @@ fn two_assemblies_produce_the_same_rows() {
         second.schema_rows(),
         "assembly is a pure function of the declarations"
     );
-}
-
-#[test]
-fn the_manifest_envelope_is_declared() {
-    let reg = registry().expect("the shipped catalog assembles");
-    let manifest = reg.manifest().expect("blueprint §20.2 declares it");
-    assert_eq!(manifest.version, "pse.manifest.v2");
-    assert_eq!(manifest.membership_profile, "pse.snapshot.v2");
-    for required in [
-        "manifest_version",
-        "snapshot_id",
-        "membership_profile",
-        "schema_registry_fingerprint",
-        "relations",
-        "semantic_parents",
-    ] {
-        assert!(
-            manifest.field(required).is_some(),
-            "the manifest declares no {required}"
-        );
-    }
 }
 
 /// The positions of a relation's primary key columns.

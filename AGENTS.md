@@ -24,18 +24,15 @@ Crates are `pse-*` under `crates/`. The Python package is imported as `pse` and 
 
 ## Current implementation direction
 
-[Plan 08](docs/plans/08-schema-first-native-data-pivot.md) is the current execution
-sequence under proposed ADR-0069 and blueprint revision 40. Pivot the existing
-codebase to recursive native Arrow contracts, DataFusion providers/plans and Delta
-persistence. Preserve existing functional outcomes; new simulator functionality is
-outside this plan. Replace callers and delete predecessor code/data objects together.
-No compatibility path, historical-object migration, dual authority or transition
-period is required. Earlier plans and receipts are historical inputs. Full library
-eligibility remains in force. The maintainer works through Codex in one implementation
-stream. Useful graph algorithms, including petgraph, remain eligible through typed
-Arrow inputs/results, native DataFusion execution and Delta publication. Graph
-materialization and reuse carry the same ownership and dependency contracts as
-other prepared algorithms. See [STATUS.md](STATUS.md).
+[Plan 09](docs/plans/09-native-caching-and-pivot-completion.md) records the completed
+native caching and schema-first hard pivot, including all carried Plan 08 obligations.
+Its acceptance review and source-specific receipts define the qualified scope.
+Build the target directly and delete superseded
+code/callers; retain no legacy APIs, stores, fallback engines or historical-data
+migration. Finish all implementation and deletions before integration and performance
+qualification; use compilation, generation and isolated units during implementation.
+Preserve existing process-model outcomes, exact ownership and native publication.
+Earlier plans retain scoped evidence. Full library eligibility remains in force.
 
 ## Start here, every session
 

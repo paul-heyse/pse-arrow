@@ -77,7 +77,7 @@ pub(super) unsafe extern "C" fn objective(
         w.evaluate(x)?;
         // SAFETY: Ipopt supplies one objective destination.
         let output = unsafe { write(value, 1) }?;
-        output[0] = w.value(0);
+        output[0] = w.residual(0);
         Ok(())
     };
     // SAFETY: registered callback receives the exact live workspace.
@@ -99,7 +99,7 @@ pub(super) unsafe extern "C" fn gradient(
         let values = unsafe { write(values, w.positions.len()) }?;
         values.fill(0.0);
         for &(output, column) in &w.objective_gradient {
-            values[column] = w.value(output);
+            values[column] = w.derivative(output);
         }
         Ok(())
     };
@@ -123,7 +123,7 @@ pub(super) unsafe extern "C" fn constraints(
         // SAFETY: Ipopt supplies m uniquely borrowed constraint destinations.
         let values = unsafe { write(values, w.program.residual_count() - 1) }?;
         for (row, value) in values.iter_mut().enumerate() {
-            *value = w.value(row + 1);
+            *value = w.residual(row + 1);
         }
         Ok(())
     };
@@ -162,7 +162,7 @@ pub(super) unsafe extern "C" fn jacobian(
             // SAFETY: value request supplies nnz uniquely borrowed destinations.
             let values = unsafe { write(values, w.jacobian.len()) }?;
             for (value, &(output, _, _)) in values.iter_mut().zip(&w.jacobian) {
-                *value = w.value(output);
+                *value = w.derivative(output);
             }
         }
         Ok(())

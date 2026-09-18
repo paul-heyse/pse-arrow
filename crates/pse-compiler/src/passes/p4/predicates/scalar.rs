@@ -3,9 +3,10 @@
 
 use super::{
     BTreeMap, CompilerError, Inventory, Keyed, NodeId, Payload, SemanticId, Support, Truth,
-    ValueRef, invalid, inventory, n, required,
+    ValueRef, invalid, inventory, n,
 };
 mod paths;
+use crate::mathir_relations::{domain::DomainValue, syntax};
 use pse_mathir::Opcode;
 use pse_quantity::{QuantityTypeId, UnitId};
 use pse_schema::math::TemplateValueKind;
@@ -57,52 +58,25 @@ pub(super) struct Evaluation<'a, 'r> {
     pub cancel: &'a pse_ids::CancellationToken,
 }
 impl Evaluation<'_, '_> {
-    pub(super) fn operand(
-        &mut self,
-        row: &n::predicate_nodes::Row,
-        left: bool,
-    ) -> Result<Value, CompilerError> {
-        use pse_relations::generated::enums::PredicateOperandKind;
-        let (kind, expression, identity, member) = if left {
-            (
-                row.left_kind,
-                row.left_expr,
-                row.left_enum_id,
-                row.left_enum_member.as_ref(),
-            )
-        } else {
-            (
-                row.right_kind,
-                row.right_expr,
-                row.right_enum_id,
-                row.right_enum_member.as_ref(),
-            )
-        };
-        match required(kind, "predicate operand kind")? {
-            PredicateOperandKind::EnumLiteral => Ok(Value::Enum(
-                required(identity, "enum identity")?,
-                required(member, "enum member")?.clone(),
-            )),
-            PredicateOperandKind::Expression => {
-                self.expression(NodeId(required(expression, "predicate scalar node")?))
+    pub(super) fn operand(&mut self, value: &syntax::Operand) -> Result<Value, CompilerError> {
+        match value.selected()? {
+            syntax::OperandSelected::EnumLiteral(value) => {
+                Ok(Value::Enum(value.enum_id, value.member.clone()))
             }
+            syntax::OperandSelected::Expression(value) => self.expression(NodeId(value.node_id)),
         }
     }
     pub(super) fn contains(
         &mut self,
-        row: &n::predicate_nodes::Row,
+        domain: &n::predicate_nodes::NormalizedPredicateNodesFieldValueInDomain,
         value: &Value,
     ) -> Result<Truth, CompilerError> {
         if matches!(value, Value::Unknown) {
             return Ok(Truth::Unknown);
         }
-        let domain = self.inventory.domain(
-            self.instance,
-            row.domain_id,
-            row.domain_template_id,
-            row.domain_name.as_deref(),
-            self.support,
-        )?;
+        let domain = self
+            .inventory
+            .domain(self.instance, &domain.domain_ref()?, self.support)?;
         let members = self.inventory.members(domain, self.support)?;
         for member in &members {
             self.support.insert(self.inventory.origin(member)?);
@@ -127,6 +101,10 @@ impl Evaluation<'_, '_> {
             )),
         }
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "expression keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn expression(&mut self, old: NodeId) -> Result<Value, CompilerError> {
         let root = *self
             .graph

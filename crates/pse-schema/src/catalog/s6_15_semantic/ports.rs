@@ -26,7 +26,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("group_id", T::id()),
             column("port_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("quantity_type_id", T::id()),
             column("product_id", T::id()),
         ],
@@ -64,7 +64,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["template_id", "ordinal"],
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("symbol_decl_id", T::id())
                 .with_fk("authored.template_symbols", "symbol_decl_id"),
             column("symbol_group", T::native(arrow_schema::DataType::Utf8)),
@@ -78,7 +78,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["port_id", "ordinal"],
         vec![
             column("port_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("domain_ids", T::list(T::id())),
             column("product_id", T::id()),
         ],
@@ -95,7 +95,7 @@ fn port_binding_paths(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()),
             column("name", T::native(arrow_schema::DataType::Utf8)),
-            column("length", T::native(arrow_schema::DataType::UInt64)),
+            column("length", T::nonnegative(i64::MAX)),
         ],
         "Parsed port binding path length: self has zero steps. Parsing establishes syntax only; actual child targets require native relational resolution.",
     );
@@ -107,7 +107,7 @@ fn port_binding_paths(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()),
             column("name", T::native(arrow_schema::DataType::Utf8)),
-            column("position", T::native(arrow_schema::DataType::UInt64)),
+            column("position", T::nonnegative(i64::MAX)),
             column("child_name", T::native(arrow_schema::DataType::Utf8)),
         ],
         "Ordered exact child names parsed once from the authored port binding; no instance membership or cardinality is inferred by the parser.",

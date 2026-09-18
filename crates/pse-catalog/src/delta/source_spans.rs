@@ -25,11 +25,12 @@ pub(super) fn plans(
     )?
     .into_iter()
     .map(|occurrence| {
+        let value = occurrence.value()?;
         let input = LogicalPlanBuilder::from(occurrence.input)
             .project(vec![
-                get_field(column("value"), "document_id").alias("source_document"),
-                get_field(column("value"), "start").alias("source_start"),
-                get_field(column("value"), "end").alias("source_end"),
+                get_field(value.clone(), "document_id").alias("source_document"),
+                get_field(value.clone(), "start").alias("source_start"),
+                get_field(value, "end").alias("source_end"),
             ])?
             .build()?;
         check(input, documents)

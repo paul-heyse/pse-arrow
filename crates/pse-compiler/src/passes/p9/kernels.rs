@@ -10,7 +10,7 @@ use super::{
     unbound_kernel,
 };
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     passes::{
         native_outputs::{SourceKey, Sources},
         native_rows::{AlgorithmInputs, Located, located_input},
@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) async fn prepare(
     selection: &Selection,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
     session: &SnapshotSession,
     sources: &Sources,
 ) -> Result<(Vec<KernelMethod>, AlgorithmInputs), CompilerError> {
@@ -41,7 +41,7 @@ pub(super) async fn prepare(
             .methods
             .get(&request.instance)
             .ok_or_else(|| invalid("kernel selected method absent"))?;
-        if method.specification.template_id.is_some() {
+        if method.specification.realization.equation_template.is_some() {
             completed.insert(request.requirement.requirement_id);
             continue;
         }
@@ -88,7 +88,7 @@ impl Inventory {
         arguments: &mut AlgorithmInputs,
         session: &SnapshotSession,
         sources: &Sources,
-        ctx: &PassContext<'_>,
+        ctx: &AlgorithmContext<'_>,
     ) -> Result<Self, CompilerError> {
         Ok(Self {
             descriptors: located_input(arguments, session, sources, ctx.registry, ctx.cancel)
@@ -114,22 +114,27 @@ impl Inventory {
         selection: &Selection,
         physical: &QuantityRegistry,
         projector: &ParameterIndexProjector<'_>,
-        ctx: &PassContext<'_>,
+        ctx: &AlgorithmContext<'_>,
     ) -> Result<(KernelMethod, BTreeSet<SemanticId>), CompilerError> {
+        let reference::method_specs::ReferenceMethodSpecsFieldRealizationSelected::Kernel(producer) =
+            method.specification.realization.selected()?
+        else {
+            return Err(invalid("kernel binding requires a kernel producer"));
+        };
+        let reference::method_provisions::ReferenceMethodProvisionsFieldOutputSelected::KernelOutput(provision) = request.provision.output.selected()? else {
+            return Err(invalid("kernel binding requires a kernel output provision"));
+        };
         let descriptor = one(
             self.descriptors
                 .iter()
-                .filter(|row| Some(row.kernel_id) == method.specification.kernel_id),
+                .filter(|row| row.kernel_id == producer.kernel_id),
             "selected kernel descriptor",
         )?;
         crate::quantity_relations::kernel_contract::check_descriptor(descriptor, physical)?;
-        let ordinal = request
-            .provision
-            .kernel_output_ordinal
-            .ok_or_else(|| invalid("kernel provision ordinal absent"))?;
+        let ordinal = provision.ordinal;
         let output = descriptor
             .outputs
-            .get(usize::from(ordinal))
+            .get(usize::try_from(ordinal).map_err(|_| invalid("negative kernel output ordinal"))?)
             .ok_or_else(|| invalid("kernel provision output ordinal outside actual descriptor"))?;
         let output_type =
             physical.quantity_type(QuantityTypeId::from_id(output.quantity_type_id))?;
@@ -186,7 +191,7 @@ impl Inventory {
         selection: &Selection,
         descriptor: &reference::kernel_specs::Row,
         support: &mut BTreeSet<SourceKey>,
-        ctx: &PassContext<'_>,
+        ctx: &AlgorithmContext<'_>,
     ) -> Result<KernelInputs, CompilerError> {
         let mut inputs = Vec::new();
         let mut required = BTreeSet::new();
@@ -218,65 +223,57 @@ impl Inventory {
             )?;
             support.insert(mapping.source.clone());
             support.insert(dependency.source.clone());
-            let symbol =
-                if dependency.target_kind.as_str() == "property" {
-                    let key = one(
-                        self.property_keys.iter().filter(|row| {
-                            row.requirement_id == request.requirement.requirement_id
-                                && row.method_id == method.specification.method_id
-                                && row.dependency_ordinal == mapping.dependency_ordinal
-                        }),
-                        "scalar kernel property dependency key",
-                    )?;
-                    let target = one(
-                        selection.requests.iter().filter(|row| {
-                            row.requirement.requirement_id == key.target_requirement_id
-                        }),
-                        "kernel input selected property provider",
-                    )?;
-                    let selected = selection
-                        .methods
-                        .get(&target.instance)
-                        .ok_or_else(|| invalid("kernel dependency selected method absent"))?;
-                    required.insert(target.requirement.requirement_id);
-                    support.insert(key.source.clone());
-                    if let Some(declaration) = target.provision.symbol_decl_id {
-                        pse_ids::symbol_instance_id(
-                            target.instance,
-                            declaration,
-                            IndexTuple(&target.requirement.index),
-                        )
-                    } else {
-                        super::kernel_output_id(
-                            selected.scope,
-                            selected.specification.method_id,
-                            target.provision.kernel_output_ordinal.ok_or_else(|| {
-                                invalid("kernel dependency output ordinal absent")
-                            })?,
-                            &target.requirement.index,
-                        )
+            let symbol = if dependency.target_kind.as_str() == "property" {
+                let key = one(
+                    self.property_keys.iter().filter(|row| {
+                        row.requirement_id == request.requirement.requirement_id
+                            && row.method_id == method.specification.method_id
+                            && row.dependency_ordinal == mapping.dependency_ordinal
+                    }),
+                    "scalar kernel property dependency key",
+                )?;
+                let target = one(
+                    selection
+                        .requests
+                        .iter()
+                        .filter(|row| row.requirement.requirement_id == key.target_requirement_id),
+                    "kernel input selected property provider",
+                )?;
+                let selected = selection
+                    .methods
+                    .get(&target.instance)
+                    .ok_or_else(|| invalid("kernel dependency selected method absent"))?;
+                required.insert(target.requirement.requirement_id);
+                support.insert(key.source.clone());
+                match target.provision.output.selected()? {
+                        reference::method_provisions::ReferenceMethodProvisionsFieldOutputSelected::TemplateSymbol(value) => pse_ids::symbol_instance_id(
+                            target.instance, value.symbol_decl_id, IndexTuple(&target.requirement.index),
+                        ),
+                        reference::method_provisions::ReferenceMethodProvisionsFieldOutputSelected::KernelOutput(value) => super::kernel_output_id(
+                            selected.scope, selected.specification.method_id, value.ordinal, &target.requirement.index,
+                        ),
                     }
-                } else {
-                    let key = one(
-                        self.state_keys.iter().filter(|row| {
-                            row.requirement_id == request.requirement.requirement_id
-                                && row.method_id == method.specification.method_id
-                                && row.dependency_ordinal == mapping.dependency_ordinal
-                        }),
-                        "scalar kernel state dependency key",
-                    )?;
-                    if key.symbol_decl_id != dependency.target_id {
-                        return Err(invalid(
-                            "kernel state dependency differs from its declaration",
-                        ));
-                    }
-                    support.insert(key.source.clone());
-                    pse_ids::symbol_instance_id(
-                        method.state,
-                        key.symbol_decl_id,
-                        IndexTuple(&key.index),
-                    )
-                };
+            } else {
+                let key = one(
+                    self.state_keys.iter().filter(|row| {
+                        row.requirement_id == request.requirement.requirement_id
+                            && row.method_id == method.specification.method_id
+                            && row.dependency_ordinal == mapping.dependency_ordinal
+                    }),
+                    "scalar kernel state dependency key",
+                )?;
+                if key.symbol_decl_id != dependency.target_id {
+                    return Err(invalid(
+                        "kernel state dependency differs from its declaration",
+                    ));
+                }
+                support.insert(key.source.clone());
+                pse_ids::symbol_instance_id(
+                    method.state,
+                    key.symbol_decl_id,
+                    IndexTuple(&key.index),
+                )
+            };
             inputs.push((input.name.clone(), symbol));
         }
         Ok((inputs, required))
@@ -288,7 +285,7 @@ impl Inventory {
         physical: &QuantityRegistry,
         projector: &ParameterIndexProjector<'_>,
         support: &mut BTreeSet<SourceKey>,
-        ctx: &PassContext<'_>,
+        ctx: &AlgorithmContext<'_>,
     ) -> Result<Vec<pse_mathir::relations::ParameterBinding>, CompilerError> {
         if self
             .parameters

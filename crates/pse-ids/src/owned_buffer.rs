@@ -114,6 +114,84 @@ pub fn retained_buffer_bytes(batch: &RecordBatch) -> Result<usize, CanonError> {
     allocations.into_values().try_fold(0, checked_sum)
 }
 
+/// Allocation accounting across a retained batch set, including shared slices.
+/// This is an address/extent inventory, never a semantic identity or cache key.
+#[derive(Debug, Default)]
+pub struct RetainedBuffers {
+    allocations: BTreeMap<usize, usize>,
+    bytes: usize,
+}
+impl RetainedBuffers {
+    /// Record additional buffer extents. The caller must retain all previously
+    /// recorded batches until this inventory is cleared/dropped.
+    /// # Errors
+    /// Checked extent arithmetic overflows.
+    pub fn additional(&mut self, batch: &RecordBatch) -> Result<usize, CanonError> {
+        let mut current = BTreeMap::new();
+        let mut containers = 0usize;
+        for array in batch.columns() {
+            let data = array.to_data();
+            retained_allocations(&data, &mut current)?;
+            containers = checked_sum(
+                containers,
+                data.get_array_memory_size()
+                    .saturating_sub(data.get_buffer_memory_size()),
+            )?;
+        }
+        for (pointer, extent) in current {
+            self.allocations
+                .entry(pointer.as_ptr() as usize)
+                .and_modify(|size| *size = (*size).max(extent))
+                .or_insert(extent);
+        }
+        let bytes = self.allocations.values().try_fold(0usize, |sum, size| {
+            checked_sum(sum, checked_sum(*size, 96)?)
+        })?;
+        let additional = bytes - self.bytes;
+        self.bytes = bytes;
+        checked_sum(additional, containers)
+    }
+}
+
+/// Attach an existing native allocation owner to every output buffer without
+/// copying or opening another reservation. This only preserves lifetime; callers
+/// remain responsible for the owner's actual memory/validity contract.
+/// # Errors
+/// Rebuilding the Arrow representation fails validation.
+pub fn retain_owner<T: Send + Sync + 'static>(
+    batch: RecordBatch,
+    owner: Arc<T>,
+) -> Result<RecordBatch, CanonError> {
+    struct Owned<T> {
+        buffer: Buffer,
+        _owner: Arc<T>,
+    }
+    impl<T> AsRef<[u8]> for Owned<T> {
+        fn as_ref(&self) -> &[u8] {
+            self.buffer.as_slice()
+        }
+    }
+    let (schema, columns, row_count) = batch.into_parts();
+    let arrays = columns
+        .into_iter()
+        .map(|array| {
+            transform_data(array.to_data(), &mut |buffer| {
+                Ok(Buffer::from(Bytes::from_owner(Owned {
+                    buffer,
+                    _owner: owner.clone(),
+                })))
+            })
+            .map(make_array)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    drop(owner);
+    Ok(RecordBatch::try_new_with_options(
+        schema,
+        arrays,
+        &RecordBatchOptions::new().with_row_count(Some(row_count)),
+    )?)
+}
+
 struct LeasedBytes {
     bytes: Vec<u8>,
     lease: Arc<ReservationLease>,

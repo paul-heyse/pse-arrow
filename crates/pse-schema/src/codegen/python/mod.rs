@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Generated frozen attrs rows, strict manifests and Arrow extension contracts.
+//! Generated frozen attrs rows and Arrow extension contracts.
 
 mod extensions;
 mod identifiers;
-mod manifest;
 mod types;
 
 use std::fmt::Write as _;
@@ -38,10 +37,6 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     emit(&mut tree, "enums", &enumerations(reg));
     emit(&mut tree, "values", &values()?);
     emit(&mut tree, "extension_types", &extensions::render(reg)?);
-    let manifest = reg
-        .manifest()
-        .ok_or_else(|| error("missing manifest declaration".to_owned()))?;
-    emit(&mut tree, "manifest", &manifest::render(manifest));
     let mut namespaces = std::collections::BTreeMap::<&str, String>::new();
     for spec in reg.relations() {
         let namespace = spec.key.namespace.as_str();
@@ -91,7 +86,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         &mut tree,
         "__init__",
         &format!(
-            "\"\"\"Contracts generated from the sole registry declaration.\"\"\"\n\nfrom pse.contracts.extension_types import EXTENSION_NAMES, register_all\nfrom pse.contracts.manifest import Manifest\n\n__all__ = [\"EXTENSION_NAMES\", \"REGISTRY_FINGERPRINT\", \"Manifest\", \"register_all\"]\n\nREGISTRY_FINGERPRINT = {:?}\n",
+            "\"\"\"Contracts generated from the sole registry declaration.\"\"\"\n\nfrom pse.contracts.extension_types import EXTENSION_NAMES, register_all\n\n__all__ = [\"EXTENSION_NAMES\", \"REGISTRY_FINGERPRINT\", \"register_all\"]\n\nREGISTRY_FINGERPRINT = {:?}\n",
             reg.fingerprint().to_prefixed()
         ),
     );

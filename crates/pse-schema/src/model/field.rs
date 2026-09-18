@@ -485,23 +485,10 @@ impl FieldContract {
     }
     /// Every explicitly declared native child, in native order.
     pub fn children(&self) -> Vec<Self> {
-        use DataType::{
-            Dictionary, FixedSizeList, LargeList, LargeListView, List, ListView, Map,
-            RunEndEncoded, Struct, Union,
-        };
-        match self.0.data_type() {
-            List(f)
-            | LargeList(f)
-            | ListView(f)
-            | LargeListView(f)
-            | FixedSizeList(f, _)
-            | Map(f, _) => vec![Self((**f).clone())],
-            Struct(fs) => fs.iter().map(|f| Self((**f).clone())).collect(),
-            Union(fs, _) => fs.iter().map(|(_, f)| Self((**f).clone())).collect(),
-            Dictionary(_, value) => Self::native((**value).clone()).children(),
-            RunEndEncoded(a, b) => vec![Self((**a).clone()), Self((**b).clone())],
-            _ => vec![],
-        }
+        child_fields(self.0.data_type())
+            .into_iter()
+            .map(|field| Self(field.clone()))
+            .collect()
     }
     /// Walk the native tree; extensions remain semantic leaves for domain consumers.
     pub(crate) fn walk(&self, out: &mut Vec<Self>) {
@@ -511,6 +498,28 @@ impl FieldContract {
                 child.walk(out);
             }
         }
+    }
+}
+
+/// Borrow explicitly declared native children in native order. Schema inspection
+/// and validation do not need to copy the children's names or metadata maps.
+pub fn child_fields(data_type: &DataType) -> Vec<&Field> {
+    use DataType::{
+        Dictionary, FixedSizeList, LargeList, LargeListView, List, ListView, Map, RunEndEncoded,
+        Struct, Union,
+    };
+    match data_type {
+        List(field)
+        | LargeList(field)
+        | ListView(field)
+        | LargeListView(field)
+        | FixedSizeList(field, _)
+        | Map(field, _) => vec![field.as_ref()],
+        Struct(fields) => fields.iter().map(AsRef::as_ref).collect(),
+        Union(fields, _) => fields.iter().map(|(_, field)| field.as_ref()).collect(),
+        Dictionary(_, value) => child_fields(value),
+        RunEndEncoded(runs, values) => vec![runs.as_ref(), values.as_ref()],
+        _ => vec![],
     }
 }
 impl std::fmt::Display for FieldContract {

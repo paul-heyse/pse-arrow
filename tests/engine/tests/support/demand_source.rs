@@ -2,6 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Small physical declarations isolate actual read-seed, guard and method closure behavior.
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
+
 use pse_authoring::{
     ParseBudget,
     document::{DocumentBundle, load_package_texts},
@@ -24,11 +29,11 @@ fn property(value: u8, name: &str) -> Value {
     json!({"property_kind_id":id(value),"idaes_name":name,"quantity_kind_id":id(21),"basis_id":null,"shape":[],"category":"thermo","doc":"declared scalar contract"})
 }
 fn method(value: u8, template: u8, property: u8, requires: &[u8], family: &str) -> Value {
-    let required = requires.iter().map(|value| id(*value)).collect::<Vec<_>>();
-    json!({"method_id":id(value),"family":family,"name":format!("method{value}"),"version":"1","provides":[id(property)],"requires":required,"parameter_kinds":[],"realization":"equation_template","template_id":id(template),"kernel_id":null,"validity":[],"doc":"actual finite dependency declaration"})
+    let dependencies = requires.iter().map(|value| id(*value)).collect::<Vec<_>>();
+    json!({"method_id":id(value),"family":family,"name":format!("method{value}"),"version":"1","provides":[id(property)],"requires":dependencies,"parameter_kinds":[],"realization":{"kind":"equation_template","equation_template":{"template_id":id(template)}},"validity":[],"doc":"actual finite dependency declaration"})
 }
 fn provision(method: u8, property: u8, symbol: u8) -> Value {
-    json!({"method_id":id(method),"property_kind_id":id(property),"output_kind":"template_symbol","symbol_decl_id":id(symbol),"kernel_output_ordinal":null,"quantity_type_id":id(31),"natural_unit_id":id(10),"indexed_by":[]})
+    json!({"method_id":id(method),"property_kind_id":id(property),"output":{"kind":"template_symbol","template_symbol":{"symbol_decl_id":id(symbol)}},"quantity_type_id":id(31),"natural_unit_id":id(10),"indexed_by":[]})
 }
 fn selection(value: u8, method: u8, property: u8) -> Value {
     json!({"selection_id":id(value),"is_default":false,"property_package_id":id(95),"scope_kind":"package","scope_ids":[],"property_kind_id":id(property),"family":"pure_component","method_id":id(method),"options":[]})
@@ -99,7 +104,7 @@ pub(crate) fn source(registry: &Registry, ambiguous: bool) -> DocumentBundle {
         selections.push(selection(112, 83, 100));
     }
     texts.insert("properties/closure.yaml".into(),json!({
-        "property_packages":[{"id":id(95),"name":"physical","material_system_id":id(92),"unit_set_id":id(9),"state_definition_method_id":id(82),"temperature_ref":298.15,"pressure_ref":100000.0,"include_enthalpy_of_formation":false,"bubble_dew_method_id":null,"doc":"actual selected package"}],
+        "property_packages":[{"id":id(95),"name":"physical","material_system_id":id(92),"unit_set_id":id(9),"state_definition_method_id":id(82),"temperature_ref":298.15,"pressure_ref":100_000.0,"include_enthalpy_of_formation":false,"bubble_dew_method_id":null,"doc":"actual selected package"}],
         "method_selections":selections
     }).to_string());
     texts.insert("materials/system.yaml".into(),json!({"material_systems":[{"id":id(92),"name":"scalar_system","species_ids":[],"phase_ids":[],"doc":"no material axes requested"}]}).to_string());

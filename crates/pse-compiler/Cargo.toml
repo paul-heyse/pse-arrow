@@ -3,7 +3,7 @@
 
 [package]
 name = "pse-compiler"
-description = "Pass registry, PassSpec contracts, artifact-hash memo and the pipeline driver (blueprint §3.2, §14.3)."
+description = "Native process-model plans and finite typed domain algorithms."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -17,6 +17,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+async-trait.workspace = true
+futures-util.workspace = true
 datafusion.workspace = true
 serde_json.workspace = true
 pse-schema.workspace = true

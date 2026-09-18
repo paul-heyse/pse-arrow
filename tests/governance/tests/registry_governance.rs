@@ -40,7 +40,7 @@ fn relation_index_excludes_explanatory_inline_types() {
 }
 
 #[test]
-fn appendix_b_has_declared_relations_or_explicit_deferred_contracts() {
+fn appendix_b_has_declared_replacements_or_explicit_deferred_contracts() {
     let root = common::workspace_root();
     let blueprint = common::read(&root.join("docs/authoritative_design/blueprint.md"));
     let appendix = blueprint
@@ -54,20 +54,41 @@ fn appendix_b_has_declared_relations_or_explicit_deferred_contracts() {
     let deferred = deferred["deferred"]
         .as_table()
         .expect("explicit deferred rows");
+    let replacements =
+        common::parse_toml(&root.join("tests/governance/appendix-b-replacements.toml"));
+    let replacements = replacements["replacements"]
+        .as_table()
+        .expect("explicit replacements");
     let registry = pse_schema::registry().expect("registry");
     let mut seen = BTreeSet::new();
+    let mut replaced = BTreeSet::new();
     for row in appendix.lines().filter(|row| row.starts_with("| `")) {
         let columns = row.split('|').collect::<Vec<_>>();
         let namespace = columns[1].trim().trim_matches('`');
         for name in relation_names(columns[2]) {
             let qualified = format!("{namespace}.{name}");
-            if let Some(prefix) = qualified.strip_suffix('*') {
+            if let Some(replacement) = replacements.get(&qualified) {
+                assert!(
+                    registry.relation(&qualified).is_none(),
+                    "legacy declaration {qualified}"
+                );
+                let target = replacement["relation"]
+                    .as_str()
+                    .expect("replacement relation");
+                let column = replacement["column"].as_str().expect("replacement column");
+                let spec = registry.relation(target).expect("declared replacement");
+                assert!(
+                    spec.columns.iter().any(|field| field.name() == column),
+                    "{target}.{column}"
+                );
+                replaced.insert(qualified);
+            } else if let Some(prefix) = qualified.strip_suffix('*') {
                 assert!(
                     registry
                         .relations()
                         .iter()
                         .any(|spec| spec.qualified_name().starts_with(prefix)),
-                    "empty family {qualified}"
+                    "{qualified}"
                 );
             } else if registry.relation(&qualified).is_none() {
                 let reason = deferred
@@ -79,6 +100,11 @@ fn appendix_b_has_declared_relations_or_explicit_deferred_contracts() {
             }
         }
     }
+    assert_eq!(
+        replaced,
+        replacements.keys().cloned().collect(),
+        "replacement rows must name removed Appendix B declarations"
+    );
     assert_eq!(
         seen,
         deferred.keys().cloned().collect(),
@@ -119,9 +145,9 @@ fn primitive_authority_has_no_compiled_fk_or_later_pass_writer() {
         }
     }
     for pass in registry
-        .passes()
+        .algorithms()
         .iter()
-        .filter(|pass| !matches!(pass.name, "P0" | "P1" | "P2"))
+        .filter(|pass| !matches!(pass.name, "source" | "source_edit" | "source_rename"))
     {
         for port in &pass.outputs {
             let spec = registry.relation(&port.relation).expect("declared output");

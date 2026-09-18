@@ -8,15 +8,20 @@ use pse_mathir::NodeId;
 use pse_relations::generated::{compiled, enums::ExpressionRootRole, inferred, reference};
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "method_outputs keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn method_outputs(&mut self) -> Result<(), CompilerError> {
         let bindings = self.inventory.method_realizations.clone();
         let resolutions = self.inventory.method_resolutions.clone();
         let methods = self.inventory.method_specs.clone();
         for (binding_position, binding) in bindings.into_iter().enumerate() {
             self.cancel.checkpoint()?;
-            let target = binding
-                .output_symbol_id
-                .ok_or_else(|| invalid("template method output is not an actual symbol"))?;
+            let target = binding.output_symbol_id;
+            let compiled::method_realizations::CompiledMethodRealizationsFieldRealizationSelected::TemplateSymbol(producer) = binding.realization.selected()? else {
+                return Err(invalid("template realization has a different producer"));
+            };
             let symbol = self
                 .symbols
                 .values()
@@ -27,10 +32,14 @@ impl Realizer<'_> {
                 .iter()
                 .filter(|row| {
                     row.requirement_id == binding.requirement_id
-                        && row.method_id == Some(binding.method_id)
+                        && row
+                            .outcome
+                            .resolved
+                            .as_ref()
+                            .is_some_and(|value| value.method_id == binding.method_id)
                 })
                 .collect::<Vec<_>>();
-            let [resolution] = resolution.as_slice() else {
+            let [_resolution] = resolution.as_slice() else {
                 return Err(invalid("selected provision lacks exact P6 resolution"));
             };
             let method = methods
@@ -40,11 +49,20 @@ impl Realizer<'_> {
             let [method] = method.as_slice() else {
                 return Err(invalid("selected provision method absent or repeated"));
             };
-            if binding.template_instance_id != Some(symbol.owner_instance_id)
-                || binding.kernel_binding_id.is_some()
-                || binding.kernel_output_ordinal.is_some()
-                || binding.output_kind.as_str() != "template_symbol"
-                || method.template_id != resolution.template_id
+            let reference::method_specs::ReferenceMethodSpecsFieldRealizationSelected::EquationTemplate(template) = method.realization.selected()? else {
+                return Err(invalid("selected template producer has a different method route"));
+            };
+            if producer.template_instance_id != symbol.owner_instance_id
+                || self
+                    .inventory
+                    .instances
+                    .iter()
+                    .filter(|row| {
+                        row.instance_id == producer.template_instance_id
+                            && row.template_id == template.template_id
+                    })
+                    .count()
+                    != 1
             {
                 return Err(invalid("selected provision alternative/owner differs"));
             }

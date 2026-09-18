@@ -6,7 +6,7 @@ mod dependencies;
 mod indices;
 mod reads;
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     passes::{
         native_construction::{
             Plans, append, c, concat, distinct, error, explode, filter, invalid, join, prefix,
@@ -15,6 +15,7 @@ use crate::{
         native_outputs::Sources,
     },
 };
+use datafusion::functions_nested::expr_fn::array_element;
 use datafusion::{
     common::ScalarValue,
     functions::core::expr_fn::coalesce,
@@ -22,10 +23,9 @@ use datafusion::{
     logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder, col, lit, when},
 };
 use pse_catalog::session::scalar;
-use pse_catalog::session::scalar::array_element;
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_rules::strata::native_input::NativeInput;
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Not,
@@ -35,10 +35,10 @@ type Inputs = BTreeMap<RelationKey, FieldCheckedBatch>;
 type Outputs = BTreeMap<RelationKey, Arc<NativeInput>>;
 
 pub(super) async fn construct(
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     inputs: &Inputs,
     sources: &Sources,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
 ) -> Result<Outputs, CompilerError> {
     let base = ctx.session;
     let mut plans = Plans::new(inputs, sources, pass, base, ctx.cancel)?;

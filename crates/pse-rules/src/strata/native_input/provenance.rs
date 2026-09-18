@@ -96,6 +96,7 @@ pub(super) async fn materialize(
         registry,
         &session,
         Some(pass_id),
+        cancel,
     )?;
     let plan = declare_relation_output(plan, registry, target).map_err(engine)?;
     Ok(session

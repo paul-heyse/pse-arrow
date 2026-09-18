@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Effect timing, real physical children and native Delta operation execution.
-use crate::delta::write::PhysicalInput;
+use crate::session::physical_input::PhysicalInput;
 use datafusion::{
     arrow::{
         array::{Array, RecordBatch, UInt64Array},
@@ -175,6 +175,9 @@ async fn run(
     command: Command,
     children: Vec<Arc<dyn ExecutionPlan>>,
 ) -> Result<u64> {
+    let services = crate::session::execution::NativeExecutionContext::from_session(state.as_ref())?;
+    let _writer = super::super::lease::write(table.table_url(), services.cancellation()).await?;
+    services.require_settlement();
     match command {
         Command::Insert(mode) => {
             let input = input(&children)?;
@@ -259,7 +262,7 @@ fn input(children: &[Arc<dyn ExecutionPlan>]) -> Result<LogicalPlan> {
     };
     LogicalPlanBuilder::scan(
         "prepared_delta_input",
-        provider_as_source(Arc::new(PhysicalInput(Arc::clone(child)))),
+        provider_as_source(Arc::new(PhysicalInput::storage(Arc::clone(child)))),
         None,
     )?
     .build()

@@ -113,7 +113,7 @@ async fn execute(
     input: LogicalPlan,
 ) -> Result<Vec<RecordBatch>> {
     let plan = DeltaWrite::plan(table, input, SaveMode::Append, CommitProperties::default())?;
-    collect(state.create_physical_plan(&plan).await?, state.task_ctx()).await
+    run_native(state, &plan).await
 }
 fn location(path: &std::path::Path) -> url::Url {
     url::Url::from_directory_path(path).unwrap()
@@ -126,7 +126,7 @@ fn publication_row(id: u8, parent: Option<u8>) -> publications::Row {
         publication_id: identity(id),
         parent_publication_id: parent.map(identity),
         attempt_id: identity(id + 100),
-        kind: PublicationKind::Source,
+        kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
     }
@@ -180,8 +180,8 @@ fn source_member_batches(dangling: bool) -> Vec<(&'static str, pse_ids::Semantic
 #[tokio::test]
 async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
     use pse_catalog::delta::{
-        publication::{Publication, PublicationRoot},
-        publication_plan::{self, MemberWrite},
+        publication::PublicationRoot,
+        publication_plan::{self, Member, MemberWrite},
     };
     for dangling in [false, true] {
         let root = tempfile::tempdir().unwrap();
@@ -196,7 +196,7 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
             context
                 .register_batch(datafusion::common::TableReference::bare(name), batch)
                 .unwrap();
-            members.push(MemberWrite {
+            members.push(Member::Write(MemberWrite {
                 reference,
                 relation_id,
                 table: DeltaTableBuilder::from_url(location(&root.path().join(name)))
@@ -208,7 +208,7 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
                     .await
                     .unwrap()
                     .into_unoptimized_plan(),
-            });
+            }));
         }
         let control = location(&root.path().join("control"));
         let registry = pse_schema::shared_registry().unwrap();
@@ -220,7 +220,7 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
         )
         .unwrap();
         let state = context.state();
-        let physical = state.create_physical_plan(&plan).await.unwrap();
+        let prepared = prepare_native(&state, &plan).unwrap();
         assert_eq!(
             plan.display_indent()
                 .to_string()
@@ -230,7 +230,7 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
         );
         assert!(!root.path().join("control/_delta_log").exists());
         assert!(!root.path().join("packages.v1/_delta_log").exists());
-        let result = collect(physical, state.task_ctx()).await;
+        let result = prepared.execute(&pse_ids::CancellationToken::new()).await;
         if dangling {
             assert!(result.is_err());
             assert!(
@@ -244,7 +244,7 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
             );
         } else {
             result.unwrap();
-            let publication = Publication::open(
+            let publication = open_publication(
                 PublicationRoot {
                     location: control,
                     version: 1,
@@ -264,16 +264,12 @@ async fn native_member_writes_feed_actual_versions_into_coherent_publication() {
                     .all(|m| m.delta_version == 1),
                 "versions include the actual CHECK commits"
             );
-            let reopened =
-                SessionContext::new_with_state(publication.session_state().await.unwrap());
             assert_eq!(
-                reopened
-                    .sql("SELECT * FROM \"model.a\".authored.\"entities.v1\"")
-                    .await
-                    .unwrap()
-                    .count()
-                    .await
-                    .unwrap(),
+                publication_count(
+                    &publication,
+                    "SELECT * FROM \"model.a\".authored.\"entities.v1\""
+                )
+                .await,
                 1
             );
         }
@@ -301,9 +297,179 @@ fn publication_plan(location: url::Url, row: publications::Row) -> LogicalPlan {
     )
     .unwrap()
 }
+
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "ordered native lifecycle qualification preserves the independent assertions beside each phase"
+)]
+async fn publication_composes_one_write_with_an_exact_unchanged_member() {
+    use pse_catalog::delta::{
+        publication::PublicationRoot,
+        publication_plan::{self, Member, MemberWrite},
+    };
+    let temp = tempfile::tempdir().unwrap();
+    let (context, _, _, _) = context();
+    let state = context.state();
+    let registry = pse_schema::shared_registry().unwrap();
+    let mut original = publication_row(2, None);
+    for (_, id, batch) in source_member_batches(false) {
+        let name = registry.relation_by_id(id).unwrap().qualified_name();
+        original
+            .members
+            .push(write_member(&context, temp.path(), &name, batch).await);
+    }
+    let control = location(&temp.path().join("control"));
+    assert_eq!(
+        publish(&state, control.clone(), original.clone())
+            .await
+            .unwrap(),
+        1
+    );
+    let packages = original.members[0].clone();
+    let entities = &original.members[1];
+    let (_, relation_id, batch) = source_member_batches(false).pop().unwrap();
+    let table = DeltaTableBuilder::from_url(entities.table_uri.parse().unwrap())
+        .unwrap()
+        .load()
+        .await
+        .unwrap();
+    let members = vec![
+        Member::Retained(packages.clone()),
+        Member::Write(MemberWrite {
+            reference: datafusion::common::ResolvedTableReference {
+                catalog: entities.catalog_name.clone().into(),
+                schema: entities.schema_name.clone().into(),
+                table: entities.table_name.clone().into(),
+            },
+            relation_id,
+            table,
+            input: context.read_batch(batch).unwrap().into_unoptimized_plan(),
+        }),
+    ];
+    let plan = publication_plan::plan(
+        control.clone(),
+        publication_row(3, Some(2)),
+        members,
+        registry.clone(),
+    )
+    .unwrap();
+    assert_eq!(
+        plan.display_indent()
+            .to_string()
+            .matches("DeltaWrite:")
+            .count(),
+        1
+    );
+    run_native(&state, &plan).await.unwrap();
+    let current = open_publication(
+        PublicationRoot {
+            location: control.clone(),
+            version: 2,
+        },
+        &registry,
+        Arc::new(state.clone()),
+    )
+    .await
+    .unwrap();
+    let selected = &current.record().members;
+    assert_eq!(
+        selected
+            .iter()
+            .find(|m| m.table_name == "packages")
+            .unwrap(),
+        &packages
+    );
+    assert_eq!(
+        selected
+            .iter()
+            .find(|m| m.table_name == "entities")
+            .unwrap()
+            .delta_version,
+        2
+    );
+    assert_eq!(
+        DeltaTableBuilder::from_url(packages.table_uri.parse().unwrap())
+            .unwrap()
+            .load()
+            .await
+            .unwrap()
+            .version(),
+        Some(1)
+    );
+    assert_eq!(
+        current
+            .session()
+            .selected_member(&datafusion::common::ResolvedTableReference {
+                catalog: "model".into(),
+                schema: "authored".into(),
+                table: "entities".into()
+            })
+            .unwrap()
+            .delta_version,
+        2
+    );
+
+    qualify_retained_only_composition(&state, control, selected).await;
+}
+
+async fn qualify_retained_only_composition(
+    state: &SessionState,
+    control: url::Url,
+    selected: &[publications::RuntimePublicationsFieldMembersItem],
+) {
+    use pse_catalog::delta::{
+        publication::PublicationRoot,
+        publication_plan::{self, Member},
+    };
+    let registry = pse_schema::shared_registry().unwrap();
+    // A publication can select only existing exact members without rewriting data.
+    let retained = selected.iter().cloned().map(Member::Retained).collect();
+    let plan = publication_plan::plan(
+        control.clone(),
+        publication_row(4, Some(3)),
+        retained,
+        registry.clone(),
+    )
+    .unwrap();
+    assert!(!plan.display_indent().to_string().contains("DeltaWrite:"));
+    run_native(state, &plan).await.unwrap();
+    let reopened = open_publication(
+        PublicationRoot {
+            location: control.clone(),
+            version: 3,
+        },
+        &registry,
+        Arc::new(state.clone()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reopened.record().members, selected);
+
+    let mut missing = selected.to_vec();
+    missing[0].delta_version = 999;
+    let plan = publication_plan::plan(
+        control.clone(),
+        publication_row(5, Some(4)),
+        missing.into_iter().map(Member::Retained).collect(),
+        registry,
+    )
+    .unwrap();
+    assert!(run_native(state, &plan).await.is_err());
+    assert_eq!(
+        DeltaTableBuilder::from_url(control)
+            .unwrap()
+            .load()
+            .await
+            .unwrap()
+            .version(),
+        Some(3)
+    );
+}
+
 async fn publish(state: &SessionState, location: url::Url, row: publications::Row) -> Result<i64> {
     let plan = publication_plan(location, row);
-    let result = collect(state.create_physical_plan(&plan).await?, state.task_ctx()).await?;
+    let result = run_native(state, &plan).await?;
     Ok(result[0]
         .column(0)
         .as_any()
@@ -320,10 +486,13 @@ async fn publication_retry_checks_complete_request_after_head_advancement() {
     let state = context.state();
     let original = publication_row(2, None);
     let plan = publication_plan(location.clone(), original.clone());
-    let physical = state.create_physical_plan(&plan).await.unwrap();
+    let prepared = prepare_native(&state, &plan).unwrap();
     assert!(!temp.path().join("_delta_log").exists());
-    assert!(!physical.children().is_empty());
-    collect(physical, state.task_ctx()).await.unwrap();
+    assert!(!prepared.optimized_plan().inputs().is_empty());
+    prepared
+        .execute(&pse_ids::CancellationToken::new())
+        .await
+        .unwrap();
     assert_eq!(
         publish(&state, location.clone(), publication_row(3, Some(2)))
             .await
@@ -514,6 +683,101 @@ async fn publication_reconciles_actual_lost_commit_acknowledgments() {
     );
 }
 
+#[tokio::test]
+async fn numerical_publication_checks_exact_program_after_durable_member_writes() {
+    use pse_relations::generated::runtime::{
+        jacobian_coordinates, numerical_evaluations, numerical_programs,
+    };
+    let id = |value| pse_ids::SemanticId::from_bytes([value; 16]);
+    let temp = tempfile::tempdir().unwrap();
+    let (context, _, _, _) = context();
+    let mut programs = numerical_programs::Builder::new().unwrap();
+    programs
+        .push(numerical_programs::Row {
+            program_id: id(10),
+            residual_dimension: 1,
+            variable_columns: vec!["x".into()],
+            jacobian_dimension: 1,
+        })
+        .unwrap();
+    let mut coordinates = jacobian_coordinates::Builder::new().unwrap();
+    coordinates
+        .push(jacobian_coordinates::Row {
+            program_id: id(10),
+            ordinal: 0,
+            residual: 0,
+            variable: 0,
+        })
+        .unwrap();
+    let mut valid = publication_row(2, None);
+    for (name, batch) in [
+        (
+            "runtime.numerical_programs",
+            programs.finish().unwrap().into_batch(),
+        ),
+        (
+            "runtime.jacobian_coordinates",
+            coordinates.finish().unwrap().into_batch(),
+        ),
+    ] {
+        valid
+            .members
+            .push(write_member(&context, temp.path(), name, batch).await);
+    }
+    let root = location(&temp.path().join("control"));
+    assert_eq!(
+        publish(&context.state(), root.clone(), valid.clone())
+            .await
+            .unwrap(),
+        1
+    );
+
+    // This row satisfies every local extent/CHECK and the program FK, but lies
+    // about that exact program's residual count. Its member write is real.
+    let mut evaluations = numerical_evaluations::Builder::new().unwrap();
+    evaluations
+        .push(numerical_evaluations::Row {
+            program_id: id(10),
+            scenario_id: id(11),
+            residual_dimension: 2,
+            variable_dimension: 1,
+            jacobian_dimension: 1,
+            residuals: vec![3.0, 4.0],
+            jacobian: vec![1.0],
+        })
+        .unwrap();
+    let mut invalid = publication_row(3, Some(2));
+    invalid.members = valid.members;
+    invalid.members.push(
+        write_member(
+            &context,
+            temp.path(),
+            "runtime.numerical_evaluations",
+            evaluations.finish().unwrap().into_batch(),
+        )
+        .await,
+    );
+    let error = publish(&context.state(), root.clone(), invalid)
+        .await
+        .unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("selected numerical program mismatch"),
+        "{error:?}"
+    );
+    let table = DeltaTableBuilder::from_url(root)
+        .unwrap()
+        .load()
+        .await
+        .unwrap();
+    assert_eq!(
+        table.version(),
+        Some(1),
+        "rejected members must not advance the visible publication"
+    );
+}
+
 async fn write_member(
     context: &SessionContext,
     root: &std::path::Path,
@@ -548,12 +812,7 @@ async fn write_member(
     )
     .unwrap();
     let state = context.state();
-    let result = collect(
-        state.create_physical_plan(&plan).await.unwrap(),
-        state.task_ctx(),
-    )
-    .await
-    .unwrap();
+    let result = run_native(&state, &plan).await.unwrap();
     let delta_version = result[0]
         .column(0)
         .as_any()
@@ -574,13 +833,28 @@ async fn write_member(
 }
 
 async fn assert_isolated_publication(publication: &pse_catalog::delta::publication::Publication) {
-    let first = SessionContext::new_with_state(publication.session_state().await.unwrap());
-    let second = SessionContext::new_with_state(publication.session_state().await.unwrap());
-    let prepared = first.table("model.authored.entities").await.unwrap();
-    first.deregister_table("model.authored.entities").unwrap();
+    let cancel = pse_ids::CancellationToken::new();
+    let first = publication.session().clone();
+    let second = publication.session().clone();
+    let prepared = first
+        .prepare_sql("SELECT * FROM model.authored.entities", &cancel)
+        .await
+        .unwrap();
+    drop(first);
     assert_eq!(
         prepared
-            .collect()
+            .execute(&cancel)
+            .await
+            .unwrap()
+            .batches()
+            .iter()
+            .map(|batch| batch.num_rows())
+            .sum::<usize>(),
+        1
+    );
+    assert_eq!(
+        second
+            .sql("SELECT * FROM model.authored.entities", &cancel)
             .await
             .unwrap()
             .iter()
@@ -589,31 +863,14 @@ async fn assert_isolated_publication(publication: &pse_catalog::delta::publicati
         1
     );
     assert_eq!(
-        second
-            .table("model.authored.entities")
-            .await
-            .unwrap()
-            .count()
-            .await
-            .unwrap(),
-        1
-    );
-    let third = SessionContext::new_with_state(publication.session_state().await.unwrap());
-    assert_eq!(
-        third
-            .table("model.authored.entities")
-            .await
-            .unwrap()
-            .count()
-            .await
-            .unwrap(),
+        publication_count(publication, "SELECT * FROM model.authored.entities").await,
         1
     );
 }
 
 #[tokio::test]
 async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_references() {
-    use pse_catalog::delta::publication::{Publication, PublicationRoot};
+    use pse_catalog::delta::publication::PublicationRoot;
     use pse_relations::generated::{
         authored::{entities, packages},
         enums::{EntityKind, IdPolicy, PackageKind},
@@ -678,7 +935,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
         let result = publish(&context.state(), root.clone(), row).await;
         if case == "valid" {
             assert_eq!(result.unwrap(), 1);
-            let publication = Publication::open(
+            let publication = open_publication(
                 PublicationRoot {
                     location: root,
                     version: 1,
@@ -698,7 +955,7 @@ async fn publication_admits_real_members_and_rejects_duplicates_and_dangling_ref
             } else {
                 assert!(
                     error.to_string().contains("candidate violates"),
-                    "{case}: {error}"
+                    "{case}: {error:?}"
                 );
             }
             assert!(
@@ -728,11 +985,17 @@ async fn nested_write_uses_real_child_caller_rules_functions_and_runtime() {
         .build()
         .unwrap();
     let state = context.state();
-    let physical = state.create_physical_plan(&nested).await.unwrap();
+    let prepared = prepare_native(&state, &nested).unwrap();
     assert!(Arc::ptr_eq(&runtime, state.runtime_env()));
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert!(!temp.path().join("_delta_log").exists());
-    let display = datafusion::physical_plan::displayable(physical.as_ref())
+    let before = rules.load(Ordering::SeqCst);
+    let result = prepared
+        .clone()
+        .execute(&pse_ids::CancellationToken::new())
+        .await
+        .unwrap();
+    let display = datafusion::physical_plan::displayable(result.physical_plan().as_ref())
         .indent(true)
         .to_string();
     assert!(display.contains("DeltaWriteExec"), "{display}");
@@ -740,18 +1003,24 @@ async fn nested_write_uses_real_child_caller_rules_functions_and_runtime() {
         display.contains("sentinel"),
         "native child disappeared: {display}"
     );
-    let before = rules.load(Ordering::SeqCst);
-    let result = collect(Arc::clone(&physical), state.task_ctx())
-        .await
-        .unwrap();
-    assert_eq!(result.iter().map(RecordBatch::num_rows).sum::<usize>(), 1);
+    assert_eq!(
+        result
+            .batches()
+            .iter()
+            .map(|batch| batch.num_rows())
+            .sum::<usize>(),
+        1
+    );
     assert!(calls.load(Ordering::SeqCst) > 0);
     assert!(
         rules.load(Ordering::SeqCst) > before,
         "Delta builder discarded caller optimizers"
     );
     assert!(
-        collect(physical, state.task_ctx()).await.is_err(),
+        prepared
+            .execute(&pse_ids::CancellationToken::new())
+            .await
+            .is_err(),
         "re-execution must not duplicate a commit"
     );
     let table = DeltaTableBuilder::from_url(location(temp.path()))
@@ -859,7 +1128,10 @@ fn every_registry_relation_has_a_declared_delta_layout() {
 )]
 async fn unsigned_ids_nested_values_and_nanoseconds_roundtrip_through_delta() {
     use datafusion::arrow::{
-        array::{FixedSizeBinaryArray, StructArray, TimestampNanosecondArray, UInt64Array},
+        array::{
+            FixedSizeBinaryArray, StructArray, TimestampMillisecondArray, TimestampNanosecondArray,
+            TimestampSecondArray, UInt64Array,
+        },
         buffer::NullBuffer,
     };
     use pse_catalog::delta::layout::DurableLayout;
@@ -893,6 +1165,19 @@ async fn unsigned_ids_nested_values_and_nanoseconds_roundtrip_through_delta() {
             ),
             false,
         ),
+        Field::new(
+            "millisecond_ticks",
+            DataType::Timestamp(datafusion::arrow::datatypes::TimeUnit::Millisecond, None),
+            false,
+        ),
+        Field::new(
+            "zoned_second_ticks",
+            DataType::Timestamp(
+                datafusion::arrow::datatypes::TimeUnit::Second,
+                Some("America/New_York".into()),
+            ),
+            false,
+        ),
     ]));
     let batch = RecordBatch::try_new(
         Arc::clone(&schema),
@@ -902,6 +1187,11 @@ async fn unsigned_ids_nested_values_and_nanoseconds_roundtrip_through_delta() {
             Arc::new(UInt64Array::from(vec![0, 1u64 << 63, u64::MAX])),
             Arc::new(
                 TimestampNanosecondArray::from(vec![1, 1_000_000_001, -1]).with_timezone("UTC"),
+            ),
+            Arc::new(TimestampMillisecondArray::from(vec![i64::MIN, 0, i64::MAX])),
+            Arc::new(
+                TimestampSecondArray::from(vec![i64::MIN, 0, i64::MAX])
+                    .with_timezone("America/New_York"),
             ),
         ],
     )
@@ -971,12 +1261,7 @@ async fn unsigned_ids_nested_values_and_nanoseconds_roundtrip_through_delta() {
     assert!(wrong.decode(stored.clone()).is_err());
     let decoded = layout.decode(stored).unwrap();
     let state = context.state();
-    let results = collect(
-        state.create_physical_plan(&decoded).await.unwrap(),
-        state.task_ctx(),
-    )
-    .await
-    .unwrap();
+    let results = run_native(&state, &decoded).await.unwrap();
     let actual =
         datafusion::arrow::compute::concat_batches(layout.execution_schema(), &results).unwrap();
     assert_eq!(actual, batch);
@@ -1174,11 +1459,7 @@ async fn float_precision_admission_checks_visible_children_and_preserves_signed_
             )
             .unwrap();
         let state = context.state();
-        let result = collect(
-            state.create_physical_plan(&decoded).await.unwrap(),
-            state.task_ctx(),
-        )
-        .await;
+        let result = run_native(&state, &decoded).await;
         assert_eq!(
             result.is_err(),
             visible,
@@ -1305,12 +1586,7 @@ async fn application_transaction_records_do_not_implement_replay_deduplication()
         )
         .unwrap();
         let state = context.state();
-        collect(
-            state.create_physical_plan(&request).await.unwrap(),
-            state.task_ctx(),
-        )
-        .await
-        .unwrap();
+        run_native(&state, &request).await.unwrap();
         table = DeltaTableBuilder::from_url(location.clone())
             .unwrap()
             .load()
@@ -1331,7 +1607,7 @@ async fn application_transaction_records_do_not_implement_replay_deduplication()
 
 #[tokio::test]
 async fn generated_publication_control_reopens_its_exact_member_catalog() {
-    use pse_catalog::delta::publication::{Publication, PublicationRoot};
+    use pse_catalog::delta::publication::PublicationRoot;
     let temp = tempfile::tempdir().unwrap();
     let (writer, _, _, _) = context();
     let registry = pse_schema::registry().unwrap();
@@ -1350,7 +1626,7 @@ async fn generated_publication_control_reopens_its_exact_member_catalog() {
     write_control(&writer, control_uri.clone(), row).await;
     drop(writer);
     let (reader, _, _, _) = context();
-    let publication = Publication::open(
+    let publication = open_publication(
         PublicationRoot {
             location: control_uri,
             version: 1,
@@ -1364,20 +1640,15 @@ async fn generated_publication_control_reopens_its_exact_member_catalog() {
         publication.record().publication_id,
         pse_ids::SemanticId::from_bytes([2; 16])
     );
-    let context = SessionContext::new_with_state(publication.session_state().await.unwrap());
-    let rows = context
-        .sql("SELECT * FROM model.authored.entities")
-        .await
-        .unwrap()
-        .collect()
-        .await
-        .unwrap();
-    assert_eq!(rows.iter().map(RecordBatch::num_rows).sum::<usize>(), 0);
+    assert_eq!(
+        publication_count(&publication, "SELECT * FROM model.authored.entities").await,
+        0
+    );
 }
 
 #[tokio::test]
 async fn publication_selection_preserves_full_tables_and_exact_identity_slices() {
-    use pse_catalog::delta::publication::{Publication, PublicationRoot};
+    use pse_catalog::delta::publication::PublicationRoot;
     use pse_relations::generated::{authored::entities, enums::EntityKind};
     use publications::{
         RuntimePublicationsFieldMembersItemSelection as Selection,
@@ -1448,7 +1719,7 @@ async fn publication_selection_preserves_full_tables_and_exact_identity_slices()
         row.members.push(selected);
         let uri = location(&root.path().join(case));
         write_control(&writer, uri.clone(), row).await;
-        let result = Publication::open(
+        let result = open_publication(
             PublicationRoot {
                 location: uri,
                 version: 1,
@@ -1459,15 +1730,8 @@ async fn publication_selection_preserves_full_tables_and_exact_identity_slices()
         .await;
         if let Some(expected) = expected {
             let publication = result.unwrap();
-            let reader = SessionContext::new_with_state(publication.session_state().await.unwrap());
             assert_eq!(
-                reader
-                    .table("model.authored.entities")
-                    .await
-                    .unwrap()
-                    .count()
-                    .await
-                    .unwrap(),
+                publication_count(&publication, "SELECT * FROM model.authored.entities").await,
                 expected,
                 "{case}"
             );
@@ -1496,21 +1760,13 @@ async fn write_control(context: &SessionContext, uri: url::Url, row: publication
     )
     .unwrap();
     let state = context.state();
-    collect(
-        state.create_physical_plan(&plan).await.unwrap(),
-        state.task_ctx(),
-    )
-    .await
-    .unwrap();
+    run_native(&state, &plan).await.unwrap();
 }
 
 #[tokio::test]
 async fn publication_root_records_native_checks_and_refuses_empty_or_invalid_heads() {
     use deltalake::delta_datafusion::SessionFallbackPolicy;
-    use pse_catalog::delta::{
-        contract::DeclaredCheck,
-        publication::{Publication, PublicationRoot},
-    };
+    use pse_catalog::delta::{contract::DeclaredCheck, publication::PublicationRoot};
     let root = tempfile::tempdir().unwrap();
     let uri = location(root.path());
     let (writer, _, _, _) = context();
@@ -1522,7 +1778,7 @@ async fn publication_root_records_native_checks_and_refuses_empty_or_invalid_hea
     );
     let registry = pse_schema::registry().unwrap();
     assert!(
-        Publication::open(
+        open_publication(
             PublicationRoot {
                 location: uri.clone(),
                 version: 0
@@ -1606,4 +1862,78 @@ async fn remove_native_check(member: &mut publications::RuntimePublicationsField
         .await
         .unwrap();
     member.delta_version = i64::try_from(table.version().unwrap()).unwrap();
+}
+
+fn native_factory(state: &SessionState) -> pse_catalog::session::SessionFactory {
+    pse_catalog::session::SessionFactory::from_builder(
+        Arc::clone(state.runtime_env()),
+        pse_ids::FixedBudget::new(1 << 30),
+        "delta-fixture",
+        SessionStateBuilder::new_from_existing(state.clone()),
+    )
+}
+async fn open_publication(
+    root: pse_catalog::delta::publication::PublicationRoot,
+    registry: &pse_schema::Registry,
+    state: Arc<SessionState>,
+) -> std::result::Result<pse_catalog::delta::publication::Publication, pse_catalog::CatalogError> {
+    assert_eq!(
+        registry.fingerprint(),
+        pse_schema::registry().unwrap().fingerprint()
+    );
+    pse_catalog::delta::publication::Publication::open(
+        root,
+        pse_schema::shared_registry().unwrap(),
+        &native_factory(&state),
+        &pse_ids::CancellationToken::new(),
+    )
+    .await
+}
+async fn publication_count(
+    publication: &pse_catalog::delta::publication::Publication,
+    sql: &str,
+) -> usize {
+    publication
+        .session()
+        .sql(sql, &pse_ids::CancellationToken::new())
+        .await
+        .unwrap()
+        .iter()
+        .map(RecordBatch::num_rows)
+        .sum()
+}
+
+fn prepare_native(
+    state: &SessionState,
+    plan: &LogicalPlan,
+) -> Result<pse_catalog::session::PreparedComputation> {
+    use datafusion::common::tree_node::TreeNodeRecursion;
+    let cancel = pse_ids::CancellationToken::new();
+    let mut session = native_factory(state)
+        .candidate(
+            std::collections::BTreeMap::default(),
+            pse_schema::shared_registry().unwrap(),
+            &cancel,
+        )
+        .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?
+        .with_purpose(pse_schema::model::provider::OperationPurpose::Publish);
+    plan.apply_with_subqueries(|node| {
+        if let LogicalPlan::TableScan(scan) = node {
+            let source = datafusion::datasource::source_as_provider(&scan.source)?;
+            session = session
+                .with_provider(scan.table_name.clone(), source, &cancel)
+                .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?;
+        }
+        Ok(TreeNodeRecursion::Continue)
+    })?;
+    session
+        .prepare(plan.clone(), &cancel)
+        .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))
+}
+async fn run_native(state: &SessionState, plan: &LogicalPlan) -> Result<Vec<RecordBatch>> {
+    Ok(prepare_native(state, plan)?
+        .execute(&pse_ids::CancellationToken::new())
+        .await
+        .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?
+        .into_batches())
 }

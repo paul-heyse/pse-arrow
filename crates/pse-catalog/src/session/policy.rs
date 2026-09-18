@@ -18,11 +18,12 @@ use std::{
 /// Actual implementation that lowers required invariant IDs to a native violation plan.
 /// A zero-row successful execution discharges the selected requirements for its exact
 /// captured sources. It does not validate unrelated bundle/publication obligations.
+#[async_trait::async_trait]
 pub trait RequirementPlanner: std::fmt::Debug + Send + Sync {
     /// Lower all selected requirements. Missing declarations/dependencies must fail.
     /// # Errors
     /// Unsupported requirement, invalid dependency or native planning failure.
-    fn plan(
+    async fn plan(
         &self,
         session: &SnapshotSession,
         requirements: &BTreeSet<SemanticId>,
@@ -143,11 +144,11 @@ impl EffectivePolicy {
 }
 
 impl SnapshotSession {
-    pub(super) async fn check_requirements(
+    pub(crate) async fn check_requirements(
         &self,
         cancel: &pse_ids::CancellationToken,
     ) -> Result<(), CatalogError> {
-        if let Some(requirements) = self.prepare_requirements(cancel)? {
+        if let Some(requirements) = self.prepare_requirements(cancel).await? {
             let mut stream = Box::pin(requirements.execute_stream(cancel)).await?;
             while let Some(batch) = stream.next_batch(cancel).await? {
                 if batch.num_rows() != 0 {
@@ -207,7 +208,9 @@ impl SnapshotSession {
                     policy.scope,
                     ProviderScope::Root | ProviderScope::Invocation
                 ) || self.bindings.scopes().any(|(catalog, schema)| {
-                    policy.scope.covers(catalog, schema.unwrap_or_default(), "")
+                    policy
+                        .scope
+                        .covers(&catalog, schema.as_deref().unwrap_or_default(), "")
                 }) || self.bindings.targets().any(|target| match target {
                     ProviderScope::Catalog(c) => policy.scope.covers(c, "", ""),
                     ProviderScope::Schema(c, s) => policy.scope.covers(c, s, ""),
@@ -231,39 +234,40 @@ impl SnapshotSession {
     ) -> Result<BTreeSet<OperationEffect>, CatalogError> {
         let policy = self.effective_policy()?;
         let mut effects = BTreeSet::from([OperationEffect::Read]);
-        for (_, binding) in self.bindings.iter() {
-            effects.extend(&binding.effects);
+        if !matches!(plan, LogicalPlan::Explain(_)) {
+            for (_, binding) in self.bindings.iter() {
+                effects.extend(&binding.effects);
+            }
+            if varying {
+                effects.insert(OperationEffect::Nondeterministic);
+            }
         }
-        if varying {
-            effects.insert(OperationEffect::Nondeterministic);
-        }
+        let mut visited = std::collections::HashSet::new();
+        let mut reservation = self.reserver.open("session:effect-discovery");
         plan.apply_with_subqueries(|node| {
+            if !matches!(node, LogicalPlan::Subquery(_)) {
+                let key = super::admission::identity(node);
+                if visited.contains(&key) {
+                    return Ok(datafusion::common::tree_node::TreeNodeRecursion::Jump);
+                }
+                reservation.try_grow(64).map_err(|error| {
+                    datafusion::common::DataFusionError::External(Box::new(CatalogError::from(
+                        error,
+                    )))
+                })?;
+                visited.insert(key);
+            }
             if matches!(node, LogicalPlan::Explain(_)) {
                 return Ok(datafusion::common::tree_node::TreeNodeRecursion::Jump);
             }
             match node {
                 LogicalPlan::Extension(extension) => {
-                    if extension
+                    if let Some(contract) = extension
                         .node
                         .as_any()
-                        .is::<crate::delta::write::DeltaWrite>()
+                        .downcast_ref::<super::contract::ExecutionContract>()
                     {
-                        effects.insert(OperationEffect::Write);
-                    }
-                    if extension
-                        .node
-                        .as_any()
-                        .is::<crate::delta::publish::DeltaPublish>()
-                    {
-                        effects.insert(OperationEffect::Write);
-                        effects.insert(OperationEffect::Publish);
-                    }
-                    if let Some(operation) = extension
-                        .node
-                        .as_any()
-                        .downcast_ref::<super::operation::OperationNode>()
-                    {
-                        effects.extend(&operation.effects);
+                        effects.extend(contract.effects());
                     }
                 }
                 LogicalPlan::Dml(_) => {
@@ -284,7 +288,7 @@ impl SnapshotSession {
         Ok(effects)
     }
 
-    pub(super) fn prepare_requirements(
+    pub(super) async fn prepare_requirements(
         &self,
         cancel: &pse_ids::CancellationToken,
     ) -> Result<Option<super::PreparedComputation>, CatalogError> {
@@ -302,7 +306,7 @@ impl SnapshotSession {
             policy.requirements.clear();
         }
         diagnostic.purpose = OperationPurpose::Inspect;
-        let plan = planner.plan(&diagnostic, &requirements, cancel)?;
+        let plan = planner.plan(&diagnostic, &requirements, cancel).await?;
         Ok(Some(diagnostic.prepare_rule_plan(plan, cancel)?))
     }
 }

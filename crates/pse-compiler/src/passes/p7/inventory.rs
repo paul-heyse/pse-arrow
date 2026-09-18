@@ -268,7 +268,7 @@ mod tests {
     #[tokio::test]
     async fn realization_reads_only_its_declared_input_inventory() {
         let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-        let pass = registry.pass("P7@1").unwrap();
+        let pass = registry.algorithm("P7@1").unwrap();
         let inputs = pass
             .inputs
             .iter()

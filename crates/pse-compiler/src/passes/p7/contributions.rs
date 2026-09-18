@@ -3,10 +3,15 @@
 
 use super::{Realizer, invalid};
 use crate::CompilerError;
+use crate::passes::physical_subject::{member, phase};
 use pse_quantity::{DomainKind, QuantityTypeId};
 use pse_relations::generated::{authored, compiled, enums::ExpressionRootRole, inferred};
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "contributions keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn contributions(
         &mut self,
         instance: &inferred::instances::Row,
@@ -55,9 +60,9 @@ impl Realizer<'_> {
             }
             let basis = quantity.key.basis.map(pse_quantity::BasisId::as_id);
             validate_subject_axes(
-                contract.subject_kind.as_str(),
-                contract.subject_axis,
-                contract.phase_axis,
+                contract.subject.kind.as_str(),
+                member!(&contract.subject, axis, position),
+                phase!(&contract.subject, axis, position),
                 &shape,
             )?;
             let scopes = self
@@ -127,11 +132,12 @@ impl Realizer<'_> {
                     basis_id: basis,
                     orientation: declaration.orientation,
                     transfer_connection_id: transfer,
-                    subject_kind: contract.subject_kind,
-                    subject_id: contract.subject_id,
-                    subject_axis: contract.subject_axis,
-                    phase_axis: contract.phase_axis,
-                    phase_id: contract.phase_id,
+                    subject: super::super::native_rows::transfer_value(
+                        &contract.subject,
+                        self.registry,
+                        "compiled.contributions",
+                        "subject",
+                    )?,
                     derivation_id: Self::derivation(
                         instance.instance_id,
                         source.source_id,
@@ -146,8 +152,8 @@ impl Realizer<'_> {
 }
 fn validate_subject_axes(
     kind: &str,
-    subject_axis: Option<u16>,
-    phase_axis: Option<u16>,
+    subject_axis: Option<i64>,
+    phase_axis: Option<i64>,
     shape: &[DomainKind],
 ) -> Result<(), CompilerError> {
     if let Some(axis) = subject_axis {
@@ -156,13 +162,15 @@ fn validate_subject_axes(
             "element" => DomainKind::Element,
             _ => return Err(invalid("subject kind has no indexed subject contract")),
         };
-        if shape.get(usize::from(axis)) != Some(&expected) {
+        if usize::try_from(axis).ok().and_then(|axis| shape.get(axis)) != Some(&expected) {
             return Err(invalid(
                 "subject axis does not have its actual required domain kind",
             ));
         }
     }
-    if phase_axis.is_some_and(|axis| shape.get(usize::from(axis)) != Some(&DomainKind::Phase)) {
+    if phase_axis.is_some_and(|axis| {
+        usize::try_from(axis).ok().and_then(|axis| shape.get(axis)) != Some(&DomainKind::Phase)
+    }) {
         return Err(invalid("phase axis is not an actual phase domain"));
     }
     Ok(())

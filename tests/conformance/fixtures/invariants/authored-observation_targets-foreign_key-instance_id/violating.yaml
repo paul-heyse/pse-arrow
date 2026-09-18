@@ -1,0 +1,32 @@
+{
+  "invariant": "authored.observation_targets:foreign_key:instance_id",
+  "rows": {
+    "authored.instances": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "feature_values": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "param_values": "[\"list\",[]]",
+        "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.observation_targets": [
+      {
+        "instance_id": "[\"id\",\"02020202020202020202020202020202\"]",
+        "member": "[\"struct\",[[\"text\",\"equation\"],[\"null\",null],[\"null\",null],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]]],[\"null\",null]]]",
+        "observation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "ordinal": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"i64\",1]"
+    ]
+  ]
+}

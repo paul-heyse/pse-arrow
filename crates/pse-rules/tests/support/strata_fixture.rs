@@ -7,7 +7,10 @@
     dead_code,
     reason = "shared fixture fields are consumed by different integration test binaries"
 )]
-use datafusion::{arrow::array::RecordBatch, execution::runtime_env::RuntimeEnv};
+use datafusion::{
+    arrow::{array::RecordBatch, datatypes::DataType},
+    execution::runtime_env::RuntimeEnv,
+};
 use pse_catalog::session::RelationFacts;
 use pse_catalog::session::{
     ExecutionSettings, SessionFactory, SnapshotSession, ThreadBudget, native_engine_profile,
@@ -128,14 +131,24 @@ pub(crate) fn head(
     );
 }
 pub(crate) fn id(name: &'static str) -> FieldContract {
-    FieldContract::key(
-        name,
-        T::native(datafusion::arrow::datatypes::DataType::UInt32),
-        "Finite identity",
-    )
+    FieldContract::key(name, T::native(DataType::UInt32), "Finite identity")
 }
 pub(crate) fn declare(builder: &mut RegistryBuilder, rule: RuleDecl) {
     builder.declare_rule(rule);
+}
+pub(crate) fn read(relation: &str, port: &'static str) -> pse_schema::model::RuleInput {
+    pse_schema::model::RuleInput {
+        relation: relation.into(),
+        port,
+        mode: pse_schema::model::DependencyMode::Read,
+    }
+}
+pub(crate) fn negate(relation: &str, port: &'static str) -> pse_schema::model::RuleInput {
+    pse_schema::model::RuleInput {
+        relation: relation.into(),
+        port,
+        mode: pse_schema::model::DependencyMode::Negate,
+    }
 }
 pub(crate) struct Fixture {
     pub registry: Arc<Registry>,
@@ -147,10 +160,6 @@ pub(crate) struct Fixture {
 }
 impl Fixture {
     pub(crate) fn new(builder: RegistryBuilder, rows: Vec<Vec<Cell>>, partitions: usize) -> Self {
-        let registry = Arc::new(builder.build().unwrap());
-        let spec = registry.relation("authored.input").unwrap();
-        let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows).unwrap();
-        drop(rows);
         let memory = FixedBudget::new(256 << 20);
         let factory = Arc::new(
             SessionFactory::new(
@@ -170,6 +179,17 @@ impl Fixture {
                 )]),
             )),
         );
+        Self::with_factory(builder, rows, &factory)
+    }
+    pub(crate) fn with_factory(
+        builder: RegistryBuilder,
+        rows: Vec<Vec<Cell>>,
+        factory: &SessionFactory,
+    ) -> Self {
+        let registry = Arc::new(builder.build().unwrap());
+        let spec = registry.relation("authored.input").unwrap();
+        let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows).unwrap();
+        drop(rows);
         let session = factory
             .candidate(
                 BTreeMap::from([(spec.key, batch)]),
@@ -183,20 +203,18 @@ impl Fixture {
         let rules = registry
             .rules()
             .iter()
-            .filter(|rule| {
-                matches!(rule.head, pse_schema::model::RuleHead::Relation(_))
-                    && rule.assertion_relation.is_some()
-            })
+            .filter(|rule| rule.assertion_relation.is_some())
             .cloned()
             .collect::<Vec<_>>();
         let bindings = rules
             .iter()
             .map(|rule| {
                 let ports = rule
-                    .plan
-                    .dependencies()
-                    .into_iter()
-                    .map(|(name, port, _)| {
+                    .inputs
+                    .iter()
+                    .map(|input| {
+                        let name = input.relation.as_str();
+                        let port = input.port;
                         let spec = registry.relation(name).unwrap();
                         let location = if name == "authored.input" {
                             RuleInputLocation::Facts(Arc::clone(&facts))
@@ -217,7 +235,7 @@ impl Fixture {
             .collect();
         let mut outputs = BTreeSet::new();
         for rule in &rules {
-            outputs.insert(registry.relation(rule.head.relation()).unwrap().key);
+            outputs.insert(registry.relation(&rule.head).unwrap().key);
             outputs.insert(
                 registry
                     .relation(rule.assertion_relation.as_deref().unwrap())

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+#![allow(
+    clippy::float_cmp,
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
 //! Selected method templates use the ordinary source/finite/realization pipeline.
 #[path = "support/demand_source.rs"]
 mod demand_source;
@@ -8,9 +13,9 @@ mod demand_source;
 mod kernel_source;
 #[path = "../../support/native_pipeline.rs"]
 mod native_pipeline;
+
 use demand_source::id;
 use pse_authoring::{ParseBudget, document::load_package_texts};
-use pse_ids::CancellationToken;
 use pse_relations::generated::{compiled, inferred};
 use pse_schema::model::Cell;
 use serde_json::{Value, json};
@@ -62,18 +67,17 @@ fn source(registry: &pse_schema::Registry) -> pse_authoring::document::DocumentB
 
 #[tokio::test]
 async fn selected_methods_bind_actual_coefficients_and_preserve_seed_on_reopen() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let documents = vec![source(&fixture.registry)];
-    let model = fixture.commit(documents).await;
+    let model = fixture.source(documents);
     let report = fixture
-        .run(model, "P9")
+        .evaluate(model, "P9")
         .await
-        .expect("actual selected P0 through P9 realization");
-    let stage = &report.stages.last().unwrap().snapshot;
-    let read = |snapshot: &pse_catalog::Snapshot, name: &str| {
+        .unwrap_or_else(|error| panic!("actual selected P0 through P9 realization: {error}"));
+    let stage = &report;
+    let read = |snapshot: &native_pipeline::Values, name: &str| {
         let spec = fixture.registry.relation(name).unwrap();
-        let batch = snapshot
-            .relation(spec.key.namespace.as_str(), spec.key.name)
+        let batch = native_pipeline::relation(snapshot, spec.key.namespace.as_str(), spec.key.name)
             .unwrap();
         pse_relations::cells::cells_from_batch(&fixture.registry, spec, batch.batch()).unwrap()
     };
@@ -92,7 +96,7 @@ async fn selected_methods_bind_actual_coefficients_and_preserve_seed_on_reopen()
     assert!(
         realized
             .iter()
-            .all(|row| row.output_symbol_id.is_some() && row.kernel_binding_id.is_none())
+            .all(|row| matches!(row.realization.selected().unwrap(), compiled::method_realizations::CompiledMethodRealizationsFieldRealizationSelected::TemplateSymbol(_)))
     );
     let instances = read(stage, "inferred.instances")
         .into_iter()
@@ -103,11 +107,7 @@ async fn selected_methods_bind_actual_coefficients_and_preserve_seed_on_reopen()
         3,
         "existing state plus exactly two selected method instances"
     );
-    let reopened = fixture
-        .catalog
-        .read_pinned_manifest(stage.manifest_ref(), &CancellationToken::new())
-        .await
-        .unwrap();
+    let reopened = fixture.roundtrip(stage).await;
     for name in [
         "compiled.symbols",
         "compiled.symbol_expressions",
@@ -133,15 +133,17 @@ async fn selected_methods_bind_actual_coefficients_and_preserve_seed_on_reopen()
 
 #[tokio::test]
 async fn kernel_descriptor_compiles_exact_natural_units_without_inventing_execution() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let documents = vec![kernel_source::kernel_source(&fixture.registry, false)];
-    let model = fixture.commit(documents).await;
+    let model = fixture.source(documents);
     let result = fixture
-        .run(model, "P10")
+        .evaluate(model, "P10")
         .await
-        .expect("complete descriptor binding and physical admission");
-    let stage = &result.stages.last().unwrap().snapshot;
-    let binding = stage.relation("compiled", "kernel_bindings").unwrap();
+        .unwrap_or_else(|error| {
+            panic!("complete descriptor binding and physical admission: {error}")
+        });
+    let stage = &result;
+    let binding = native_pipeline::relation(stage, "compiled", "kernel_bindings").unwrap();
     let bindings = compiled::kernel_bindings::View::try_from_batch_with_registry(
         &fixture.registry,
         binding.batch(),
@@ -151,30 +153,34 @@ async fn kernel_descriptor_compiles_exact_natural_units_without_inventing_execut
     .unwrap();
     assert_eq!(bindings.len(), 1);
     assert_eq!(bindings[0].kernel_id, id(120));
-    assert_eq!(bindings[0].parameter_bindings[0].value, Some(200.0));
-    assert_eq!(bindings[0].parameter_bindings[0].unit_id, Some(id(11)));
-    let conversions = stage.relation("compiled", "math_unit_converts").unwrap();
-    let conversions = compiled::math_unit_converts::View::try_from_batch_with_registry(
+    let parameter = bindings[0].parameter_bindings[0]
+        .binding
+        .literal
+        .as_ref()
+        .unwrap();
+    assert_eq!(parameter.value, 200.0);
+    assert_eq!(parameter.unit_id, id(11));
+    let conversions = native_pipeline::relation(stage, "compiled", "math_expr_nodes").unwrap();
+    let conversions = compiled::math_expr_nodes::View::try_from_batch_with_registry(
         &fixture.registry,
         conversions.batch(),
     )
     .unwrap()
     .rows()
     .unwrap();
+    let conversions = conversions
+        .into_iter()
+        .filter_map(|row| row.payload.unit_convert)
+        .collect::<Vec<_>>();
     assert!(conversions.iter().any(|row| row.from_unit_id == id(10)
         && row.to_unit_id == id(11)
         && row.scale.to_bits() == 100_f64.to_bits()));
     assert!(conversions.iter().any(|row| row.from_unit_id == id(11)
         && row.to_unit_id == id(10)
         && row.scale.to_bits() == 0.01_f64.to_bits()));
-    let reopened = fixture
-        .catalog
-        .read_pinned_manifest(stage.manifest_ref(), &CancellationToken::new())
-        .await
-        .expect("producer replay revalidates descriptor sources");
+    let reopened = fixture.roundtrip(stage).await;
     assert_eq!(
-        reopened
-            .relation("compiled", "kernel_bindings")
+        native_pipeline::relation(&reopened, "compiled", "kernel_bindings")
             .unwrap()
             .batch(),
         binding.batch()
@@ -183,8 +189,8 @@ async fn kernel_descriptor_compiles_exact_natural_units_without_inventing_execut
 
 #[tokio::test]
 async fn missing_kernel_input_mapping_cannot_publish_a_realization() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let documents = vec![kernel_source::kernel_source(&fixture.registry, true)];
-    let model = fixture.commit(documents).await;
-    assert!(fixture.run(model, "P9").await.is_err());
+    let model = fixture.source(documents);
+    assert!(fixture.evaluate(model, "P9").await.is_err());
 }

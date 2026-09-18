@@ -5,6 +5,7 @@
 
 use datafusion::{
     common::ScalarValue,
+    functions::core::expr_fn::get_field,
     functions_aggregate::expr_fn::count,
     logical_expr::{JoinType, LogicalPlanBuilder, col, lit},
 };
@@ -36,15 +37,23 @@ pub(super) async fn state_parameters(
         JoinType::Left,
         &[("a.method_id", "m.method_id")],
     )?;
-    let joined = join(
-        joined,
-        scan(session, normalized::template_params::spec(registry)?, "v")?,
-        JoinType::Left,
-        &[
-            ("m.template_id", "v.template_id"),
-            ("a.parameter_name", "v.name"),
-        ],
-    )?;
+    let parameters_plan = scan(session, normalized::template_params::spec(registry)?, "v")?;
+    let joined = LogicalPlanBuilder::from(joined)
+        .join_on(
+            parameters_plan,
+            JoinType::Left,
+            [
+                get_field(
+                    get_field(column("m", "realization"), "equation_template"),
+                    "template_id",
+                )
+                .eq(column("v", "template_id")),
+                column("a", "parameter_name").eq(column("v", "name")),
+            ],
+        )
+        .map_err(engine)?
+        .build()
+        .map_err(engine)?;
     let parameters = normalized::template_params::spec(registry)?;
     let kind = parameters
         .columns

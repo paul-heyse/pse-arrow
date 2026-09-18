@@ -56,7 +56,7 @@ pub(super) async fn settle(
             owner.eq(c("guard_value", "instance_id")),
             c("guard_source", "source_id").eq(c("guard_value", "source_id")),
             c("guard_source", "root_id").eq(c("guard_value", "predicate_id")),
-            array_length(c("guard_value", "index")).eq(lit(0_u64)),
+            array_length(c("guard_value", "index")).eq(lit(0_i64)),
         ],
     )?;
     let decided = c("guard_value", "outcome")

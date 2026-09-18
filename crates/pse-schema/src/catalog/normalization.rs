@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Explicit P3 source, predicate and package-unit contracts (blueprint §7.7, §8.2).
+mod syntax;
 
 use super::declarations::{column, enumeration, relation, relation_version};
 use crate::RegistryBuilder;
@@ -53,21 +54,6 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ["expression", "enum_literal"],
     );
     enumeration(builder, "EquationSyntax", ["relation", "conditional"]);
-    enumeration(builder, "UnitConversionState", ["resolved", "pending"]);
-    enumeration(builder, "GatherState", ["resolved", "pending"]);
-    enumeration(
-        builder,
-        "SmoothingEpsilonState",
-        ["coordinate", "pending_unit"],
-    );
-    enumeration(
-        builder,
-        "NormalizedReferenceKind",
-        crate::math::NORMALIZED_REFERENCE_KINDS
-            .iter()
-            .copied()
-            .chain([crate::math::PENDING_PATH_KIND]),
-    );
     relation(
         builder,
         N::Authored,
@@ -105,15 +91,9 @@ fn declare_sources(builder: &mut RegistryBuilder) {
                 .with_fk("reference.schema_relations", "relation_id"),
             column("source_key", T::row_key()),
             column("field_path", T::native(arrow_schema::DataType::Utf8)),
-            column("owner_template_id", T::id())
-                .optional()
-                .with_fk("authored.templates", "template_id"),
-            column("owner_instance_id", T::id())
-                .optional()
-                .with_fk("authored.instances", "instance_id"),
-            column("owner_kind", T::enumeration("ExpressionOwnerKind")),
+            column("owner", expression_owner()),
             column("syntax", T::enumeration("ExpressionSyntax")),
-            column("root_id", T::native(arrow_schema::DataType::UInt64)),
+            column("root_id", T::nonnegative(i64::MAX)),
             crate::model::FieldContract::provenance(
                 "derivation_id",
                 T::id(),
@@ -125,6 +105,33 @@ fn declare_sources(builder: &mut RegistryBuilder) {
     );
 }
 
+fn expression_owner() -> T {
+    T::structure(vec![
+        T::enumeration("ExpressionOwnerKind").with_name("kind"),
+        T::structure(vec![
+            T::id()
+                .with_fk("authored.templates", "template_id")
+                .with_name("template_id"),
+        ])
+        .with_name("template")
+        .optional(),
+        T::structure(vec![
+            T::id()
+                .with_fk("authored.instances", "instance_id")
+                .with_name("instance_id"),
+        ])
+        .with_name("instance")
+        .optional(),
+    ])
+    .with_alternative(&crate::model::TaggedAlternative::new(
+        "kind",
+        [
+            ("template".into(), "template".into()),
+            ("instance".into(), "instance".into()),
+        ],
+    ))
+}
+
 fn declare_predicates(builder: &mut RegistryBuilder) {
     relation(
         builder,
@@ -134,23 +141,8 @@ fn declare_predicates(builder: &mut RegistryBuilder) {
         &["source_id", "predicate_id"],
         vec![
             column("source_id", T::id()).with_fk("normalized.expression_sources", "source_id"),
-            column("predicate_id", T::native(arrow_schema::DataType::UInt64)),
-            column("kind", T::enumeration("PredicateKind")),
-            column("boolean_value", T::native(arrow_schema::DataType::Boolean)).optional(),
-            column("comparison", T::enumeration("PredicateComparison")).optional(),
-            column("left_expr", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("right_expr", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("left_predicate", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("right_predicate", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("domain_id", T::id()).optional(),
-            column("domain_template_id", T::id()).optional(),
-            column("domain_name", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("left_kind", T::enumeration("PredicateOperandKind")).optional(),
-            column("left_enum_id", T::id()).optional(),
-            column("left_enum_member", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("right_kind", T::enumeration("PredicateOperandKind")).optional(),
-            column("right_enum_id", T::id()).optional(),
-            column("right_enum_member", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("predicate_id", T::nonnegative(i64::MAX)),
+            column("value", syntax::predicate()),
         ],
         "Typed predicate structure with exact operand alternatives and order.",
     );
@@ -165,14 +157,8 @@ fn declare_equations(builder: &mut RegistryBuilder) {
         &["source_id", "equation_id"],
         vec![
             column("source_id", T::id()).with_fk("normalized.expression_sources", "source_id"),
-            column("equation_id", T::native(arrow_schema::DataType::UInt64)),
-            column("kind", T::enumeration("EquationSyntax")),
-            column("sense", T::enumeration("Sense")).optional(),
-            column("left_expr", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("right_expr", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("guard_predicate", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("then_equation", T::native(arrow_schema::DataType::UInt64)).optional(),
-            column("else_equation", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("equation_id", T::nonnegative(i64::MAX)),
+            column("value", syntax::equation()),
         ],
         "Equation senses and conditional branch structure before instantiation.",
     );
@@ -189,10 +175,8 @@ fn declare_bindings(builder: &mut RegistryBuilder) {
             column("source_id", T::id()).with_fk("normalized.expression_sources", "source_id"),
             column("bound_index_id", T::id()),
             column("name", T::native(arrow_schema::DataType::Utf8)),
-            column("domain_id", T::id()).optional(),
-            column("template_id", T::id()).optional(),
-            column("domain_name", T::native(arrow_schema::DataType::Utf8)).optional(),
-            column("position", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column("domain", super::math_value::domain()),
+            column("position", T::nonnegative(i64::from(u16::MAX))).optional(),
         ],
         "Explicit lexical index declaration and its actual or template domain.",
     );

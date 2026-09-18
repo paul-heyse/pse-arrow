@@ -7,6 +7,9 @@
     clippy::expect_used,
     reason = "integration assertions"
 )]
+#[path = "support/native_execution.rs"]
+mod native_execution;
+
 use datafusion::{
     arrow::{
         array::{Array, RecordBatch, UInt64Array},
@@ -15,7 +18,6 @@ use datafusion::{
     common::Result,
     execution::{context::SessionContext, session_state::SessionStateBuilder},
     logical_expr::{Volatility, create_udf},
-    physical_plan::collect,
     prelude::SessionConfig,
 };
 use deltalake::{DeltaTable, DeltaTableBuilder, kernel::transaction::CommitProperties};
@@ -91,13 +93,18 @@ async fn sql_count(context: &SessionContext, location: &url::Url, sql: &str) -> 
     let state = context.state();
     let version = load(location).await.version();
     let logical = state.create_logical_plan(sql).await?;
-    let plan = state.create_physical_plan(&logical).await?;
+    let plan = native_execution::prepare(&state, pse_schema::shared_registry().unwrap(), &logical)?;
     assert_eq!(
         load(location).await.version(),
         version,
         "planning must have no mutation"
     );
-    let rows = collect(Arc::clone(&plan), state.task_ctx()).await?;
+    let rows = plan
+        .clone()
+        .execute(&pse_ids::CancellationToken::new())
+        .await
+        .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?
+        .into_batches();
     let result = rows[0]
         .column(0)
         .as_any()
@@ -105,7 +112,9 @@ async fn sql_count(context: &SessionContext, location: &url::Url, sql: &str) -> 
         .unwrap();
     assert_eq!(result.len(), 1);
     assert!(
-        collect(plan, state.task_ctx()).await.is_err(),
+        plan.execute(&pse_ids::CancellationToken::new())
+            .await
+            .is_err(),
         "prepared effect must execute once"
     );
     Ok(result.value(0))
@@ -207,15 +216,15 @@ async fn merge_by_source_and_stale_mutation_are_native_delta_semantics() {
     seed(&context, &location).await;
     bind(&context, &location).await;
     let state = context.state();
-    let prior_plan = state
-        .create_physical_plan(
-            &state
-                .create_logical_plan("UPDATE edit SET value = 50 WHERE id = 1")
-                .await
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let prior_plan = native_execution::prepare(
+        &state,
+        pse_schema::shared_registry().unwrap(),
+        &state
+            .create_logical_plan("UPDATE edit SET value = 50 WHERE id = 1")
+            .await
+            .unwrap(),
+    )
+    .unwrap();
     assert_eq!(
         sql_count(
             &context,
@@ -228,7 +237,12 @@ async fn merge_by_source_and_stale_mutation_are_native_delta_semantics() {
         .unwrap(),
         2
     );
-    assert!(collect(prior_plan, state.task_ctx()).await.is_err());
+    assert!(
+        prior_plan
+            .execute(&pse_ids::CancellationToken::new())
+            .await
+            .is_err()
+    );
     bind(&context, &location).await;
     assert_eq!(
         sql_count(
@@ -283,6 +297,7 @@ async fn seed_declared(
         } else {
             location.clone()
         };
+        std::fs::create_dir_all(attempt_location.to_file_path().unwrap()).unwrap();
         context.register_batch(name, batch).unwrap();
         let input = context.table(name).await.unwrap().into_unoptimized_plan();
         let table = DeltaTableBuilder::from_url(attempt_location.clone())
@@ -298,11 +313,7 @@ async fn seed_declared(
         )
         .unwrap();
         let state = context.state();
-        let result = collect(
-            state.create_physical_plan(&plan).await.unwrap(),
-            state.task_ctx(),
-        )
-        .await;
+        let result = native_execution::run(&state, Arc::clone(&registry), &plan).await;
         if name == "bad" {
             assert!(result.is_err());
             let table = load(&attempt_location).await;

@@ -6,6 +6,7 @@ exclude = [
   ".claude/worktrees/**",
   "target/**",
   "external/**",
+  "vendor/**",
   "build/**",
   "docs/book/**",
   "docs/capability-maps/evidence/**",

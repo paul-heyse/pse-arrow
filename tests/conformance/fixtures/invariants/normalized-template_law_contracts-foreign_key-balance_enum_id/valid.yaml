@@ -4,25 +4,18 @@
     "normalized.template_law_contracts": [
       {
         "balance_enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "default_feature_name": "[\"text\",\"value-1\"]",
-        "default_state_child": "[\"text\",\"value-1\"]",
+        "coordinates": "[\"struct\",[[\"struct\",[[\"text\",\"axis\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]],[\"struct\",[[\"text\",\"axis\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]]]",
+        "default_balance": "[\"struct\",[[\"text\",\"value-1\"],[\"text\",\"value-1\"]]]",
         "indexed_by": "[\"list\",[]]",
         "law_instance_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "phase_axis": "[\"u64\",1]",
-        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject_axis": "[\"u64\",1]",
-        "subject_id": "[\"id\",\"01010101010101010101010101010101\"]"
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ],
-    "reference.schema_enums": [
+    "reference.schema_enum_types": [
       {
-        "deprecated": "[\"bool\",true]",
-        "doc": "[\"text\",\"value-1\"]",
         "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "idaes_name": "[\"text\",\"value-1\"]",
-        "member": "[\"text\",\"value-1\"]",
-        "member_ordinal": "[\"i64\",1]"
+        "idaes_source": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
       }
     ]
   },

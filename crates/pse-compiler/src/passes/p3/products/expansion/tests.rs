@@ -17,7 +17,7 @@ use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{enums::DomainKind, normalized},
 };
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -29,7 +29,7 @@ fn id(value: u8) -> SemanticId {
 fn plans<'a>(
     registry: &Arc<pse_schema::Registry>,
     inputs: &BTreeMap<RelationKey, FieldCheckedBatch>,
-    pass: &'a PassSpec,
+    pass: &'a AlgorithmSpec,
     cancel: &'a CancellationToken,
 ) -> Plans<'a> {
     let (session, sources) = crate::passes::native_test::session(
@@ -67,7 +67,7 @@ fn ids(array: &ListArray, row: usize) -> Vec<SemanticId> {
 async fn ordered_subsets_keep_repeated_factor_positions_and_exact_identity_frame() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let cancel = CancellationToken::new();
-    let pass = registry.pass("P3@1").unwrap();
+    let pass = registry.algorithm("P3@1").unwrap();
     let mut plans = plans(&registry, &BTreeMap::new(), pass, &cancel);
     let parent = seed(&plans, &[id(1), id(2), id(1)], true);
     let subsets = expansion::subsets(&mut plans, parent).await.unwrap();
@@ -148,7 +148,7 @@ async fn ordered_subsets_keep_repeated_factor_positions_and_exact_identity_frame
 async fn scalar_product_requires_a_real_consumer() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let cancel = CancellationToken::new();
-    let pass = registry.pass("P3@1").unwrap();
+    let pass = registry.algorithm("P3@1").unwrap();
     for present in [false, true] {
         let mut plans = plans(&registry, &BTreeMap::new(), pass, &cancel);
         let parent = seed(&plans, &[], present);
@@ -200,7 +200,7 @@ async fn cartesian_candidates_preserve_duplicate_axes_empty_and_continuous_domai
             .push(normalized::domain_members::Row {
                 domain_id: id(1),
                 member_id: member,
-                ordinal: u32::try_from(ordinal).unwrap(),
+                ordinal: i64::try_from(ordinal).unwrap(),
                 label: ordinal.to_string(),
                 coordinate: None,
                 ref_entity_id: None,
@@ -227,7 +227,12 @@ async fn cartesian_candidates_preserve_duplicate_axes_empty_and_continuous_domai
             products.finish().unwrap(),
         ),
     ]);
-    let mut plans = plans(&registry, &inputs, registry.pass("P3@1").unwrap(), &cancel);
+    let mut plans = plans(
+        &registry,
+        &inputs,
+        registry.algorithm("P3@1").unwrap(),
+        &cancel,
+    );
     let tuples = expansion::tuples(&mut plans).await.unwrap();
     let complete = plans
         .session

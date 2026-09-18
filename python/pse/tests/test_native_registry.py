@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Published registry IPC values pass the generated Python contracts."""
+"""Published registry Delta values pass the generated Python contracts."""
 
 from pathlib import Path
 
@@ -8,78 +8,62 @@ import attrs
 import cattrs
 import msgspec
 import pyarrow as pa
-import pyarrow.ipc as ipc
 import pytest
 
+import pse
 from pse.codec import decode_json, structure_rows
 from pse.contracts.enums import Namespace, SnapshotClass
-from pse.contracts.manifest import Manifest
 from pse.contracts.reference import (
     ReferenceSchemaColumnsRow,
     ReferenceSchemaRelationsRow,
 )
 
 
-class SnapshotReference(msgspec.Struct, forbid_unknown_fields=True):
-    snapshot_id: str
-    manifest_checksum: str
+class PublicationRoot(msgspec.Struct, forbid_unknown_fields=True):
+    location: str
+    version: int
 
 
-class StoredSnapshot(msgspec.Struct, forbid_unknown_fields=True):
-    label: str
-    reference: SnapshotReference
-    parents: dict[str, str]
-    stage_pass: str | None
+class PublicationIndex(msgspec.Struct, forbid_unknown_fields=True):
+    root: PublicationRoot
+    tables: list[tuple[str, str, str]]
 
 
-class StoreIndex(msgspec.Struct, forbid_unknown_fields=True):
-    snapshots: list[StoredSnapshot]
+def publication_index(path: Path) -> PublicationIndex:
+    return decode_json((path / "publication-index.json").read_bytes(), PublicationIndex)
 
 
-def registry_manifest(store: Path) -> tuple[Path, Manifest]:
-    index = decode_json((store / "store-index.json").read_bytes(), StoreIndex)
-    model = next(snapshot for snapshot in index.snapshots if snapshot.label == "model")
-    checksum = model.reference.manifest_checksum.removeprefix("blake3:")
-    assert len(checksum) == 64
-    assert all(c in "0123456789abcdef" for c in checksum)
-    manifest = decode_json(
-        (store / "manifests" / f"{checksum}.json").read_bytes(), Manifest
-    )
-    assert manifest.snapshot_id == model.reference.snapshot_id
-    return store, manifest
-
-
-def stored_rows(store: Path, name: str) -> list[dict[str, object]]:
-    store, manifest = registry_manifest(store)
-    member = next(
-        row
-        for row in manifest.relations
-        if row.namespace == "reference" and row.name == name
-    )
-    encoding = next(
-        value for value in member.encodings if value.format == "arrow_ipc_file"
-    )
-    path = (store / encoding.path).resolve()
-    assert path.is_relative_to(store.resolve())
-    assert path.stat().st_size == encoding.bytes
-    with pa.memory_map(str(path), "r") as source:
-        table = ipc.open_file(source).read_all()
-        assert table.num_rows == member.rows > 0
-        # Values are materialized while the map is alive; generated hooks validate them.
-        rows: list[dict[str, object]] = table.to_pylist()
+def stored_rows(
+    path: Path, name: str, settings: pse.EngineSettings
+) -> list[dict[str, object]]:
+    root = publication_index(path).root
+    with (
+        pse.open(root.location, version=root.version, settings=settings) as publication,
+        publication.table("artifact", "reference", name) as stream,
+        pa.RecordBatchReader.from_stream(stream) as reader,
+    ):
+        rows: list[dict[str, object]] = [
+            row for batch in reader for row in batch.to_pylist()
+        ]
+    assert rows
     return rows
 
 
 @pytest.mark.component
 def test_stored_registry_relations_and_columns_decode_through_generated_contracts(
-    native_inspection_store: Path,
+    native_inspection_publication: Path,
+    inspection_settings: pse.EngineSettings,
 ) -> None:
     relations = structure_rows(
-        stored_rows(native_inspection_store, "schema_relations"),
+        stored_rows(
+            native_inspection_publication, "schema_relations", inspection_settings
+        ),
         ReferenceSchemaRelationsRow,
     )
     columns = structure_rows(
-        stored_rows(native_inspection_store, "schema_columns"),
+        stored_rows(
+            native_inspection_publication, "schema_columns", inspection_settings
+        ),
         ReferenceSchemaColumnsRow,
     )
     identities = {row.relation_id for row in relations}
@@ -101,9 +85,12 @@ def test_stored_registry_relations_and_columns_decode_through_generated_contract
 
 @pytest.mark.component
 def test_stored_registry_values_are_checked_even_when_identity_is_unchanged(
-    native_inspection_store: Path,
+    native_inspection_publication: Path,
+    inspection_settings: pse.EngineSettings,
 ) -> None:
-    original = stored_rows(native_inspection_store, "schema_relations")[0]
+    original = stored_rows(
+        native_inspection_publication, "schema_relations", inspection_settings
+    )[0]
     changed = dict(original)
     changed["primary_key"] = [17]
     assert changed["relation_id"] == original["relation_id"]

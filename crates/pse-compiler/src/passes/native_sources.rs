@@ -3,7 +3,7 @@
 
 //! Bind native source columns to their exact immutable input or completed producer.
 
-use crate::{CompilerError, InputBundle};
+use crate::{AlgorithmInputs, CompilerError};
 use datafusion::functions::core::expr_fn::coalesce;
 use datafusion::{
     common::{Column, ScalarValue},
@@ -14,7 +14,7 @@ use pse_ids::CancellationToken;
 use pse_rules::strata::{LocatedRuleInput, RuleInputLocation, native_input::NativeWitness};
 use pse_schema::{
     Registry,
-    model::{FieldContract, PassSpec},
+    model::{AlgorithmSpec, FieldContract},
 };
 use std::{collections::BTreeMap, ops::Not};
 
@@ -24,15 +24,15 @@ pub(crate) fn name(alias: &str, field: &str) -> String {
 
 pub(crate) struct Sources<'a> {
     pub(crate) session: &'a SnapshotSession,
-    pub(crate) inputs: &'a InputBundle,
-    pub(crate) pass: &'a PassSpec,
+    pub(crate) inputs: &'a AlgorithmInputs,
+    pub(crate) pass: &'a AlgorithmSpec,
     witnesses: BTreeMap<String, NativeWitness>,
 }
 impl<'a> Sources<'a> {
     pub(crate) fn new(
         session: &'a SnapshotSession,
-        inputs: &'a InputBundle,
-        pass: &'a PassSpec,
+        inputs: &'a AlgorithmInputs,
+        pass: &'a AlgorithmSpec,
     ) -> Self {
         Self {
             session,
@@ -61,15 +61,11 @@ impl<'a> Sources<'a> {
                 .ok_or_else(|| invalid(format!("native plan reads undeclared input {relation}")))?;
             let bound = self
                 .inputs
-                .port(port.port)
+                .port(&port.port)
                 .and_then(Option::as_ref)
                 .ok_or_else(|| invalid(format!("native source input {} absent", port.port)))?;
-            let location = RuleInputLocation::Facts(std::sync::Arc::new(
-                pse_catalog::session::RelationFacts::from_checked(
-                    bound.relation().checked().clone(),
-                ),
-            ));
-            (port.port, location)
+            let location = RuleInputLocation::Facts(std::sync::Arc::clone(bound.relation()?));
+            (port.port.as_str(), location)
         };
         let input = LocatedRuleInput {
             relation: spec.key,

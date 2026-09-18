@@ -20,6 +20,7 @@ pub struct SharedRuntime {
     peak: Arc<PeakRecordingPool>,
     reserver: Arc<PoolReserver>,
     budget: ResourceBudget,
+    caches: Arc<pse_catalog::cache_service::NativeCacheService>,
 }
 
 impl SharedRuntime {
@@ -40,7 +41,15 @@ impl SharedRuntime {
         let peak = Arc::new(PeakRecordingPool::new(tracked_pool));
         let pool: Arc<dyn MemoryPool> = peak.clone();
         let reserver = Arc::new(PoolReserver::new(Arc::clone(&pool))?);
+        let caches =
+            pse_catalog::cache_service::NativeCacheService::new(budget.cache.clone(), &pool)
+                .map_err(|error| {
+                    RuntimeError::Catalog(pse_catalog::failure::collapse_classified(
+                        pse_catalog::classify(error, pse_catalog::PlanOrigin::RuleCompiler),
+                    ))
+                })?;
         let env = RuntimeEnvBuilder::new()
+            .with_cache_manager(pse_catalog::cache_service::NativeCacheService::unbound_config())
             .with_memory_pool(pool)
             .with_temp_file_path(budget.spill_dir.clone())
             .with_max_temp_directory_size(budget.max_temp_dir_bytes)
@@ -64,6 +73,7 @@ impl SharedRuntime {
             peak,
             reserver,
             budget,
+            caches,
         }))
     }
 
@@ -87,6 +97,11 @@ impl SharedRuntime {
         &self.budget
     }
 
+    /// The same native cache owner for all factories and provider scopes.
+    pub fn caches(&self) -> &Arc<pse_catalog::cache_service::NativeCacheService> {
+        &self.caches
+    }
+
     /// Accounted pool usage and independently measured process peak RSS.
     ///
     /// # Errors
@@ -108,6 +123,7 @@ impl SharedRuntime {
             pool_reserved_now: self.peak.reserved(),
             top_consumers: consumers,
             process_peak_rss_bytes: crate::peak::process_peak_rss()?,
+            caches: self.caches.report(),
         })
     }
 }

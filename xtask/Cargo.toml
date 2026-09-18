@@ -22,6 +22,7 @@ workspace = true
 default = ["package-fixtures"]
 # The bootstrap registry generator must compile without its generated DTO consumers.
 package-fixtures = [
+  "dep:datafusion",
   "dep:pse-authoring",
   "dep:pse-catalog",
   "dep:pse-compiler",
@@ -32,6 +33,8 @@ package-fixtures = [
 ]
 
 [dependencies]
+datafusion = { workspace = true, optional = true }
+url.workspace = true
 bindgen.workspace = true
 # The registry and the passes the generators and the inspection-fixture driver run.
 pse-schema.workspace = true

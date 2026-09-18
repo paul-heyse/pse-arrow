@@ -25,6 +25,12 @@ datafusion 55 / object_store 0.13.2. The Delta kernel is pinned separately at
 `buoyant-data/delta-kernel-rs@8ba063f8`, because delta-rs tracks it by *branch*, and a branch
 is not a pin.
 
+## Selected repository overlay
+
+When working in pse-arrow, also read [the native cache seam overlay](content/overlays/pse-native-cache-seams.md).
+The upstream index does not contain these explicitly identified local additions.
+Cargo metadata and `vendor/delta-rs/PROVENANCE.json` identify the actual selected source.
+
 ## Escalation ladder
 
 Stop at the first rung that answers the question.

@@ -1,0 +1,23 @@
+{
+  "invariant": "authored.case_activation_targets:foreign_key:activation_id",
+  "rows": {
+    "authored.case_activation_targets": [
+      {
+        "activation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member": "[\"struct\",[[\"text\",\"equation\"],[\"null\",null],[\"null\",null],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]]],[\"null\",null]]]",
+        "ordinal": "[\"i64\",1]"
+      }
+    ],
+    "authored.case_activations": [
+      {
+        "activation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "active": "[\"bool\",true]",
+        "case_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "source_span": "[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",0],[\"i64\",1]]]",
+        "target": "[\"text\",\"/fixture.symbol\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

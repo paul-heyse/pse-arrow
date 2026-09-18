@@ -86,7 +86,12 @@ pub(super) fn preconditions(
             };
             let declaration = PhysicalPrecondition {
                 id: InvariantId::from_id(row.invariant_id),
-                operand_positions: row.operand_positions,
+                operand_positions: row
+                    .operand_positions
+                    .into_iter()
+                    .map(u16::try_from)
+                    .collect::<Result<_, _>>()
+                    .map_err(|_| invalid("physical operand ordinal exceeds declared width"))?,
                 requirement,
             };
             declaration.validate(quantities)?;

@@ -20,13 +20,17 @@ use pse_catalog::session::{SnapshotSession, scalar};
 use pse_ids::CancellationToken;
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_rules::strata::native_input::NativeInput;
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "construct keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(crate) async fn construct(
     inputs: &BTreeMap<RelationKey, FieldCheckedBatch>,
     sources: &Sources,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {
@@ -170,7 +174,7 @@ pub(crate) async fn construct(
             col("direction"),
             pse_catalog::session::output::same_field_case(
                 targets.schema(),
-                array_length(col("domain_ids")).eq(lit(0_u64)),
+                array_length(col("domain_ids")).eq(lit(0_i64)),
                 col("state_instance_id"),
                 missing_state.clone(),
             )
@@ -247,6 +251,10 @@ pub(crate) async fn construct(
     Ok(outputs)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "members keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 async fn members(
     plans: &mut Plans<'_>,
     targets: LogicalPlan,

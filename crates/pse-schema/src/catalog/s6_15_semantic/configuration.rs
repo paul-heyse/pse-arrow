@@ -40,7 +40,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("kind", T::enumeration("QuantityPreconditionKind")),
             column(
                 "operand_positions",
-                T::list(T::native(arrow_schema::DataType::UInt16)),
+                T::list(T::nonnegative(i64::from(u16::MAX))),
             ),
             column("required_basis_id", T::id())
                 .optional()
@@ -107,13 +107,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("demand_id", T::id()),
             column("source_id", T::id()),
-            column("path_id", T::native(arrow_schema::DataType::UInt64)),
-            column(
-                "guard_predicate_id",
-                T::native(arrow_schema::DataType::UInt64),
-            )
-            .optional(),
-            column("read_node_id", T::native(arrow_schema::DataType::UInt64)),
+            column("path_id", T::nonnegative(i64::MAX)),
+            column("guard_predicate_id", T::nonnegative(i64::MAX)).optional(),
+            column("read_node_id", T::nonnegative(i64::MAX)),
         ],
         "Exact read-node occurrence obligation resolved against actual path targets before P6 demand closure; a guard retains its source.",
     );
@@ -163,11 +159,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("template_id", T::id()).with_fk("authored.templates", "template_id"),
             column("name", T::native(arrow_schema::DataType::Utf8)),
-            column("source", T::enumeration("DomainBindingSource")),
-            column("domain_id", T::id())
-                .optional()
-                .with_fk("authored.domains", "domain_id"),
-            column("parameter_name", T::native(arrow_schema::DataType::Utf8)).optional(),
+            column("source", domain_source()),
         ],
         "Finite domain source, with only its tagged payload present (blueprint §6.15.1).",
     );
@@ -218,7 +210,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("property_package_id", T::id()).optional(),
             column("reaction_package_id", T::id()).optional(),
             column("guard_source_id", T::id()).optional(),
-            column("guard_node_id", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("guard_node_id", T::nonnegative(i64::MAX)).optional(),
         ],
         "Complete finite prospective roots and children; guards are decided by P4.",
     );
@@ -238,6 +230,36 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         "Explicit physical context for canonicalization; no dimensional guessing.",
     );
     declare_instance_equations(builder);
+}
+
+fn domain_source() -> T {
+    let alternative = crate::model::TaggedAlternative::new(
+        "kind",
+        [
+            ("domain".into(), "domain".into()),
+            ("parameter".into(), "parameter".into()),
+        ],
+    )
+    .with_unit("species")
+    .with_unit("phase")
+    .with_unit("phase_species")
+    .with_unit("element");
+    T::structure(vec![
+        T::enumeration("DomainBindingSource").with_name("kind"),
+        T::structure(vec![
+            T::id()
+                .with_fk("authored.domains", "domain_id")
+                .with_name("domain_id"),
+        ])
+        .with_name("domain")
+        .optional(),
+        T::structure(vec![
+            T::native(arrow_schema::DataType::Utf8).with_name("name"),
+        ])
+        .with_name("parameter")
+        .optional(),
+    ])
+    .with_alternative(&alternative)
 }
 
 fn declare_instance_equations(builder: &mut RegistryBuilder) {

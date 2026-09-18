@@ -231,9 +231,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "2577134c3e12496992b50cc82ca48e67",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "2577134c3e12496992b50cc82ca48e67"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -316,9 +319,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -401,9 +407,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "b089dc177dce48b99f0e475ccc67bf85",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "b089dc177dce48b99f0e475ccc67bf85"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -464,9 +473,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "832aae444b324a1a9b32718e2a866f62",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "832aae444b324a1a9b32718e2a866f62"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -541,9 +553,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "7576aa44561f4fb08fbf86b270c3d630",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "7576aa44561f4fb08fbf86b270c3d630"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -618,9 +633,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -689,9 +707,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "13c8184cff2045859c00b728fdd76cfc",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "13c8184cff2045859c00b728fdd76cfc"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -774,9 +795,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "5454a3d1dbe940d0a0349550fb99d8c8"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -859,9 +883,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "d298696baa814349be87d8fb90b6dd5e",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "d298696baa814349be87d8fb90b6dd5e"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -922,9 +949,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1"
+        }
+      },
       "validity": [
         {
           "input": "T",
@@ -960,9 +990,12 @@
           "required": true
         }
       ],
-      "realization": "equation_template",
-      "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "2fb62558e10d4e7e83877e96a2cf4f58"
+        }
+      },
       "validity": [],
       "doc": "Single phase ideal mixture; positive temperature, pressure and nonzero positive composition sum. The enthalpy anchor is an explicit point of the common component datum, not an implicit reference conversion."
     },
@@ -978,9 +1011,12 @@
         "ccfd921292e74b07bab8db8f46794571"
       ],
       "parameter_kinds": [],
-      "realization": "equation_template",
-      "template_id": "7847e98d76134bdc945a238495d0554d",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "7847e98d76134bdc945a238495d0554d"
+        }
+      },
       "validity": [],
       "doc": "Single phase ideal mixture; positive temperature, pressure and nonzero positive composition sum. The enthalpy anchor is an explicit point of the common component datum, not an implicit reference conversion."
     },
@@ -996,9 +1032,12 @@
         "817dbf0c81414b89a5e8c0b573524115"
       ],
       "parameter_kinds": [],
-      "realization": "equation_template",
-      "template_id": "de055848e5fd48d0823a3210495db961",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "de055848e5fd48d0823a3210495db961"
+        }
+      },
       "validity": [],
       "doc": "Single phase ideal mixture; positive temperature, pressure and nonzero positive composition sum. The enthalpy anchor is an explicit point of the common component datum, not an implicit reference conversion."
     },
@@ -1014,9 +1053,12 @@
         "1f1985c3fb7f4dd7908b2554f099b7ad"
       ],
       "parameter_kinds": [],
-      "realization": "equation_template",
-      "template_id": "f73f81599948430599c4bf9a615366d1",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "f73f81599948430599c4bf9a615366d1"
+        }
+      },
       "validity": [],
       "doc": "Single phase ideal mixture; positive temperature, pressure and nonzero positive composition sum. The enthalpy anchor is an explicit point of the common component datum, not an implicit reference conversion."
     }
@@ -1126,10 +1168,12 @@
       "scope_map": "same_state",
       "index_map": [
         {
-          "kind": "bound_domain",
-          "source_axis": null,
-          "member_id": null,
-          "domain_kind": "species"
+          "domain_kind": "species",
+          "source": {
+            "kind": "bound_domain",
+            "source_axis": null,
+            "fixed_member": null
+          }
         }
       ]
     },
@@ -1141,10 +1185,12 @@
       "scope_map": "same_state",
       "index_map": [
         {
-          "kind": "bound_domain",
-          "source_axis": null,
-          "member_id": null,
-          "domain_kind": "species"
+          "domain_kind": "species",
+          "source": {
+            "kind": "bound_domain",
+            "source_axis": null,
+            "fixed_member": null
+          }
         }
       ]
     },
@@ -1156,10 +1202,12 @@
       "scope_map": "same_state",
       "index_map": [
         {
-          "kind": "bound_domain",
-          "source_axis": null,
-          "member_id": null,
-          "domain_kind": "species"
+          "domain_kind": "species",
+          "source": {
+            "kind": "bound_domain",
+            "source_axis": null,
+            "fixed_member": null
+          }
         }
       ]
     }
@@ -1168,170 +1216,212 @@
     {
       "method_id": "e91e27d03e454351b534e2fbe01df028",
       "property_kind_id": "e31a369c1b76425081c40fad3cb3b59c",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "e356f86754c34e91b1742f43974df1fd",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "0271d4307ef34e44a92a762d8f938bd8",
       "natural_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "e356f86754c34e91b1742f43974df1fd"
+        }
+      }
     },
     {
       "method_id": "9a8cfddf1cfe4174b16b9cae00886a5e",
       "property_kind_id": "ccfd921292e74b07bab8db8f46794571",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "b4d90dee692846eeadd075c338e52514",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "a0798ef25fe64555929b22773e852673",
       "natural_unit_id": "1dffd0841219487f9279afb4527a2abf",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "b4d90dee692846eeadd075c338e52514"
+        }
+      }
     },
     {
       "method_id": "9f779daa99854ab1b707977e7d054c04",
       "property_kind_id": "2376be0d233c40c3a58702adc25443fb",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "b054d9435ce34f068fb16ec79cfabbf3",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
       "natural_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "b054d9435ce34f068fb16ec79cfabbf3"
+        }
+      }
     },
     {
       "method_id": "f3b769aa4e1f46ac802051d1123bb522",
       "property_kind_id": "e31a369c1b76425081c40fad3cb3b59c",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "a1d12bc3a9c748978f4fd41c75002453",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "0271d4307ef34e44a92a762d8f938bd8",
       "natural_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "a1d12bc3a9c748978f4fd41c75002453"
+        }
+      }
     },
     {
       "method_id": "896f59a263f54103ac8d8cb0dd9ca06b",
       "property_kind_id": "ccfd921292e74b07bab8db8f46794571",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "24bf4e6a40754e0b8a6de014086f57db",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "a0798ef25fe64555929b22773e852673",
       "natural_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "24bf4e6a40754e0b8a6de014086f57db"
+        }
+      }
     },
     {
       "method_id": "981027ad2c8e4bdb9e5083b96af34e41",
       "property_kind_id": "2376be0d233c40c3a58702adc25443fb",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "01f77f23795d4ab69b0e2c3bb976e385",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
       "natural_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "01f77f23795d4ab69b0e2c3bb976e385"
+        }
+      }
     },
     {
       "method_id": "06535666496e4acc804aae4b25859046",
       "property_kind_id": "4530f9482d2041d1855b471475b5e890",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "c352e06cbc624ac7879ae0daf5e7a3b3",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "0271d4307ef34e44a92a762d8f938bd8",
       "natural_unit_id": "3372731050d84b66a198949196bad240",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "c352e06cbc624ac7879ae0daf5e7a3b3"
+        }
+      }
     },
     {
       "method_id": "f47bfef6acf44b29978030a37b558676",
       "property_kind_id": "817dbf0c81414b89a5e8c0b573524115",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "b615957a17d74e0d8b904ab091873db1",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "a0798ef25fe64555929b22773e852673",
       "natural_unit_id": "3a7832b6762748a3902c465b5ad20fd1",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "b615957a17d74e0d8b904ab091873db1"
+        }
+      }
     },
     {
       "method_id": "6c92c46efd71453180ae182240b4ed96",
       "property_kind_id": "f001060878024753999780d99f9694a4",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "cba5f5655bb642f2956b22dd69fa77f9",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "d02853cb290d402fb110b3736daffeae",
       "natural_unit_id": "83bdd275debcdc2abe9438f72b864d8d",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "cba5f5655bb642f2956b22dd69fa77f9"
+        }
+      }
     },
     {
       "method_id": "28313358ec4642eab1766802eec46169",
       "property_kind_id": "1f1985c3fb7f4dd7908b2554f099b7ad",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "5008583b83c74f12addae31fb98f2073",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "5995d83221a94c80b64ac9d388934200",
       "natural_unit_id": "2fb603c740944f06b341f9d9f7ba03de",
       "indexed_by": [
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "5008583b83c74f12addae31fb98f2073"
+        }
+      }
     },
     {
       "method_id": "221c683b475043a7bbe45f2fc3911698",
       "property_kind_id": "3ec5adcc2eee4b7083dc362aceed8ad4",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "78f779bbe9fc4e79b072acf1148b6bc0",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "c9d0a6d8ebf347588aad0247316c64a5",
       "natural_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "78f779bbe9fc4e79b072acf1148b6bc0"
+        }
+      }
     },
     {
       "method_id": "e7994cef1d6043c0a3de1706aa33c10c",
       "property_kind_id": "9aae781b9b3f43a5b9de80470929e4b8",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "0340ccfe05624add98367e6cfa23f689",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
       "natural_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "0340ccfe05624add98367e6cfa23f689"
+        }
+      }
     },
     {
       "method_id": "cba7f69ae7d945f6a7e0206279979cbb",
       "property_kind_id": "9aae781b9b3f43a5b9de80470929e4b8",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "bf1f7b2884114d5c9f4fb12d27690da6",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "524cf10291f14aea875ff4bbff6f619e",
       "natural_unit_id": "0ca9cf1dba35c4f43b9e48a60f27387d",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "bf1f7b2884114d5c9f4fb12d27690da6"
+        }
+      }
     },
     {
       "method_id": "59a34558695646668d3979346891bec7",
       "property_kind_id": "3ec5adcc2eee4b7083dc362aceed8ad4",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "ecb58c826ae44c40a908c24837c79d3c",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "c9d0a6d8ebf347588aad0247316c64a5",
       "natural_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "ecb58c826ae44c40a908c24837c79d3c"
+        }
+      }
     }
   ],
   "method_parameters": [

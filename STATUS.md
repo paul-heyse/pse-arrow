@@ -1,11 +1,52 @@
 # Project status
 
+**Plan 09 complete — 2026-09-18.** The DataFusion/Arrow/Delta architecture,
+shared native caches, prepared strata, exact dependency reuse, maintenance protection,
+Python boundaries and legacy deletions are implemented and qualified for the current
+local process-model scope. All carried Plan 08 E00–E10 obligations are closed.
+
+**Tested, baseline zero:** exact aggregate Rust coverage is 1,002/1,002 ordinary tests,
+with 268 final schema/rule/compiler checks, 253 final provider/source checks,
+72 Python tests, four complete engineering publications and four final independent
+Python readers. The last kernel test passes in 309.658 seconds under its unchanged
+360-second deadline. Linked solver, feature, doctest, cache measurement, generation,
+quality and documentation gates have passing receipts at explicitly recorded source
+boundaries. No test, timeout policy or scientific assertion was weakened.
+
+See the [completed plan](docs/plans/09-native-caching-and-pivot-completion.md),
+[acceptance review](docs/design_review/reviews/design_review_native-cache-pivot-acceptance_2026-09-17.md),
+[exact Rust ledger](docs/design_review/evidence/native-cache-rust-qualification-2026-09-18.json)
+and [measurements](docs/plans/09-cache-measurements.md). Aggregate coverage is not one
+untouched final full-suite run; the ledgers retain failed runs and affected continuations.
+This does not certify future simulator functions, numerical IDAES parity, remote
+destructive coordination or universal cache speedups. ADR-0068–ADR-0070 remain proposed.
+
+## Historical Plan 08 implementation receipts
+
+The following receipts describe prior source boundaries; Plan 09 owns all remaining
+execution. They do not certify the latest cache/schema/compiler tree.
+
 ## Current implementation direction — schema-first architecture pivot
 
-Updated 2026-09-16 after the maintainer narrowed the requested work to completing
-the architecture of the existing codebase, with no additional simulator functionality.
+**Latest continuation — 2026-09-17:** native SQL now owns invariant and inference
+queries. The closed rule algebra, its lowering/type modules and rule reflection tables
+are removed from product code. Complete case targets, selected-method outcomes and
+transfer selectors are integrated. Library compilation and pure contract generation
+succeed; focused native binding and in-memory witness unit tests have passing receipts.
+Conservation values and common native function field transfer have since landed.
+Native requirement children, deferred namespace commands, owned publication reads,
+declared Delta policies/CDF, local reader leases and deferred spillable invocation
+caching are implemented foundations. Native schemas now own provider bindings;
+roles carry only native names. Native command results retain caller configuration.
+Private DML enters through native table hooks with real children, and metadata
+resolution is a lazy native source; their generic root callback adapters are removed.
+Isolated contract/ownership/cache/provider unit checks have passing receipts; exact dependency/reuse, retention derivation and the final lifecycle/route audit remain open. No integration qualification is
+running: it is explicitly deferred until every implementation and deletion is complete.
+See the [live execution boundary](docs/plans/08-schema-first-native-data-pivot.md#active-e01e04-cut--native-values-and-query-authority)
+for exact commands, evidence and remaining work. Earlier broad receipts below are
+historical and do not certify the current pivot.
 
-[Plan 08](docs/plans/08-schema-first-native-data-pivot.md) is the active
+[Plan 08](docs/plans/08-schema-first-native-data-pivot.md) established the preceding
 execution sequence: exact recursive field contracts, typed alternatives/quantities,
 keys/references/provenance, coherent expression and numerical values, native checks
 and durable declarations, then complete replacement of provider/compiler/store/Python
@@ -141,8 +182,17 @@ engine support qualification passes **16** (4 other engineering workflows filter
 Generation/family checks, workspace compilation and repository quality pass. See the
 [support continuation](docs/plans/08-schema-first-native-data-pivot.md#co-located-algorithm-and-configuration-support--2026-09-16).
 
+**Implemented — coherent expression rows:** all expression families now store ordered
+children and a tagged payload together. Separate argument/payload relations and their
+Rust/Python consumers are deleted. Mathematical fields use signed bounded ordinals;
+other semantic ordinal sites remain. Native opcode/arity/family checks and scoped child
+references govern the rows. Nested durable predicates now use the pinned DataFusion
+expression codec, replacing custom SQL rendering. **Tested, baseline 0:** 17 focused
+force-validation tests and workspace/all-target compilation pass; broader validation
+is in progress. See the [expression continuation](docs/plans/08-schema-first-native-data-pivot.md#coherent-expression-values-and-native-durable-predicates--2026-09-16).
+
 **Completion remains partial.** Complete E02 caller replacement, remaining signed ordinals
-and alternatives, coherent math/numerical rows, common rule/domain transfer, full
+and alternatives, coherent-row qualification and numerical contracts, common rule/domain transfer, full
 provider/compiler/store/Python replacement, member-attempt reconciliation, native
 change/reuse/retention and terminal deletion/measurement gates remain open. The latest
 workspace Clippy attempt still reports 63 compiler findings, baseline 0. No predecessor

@@ -761,6 +761,66 @@ pub const fn operator_spec(opcode: Opcode) -> &'static OperatorSpec {
     &OPERATOR_TABLE[opcode as usize]
 }
 
+/// Payload tags admitted by an opcode across parsed and resolved expression families.
+/// Family admission narrows unresolved alternatives at the native row boundary.
+#[must_use]
+pub const fn payload_kinds(opcode: Opcode) -> &'static [&'static str] {
+    match opcode {
+        Opcode::Const => &["float", "integer"],
+        Opcode::SymbolRef => &["symbol", "pending_path"],
+        Opcode::Affine => &["affine"],
+        Opcode::WeightedMean => &["weighted_mean"],
+        Opcode::SmoothMax
+        | Opcode::SmoothMin
+        | Opcode::SmoothAbs
+        | Opcode::SafeSqrt
+        | Opcode::SafeLog => &["smooth", "pending_smooth"],
+        Opcode::Conditional => &["conditional"],
+        Opcode::SumOver | Opcode::ProdOver | Opcode::MinOver | Opcode::MaxOver => &["reduction"],
+        Opcode::Gather => &["gather", "pending_gather", "pending_path"],
+        Opcode::Broadcast => &["broadcast"],
+        Opcode::Derivative => &["derivative"],
+        Opcode::Integral => &["integral"],
+        Opcode::KernelCall => &["kernel_call"],
+        Opcode::ImplicitRef => &["implicit_ref"],
+        Opcode::UnitConvert => &["unit_convert", "pending_unit_convert"],
+        Opcode::PiecewiseLinear => &["piecewise_linear"],
+        Opcode::Add
+        | Opcode::Sub
+        | Opcode::Mul
+        | Opcode::Div
+        | Opcode::Pow
+        | Opcode::Neg
+        | Opcode::Abs
+        | Opcode::Exp
+        | Opcode::Log
+        | Opcode::Log10
+        | Opcode::Sqrt
+        | Opcode::Sin
+        | Opcode::Cos
+        | Opcode::Tan
+        | Opcode::Asin
+        | Opcode::Acos
+        | Opcode::Atan
+        | Opcode::Sinh
+        | Opcode::Cosh
+        | Opcode::Tanh
+        | Opcode::Erf => &["none"],
+    }
+}
+
+/// A reduction opcode fixes the meaning of its domain payload.
+#[must_use]
+pub const fn reduction_kind(opcode: Opcode) -> Option<pse_quantity::ReductionKind> {
+    match opcode {
+        Opcode::SumOver => Some(pse_quantity::ReductionKind::Sum),
+        Opcode::ProdOver => Some(pse_quantity::ReductionKind::Prod),
+        Opcode::MinOver => Some(pse_quantity::ReductionKind::Min),
+        Opcode::MaxOver => Some(pse_quantity::ReductionKind::Max),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

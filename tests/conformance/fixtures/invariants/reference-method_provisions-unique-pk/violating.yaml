@@ -4,23 +4,19 @@
     "reference.method_provisions": [
       {
         "indexed_by": "[\"list\",[]]",
-        "kernel_output_ordinal": "[\"u64\",1]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "natural_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "output_kind": "[\"enum\",\"template_symbol\"]",
+        "output": "[\"struct\",[[\"text\",\"kernel_output\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]",
         "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
       },
       {
         "indexed_by": "[\"list\",[]]",
-        "kernel_output_ordinal": "[\"u64\",1]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "natural_unit_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "output_kind": "[\"enum\",\"template_symbol\"]",
+        "output": "[\"struct\",[[\"text\",\"kernel_output\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]",
         "property_kind_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]"
+        "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]
   },

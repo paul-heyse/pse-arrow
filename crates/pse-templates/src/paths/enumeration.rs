@@ -25,7 +25,7 @@ pub fn enumerate(
     inventory: PathInventory<'_>,
     requester: SemanticId,
     root_instance: Option<SemanticId>,
-    segments: &[(Segment, &str, u16)],
+    segments: &[(Segment, &str, i64)],
     work: &mut dyn Reservation,
     cancel: &CancellationToken,
 ) -> Result<Vec<PathTarget>, TemplateError> {
@@ -58,7 +58,9 @@ pub fn enumerate(
                         requester,
                         "enumerated child key absent or ambiguous",
                     )?;
-                    if usize::from(*count) != declaration.multiplicity_domain.iter().count() {
+                    if usize::try_from(*count).ok()
+                        != Some(declaration.multiplicity_domain.iter().count())
+                    {
                         return Err(invalid(
                             requester,
                             "enumerated child coordinate partition differs",
@@ -126,7 +128,7 @@ pub fn enumerate(
 fn enumerate_member(
     inventory: PathInventory<'_>,
     request: PathRequest<'_>,
-    (name, count): (&str, u16),
+    (name, count): (&str, i64),
     owner: SemanticId,
     output: &mut Vec<PathTarget>,
     work: &mut dyn Reservation,
@@ -151,7 +153,8 @@ fn enumerate_member(
         .iter()
         .filter(|row| row.template_id == instance.template_id && row.name == name);
     if let Some(symbol) = symbols.next() {
-        if symbols.next().is_some() || usize::from(count) != symbol.indexed_by.len() {
+        if symbols.next().is_some() || usize::try_from(count).ok() != Some(symbol.indexed_by.len())
+        {
             return Err(invalid(
                 requester,
                 "member declaration or coordinate arity is ambiguous",
@@ -234,7 +237,7 @@ fn enumerate_member(
 fn reserve(
     work: &mut dyn Reservation,
     coordinates: usize,
-    segments: &[(Segment, &str, u16)],
+    segments: &[(Segment, &str, i64)],
     instance: SemanticId,
 ) -> Result<(), TemplateError> {
     let invalid = || TemplateError::Binding {

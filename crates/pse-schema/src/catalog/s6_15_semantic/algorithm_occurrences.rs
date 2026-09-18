@@ -15,12 +15,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("read_id", T::id()),
             column("source_id", T::id()),
             column("symbol_decl_id", T::id()),
-            column("read_node_id", T::native(arrow_schema::DataType::UInt64)),
-            column(
-                "guard_predicate_id",
-                T::native(arrow_schema::DataType::UInt64),
-            )
-            .optional(),
+            column("read_node_id", T::nonnegative(i64::MAX)),
+            column("guard_predicate_id", T::nonnegative(i64::MAX)).optional(),
         ],
         "Transient typed syntax reads and their exact branch guards. Native joins select actual property mappings; this is not an assertion that a read denotes a property.",
     );
@@ -31,8 +27,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         S::Sidecar,
         &["input_node_id"],
         vec![
-            column("input_node_id", T::native(arrow_schema::DataType::UInt64)),
-            column("output_node_id", T::native(arrow_schema::DataType::UInt64)),
+            column("input_node_id", T::nonnegative(i64::MAX)),
+            column("output_node_id", T::nonnegative(i64::MAX)),
         ],
         "Transient actual MathIR graph-import mapping, scoped to one exact graph/family argument role. Native joins apply this mapping to carrier columns. It cannot replace root-environment-specific canonicalization correspondence.",
     );

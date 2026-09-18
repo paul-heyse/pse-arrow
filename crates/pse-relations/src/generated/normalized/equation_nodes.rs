@@ -15,10 +15,437 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    194u8, 21u8, 172u8, 123u8, 99u8, 152u8, 193u8, 174u8, 231u8, 240u8, 202u8, 21u8,
-    127u8, 123u8, 157u8, 171u8, 45u8, 136u8, 69u8, 131u8, 18u8, 58u8, 38u8, 240u8, 69u8,
-    188u8, 202u8, 140u8, 173u8, 224u8, 153u8, 27u8,
+    88u8, 156u8, 55u8, 237u8, 32u8, 19u8, 209u8, 229u8, 58u8, 168u8, 41u8, 223u8, 118u8,
+    223u8, 13u8, 43u8, 251u8, 136u8, 106u8, 90u8, 105u8, 100u8, 120u8, 48u8, 242u8,
+    156u8, 28u8, 198u8, 86u8, 6u8, 248u8, 236u8,
 ]);
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct NormalizedEquationNodesFieldValueRelation {
+    ///sense
+    pub r#sense: crate::generated::enums::Sense,
+    ///left
+    pub r#left: i64,
+    ///right
+    pub r#right: i64,
+}
+impl crate::typed::CellCodec for NormalizedEquationNodesFieldValueRelation {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#sense),
+                crate::typed::CellCodec::into_cell(self.r#left),
+                crate::typed::CellCodec::into_cell(self.r#right),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(NormalizedEquationNodesFieldValueRelation),
+                ),
+            );
+        };
+        if values.len() != 3usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(NormalizedEquationNodesFieldValueRelation),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#sense: <crate::generated::enums::Sense as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValueRelation),
+                    ))?,
+            )?,
+            r#left: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValueRelation),
+                    ))?,
+            )?,
+            r#right: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValueRelation),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for NormalizedEquationNodesFieldValueRelation {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#sense, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#left, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#right, children[2usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::Sense as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#sense: <crate::generated::enums::Sense as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#left: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#right: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct NormalizedEquationNodesFieldValueConditional {
+    ///guard
+    pub r#guard: i64,
+    ///then
+    pub r#then: i64,
+    ///otherwise
+    pub r#otherwise: i64,
+}
+impl crate::typed::CellCodec for NormalizedEquationNodesFieldValueConditional {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#guard),
+                crate::typed::CellCodec::into_cell(self.r#then),
+                crate::typed::CellCodec::into_cell(self.r#otherwise),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(NormalizedEquationNodesFieldValueConditional),
+                ),
+            );
+        };
+        if values.len() != 3usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(NormalizedEquationNodesFieldValueConditional),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#guard: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValueConditional),
+                    ))?,
+            )?,
+            r#then: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValueConditional),
+                    ))?,
+            )?,
+            r#otherwise: <i64 as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValueConditional),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for NormalizedEquationNodesFieldValueConditional {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#guard, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#then, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#otherwise,
+            children[2usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <i64 as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#guard: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#then: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#otherwise: <i64 as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct NormalizedEquationNodesFieldValue {
+    ///kind
+    pub r#kind: crate::generated::enums::EquationSyntax,
+    ///relation
+    pub r#relation: Option<NormalizedEquationNodesFieldValueRelation>,
+    ///conditional
+    pub r#conditional: Option<NormalizedEquationNodesFieldValueConditional>,
+}
+impl crate::typed::CellCodec for NormalizedEquationNodesFieldValue {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#relation),
+                crate::typed::CellCodec::into_cell(self.r#conditional),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(stringify!(NormalizedEquationNodesFieldValue)),
+            );
+        };
+        if values.len() != 3usize {
+            return Err(
+                crate::typed::mismatch(stringify!(NormalizedEquationNodesFieldValue)),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#kind: <crate::generated::enums::EquationSyntax as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValue),
+                    ))?,
+            )?,
+            r#relation: <Option<
+                NormalizedEquationNodesFieldValueRelation,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValue),
+                    ))?,
+            )?,
+            r#conditional: <Option<
+                NormalizedEquationNodesFieldValueConditional,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(NormalizedEquationNodesFieldValue),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for NormalizedEquationNodesFieldValue {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#relation,
+            children[1usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#conditional,
+            children[2usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::EquationSyntax as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            NormalizedEquationNodesFieldValueRelation,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            NormalizedEquationNodesFieldValueConditional,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::EquationSyntax as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#relation: <Option<
+                NormalizedEquationNodesFieldValueRelation,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#conditional: <Option<
+                NormalizedEquationNodesFieldValueConditional,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// The declared selected payload, borrowed without a second row representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum NormalizedEquationNodesFieldValueSelected<'a> {
+    ///conditional
+    Conditional(&'a NormalizedEquationNodesFieldValueConditional),
+    ///relation
+    Relation(&'a NormalizedEquationNodesFieldValueRelation),
+}
+impl NormalizedEquationNodesFieldValue {
+    #[doc = concat!(
+        "Construct the ",
+        "conditional",
+        " arm with every other arm absent.",
+    )]
+    pub fn from_conditional(
+        value: NormalizedEquationNodesFieldValueConditional,
+    ) -> Self {
+        Self {
+            r#kind: crate::generated::enums::EquationSyntax::Conditional,
+            r#conditional: Some(value),
+            r#relation: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "relation", " arm with every other arm absent.")]
+    pub fn from_relation(value: NormalizedEquationNodesFieldValueRelation) -> Self {
+        Self {
+            r#kind: crate::generated::enums::EquationSyntax::Relation,
+            r#conditional: None,
+            r#relation: Some(value),
+        }
+    }
+    /// Select exactly the declared payload.
+    /// # Errors
+    /// Unknown tag, missing selected arm or any overlapping arm.
+    pub fn selected(
+        &self,
+    ) -> Result<NormalizedEquationNodesFieldValueSelected<'_>, crate::RelationError> {
+        match (
+            self.r#kind.as_str(),
+            self.r#conditional.as_ref(),
+            self.r#relation.as_ref(),
+        ) {
+            ("conditional", Some(value), None) => {
+                Ok(NormalizedEquationNodesFieldValueSelected::Conditional(value))
+            }
+            ("relation", None, Some(value)) => {
+                Ok(NormalizedEquationNodesFieldValueSelected::Relation(value))
+            }
+            _ => {
+                Err(
+                    crate::typed::mismatch(
+                        "tagged value requires exactly its selected arm",
+                    ),
+                )
+            }
+        }
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -30,21 +457,9 @@ pub struct NormalizedEquationNodesRow {
     ///source_id
     pub r#source_id: pse_ids::SemanticId,
     ///equation_id
-    pub r#equation_id: u64,
-    ///kind
-    pub r#kind: crate::generated::enums::EquationSyntax,
-    ///sense
-    pub r#sense: Option<crate::generated::enums::Sense>,
-    ///left_expr
-    pub r#left_expr: Option<u64>,
-    ///right_expr
-    pub r#right_expr: Option<u64>,
-    ///guard_predicate
-    pub r#guard_predicate: Option<u64>,
-    ///then_equation
-    pub r#then_equation: Option<u64>,
-    ///else_equation
-    pub r#else_equation: Option<u64>,
+    pub r#equation_id: i64,
+    ///value
+    pub r#value: NormalizedEquationNodesFieldValue,
 }
 impl crate::typed::CellCodec for NormalizedEquationNodesRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -52,13 +467,7 @@ impl crate::typed::CellCodec for NormalizedEquationNodesRow {
             vec![
                 crate::typed::CellCodec::into_cell(self.r#source_id),
                 crate::typed::CellCodec::into_cell(self.r#equation_id),
-                crate::typed::CellCodec::into_cell(self.r#kind),
-                crate::typed::CellCodec::into_cell(self.r#sense),
-                crate::typed::CellCodec::into_cell(self.r#left_expr),
-                crate::typed::CellCodec::into_cell(self.r#right_expr),
-                crate::typed::CellCodec::into_cell(self.r#guard_predicate),
-                crate::typed::CellCodec::into_cell(self.r#then_equation),
-                crate::typed::CellCodec::into_cell(self.r#else_equation),
+                crate::typed::CellCodec::into_cell(self.r#value),
             ],
         )
     }
@@ -66,7 +475,7 @@ impl crate::typed::CellCodec for NormalizedEquationNodesRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(NormalizedEquationNodesRow)));
         };
-        if values.len() != 9usize {
+        if values.len() != 3usize {
             return Err(crate::typed::mismatch(stringify!(NormalizedEquationNodesRow)));
         }
         let mut values = values.into_iter();
@@ -78,68 +487,14 @@ impl crate::typed::CellCodec for NormalizedEquationNodesRow {
                         stringify!(NormalizedEquationNodesRow),
                     ))?,
             )?,
-            r#equation_id: <u64 as crate::typed::CellCodec>::from_cell(
+            r#equation_id: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(NormalizedEquationNodesRow),
                     ))?,
             )?,
-            r#kind: <crate::generated::enums::EquationSyntax as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(NormalizedEquationNodesRow),
-                    ))?,
-            )?,
-            r#sense: <Option<
-                crate::generated::enums::Sense,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(NormalizedEquationNodesRow),
-                    ))?,
-            )?,
-            r#left_expr: <Option<
-                u64,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(NormalizedEquationNodesRow),
-                    ))?,
-            )?,
-            r#right_expr: <Option<
-                u64,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(NormalizedEquationNodesRow),
-                    ))?,
-            )?,
-            r#guard_predicate: <Option<
-                u64,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(NormalizedEquationNodesRow),
-                    ))?,
-            )?,
-            r#then_equation: <Option<
-                u64,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(NormalizedEquationNodesRow),
-                    ))?,
-            )?,
-            r#else_equation: <Option<
-                u64,
-            > as crate::typed::CellCodec>::from_cell(
+            r#value: <NormalizedEquationNodesFieldValue as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -166,28 +521,7 @@ impl crate::columnar::ArrowValue for NormalizedEquationNodesRow {
             &self.r#equation_id,
             children[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#sense, children[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(
-            &self.r#left_expr,
-            children[4usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#right_expr,
-            children[5usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#guard_predicate,
-            children[6usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#then_equation,
-            children[7usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#else_equation,
-            children[8usize].as_mut(),
-        )?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[2usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -201,28 +535,10 @@ impl crate::columnar::ArrowValue for NormalizedEquationNodesRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <crate::generated::enums::EquationSyntax as crate::columnar::ArrowValue>::append_null(
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <NormalizedEquationNodesFieldValue as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <Option<
-            crate::generated::enums::Sense,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <Option<
-            u64,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <Option<
-            u64,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <Option<
-            u64,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <Option<
-            u64,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <Option<
-            u64,
-        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -237,48 +553,12 @@ impl crate::columnar::ArrowValue for NormalizedEquationNodesRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#equation_id: <u64 as crate::columnar::ArrowValue>::read(
+            r#equation_id: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#kind: <crate::generated::enums::EquationSyntax as crate::columnar::ArrowValue>::read(
+            r#value: <NormalizedEquationNodesFieldValue as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-            r#sense: <Option<
-                crate::generated::enums::Sense,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
-                index,
-            )?,
-            r#left_expr: <Option<
-                u64,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
-                index,
-            )?,
-            r#right_expr: <Option<
-                u64,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
-                index,
-            )?,
-            r#guard_predicate: <Option<
-                u64,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
-                index,
-            )?,
-            r#then_equation: <Option<
-                u64,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
-                index,
-            )?,
-            r#else_equation: <Option<
-                u64,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -296,13 +576,7 @@ impl NormalizedEquationNodesRow {
         vec![
             crate::typed::CellCodec::into_cell(self.r#source_id),
             crate::typed::CellCodec::into_cell(self.r#equation_id),
-            crate::typed::CellCodec::into_cell(self.r#kind),
-            crate::typed::CellCodec::into_cell(self.r#sense),
-            crate::typed::CellCodec::into_cell(self.r#left_expr),
-            crate::typed::CellCodec::into_cell(self.r#right_expr),
-            crate::typed::CellCodec::into_cell(self.r#guard_predicate),
-            crate::typed::CellCodec::into_cell(self.r#then_equation),
-            crate::typed::CellCodec::into_cell(self.r#else_equation),
+            crate::typed::CellCodec::into_cell(self.r#value),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -316,7 +590,7 @@ impl NormalizedEquationNodesRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"87107a2185f90d768d5b01de7b9df465\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"equation_nodes\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"source_id\"],[\"text\",\"equation_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"source_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"source_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"source_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"normalized.expression_sources\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"source_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"normalized.expression_sources.source_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"89abb941fdc18b36618a0967a7960488\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"expression_sources\"],[\"u64\",4]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"EquationSyntax\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"2af4aee30eea883da61fcdfd73473fd4\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"2af4aee30eea883da61fcdfd73473fd4\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EquationSyntax\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EquationSyntax\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"2af4aee30eea883da61fcdfd73473fd4\\\"}\"],[\"struct\",[[\"id\",\"2af4aee30eea883da61fcdfd73473fd4\"],[\"text\",\"EquationSyntax\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"relation\"],[\"null\",null],[\"bool\",false],[\"text\",\"relation\"]]],[\"struct\",[[\"text\",\"conditional\"],[\"null\",null],[\"bool\",false],[\"text\",\"conditional\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"sense\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"sense\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Sense\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"sense\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Sense\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Sense\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"],[\"struct\",[[\"id\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"],[\"text\",\"Sense\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"eq\"]]],[\"struct\",[[\"text\",\"le\"],[\"null\",null],[\"bool\",false],[\"text\",\"le\"]]],[\"struct\",[[\"text\",\"ge\"],[\"null\",null],[\"bool\",false],[\"text\",\"ge\"]]],[\"struct\",[[\"text\",\"range\"],[\"null\",null],[\"bool\",false],[\"text\",\"range\"]]],[\"struct\",[[\"text\",\"definition\"],[\"null\",null],[\"bool\",false],[\"text\",\"definition\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"left_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"left_expr\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"left_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"right_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"right_expr\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"right_expr\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"guard_predicate\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"guard_predicate\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"guard_predicate\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"then_equation\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"then_equation\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"then_equation\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"else_equation\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"else_equation\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"else_equation\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Equation senses and conditional branch structure before instantiation.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"87107a2185f90d768d5b01de7b9df465\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"87107a2185f90d768d5b01de7b9df465\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"equation_nodes\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"source_id\"],[\"text\",\"equation_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"source_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"source_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"source_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"normalized.expression_sources\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"source_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"normalized.expression_sources.source_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"89abb941fdc18b36618a0967a7960488\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"expression_sources\"],[\"u64\",4]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"equation_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"equation_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"value\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"EquationSyntax\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"Sense\\\"},\\\"name\\\":\\\"sense\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"left\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"right\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"relation\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"guard\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"then\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"otherwise\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"conditional\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"value\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"conditional\\\":\\\"conditional\\\",\\\"relation\\\":\\\"relation\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"text\",\"value\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"2af4aee30eea883da61fcdfd73473fd4\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"2af4aee30eea883da61fcdfd73473fd4\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:EquationSyntax\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:Sense\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"sense\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"left\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"right\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":\\\\\\\"Utf8\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.extension\\\\\\\":\\\\\\\"pse.enum\\\\\\\",\\\\\\\"pse.domain.parameter\\\\\\\":\\\\\\\"Sense\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"sense\\\\\\\",\\\\\\\"nullable\\\\\\\":false},{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"left\\\\\\\",\\\\\\\"nullable\\\\\\\":false},{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"right\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"relation\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"guard\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"then\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"otherwise\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"guard\\\\\\\",\\\\\\\"nullable\\\\\\\":false},{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"then\\\\\\\",\\\\\\\"nullable\\\\\\\":false},{\\\\\\\"data_type\\\\\\\":\\\\\\\"Int64\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.semantic.integer_range\\\\\\\":\\\\\\\"[0,9223372036854775807]\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"otherwise\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"conditional\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"EquationSyntax\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"Sense\\\"},\\\"name\\\":\\\"sense\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"left\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"right\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"relation\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"guard\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"then\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"otherwise\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"conditional\\\",\\\"nullable\\\":true}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.tagged_alternative\\\":\\\"{\\\\\\\"arms\\\\\\\":{\\\\\\\"conditional\\\\\\\":\\\\\\\"conditional\\\\\\\",\\\\\\\"relation\\\\\\\":\\\\\\\"relation\\\\\\\"},\\\\\\\"discriminator\\\\\\\":\\\\\\\"kind\\\\\\\"}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"conditional\\\":\\\"conditional\\\",\\\"relation\\\":\\\"relation\\\"},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"EquationSyntax\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"2af4aee30eea883da61fcdfd73473fd4\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"2af4aee30eea883da61fcdfd73473fd4\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:EquationSyntax\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:EquationSyntax\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"2af4aee30eea883da61fcdfd73473fd4\\\"}\"],[\"struct\",[[\"id\",\"2af4aee30eea883da61fcdfd73473fd4\"],[\"text\",\"EquationSyntax\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"relation\"],[\"null\",null],[\"bool\",false],[\"text\",\"relation\"]]],[\"struct\",[[\"text\",\"conditional\"],[\"null\",null],[\"bool\",false],[\"text\",\"conditional\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"relation\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"Sense\\\"},\\\"name\\\":\\\"sense\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"left\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"right\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"relation\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:Sense\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"sense\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"left\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"right\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"Sense\\\"},\\\"name\\\":\\\"sense\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"left\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"right\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"sense\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Sense\"]]]]]]],[\"struct\",[[\"text\",\"sense\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Sense\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Sense\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"a19c5a80f7cc8e86823acdcd2b6c4903\\\"}\"],[\"struct\",[[\"id\",\"a19c5a80f7cc8e86823acdcd2b6c4903\"],[\"text\",\"Sense\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"eq\"],[\"null\",null],[\"bool\",false],[\"text\",\"eq\"]]],[\"struct\",[[\"text\",\"le\"],[\"null\",null],[\"bool\",false],[\"text\",\"le\"]]],[\"struct\",[[\"text\",\"ge\"],[\"null\",null],[\"bool\",false],[\"text\",\"ge\"]]],[\"struct\",[[\"text\",\"range\"],[\"null\",null],[\"bool\",false],[\"text\",\"range\"]]],[\"struct\",[[\"text\",\"definition\"],[\"null\",null],[\"bool\",false],[\"text\",\"definition\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"left\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"left\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"right\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"right\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"conditional\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"guard\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"then\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"otherwise\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"conditional\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"guard\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"then\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\",\\\"pse.semantic.logical_type\\\":\\\"i64\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"otherwise\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"guard\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"then\\\",\\\"nullable\\\":false},{\\\"data_type\\\":\\\"Int64\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.integer_range\\\":\\\"[0,9223372036854775807]\\\"},\\\"name\\\":\\\"otherwise\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"guard\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"guard\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"then\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"then\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"otherwise\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"otherwise\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]]]]]],[\"null\",null]]]]],[\"text\",\"Equation senses and conditional branch structure before instantiation.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"87107a2185f90d768d5b01de7b9df465\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -392,10 +666,10 @@ impl crate::columnar::RelationRow for NormalizedEquationNodesRow {
         NormalizedEquationNodesView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        82_080_usize + size_of::<Self::Builder>()
+        188_272_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        152usize
+        176usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -409,72 +683,71 @@ impl crate::columnar::RelationRow for NormalizedEquationNodesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#kind).as_str().len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#sense).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).as_str().len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#left_expr).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#right_expr).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#guard_predicate).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#then_equation).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#else_equation).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(8usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#value).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#value).r#relation).as_ref() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(
+                                        8,
+                                        ((value).r#sense).as_str().len(),
+                                    )?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#value).r#conditional).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(8usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
             }?,
         )?;
         Ok(bytes)
@@ -487,7 +760,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "source_id",
@@ -500,38 +773,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "kind",
+        name: "value",
         position: 2usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "sense",
-        position: 3usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "left_expr",
-        position: 4usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "right_expr",
-        position: 5usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "guard_predicate",
-        position: 6usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "then_equation",
-        position: 7usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "else_equation",
-        position: 8usize,
     },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
@@ -540,14 +783,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
 pub struct NormalizedEquationNodesView<'a> {
     batch: &'a crate::RecordBatch,
     source_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    equation_id_column: &'a arrow_array::UInt64Array,
-    kind_column: &'a arrow_array::StringArray,
-    sense_column: &'a arrow_array::StringArray,
-    left_expr_column: &'a arrow_array::UInt64Array,
-    right_expr_column: &'a arrow_array::UInt64Array,
-    guard_predicate_column: &'a arrow_array::UInt64Array,
-    then_equation_column: &'a arrow_array::UInt64Array,
-    else_equation_column: &'a arrow_array::UInt64Array,
+    equation_id_column: &'a arrow_array::Int64Array,
+    value_column: &'a arrow_array::StructArray,
 }
 impl<'a> NormalizedEquationNodesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -589,29 +826,11 @@ impl<'a> NormalizedEquationNodesView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
             equation_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
-            kind_column: crate::columnar::array::<
-                arrow_array::StringArray,
+            value_column: crate::columnar::array::<
+                arrow_array::StructArray,
             >(batch.column(2usize).as_ref())?,
-            sense_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(3usize).as_ref())?,
-            left_expr_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(4usize).as_ref())?,
-            right_expr_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(5usize).as_ref())?,
-            guard_predicate_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(6usize).as_ref())?,
-            then_equation_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(7usize).as_ref())?,
-            else_equation_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
-            >(batch.column(8usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -643,7 +862,7 @@ impl<'a> NormalizedEquationNodesView<'a> {
         "equation_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn equation_id_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn equation_id_column(&self) -> &'a arrow_array::Int64Array {
         self.equation_id_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "equation_id", "`.")]
@@ -652,87 +871,15 @@ impl<'a> NormalizedEquationNodesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "kind",
+        "value",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn kind_column(&self) -> &'a arrow_array::StringArray {
-        self.kind_column
+    pub const fn value_column(&self) -> &'a arrow_array::StructArray {
+        self.value_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "kind", "`.")]
-    pub fn kind_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "value", "`.")]
+    pub fn value_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[2usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "sense",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn sense_column(&self) -> &'a arrow_array::StringArray {
-        self.sense_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "sense", "`.")]
-    pub fn sense_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "left_expr",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn left_expr_column(&self) -> &'a arrow_array::UInt64Array {
-        self.left_expr_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "left_expr", "`.")]
-    pub fn left_expr_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "right_expr",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn right_expr_column(&self) -> &'a arrow_array::UInt64Array {
-        self.right_expr_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "right_expr", "`.")]
-    pub fn right_expr_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "guard_predicate",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn guard_predicate_column(&self) -> &'a arrow_array::UInt64Array {
-        self.guard_predicate_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "guard_predicate", "`.")]
-    pub fn guard_predicate_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "then_equation",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn then_equation_column(&self) -> &'a arrow_array::UInt64Array {
-        self.then_equation_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "then_equation", "`.")]
-    pub fn then_equation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "else_equation",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn else_equation_column(&self) -> &'a arrow_array::UInt64Array {
-        self.else_equation_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "else_equation", "`.")]
-    pub fn else_equation_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -754,28 +901,7 @@ impl<'a> NormalizedEquationNodesView<'a> {
                 self.equation_id_column,
                 index,
             )?,
-            r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
-            r#sense: crate::columnar::ArrowValue::read(self.sense_column, index)?,
-            r#left_expr: crate::columnar::ArrowValue::read(
-                self.left_expr_column,
-                index,
-            )?,
-            r#right_expr: crate::columnar::ArrowValue::read(
-                self.right_expr_column,
-                index,
-            )?,
-            r#guard_predicate: crate::columnar::ArrowValue::read(
-                self.guard_predicate_column,
-                index,
-            )?,
-            r#then_equation: crate::columnar::ArrowValue::read(
-                self.then_equation_column,
-                index,
-            )?,
-            r#else_equation: crate::columnar::ArrowValue::read(
-                self.else_equation_column,
-                index,
-            )?,
+            r#value: crate::columnar::ArrowValue::read(self.value_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
@@ -840,6 +966,86 @@ impl NormalizedEquationNodesBuilder {
         &mut self,
         row: NormalizedEquationNodesRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&(row.r#equation_id).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "equation_id",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if (row.r#value).selected().is_err() {
+            return Err(
+                crate::columnar::value_error(
+                    "value",
+                    row_index,
+                    "tagged value requires exactly its selected arm",
+                ),
+            );
+        }
+        if let Some(value) = ((row.r#value).r#relation).as_ref() {
+            if !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#left).to_owned()))
+            {
+                return Err(
+                    crate::columnar::value_error(
+                        "value.relation.left",
+                        row_index,
+                        "value outside declared integer domain",
+                    ),
+                );
+            }
+            if !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#right).to_owned()))
+            {
+                return Err(
+                    crate::columnar::value_error(
+                        "value.relation.right",
+                        row_index,
+                        "value outside declared integer domain",
+                    ),
+                );
+            }
+        }
+        if let Some(value) = ((row.r#value).r#conditional).as_ref() {
+            if !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#guard).to_owned()))
+            {
+                return Err(
+                    crate::columnar::value_error(
+                        "value.conditional.guard",
+                        row_index,
+                        "value outside declared integer domain",
+                    ),
+                );
+            }
+            if !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#then).to_owned()))
+            {
+                return Err(
+                    crate::columnar::value_error(
+                        "value.conditional.then",
+                        row_index,
+                        "value outside declared integer domain",
+                    ),
+                );
+            }
+            if !((0_i64..=9_223_372_036_854_775_807_i64)
+                .contains(&((value).r#otherwise).to_owned()))
+            {
+                return Err(
+                    crate::columnar::value_error(
+                        "value.conditional.otherwise",
+                        row_index,
+                        "value outside declared integer domain",
+                    ),
+                );
+            }
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -852,32 +1058,8 @@ impl NormalizedEquationNodesBuilder {
                     columns[1usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#kind,
+                    &row.r#value,
                     columns[2usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#sense,
-                    columns[3usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#left_expr,
-                    columns[4usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#right_expr,
-                    columns[5usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#guard_predicate,
-                    columns[6usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#then_equation,
-                    columns[7usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#else_equation,
-                    columns[8usize].as_mut(),
                 )?;
                 Ok(())
             })

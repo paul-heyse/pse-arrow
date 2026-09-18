@@ -102,20 +102,19 @@ pub(crate) async fn execute(registry: &Arc<Registry>, fixture: &Fixture) -> Vec<
         .iter()
         .find(|value| value.qualified_name() == fixture.invariant)
         .expect("registered invariant");
-    let rule = registry.rule(&invariant.rule).expect("declared rule");
     let rows = fixture.batches(registry);
-    let mut ports = pse_rules::plan::PortBinding::default();
-    for (relation, port, _) in rule.plan.dependencies() {
-        let key = registry
-            .relation(relation)
-            .expect("declared dependency")
-            .key;
-        assert!(
-            rows.contains_key(&key),
-            "explicit fixture dependency {relation}"
-        );
-        ports.ports.insert(port.to_owned(), key);
-    }
+    let inputs = invariant
+        .inputs
+        .iter()
+        .map(|name| {
+            let key = registry.relation(name).expect("declared dependency").key;
+            assert!(
+                rows.contains_key(&key),
+                "explicit fixture dependency {name}"
+            );
+            key
+        })
+        .collect::<Vec<_>>();
     let thread = NonZeroUsize::new(1).unwrap();
     let session = build_candidate_session(
         rows,
@@ -130,17 +129,28 @@ pub(crate) async fn execute(registry: &Arc<Registry>, fixture: &Fixture) -> Vec<
         native_engine_profile(),
     )
     .expect("candidate session without constraints");
-    let plan =
-        pse_rules::plan::compile(rule, &ports, &session, registry).expect("compile fixture rule");
-    let result = pse_rules::exec::execute(&plan, &session, registry, &CancellationToken::default())
+    let cancel = CancellationToken::default();
+    let plan = session
+        .bind_declared_query(&invariant.query, &inputs, &cancel)
         .await
         .unwrap_or_else(|error| panic!("{}: {error:?}", fixture.invariant));
-    assert!(
-        result.undecided.iter().all(|batch| batch.num_rows() == 0),
-        "fixture is decided"
-    );
+    let plan = datafusion::logical_expr::LogicalPlanBuilder::from(plan)
+        .project(
+            invariant
+                .key_columns
+                .iter()
+                .map(|name| datafusion::logical_expr::col(*name)),
+        )
+        .and_then(datafusion::logical_expr::LogicalPlanBuilder::build)
+        .unwrap();
+    let result = session
+        .prepare_rule_plan(plan, &cancel)
+        .unwrap()
+        .execute(&cancel)
+        .await
+        .unwrap_or_else(|error| panic!("{}: {error:?}", fixture.invariant));
     result
-        .head
+        .batches()
         .iter()
         .flat_map(|batch| {
             pse_relations::cells::decode_columns(registry, batch).expect("actual typed result keys")

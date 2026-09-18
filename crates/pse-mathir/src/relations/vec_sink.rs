@@ -4,11 +4,10 @@
 //! An append-only plain-value sink/source for admission and deterministic round trips.
 use super::{InputBinding, MathRelationSink, MathRelationSource, ParameterBinding};
 use crate::equation::{EquationRecord, FreeIndex};
-use crate::{AffineTerm, MathIrError, NodeId, Opcode, Payload, WeightedPair};
+use crate::{MathIrError, NodeId, Opcode, Payload};
 use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{
-    BoundIndexId, ConversionId, DomainId, InvariantId, OperationId, QuantityTypeId, ReductionKind,
-    UnitConvertSpec, UnitId, WeightNormalization, infer::BuiltInRule,
+    BoundIndexId, ConversionId, DomainId, OperationId, QuantityTypeId, infer::BuiltInRule,
 };
 use pse_schema::math::Sense;
 
@@ -45,6 +44,8 @@ pub struct KernelBinding {
 pub(super) type NodeRow = (
     NodeId,
     Opcode,
+    Vec<NodeId>,
+    Payload,
     Option<QuantityTypeId>,
     Option<SemanticId>,
     ContentHash,
@@ -54,8 +55,6 @@ pub(super) type NodeRow = (
 #[derive(Clone, Debug, Default)]
 pub struct VecSink {
     pub(super) nodes: Vec<NodeRow>,
-    pub(super) args: Vec<(NodeId, u16, NodeId)>,
-    pub(super) payloads: Vec<(NodeId, Payload)>,
     pub(super) equations: Vec<EquationRecord>,
     pub(super) indices: Vec<(SemanticId, FreeIndex)>,
     pub(super) selections: Vec<QuantitySelection>,
@@ -72,288 +71,24 @@ impl VecSink {
     }
 }
 impl MathRelationSink for VecSink {
-    fn pending_path(
-        &mut self,
-        node: NodeId,
-        source_id: SemanticId,
-        path_id: u64,
-        indices: &[NodeId],
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::PendingPath {
-                source_id,
-                path_id,
-                indices: indices.to_vec(),
-            },
-        ));
-        Ok(())
-    }
-    fn pending_gather(
-        &mut self,
-        node: NodeId,
-        group: SemanticId,
-        indices: &[NodeId],
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::PendingGather {
-                group,
-                indices: indices.to_vec(),
-            },
-        ));
-        Ok(())
-    }
     fn expr_node(
         &mut self,
         node: NodeId,
         opcode: Opcode,
+        children: &[NodeId],
+        payload: &Payload,
         quantity_type: Option<QuantityTypeId>,
         scope: Option<SemanticId>,
         hash: ContentHash,
     ) -> Result<(), MathIrError> {
-        self.nodes.push((node, opcode, quantity_type, scope, hash));
-        Ok(())
-    }
-    fn expr_arg(&mut self, parent: NodeId, ordinal: u16, child: NodeId) -> Result<(), MathIrError> {
-        self.args.push((parent, ordinal, child));
-        Ok(())
-    }
-    fn symbol_ref(&mut self, node: NodeId, symbol: crate::ValueRef) -> Result<(), MathIrError> {
-        self.payloads.push((node, Payload::SymbolRef { symbol }));
-        Ok(())
-    }
-    fn float_constant(
-        &mut self,
-        node: NodeId,
-        value: f64,
-        unit: UnitId,
-    ) -> Result<(), MathIrError> {
-        self.payloads
-            .push((node, Payload::FloatConst { value, unit }));
-        Ok(())
-    }
-    fn int_constant(&mut self, node: NodeId, value: i64) -> Result<(), MathIrError> {
-        self.payloads.push((node, Payload::IntConst { value }));
-        Ok(())
-    }
-    fn affine(
-        &mut self,
-        node: NodeId,
-        constant: f64,
-        constant_quantity_type: Option<QuantityTypeId>,
-        constant_unit: Option<UnitId>,
-        terms: &[(f64, NodeId)],
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
+        self.nodes.push((
             node,
-            Payload::Affine {
-                constant,
-                constant_quantity_type,
-                constant_unit,
-                terms: terms
-                    .iter()
-                    .map(|(coefficient, child)| AffineTerm {
-                        coefficient: *coefficient,
-                        child: *child,
-                    })
-                    .collect(),
-            },
-        ));
-        Ok(())
-    }
-    fn weighted_mean(
-        &mut self,
-        node: NodeId,
-        pairs: &[(NodeId, NodeId)],
-        normalization: WeightNormalization,
-        certificate: Option<InvariantId>,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::WeightedMean {
-                pairs: pairs
-                    .iter()
-                    .map(|(weight, value)| WeightedPair {
-                        weight: *weight,
-                        value: *value,
-                    })
-                    .collect(),
-                normalization,
-                unit_sum_invariant: certificate,
-            },
-        ));
-        Ok(())
-    }
-    fn reduction(
-        &mut self,
-        node: NodeId,
-        kind: ReductionKind,
-        domain: crate::DomainRef,
-        bound_index: BoundIndexId,
-        filter: Option<crate::GuardRef>,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::Reduction {
-                kind,
-                domain,
-                bound_index,
-                filter,
-            },
-        ));
-        Ok(())
-    }
-    fn gather(
-        &mut self,
-        node: NodeId,
-        group: SemanticId,
-        coordinates: &[(BoundIndexId, u16)],
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::Gather {
-                group,
-                coordinate_map: coordinates.to_vec(),
-            },
-        ));
-        Ok(())
-    }
-    fn broadcast(
-        &mut self,
-        node: NodeId,
-        domain: crate::DomainRef,
-        bound_index: BoundIndexId,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::Broadcast {
-                domain,
-                bound_index,
-            },
-        ));
-        Ok(())
-    }
-    fn derivative(
-        &mut self,
-        node: NodeId,
-        domain: crate::DomainRef,
-        order: u8,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::Derivative {
-                wrt_domain: domain,
-                order,
-            },
-        ));
-        Ok(())
-    }
-    fn integral(
-        &mut self,
-        node: NodeId,
-        domain: crate::DomainRef,
-        bound_index: BoundIndexId,
-        policy: Option<SemanticId>,
-        filter: Option<crate::GuardRef>,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::Integral {
-                domain,
-                bound_index,
-                quadrature_policy: policy,
-                filter,
-            },
-        ));
-        Ok(())
-    }
-    fn pending_smooth_op(
-        &mut self,
-        node: NodeId,
-        eps: f64,
-        unit: UnitId,
-    ) -> Result<(), MathIrError> {
-        self.payloads
-            .push((node, Payload::PendingSmoothOp { eps, unit }));
-        Ok(())
-    }
-    fn smooth_op(&mut self, node: NodeId, eps: f64) -> Result<(), MathIrError> {
-        self.payloads.push((node, Payload::SmoothOp { eps }));
-        Ok(())
-    }
-    fn conditional(&mut self, node: NodeId, guard: crate::GuardRef) -> Result<(), MathIrError> {
-        self.payloads.push((node, Payload::Conditional { guard }));
-        Ok(())
-    }
-    fn kernel_call(
-        &mut self,
-        node: NodeId,
-        binding: SemanticId,
-        output: u16,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::KernelCall {
-                kernel_binding: binding,
-                output_ordinal: output,
-            },
-        ));
-        Ok(())
-    }
-    fn implicit_ref(
-        &mut self,
-        node: NodeId,
-        system: SemanticId,
-        unknown: u16,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::ImplicitRef {
-                implicit_system: system,
-                unknown_ordinal: unknown,
-            },
-        ));
-        Ok(())
-    }
-    fn pending_unit_convert(&mut self, node: NodeId, to: UnitId) -> Result<(), MathIrError> {
-        self.payloads
-            .push((node, Payload::PendingUnitConvert { to }));
-        Ok(())
-    }
-    fn unit_convert(
-        &mut self,
-        node: NodeId,
-        scale: f64,
-        offset: f64,
-        from: UnitId,
-        to: UnitId,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::UnitConvert(UnitConvertSpec {
-                scale,
-                offset,
-                from,
-                to,
-            }),
-        ));
-        Ok(())
-    }
-    fn piecewise_linear(
-        &mut self,
-        node: NodeId,
-        points: &[(f64, f64)],
-        input: QuantityTypeId,
-        output: QuantityTypeId,
-    ) -> Result<(), MathIrError> {
-        self.payloads.push((
-            node,
-            Payload::PiecewiseLinear {
-                breakpoints: points.to_vec(),
-                input,
-                output,
-            },
+            opcode,
+            children.to_vec(),
+            payload.clone(),
+            quantity_type,
+            scope,
+            hash,
         ));
         Ok(())
     }
@@ -447,14 +182,8 @@ impl MathRelationSink for VecSink {
 }
 impl MathRelationSource for VecSink {
     fn read(&self, sink: &mut dyn MathRelationSink) -> Result<(), MathIrError> {
-        for &(id, opcode, quantity, scope, hash) in &self.nodes {
-            sink.expr_node(id, opcode, quantity, scope, hash)?;
-        }
-        for &(parent, ordinal, child) in &self.args {
-            sink.expr_arg(parent, ordinal, child)?;
-        }
-        for (id, payload) in &self.payloads {
-            super::emit_payload(*id, payload, sink)?;
+        for (id, opcode, children, payload, quantity, scope, hash) in &self.nodes {
+            sink.expr_node(*id, *opcode, children, payload, *quantity, *scope, *hash)?;
         }
         for equation in &self.equations {
             emit_equation(equation, sink)?;
@@ -526,20 +255,26 @@ impl VecSink {
         let mut right = other.clone();
         for rows in [&mut left, &mut right] {
             rows.nodes.sort_by_key(|row| row.0);
-            rows.args.sort_unstable();
-            rows.payloads.sort_by_key(|row| row.0);
             rows.equations.sort_by_key(|row| row.indexed_equation_id);
             rows.indices
                 .sort_by_key(|(id, index)| (*id, index.position));
             rows.selections.sort_by_key(|row| row.node);
             rows.bindings.sort_by_key(|row| row.binding);
         }
-        let payload_key = |rows: &Vec<(NodeId, Payload)>| {
+        let node_key = |rows: &[NodeRow]| {
             rows.iter()
-                .map(|(id, payload)| {
+                .map(|(id, opcode, children, payload, quantity, scope, hash)| {
                     let mut bytes = Vec::new();
                     crate::graph::encode_payload(&mut bytes, payload);
-                    (*id, bytes)
+                    (
+                        *id,
+                        *opcode,
+                        children.clone(),
+                        bytes,
+                        *quantity,
+                        *scope,
+                        *hash,
+                    )
                 })
                 .collect::<Vec<_>>()
         };
@@ -568,12 +303,10 @@ impl VecSink {
                 })
                 .collect::<Vec<_>>()
         };
-        left.args == right.args
-            && payload_key(&left.payloads) == payload_key(&right.payloads)
+        node_key(&left.nodes) == node_key(&right.nodes)
             && left.equations == right.equations
             && left.indices == right.indices
             && left.selections == right.selections
             && binding_key(&left.bindings) == binding_key(&right.bindings)
-            && left.nodes == right.nodes
     }
 }

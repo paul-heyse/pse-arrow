@@ -1,6 +1,6 @@
 ---
 title: Plan 08 current-function oracles and replacement boundaries
-status: draft
+status: in-progress
 date: 2026-09-16
 adrs: [ADR-0068, ADR-0069]
 phase: 1
@@ -9,12 +9,12 @@ phase: 1
 # Plan 08 current-function oracles and replacement boundaries
 
 **Implemented, inspected:** these existing tests contain independent functional
-assertions. Their legacy setup is replaced with their callers; none is an old/new
+assertions. Their legacy setup has been replaced with their callers; none is an old/new
 object or byte-equivalence requirement. No fresh passing result is claimed here.
 
 | Outcome | Existing executable oracle | Required replacement |
 |---|---|---|
-| Authoring changes and exact source correspondence | `tests/engine/tests/native_change_batches.rs`, `source_projection_admission.rs`; authoring crate tests | Typed spans/keys and exact Delta selections replace sidecars and snapshots |
+| Authoring changes and exact source correspondence | `tests/engine/tests/source_projection_admission.rs`, `incremental_equals_clean_p0_p3.rs`; authoring native edit/rename tests | Typed spans/keys and exact Delta selections replace sidecars and snapshots |
 | Normalized mathematical meaning | `tests/engine/tests/native_normalization.rs` | Keep conditional senses/branches, source ownership and meaningful unsupported cases; replace stage setup |
 | Template expansion | `tests/engine/tests/native_template_graph.rs` | Two-template independent symbol/equation assertions over coherent node rows |
 | Current heater/mixer expansion | `tests/engine/tests/native_engineering_workflows.rs` | Four FTPx/FcTP journeys through P10; no new source-to-solve promise |
@@ -28,23 +28,22 @@ object or byte-equivalence requirement. No fresh passing result is claimed here.
 
 ## Acceptance command contract
 
-**Proposed:** `just architecture-acceptance <new-output-directory>` becomes the
-terminal Plan 08 command during SP13. It uses ordinary xtask/test entry points and
+**Implemented; not run:** `just architecture-acceptance <new-output-directory>` is the
+terminal Plan 09 command carrying all Plan 08 obligations. It uses ordinary xtask/test entry points and
 records commands, features, counts and conditions. It runs current-function tests,
 linked solver qualification, cold Rust/Python inspection, generation and governance,
-plus Q01–Q14, the extension proof and independent G1–G7 review receipts. Missing
-receipts or surviving forbidden production paths prevent a success receipt. It has
+plus feature/configuration checks. Q01–Q14, extension proof and G1–G7 are assessed
+independently against the command logs and measurements. Surviving forbidden
+production paths prevent the campaign. It has
 no dependency on the nonexistent `unified_simulator` test or future Pyomo/NL cases.
 
-`just simulator-acceptance` remains historical Plan 07 tooling until the terminal
-command replacement; it is not a Plan 08 acceptance gate. SP13 must delete obsolete
-entry points with their callers rather than add a compatibility alias.
+The obsolete `simulator-acceptance` recipe and xtask entry point are deleted.
 
 ## Deletion closure
 
 The authoritative [Plan 08 ledger](08-schema-first-native-data-pivot.md#replacement-and-deletion-ledger)
 tracks each replacement with producer, consumer, generator, fixture and test closure.
-SP08–SP11 remain one caller replacement. A green boundary test does not certify
+The current source/caller/deletion status and native caching oracles live in the [Plan 09 execution inventory](09-execution-inventory.md). A green boundary test does not certify
 removal of `Catalog`/`Snapshot`, `Driver`/`StageDag`, RulePlan/RuleExpr, Cell round trips,
 JSON refs/manifests, sidecars or old Python handles.
 
@@ -55,3 +54,10 @@ lists, required children, width and unsigned extremes; expression fixtures from 
 two-template and heater/mixer tests; and the existing numerical fixtures above.
 SP04/SP13 record sizes and pinned plans before claiming costs or I/O improvements.
 No benchmark result or flat-versus-nested speedup has been established by this inventory.
+
+## Native caching extension
+
+Plan 09 adds cache-on/off controls, actual projected reuse, epoch reset, cross-process
+maintenance, exported Arrow pinning, bounded inspection, four-image CDF, CRC/load-class
+and cost-matrix fixtures. See the [current inventory](09-execution-inventory.md).
+These fixtures are implemented and remain not_run until the C11 barrier opens.

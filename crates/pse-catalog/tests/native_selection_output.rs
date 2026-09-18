@@ -104,8 +104,8 @@ async fn selected_ids_retain_values_metadata_and_empty_group_nullability() {
             .aggregate(
                 groups,
                 [
-                    pse_catalog::session::aggregate::min(col("value")).alias("minimum"),
-                    pse_catalog::session::aggregate::max(col("value")).alias("maximum"),
+                    datafusion::functions_aggregate::expr_fn::min(col("value")).alias("minimum"),
+                    datafusion::functions_aggregate::expr_fn::max(col("value")).alias("maximum"),
                 ],
             )
             .unwrap()

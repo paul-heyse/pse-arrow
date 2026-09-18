@@ -8,33 +8,31 @@ use datafusion::{
     common::{DataFusionError, Result},
     functions_aggregate::min_max::{max_udaf, min_udaf},
     logical_expr::{
-        Accumulator, AggregateUDF, AggregateUDFImpl, Expr, GroupsAccumulator, ReversedUDAF,
-        Signature,
+        Accumulator, AggregateUDF, AggregateUDFImpl, GroupsAccumulator, ReversedUDAF, Signature,
         function::{AccumulatorArgs, StateFieldsArgs},
         utils::AggregateOrderSensitivity,
     },
 };
-use std::sync::{Arc, LazyLock};
-
-static MIN: LazyLock<Arc<AggregateUDF>> = LazyLock::new(|| selection("pse_min", min_udaf()));
-static MAX: LazyLock<Arc<AggregateUDF>> = LazyLock::new(|| selection("pse_max", max_udaf()));
+use std::sync::Arc;
 
 fn selection(name: &'static str, native: Arc<AggregateUDF>) -> Arc<AggregateUDF> {
     Arc::new(AggregateUDF::from(Selection { name, native }))
 }
 
-pub(super) fn functions() -> [Arc<AggregateUDF>; 2] {
-    [Arc::clone(&MIN), Arc::clone(&MAX)]
+pub(super) fn adapt(function: &Arc<AggregateUDF>) -> Option<Arc<AggregateUDF>> {
+    if function.as_ref() == min_udaf().as_ref() {
+        Some(selection("min", Arc::clone(function)))
+    } else if function.as_ref() == max_udaf().as_ref() {
+        Some(selection("max", Arc::clone(function)))
+    } else {
+        None
+    }
 }
-
-/// Native MIN retaining the actual selected argument's semantic field.
-pub fn min(value: Expr) -> Expr {
-    MIN.call(vec![value])
-}
-
-/// Native MAX retaining the actual selected argument's semantic field.
-pub fn max(value: Expr) -> Expr {
-    MAX.call(vec![value])
+pub(super) fn native(function: &AggregateUDF) -> Option<&Arc<AggregateUDF>> {
+    function
+        .inner()
+        .downcast_ref::<Selection>()
+        .map(|value| &value.native)
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]

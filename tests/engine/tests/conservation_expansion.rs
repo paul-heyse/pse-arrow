@@ -1,20 +1,43 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+#![allow(
+    clippy::float_cmp,
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
 //! Actual indexed P3–P8 conservation, physical coefficient provenance and refusal cases.
 #[path = "support/conservation_source.rs"]
 mod conservation_source;
 #[path = "../../support/native_pipeline.rs"]
 mod native_pipeline;
-use conservation_source::{Balance, Options, documents, id};
-use pse_catalog::Snapshot;
-use pse_schema::{Registry, model::Cell};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-};
 
-fn rows(registry: &Registry, snapshot: &Snapshot, name: &str) -> Vec<Vec<Cell>> {
+use conservation_source::{Balance, Options, documents, id};
+use native_pipeline::Values;
+use pse_relations::generated::{
+    compiled::law_participation::{self, CompiledLawParticipationFieldDecisionSelected},
+    enums::ContributionSign,
+};
+use pse_schema::{Registry, model::Cell};
+use std::collections::{BTreeMap, BTreeSet};
+
+fn math_nodes(
+    registry: &Registry,
+    snapshot: &Values,
+) -> Vec<pse_relations::generated::inferred::math_expr_nodes::Row> {
+    let batch = source(snapshot, "inferred", "math_expr_nodes")
+        .unwrap()
+        .batch();
+    pse_relations::generated::inferred::math_expr_nodes::View::try_from_batch_with_registry(
+        registry, batch,
+    )
+    .unwrap()
+    .rows()
+    .unwrap()
+}
+
+fn rows(registry: &Registry, snapshot: &Values, name: &str) -> Vec<Vec<Cell>> {
     let spec = registry.relation(name).unwrap();
     let batch = source(snapshot, spec.key.namespace.as_str(), spec.key.name)
         .unwrap()
@@ -22,16 +45,11 @@ fn rows(registry: &Registry, snapshot: &Snapshot, name: &str) -> Vec<Vec<Cell>> 
     pse_relations::cells::cells_from_batch(registry, spec, batch).unwrap()
 }
 fn source<'a>(
-    snapshot: &'a Snapshot,
+    values: &'a Values,
     namespace: &str,
     name: &str,
-) -> Option<&'a Arc<pse_catalog::LoadedRelation>> {
-    snapshot.relation(namespace, name).or_else(|| {
-        snapshot
-            .parents()
-            .values()
-            .find_map(|parent| source(parent, namespace, name))
-    })
+) -> Option<&'a pse_relations::columnar::FieldCheckedBatch> {
+    native_pipeline::relation(values, namespace, name)
 }
 fn field<'a>(registry: &Registry, name: &str, row: &'a [Cell], column: &str) -> &'a Cell {
     &row[registry
@@ -42,21 +60,24 @@ fn field<'a>(registry: &Registry, name: &str, row: &'a [Cell], column: &str) -> 
         .position(|field| field.name() == column)
         .unwrap()]
 }
-async fn run(options: &Options) -> (native_pipeline::Fixture, Arc<Snapshot>) {
-    let mut fixture = native_pipeline::Fixture::new();
+async fn run(options: &Options) -> (native_pipeline::Fixture, Values) {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter("pse_compiler=info,pse_rules=debug")
+        .with_ansi(false)
+        .try_init();
+    let fixture = native_pipeline::Fixture::new();
     let source = documents(&fixture.registry, options);
-    let model = fixture.commit(source).await;
+    let model = fixture.source(source);
     let result = fixture
-        .run(model, "P8")
+        .evaluate(model, "P8")
         .await
-        .expect("actual P3–P8 conservation pipeline");
-    assert_eq!(result.stages.last().unwrap().pass, "P8");
-    let stage = Arc::clone(&result.stages.last().unwrap().snapshot);
+        .unwrap_or_else(|error| panic!("actual P3–P8 conservation pipeline: {error}"));
+    let stage = result;
     (fixture, stage)
 }
 fn indexed_contract(
     registry: &Registry,
-    stage: &Snapshot,
+    stage: &Values,
     kinds: &[&'static str],
     reductions: usize,
 ) {
@@ -87,68 +108,68 @@ fn indexed_contract(
             .collect()
     );
     assert_eq!(indices.len(), kinds.len(), "all declared free axes survive");
-    let partition = rows(registry, stage, "compiled.law_participation");
+    let partition = law_participation::View::from_checked(
+        source(stage, "compiled", "law_participation").unwrap(),
+    )
+    .unwrap()
+    .rows()
+    .unwrap();
     assert_eq!(
         partition.len(),
         2,
         "every actual contribution classified exactly once"
     );
-    assert!(partition.iter().all(|row| field(
-        registry,
-        "compiled.law_participation",
-        row,
-        "decision"
-    ) == &Cell::Enum("included")));
     assert_eq!(
         partition
             .iter()
-            .map(|row| field(registry, "compiled.law_participation", row, "sign").literal_spec())
+            .map(|row| match row.decision.selected().unwrap() {
+                CompiledLawParticipationFieldDecisionSelected::Included(value) => value.sign,
+                CompiledLawParticipationFieldDecisionSelected::Excluded(value) => {
+                    panic!("expected an included conservation contribution, got {value:?}")
+                }
+            })
             .collect::<BTreeSet<_>>(),
-        [Cell::I64(-1), Cell::I64(1)]
-            .iter()
-            .map(Cell::literal_spec)
-            .collect()
+        BTreeSet::from([ContributionSign::Negative, ContributionSign::Positive]),
+        "both actual contributions are included, with opposite conservation signs"
     );
     assert_eq!(
-        rows(registry, stage, "inferred.math_reductions").len(),
+        math_nodes(registry, stage)
+            .iter()
+            .filter(|row| row.payload.reduction.is_some())
+            .count(),
         reductions
     );
 }
 
-#[tokio::test]
-async fn component_total_reduces_only_phase_and_component_phase_preserves_both_axes() {
-    for (balance, kinds, reductions) in [
-        (Balance::ComponentTotal, vec!["species"], 2),
-        (Balance::ComponentPhase, vec!["phase", "species"], 0),
-    ] {
-        let (fixture, stage) = run(&Options::new(balance)).await;
-        indexed_contract(&fixture.registry, &stage, &kinds, reductions);
-        assert!(
-            rows(
-                &fixture.registry,
-                &stage,
-                "compiled.element_projection_coefficients"
-            )
-            .is_empty()
-        );
-    }
+async fn conservation_contract(balance: Balance, kinds: &[&'static str], reductions: usize) {
+    let (fixture, stage) = run(&Options::new(balance)).await;
+    indexed_contract(&fixture.registry, &stage, kinds, reductions);
+    assert!(
+        rows(
+            &fixture.registry,
+            &stage,
+            "compiled.element_projection_coefficients"
+        )
+        .is_empty()
+    );
 }
 #[tokio::test]
-async fn energy_conservation_and_pressure_equality_use_declared_physical_contracts() {
-    for (balance, reductions) in [(Balance::Energy, 2), (Balance::Pressure, 0)] {
-        let (fixture, stage) = run(&Options::new(balance)).await;
-        indexed_contract(&fixture.registry, &stage, &[], reductions);
-        assert!(
-            rows(
-                &fixture.registry,
-                &stage,
-                "compiled.element_projection_coefficients"
-            )
-            .is_empty()
-        );
-    }
+async fn component_total_reduces_only_phase() {
+    conservation_contract(Balance::ComponentTotal, &["species"], 2).await;
 }
-fn coefficient_values(registry: &Registry, stage: &Snapshot) -> Vec<f64> {
+#[tokio::test]
+async fn component_phase_preserves_both_axes() {
+    conservation_contract(Balance::ComponentPhase, &["phase", "species"], 0).await;
+}
+#[tokio::test]
+async fn energy_conservation_uses_declared_physical_contracts() {
+    conservation_contract(Balance::Energy, &[], 2).await;
+}
+#[tokio::test]
+async fn pressure_equality_uses_declared_physical_contracts() {
+    conservation_contract(Balance::Pressure, &[], 0).await;
+}
+fn coefficient_values(registry: &Registry, stage: &Values) -> Vec<f64> {
     let groups = rows(registry, stage, "compiled.element_projection_groups");
     assert_eq!(
         groups.len(),
@@ -161,7 +182,7 @@ fn coefficient_values(registry: &Registry, stage: &Snapshot) -> Vec<f64> {
         8,
         "two streams times two elements times two species"
     );
-    let constants = rows(registry, stage, "inferred.math_float_constants");
+    let constants = math_nodes(registry, stage);
     let symbols = rows(registry, stage, "compiled.symbols");
     coefficients
         .iter()
@@ -174,9 +195,7 @@ fn coefficient_values(registry: &Registry, stage: &Snapshot) -> Vec<f64> {
             );
             let constant = constants
                 .iter()
-                .find(|row| {
-                    field(registry, "inferred.math_float_constants", row, "node_id") == node
-                })
+                .find(|row| &Cell::I64(row.node_id) == node)
                 .unwrap();
             let value = field(
                 registry,
@@ -185,7 +204,7 @@ fn coefficient_values(registry: &Registry, stage: &Snapshot) -> Vec<f64> {
                 "value",
             );
             assert_eq!(
-                field(registry, "inferred.math_float_constants", constant, "value"),
+                &Cell::F64(constant.payload.float.as_ref().unwrap().value),
                 value,
                 "actual immutable constant equals source-derived value"
             );
@@ -215,56 +234,57 @@ fn coefficient_values(registry: &Registry, stage: &Snapshot) -> Vec<f64> {
         })
         .collect()
 }
-#[tokio::test]
-async fn element_molar_projection_retains_element_axis_and_recomputes_changed_composition() {
-    for count in [2.0, 3.0] {
-        let mut options = Options::new(Balance::ElementMolar);
-        options.hydrogen_count = count;
-        options.molecular_weight = false;
-        let (fixture, stage) = run(&options).await;
-        indexed_contract(&fixture.registry, &stage, &["element"], 4);
-        let values = coefficient_values(&fixture.registry, &stage);
-        assert_eq!(
-            values.iter().filter(|value| **value == 0.0).count(),
-            4,
-            "absent cross-species elements are explicit zero coefficients"
-        );
-        let coefficients = rows(
+async fn element_molar_projection(count: f64) {
+    let mut options = Options::new(Balance::ElementMolar);
+    options.hydrogen_count = count;
+    options.molecular_weight = false;
+    let (fixture, stage) = run(&options).await;
+    indexed_contract(&fixture.registry, &stage, &["element"], 4);
+    let values = coefficient_values(&fixture.registry, &stage);
+    assert_eq!(
+        values.iter().filter(|value| **value == 0.0).count(),
+        4,
+        "absent cross-species elements are explicit zero coefficients"
+    );
+    let coefficients = rows(
+        &fixture.registry,
+        &stage,
+        "compiled.element_projection_coefficients",
+    );
+    for row in coefficients.iter().filter(|row| {
+        field(
             &fixture.registry,
-            &stage,
             "compiled.element_projection_coefficients",
+            row,
+            "species_id",
+        ) == &Cell::Id(id(100))
+    }) {
+        let value = field(
+            &fixture.registry,
+            "compiled.element_projection_coefficients",
+            row,
+            "value",
         );
-        for row in coefficients.iter().filter(|row| {
-            field(
-                &fixture.registry,
-                "compiled.element_projection_coefficients",
-                row,
-                "species_id",
-            ) == &Cell::Id(id(100))
-        }) {
-            let value = field(
-                &fixture.registry,
-                "compiled.element_projection_coefficients",
-                row,
-                "value",
-            );
-            assert!(value == &Cell::F64(0.0) || value == &Cell::F64(count));
-        }
-        assert_eq!(
-            values.iter().filter(|value| **value == count).count(),
-            if count == 2.0 { 4 } else { 2 }
-        );
-        let reopened = fixture
-            .catalog
-            .read_pinned_manifest(stage.manifest_ref(), &pse_ids::CancellationToken::new())
-            .await
-            .unwrap();
-        assert_eq!(
-            coefficient_values(&fixture.registry, &reopened),
-            values,
-            "actual source replay preserves complete admitted values"
-        );
+        assert!(value == &Cell::F64(0.0) || value == &Cell::F64(count));
     }
+    assert_eq!(
+        values.iter().filter(|value| **value == count).count(),
+        if count == 2.0 { 4 } else { 2 }
+    );
+    let reopened = fixture.roundtrip(&stage).await;
+    assert_eq!(
+        coefficient_values(&fixture.registry, &reopened),
+        values,
+        "actual source replay preserves complete admitted values"
+    );
+}
+#[tokio::test]
+async fn element_molar_projection_retains_element_axis() {
+    element_molar_projection(2.0).await;
+}
+#[tokio::test]
+async fn element_molar_projection_uses_changed_composition() {
+    element_molar_projection(3.0).await;
 }
 #[tokio::test]
 async fn element_mass_projection_uses_actual_kg_per_mole_weights() {
@@ -273,7 +293,7 @@ async fn element_mass_projection_uses_actual_kg_per_mole_weights() {
     let values = coefficient_values(&fixture.registry, &stage);
     assert_eq!(values.iter().filter(|value| **value == 0.0).count(), 4);
     let expected: BTreeMap<_, f64> =
-        BTreeMap::from([(id(100), 2.0 / 0.002016), (id(101), 2.0 / 0.031998)]);
+        BTreeMap::from([(id(100), 2.0 / 0.002_016), (id(101), 2.0 / 0.031_998)]);
     for row in rows(
         &fixture.registry,
         &stage,
@@ -300,30 +320,23 @@ async fn element_mass_projection_uses_actual_kg_per_mole_weights() {
 }
 #[tokio::test]
 async fn mass_projection_missing_molecular_weight_refuses_actual_source() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let mut options = Options::new(Balance::ElementMass);
     options.molecular_weight = false;
     let source = documents(&fixture.registry, &options);
-    let model = fixture.commit(source).await;
-    fixture
-        .run(Arc::clone(&model), "P7")
-        .await
-        .expect("same sources fully realize before the unsupported physical conversion");
-    let error = fixture.run(model, "P8").await.unwrap_err();
-    assert!(
-        format!("{error:?}").contains("molecular weight"),
-        "{error:?}"
-    );
+    let model = fixture.source(source);
+    let error = fixture.evaluate(model, "P8").await.unwrap_err();
+    assert!(error.to_string().contains("molecular weight"), "{error}");
 }
 #[tokio::test]
 async fn an_absent_explicit_balance_binding_is_not_inferred_from_a_template_name() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let mut options = Options::new(Balance::ComponentTotal);
     options.unsupported = true;
     let source = documents(&fixture.registry, &options);
-    let model = fixture.commit(source).await;
+    let model = fixture.source(source);
     assert!(
-        fixture.run(model, "P8").await.is_err(),
+        fixture.evaluate(model, "P8").await.is_err(),
         "missing actual law binding cannot compile"
     );
 }
@@ -379,7 +392,7 @@ async fn fixed_phase_selects_actual_group_members_without_summing_the_other_phas
 }
 
 #[tokio::test]
-async fn fixed_species_selects_actual_phase_members_and_scalar_energy_broadcast_is_explicit() {
+async fn fixed_species_selects_actual_phase_members() {
     let mut options = Options::new(Balance::ComponentPhase);
     options.fixed_subject = true;
     let (fixture, stage) = run(&options).await;
@@ -388,11 +401,46 @@ async fn fixed_species_selects_actual_phase_members_and_scalar_energy_broadcast_
         rows(&fixture.registry, &stage, "compiled.group_projections").len(),
         2
     );
+}
+
+#[tokio::test]
+async fn scalar_energy_broadcast_is_explicit() {
     let (fixture, stage) = run(&Options::new(Balance::EnergyBroadcast)).await;
     indexed_contract(&fixture.registry, &stage, &["phase"], 0);
+    let nodes = math_nodes(&fixture.registry, &stage)
+        .into_iter()
+        .map(|row| (row.node_id, row))
+        .collect::<BTreeMap<_, _>>();
+    let equations = pse_relations::generated::inferred::math_indexed_equations::View::try_from_batch_with_registry(
+        &fixture.registry, source(&stage, "inferred", "math_indexed_equations").unwrap().batch(),
+    ).unwrap().rows().unwrap();
+    let equation = &equations[0];
+    let count_broadcasts = |root| {
+        let mut pending = vec![root];
+        let mut reachable = BTreeSet::new();
+        while let Some(node) = pending.pop() {
+            if reachable.insert(node) {
+                pending.extend(&nodes[&node].children);
+            }
+        }
+        reachable
+            .iter()
+            .filter(|node| nodes[node].payload.broadcast.is_some())
+            .count()
+    };
     assert_eq!(
-        rows(&fixture.registry, &stage, "inferred.math_broadcasts").len(),
+        count_broadcasts(equation.body_node_id),
         2,
         "one explicit scalar-to-Phase broadcast for each signed source"
     );
+    let bound = equation.constraint.single.as_ref().unwrap().node_id;
+    assert_eq!(
+        count_broadcasts(bound),
+        1,
+        "the equality's typed zero has the same Phase shape"
+    );
+    let bound = &nodes[&bound];
+    assert!(bound.payload.broadcast.is_some());
+    let zero = &nodes[&bound.children[0]];
+    assert_eq!(zero.payload.float.as_ref().unwrap().value, 0.0);
 }

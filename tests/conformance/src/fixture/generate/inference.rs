@@ -8,6 +8,10 @@ use pse_schema::{
     model::{Cell, InvariantSpec},
 };
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "complete target fixture construction and its independent assertions are kept in execution order"
+)]
 pub(super) fn populate(
     registry: &Registry,
     invariant: &InvariantSpec,
@@ -52,9 +56,19 @@ pub(super) fn populate(
             invalid.insert(target.to_owned(), vec![]);
         }
         "demanded_method_resolved" => {
-            set(valid, relation, "status", Cell::Enum("resolved"));
+            set(
+                valid,
+                relation,
+                "outcome",
+                Cell::Struct(vec![Cell::Enum("resolved"), Cell::Struct(vec![id(1)])]),
+            );
             *invalid = valid.clone();
-            set(invalid, relation, "status", Cell::Enum("unresolved"));
+            set(
+                invalid,
+                relation,
+                "outcome",
+                Cell::Struct(vec![Cell::Enum("unresolved"), Cell::Null]),
+            );
         }
         "selection_compatible" => {
             set(valid, relation, "compatible", Cell::Bool(true));
@@ -95,7 +109,7 @@ pub(super) fn populate(
             };
             set(valid, relation, source, id(1));
             // Local predicate node IDs remain unsigned until the coherent math cut.
-            set(valid, relation, node, Cell::U64(1));
+            set(valid, relation, node, Cell::I64(1));
             let outcomes = "inferred.predicate_outcomes";
             put(registry, valid, outcomes, 1);
             set(valid, outcomes, "outcome", Cell::Enum("true"));

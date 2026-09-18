@@ -45,6 +45,7 @@ impl ScalarMath<'_> {
     /// invalid mathematical facts, cancellation, resource refusal or derivative failure.
     pub fn compile(
         &self,
+        program_id: SemanticId,
         variables: &[Column],
         schema: SchemaRef,
         state: &SessionState,
@@ -142,7 +143,9 @@ impl ScalarMath<'_> {
                     .ok_or_else(|| input("requested scalar root was not lowered"))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        EvaluationProgram::compile(&roots, variables, schema, state, reserver, cancel)
+        EvaluationProgram::compile(
+            program_id, &roots, variables, schema, state, reserver, cancel,
+        )
     }
     fn dependencies(&self) -> Result<BTreeSet<NodeId>, NumericsError> {
         let mut needed = BTreeSet::new();

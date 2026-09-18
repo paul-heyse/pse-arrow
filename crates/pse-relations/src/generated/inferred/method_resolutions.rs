@@ -4,21 +4,276 @@
 
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    253u8, 51u8, 205u8, 67u8, 76u8, 107u8, 147u8, 227u8, 105u8, 184u8, 18u8, 43u8, 130u8,
-    120u8, 18u8, 23u8,
+    147u8, 226u8, 101u8, 220u8, 49u8, 255u8, 96u8, 67u8, 190u8, 108u8, 46u8, 150u8, 70u8,
+    103u8, 44u8, 157u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "method_resolutions";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Inferred;
 /// The schema generation.
-pub const VERSION: u32 = 2u32;
+pub const VERSION: u32 = 3u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    230u8, 97u8, 159u8, 209u8, 113u8, 137u8, 93u8, 163u8, 244u8, 50u8, 219u8, 104u8,
-    50u8, 169u8, 202u8, 37u8, 243u8, 176u8, 172u8, 175u8, 131u8, 50u8, 3u8, 144u8, 117u8,
-    159u8, 207u8, 146u8, 75u8, 148u8, 139u8, 126u8,
+    161u8, 64u8, 5u8, 117u8, 218u8, 71u8, 90u8, 64u8, 175u8, 11u8, 248u8, 159u8, 209u8,
+    118u8, 128u8, 48u8, 90u8, 218u8, 68u8, 138u8, 74u8, 243u8, 223u8, 115u8, 180u8,
+    114u8, 216u8, 198u8, 127u8, 50u8, 157u8, 163u8,
 ]);
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct InferredMethodResolutionsFieldOutcomeResolved {
+    ///method_id
+    pub r#method_id: pse_ids::SemanticId,
+}
+impl crate::typed::CellCodec for InferredMethodResolutionsFieldOutcomeResolved {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![crate::typed::CellCodec::into_cell(self.r#method_id)],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(InferredMethodResolutionsFieldOutcomeResolved),
+                ),
+            );
+        };
+        if values.len() != 1usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(InferredMethodResolutionsFieldOutcomeResolved),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#method_id: <pse_ids::SemanticId as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(InferredMethodResolutionsFieldOutcomeResolved),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for InferredMethodResolutionsFieldOutcomeResolved {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#method_id,
+            children[0usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#method_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct InferredMethodResolutionsFieldOutcome {
+    ///kind
+    pub r#kind: crate::generated::enums::ResolutionStatus,
+    ///resolved
+    pub r#resolved: Option<InferredMethodResolutionsFieldOutcomeResolved>,
+}
+impl crate::typed::CellCodec for InferredMethodResolutionsFieldOutcome {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#resolved),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(stringify!(InferredMethodResolutionsFieldOutcome)),
+            );
+        };
+        if values.len() != 2usize {
+            return Err(
+                crate::typed::mismatch(stringify!(InferredMethodResolutionsFieldOutcome)),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#kind: <crate::generated::enums::ResolutionStatus as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(InferredMethodResolutionsFieldOutcome),
+                    ))?,
+            )?,
+            r#resolved: <Option<
+                InferredMethodResolutionsFieldOutcomeResolved,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(InferredMethodResolutionsFieldOutcome),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for InferredMethodResolutionsFieldOutcome {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#resolved,
+            children[1usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            InferredMethodResolutionsFieldOutcomeResolved,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#resolved: <Option<
+                InferredMethodResolutionsFieldOutcomeResolved,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// The declared selected payload, borrowed without a second row representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum InferredMethodResolutionsFieldOutcomeSelected<'a> {
+    ///ambiguous
+    Ambiguous,
+    ///resolved
+    Resolved(&'a InferredMethodResolutionsFieldOutcomeResolved),
+    ///unresolved
+    Unresolved,
+}
+impl InferredMethodResolutionsFieldOutcome {
+    #[doc = concat!("Construct the ", "ambiguous", " arm with every other arm absent.")]
+    pub fn from_ambiguous() -> Self {
+        Self {
+            r#kind: crate::generated::enums::ResolutionStatus::Ambiguous,
+            r#resolved: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "resolved", " arm with every other arm absent.")]
+    pub fn from_resolved(value: InferredMethodResolutionsFieldOutcomeResolved) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ResolutionStatus::Resolved,
+            r#resolved: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "unresolved", " arm with every other arm absent.")]
+    pub fn from_unresolved() -> Self {
+        Self {
+            r#kind: crate::generated::enums::ResolutionStatus::Unresolved,
+            r#resolved: None,
+        }
+    }
+    /// Select exactly the declared payload.
+    /// # Errors
+    /// Unknown tag, missing selected arm or any overlapping arm.
+    pub fn selected(
+        &self,
+    ) -> Result<
+        InferredMethodResolutionsFieldOutcomeSelected<'_>,
+        crate::RelationError,
+    > {
+        match (self.r#kind.as_str(), self.r#resolved.as_ref()) {
+            ("ambiguous", None) => {
+                Ok(InferredMethodResolutionsFieldOutcomeSelected::Ambiguous)
+            }
+            ("resolved", Some(value)) => {
+                Ok(InferredMethodResolutionsFieldOutcomeSelected::Resolved(value))
+            }
+            ("unresolved", None) => {
+                Ok(InferredMethodResolutionsFieldOutcomeSelected::Unresolved)
+            }
+            _ => {
+                Err(
+                    crate::typed::mismatch(
+                        "tagged value requires exactly its selected arm",
+                    ),
+                )
+            }
+        }
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,14 +284,8 @@ pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
 pub struct InferredMethodResolutionsRow {
     ///requirement_id
     pub r#requirement_id: pse_ids::SemanticId,
-    ///method_id
-    pub r#method_id: Option<pse_ids::SemanticId>,
-    ///realization
-    pub r#realization: Option<crate::generated::enums::MethodRealization>,
-    ///template_id
-    pub r#template_id: Option<pse_ids::SemanticId>,
-    ///status
-    pub r#status: crate::generated::enums::ResolutionStatus,
+    ///outcome
+    pub r#outcome: InferredMethodResolutionsFieldOutcome,
     ///Exact source derivation.
     pub r#derivation_id: pse_ids::SemanticId,
 }
@@ -45,10 +294,7 @@ impl crate::typed::CellCodec for InferredMethodResolutionsRow {
         pse_schema::model::Cell::Struct(
             vec![
                 crate::typed::CellCodec::into_cell(self.r#requirement_id),
-                crate::typed::CellCodec::into_cell(self.r#method_id),
-                crate::typed::CellCodec::into_cell(self.r#realization),
-                crate::typed::CellCodec::into_cell(self.r#template_id),
-                crate::typed::CellCodec::into_cell(self.r#status),
+                crate::typed::CellCodec::into_cell(self.r#outcome),
                 crate::typed::CellCodec::into_cell(self.r#derivation_id),
             ],
         )
@@ -57,7 +303,7 @@ impl crate::typed::CellCodec for InferredMethodResolutionsRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(InferredMethodResolutionsRow)));
         };
-        if values.len() != 6usize {
+        if values.len() != 3usize {
             return Err(crate::typed::mismatch(stringify!(InferredMethodResolutionsRow)));
         }
         let mut values = values.into_iter();
@@ -69,34 +315,7 @@ impl crate::typed::CellCodec for InferredMethodResolutionsRow {
                         stringify!(InferredMethodResolutionsRow),
                     ))?,
             )?,
-            r#method_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(InferredMethodResolutionsRow),
-                    ))?,
-            )?,
-            r#realization: <Option<
-                crate::generated::enums::MethodRealization,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(InferredMethodResolutionsRow),
-                    ))?,
-            )?,
-            r#template_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(InferredMethodResolutionsRow),
-                    ))?,
-            )?,
-            r#status: <crate::generated::enums::ResolutionStatus as crate::typed::CellCodec>::from_cell(
+            r#outcome: <InferredMethodResolutionsFieldOutcome as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -126,22 +345,10 @@ impl crate::columnar::ArrowValue for InferredMethodResolutionsRow {
             &self.r#requirement_id,
             children[0usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#method_id,
-            children[1usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#realization,
-            children[2usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#template_id,
-            children[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#status, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#derivation_id,
-            children[5usize].as_mut(),
+            children[2usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -156,20 +363,11 @@ impl crate::columnar::ArrowValue for InferredMethodResolutionsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <Option<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <Option<
-            crate::generated::enums::MethodRealization,
-        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <Option<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::append_null(
-            children[4usize].as_mut(),
+        <InferredMethodResolutionsFieldOutcome as crate::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
         )?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
+            children[2usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -185,30 +383,12 @@ impl crate::columnar::ArrowValue for InferredMethodResolutionsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#method_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
+            r#outcome: <InferredMethodResolutionsFieldOutcome as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#realization: <Option<
-                crate::generated::enums::MethodRealization,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(2usize).as_ref(),
-                index,
-            )?,
-            r#template_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
-                index,
-            )?,
-            r#status: <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
-                index,
-            )?,
             r#derivation_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
+                input.column(2usize).as_ref(),
                 index,
             )?,
         })
@@ -225,10 +405,7 @@ impl InferredMethodResolutionsRow {
     pub fn into_cells(self) -> Vec<pse_schema::model::Cell> {
         vec![
             crate::typed::CellCodec::into_cell(self.r#requirement_id),
-            crate::typed::CellCodec::into_cell(self.r#method_id),
-            crate::typed::CellCodec::into_cell(self.r#realization),
-            crate::typed::CellCodec::into_cell(self.r#template_id),
-            crate::typed::CellCodec::into_cell(self.r#status),
+            crate::typed::CellCodec::into_cell(self.r#outcome),
             crate::typed::CellCodec::into_cell(self.r#derivation_id),
         ]
     }
@@ -243,7 +420,7 @@ impl InferredMethodResolutionsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"fd33cd434c6b93e369b8122b82781217\"],[\"struct\",[[\"text\",\"inferred\"],[\"text\",\"method_resolutions\"],[\"u64\",2]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"requirement_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"requirement_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"realization\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"realization\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"MethodRealization\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"realization\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"752d525a25de5719790eec0014f36139\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"752d525a25de5719790eec0014f36139\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:MethodRealization\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:MethodRealization\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"752d525a25de5719790eec0014f36139\\\"}\"],[\"struct\",[[\"id\",\"752d525a25de5719790eec0014f36139\"],[\"text\",\"MethodRealization\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"equation_template\"],[\"null\",null],[\"bool\",false],[\"text\",\"equation_template\"]]],[\"struct\",[[\"text\",\"kernel\"],[\"null\",null],[\"bool\",false],[\"text\",\"kernel\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"status\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"status\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ResolutionStatus\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"status\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"1de629f3b81d393338f05dfbd613a79a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ResolutionStatus\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ResolutionStatus\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"],[\"struct\",[[\"id\",\"1de629f3b81d393338f05dfbd613a79a\"],[\"text\",\"ResolutionStatus\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"resolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"resolved\"]]],[\"struct\",[[\"text\",\"unresolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"unresolved\"]]],[\"struct\",[[\"text\",\"ambiguous\"],[\"null\",null],[\"bool\",false],[\"text\",\"ambiguous\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Exact source derivation.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.5 property: method_resolutions.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"fd33cd434c6b93e369b8122b82781217\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"2\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"inferred\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"93e265dc31ff6043be6c2e9646672c9d\"],[\"struct\",[[\"text\",\"inferred\"],[\"text\",\"method_resolutions\"],[\"u64\",3]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"requirement_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"requirement_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"outcome\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"ResolutionStatus\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"resolved\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"outcome\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"ambiguous\\\":null,\\\"resolved\\\":\\\"resolved\\\",\\\"unresolved\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"text\",\"outcome\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"1de629f3b81d393338f05dfbd613a79a\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:ResolutionStatus\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.fk\\\":\\\"reference.method_specs.method_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":{\\\\\\\"FixedSizeBinary\\\\\\\":16},\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.extension\\\\\\\":\\\\\\\"pse.semantic_id\\\\\\\",\\\\\\\"pse.domain.fk.column\\\\\\\":\\\\\\\"method_id\\\\\\\",\\\\\\\"pse.domain.fk.relation\\\\\\\":\\\\\\\"reference.method_specs\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"method_id\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"resolved\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"ResolutionStatus\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"resolved\\\",\\\"nullable\\\":true}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.tagged_alternative\\\":\\\"{\\\\\\\"arms\\\\\\\":{\\\\\\\"ambiguous\\\\\\\":null,\\\\\\\"resolved\\\\\\\":\\\\\\\"resolved\\\\\\\",\\\\\\\"unresolved\\\\\\\":null},\\\\\\\"discriminator\\\\\\\":\\\\\\\"kind\\\\\\\"}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"ambiguous\\\":null,\\\"resolved\\\":\\\"resolved\\\",\\\"unresolved\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ResolutionStatus\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"1de629f3b81d393338f05dfbd613a79a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ResolutionStatus\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ResolutionStatus\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"],[\"struct\",[[\"id\",\"1de629f3b81d393338f05dfbd613a79a\"],[\"text\",\"ResolutionStatus\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"resolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"resolved\"]]],[\"struct\",[[\"text\",\"unresolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"unresolved\"]]],[\"struct\",[[\"text\",\"ambiguous\"],[\"null\",null],[\"bool\",false],[\"text\",\"ambiguous\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"resolved\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"resolved\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.fk\\\":\\\"reference.method_specs.method_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.method_specs\"]]]]]]],[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.method_specs.method_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"3c35b312695b9c4cc0877c9eacfce7cb\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_specs\"],[\"u64\",2]]]]]]]]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Exact source derivation.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"text\",\"derivation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"provenance\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.5 property: method_resolutions.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"93e265dc31ff6043be6c2e9646672c9d\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"3\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"inferred\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -319,10 +496,10 @@ impl crate::columnar::RelationRow for InferredMethodResolutionsRow {
         InferredMethodResolutionsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        75_768_usize + size_of::<Self::Builder>()
+        95_448_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        128usize
+        104usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -332,40 +509,35 @@ impl crate::columnar::RelationRow for InferredMethodResolutionsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if (self.r#method_id).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(16usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#outcome).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#outcome).r#resolved).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
             }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#realization).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).as_str().len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#template_id).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(16usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            crate::columnar::allocation_add(8, (self.r#status).as_str().len())?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -381,7 +553,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "requirement_id",
@@ -389,28 +561,13 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "method_id",
+        name: "outcome",
         position: 1usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "realization",
-        position: 2usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "template_id",
-        position: 3usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "status",
-        position: 4usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
         name: "derivation_id",
-        position: 5usize,
+        position: 2usize,
     },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
@@ -419,10 +576,7 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
 pub struct InferredMethodResolutionsView<'a> {
     batch: &'a crate::RecordBatch,
     requirement_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    method_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    realization_column: &'a arrow_array::StringArray,
-    template_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    status_column: &'a arrow_array::StringArray,
+    outcome_column: &'a arrow_array::StructArray,
     derivation_id_column: &'a arrow_array::FixedSizeBinaryArray,
 }
 impl<'a> InferredMethodResolutionsView<'a> {
@@ -464,21 +618,12 @@ impl<'a> InferredMethodResolutionsView<'a> {
             requirement_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
-            method_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
+            outcome_column: crate::columnar::array::<
+                arrow_array::StructArray,
             >(batch.column(1usize).as_ref())?,
-            realization_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(2usize).as_ref())?,
-            template_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
-            >(batch.column(3usize).as_ref())?,
-            status_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(4usize).as_ref())?,
             derivation_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(2usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -507,51 +652,15 @@ impl<'a> InferredMethodResolutionsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "method_id",
+        "outcome",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn method_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.method_id_column
+    pub const fn outcome_column(&self) -> &'a arrow_array::StructArray {
+        self.outcome_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "method_id", "`.")]
-    pub fn method_id_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "outcome", "`.")]
+    pub fn outcome_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[1usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "realization",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn realization_column(&self) -> &'a arrow_array::StringArray {
-        self.realization_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "realization", "`.")]
-    pub fn realization_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[2usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "template_id",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn template_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.template_id_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "template_id", "`.")]
-    pub fn template_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "status",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn status_column(&self) -> &'a arrow_array::StringArray {
-        self.status_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "status", "`.")]
-    pub fn status_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -563,7 +672,7 @@ impl<'a> InferredMethodResolutionsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "derivation_id", "`.")]
     pub fn derivation_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[2usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -581,19 +690,7 @@ impl<'a> InferredMethodResolutionsView<'a> {
                 self.requirement_id_column,
                 index,
             )?,
-            r#method_id: crate::columnar::ArrowValue::read(
-                self.method_id_column,
-                index,
-            )?,
-            r#realization: crate::columnar::ArrowValue::read(
-                self.realization_column,
-                index,
-            )?,
-            r#template_id: crate::columnar::ArrowValue::read(
-                self.template_id_column,
-                index,
-            )?,
-            r#status: crate::columnar::ArrowValue::read(self.status_column, index)?,
+            r#outcome: crate::columnar::ArrowValue::read(self.outcome_column, index)?,
             r#derivation_id: crate::columnar::ArrowValue::read(
                 self.derivation_id_column,
                 index,
@@ -664,6 +761,16 @@ impl InferredMethodResolutionsBuilder {
         &mut self,
         row: InferredMethodResolutionsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if (row.r#outcome).selected().is_err() {
+            return Err(
+                crate::columnar::value_error(
+                    "outcome",
+                    row_index,
+                    "tagged value requires exactly its selected arm",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -672,24 +779,12 @@ impl InferredMethodResolutionsBuilder {
                     columns[0usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#method_id,
+                    &row.r#outcome,
                     columns[1usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#realization,
-                    columns[2usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#template_id,
-                    columns[3usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#status,
-                    columns[4usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
                     &row.r#derivation_id,
-                    columns[5usize].as_mut(),
+                    columns[2usize].as_mut(),
                 )?;
                 Ok(())
             })

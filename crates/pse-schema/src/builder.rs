@@ -22,10 +22,10 @@ use pse_ids::{ContentHash, SemanticId, named_id};
 use crate::error::SchemaError;
 use crate::ext_metadata;
 use crate::model::{
-    Cell, DocumentSpec, EnumDecl, EnumSpec, ExtensionUse, FieldContract, FieldTypeRow,
-    InvariantDecl, InvariantSpec, ManifestSpec, MigrationSpec, NON_DERIVABLE_NAMESPACES, Namespace,
-    PassDecl, PassSpec, PortSource, QuantityContract, RelationDecl, RelationKey, RelationSpec,
-    RuleDecl, RuleDependency, RulePlan, RuleSpec, render_data_type,
+    AlgorithmDecl, AlgorithmSpec, Cell, DocumentSpec, EnumDecl, EnumSpec, ExtensionUse,
+    FieldContract, FieldTypeRow, InvariantDecl, InvariantSpec, MigrationSpec,
+    NON_DERIVABLE_NAMESPACES, Namespace, QuantityContract, RelationDecl, RelationKey, RelationSpec,
+    RuleDecl, RuleDependency, RuleSpec, render_data_type,
 };
 
 mod integrity;
@@ -70,29 +70,23 @@ pub fn quantity_type_id(qualified_name: &str) -> SemanticId {
 /// silent equality between two different schemas, which is the failure mode a fingerprint
 /// exists to prevent. A declared relation supplies its own key, so a future version bump
 /// is picked up rather than overridden.
-const SELF_DESCRIBING_RELATIONS: [&str; 22] = [
+const SELF_DESCRIBING_RELATIONS: [&str; 16] = [
     "reference.schema_relations",
     "reference.schema_columns",
     "reference.schema_logical_types",
     "reference.schema_enums",
+    "reference.schema_enum_types",
     "reference.schema_invariants",
     "reference.schema_migrations",
-    "reference.pass_specs",
-    "reference.pass_input_ports",
-    "reference.pass_output_ports",
+    "reference.algorithm_specs",
+    "reference.algorithm_arguments",
+    "reference.algorithm_results",
     "reference.rule_specs",
-    "reference.rule_plan_nodes",
-    "reference.rule_aggregates",
-    "reference.rule_group_keys",
-    "reference.rule_unnest",
-    "reference.rule_plan_edges",
     "reference.rule_dependencies",
-    "reference.rule_expr_nodes",
-    "reference.rule_expr_edges",
-    "reference.rule_expr_calls",
     "reference.operator_specs",
     "reference.schema_documents",
     "reference.schema_document_sections",
+    "reference.artifact_profiles",
 ];
 
 /// The assembled, immutable registry.
@@ -116,20 +110,22 @@ pub struct Registry {
     enums: Vec<EnumSpec>,
     /// Sorted by name.
     logical_types: Vec<FieldTypeRow>,
+    /// Resolved native Arrow storage in the same name order; compiled once.
+    logical_storage: Vec<arrow_schema::DataType>,
     /// Sorted by `<relation>:<name>`.
     invariants: Vec<InvariantSpec>,
     /// Sorted by `<relation>@<from>-><to>`.
     migrations: Vec<MigrationSpec>,
     /// Sorted by `<name>@<version>`.
-    passes: Vec<PassSpec>,
+    algorithms: Vec<AlgorithmSpec>,
     /// Sorted by `<name>@<version>`.
     rules: Vec<RuleSpec>,
     /// Derived from the rule plans at assembly, sorted.
     rule_dependencies: Vec<RuleDependency>,
     /// Sorted by name.
     documents: Vec<DocumentSpec>,
-    /// The declared manifest envelope, when a catalog module declared one.
-    manifest: Option<ManifestSpec>,
+    /// Required member declarations by artifact kind, independent of execution order.
+    artifact_profiles: BTreeMap<String, BTreeSet<SemanticId>>,
     /// Immutable projection of the completed declarations, materialized during assembly.
     self_description: Vec<(RelationKey, Vec<Vec<Cell>>)>,
     /// Exact compiled declaration projection, aligned with the immutable relations.
@@ -137,6 +133,11 @@ pub struct Registry {
 }
 
 impl Registry {
+    /// Complete required relation identities for a declared artifact kind. Empty
+    /// profiles still require explicit member inventory and all member obligations.
+    pub fn artifact_profile(&self, name: &str) -> Option<&BTreeSet<SemanticId>> {
+        self.artifact_profiles.get(name)
+    }
     /// The registry's package identity (ADR-0050).
     pub const fn package_id(&self) -> SemanticId {
         self.package_id
@@ -222,6 +223,34 @@ impl Registry {
         &self.logical_types
     }
 
+    fn compile_logical_storage(&self) -> Result<Vec<arrow_schema::DataType>, SchemaError> {
+        self.logical_types
+            .iter()
+            .map(|logical| {
+                let storage: arrow_schema::DataType = serde_json::from_str(&logical.arrow_storage)
+                    .map_err(|error| crate::checks::invalid(&logical.name, error.to_string()))?;
+                if logical.extension_name.as_ref().is_some_and(|name| {
+                    crate::model::EXTENSION_TYPES
+                        .iter()
+                        .any(|spec| spec.name == name)
+                }) {
+                    Ok(storage)
+                } else {
+                    crate::arrow::bind_type(self, &storage, &logical.name)
+                }
+            })
+            .collect()
+    }
+
+    /// The resolved native Arrow storage for a registered logical type.
+    /// JSON catalog rows are an interchange representation, not a runtime parser.
+    pub fn logical_storage(&self, name: &str) -> Option<&arrow_schema::DataType> {
+        self.logical_types
+            .binary_search_by(|row| row.name.as_str().cmp(name))
+            .ok()
+            .and_then(|index| self.logical_storage.get(index))
+    }
+
     /// The logical type of that registry name, for example `enum:Namespace`.
     pub fn logical_type(&self, name: &str) -> Option<&FieldTypeRow> {
         self.logical_types
@@ -249,14 +278,14 @@ impl Registry {
     }
 
     /// Every declared pass, sorted by `<name>@<version>`.
-    pub fn passes(&self) -> &[PassSpec] {
-        &self.passes
+    pub fn algorithms(&self) -> &[AlgorithmSpec] {
+        &self.algorithms
     }
 
     /// The pass of that name (`P2`) or qualified name (`P2@1`).
-    pub fn pass(&self, name: &str) -> Option<&PassSpec> {
+    pub fn algorithm(&self, name: &str) -> Option<&AlgorithmSpec> {
         let mut candidates = self
-            .passes
+            .algorithms
             .iter()
             .filter(|pass| pass.name == name || pass.qualified_name() == name);
         let candidate = candidates.next()?;
@@ -289,11 +318,6 @@ impl Registry {
         &self.documents
     }
 
-    /// The declared `pse.manifest.v2` envelope (blueprint §20.2).
-    pub const fn manifest(&self) -> Option<&ManifestSpec> {
-        self.manifest.as_ref()
-    }
-
     /// The registry as its own rows: `reference.schema_*`, `reference.pass_*` and
     /// `reference.rule_*`, each primary-key sorted with its cells in column order
     /// (blueprint §4.1).
@@ -321,23 +345,36 @@ impl Registry {
                 "reference.schema_columns" => self.schema_columns_rows()?,
                 "reference.schema_logical_types" => self.schema_logical_types_rows(),
                 "reference.schema_enums" => self.schema_enums_rows()?,
+                "reference.schema_enum_types" => self
+                    .enums
+                    .iter()
+                    .map(|spec| {
+                        vec![
+                            Cell::Id(spec.id),
+                            Cell::text(spec.name),
+                            Cell::opt_text(spec.idaes_source),
+                        ]
+                    })
+                    .collect(),
                 "reference.schema_invariants" => self.schema_invariants_rows(),
                 "reference.schema_migrations" => self.schema_migrations_rows(),
-                "reference.pass_specs" => self.pass_specs_rows(),
-                "reference.pass_input_ports" => self.pass_input_ports_rows(),
-                "reference.pass_output_ports" => self.pass_output_ports_rows(),
+                "reference.algorithm_specs" => self.algorithm_specs_rows(),
+                "reference.algorithm_arguments" => self.algorithm_arguments_rows(),
+                "reference.algorithm_results" => self.algorithm_results_rows(),
                 "reference.rule_specs" => self.rule_specs_rows(),
-                "reference.rule_plan_nodes" => self.rule_plan_nodes_rows(),
-                "reference.rule_aggregates" => self.rule_aggregates_rows(),
-                "reference.rule_group_keys" => self.rule_group_keys_rows(),
-                "reference.rule_unnest" => self.rule_unnest_rows(),
-                "reference.rule_plan_edges" => self.rule_plan_edges_rows(),
                 "reference.rule_dependencies" => self.rule_dependencies_rows(),
-                "reference.rule_expr_nodes" => self.rule_expression_rows().nodes,
-                "reference.rule_expr_edges" => self.rule_expression_rows().edges,
-                "reference.rule_expr_calls" => self.rule_expression_rows().calls,
                 "reference.schema_documents" => self.document_rows(),
                 "reference.schema_document_sections" => self.document_section_rows()?,
+                "reference.artifact_profiles" => self
+                    .artifact_profiles
+                    .iter()
+                    .map(|(name, members)| {
+                        vec![
+                            Cell::text(name),
+                            Cell::List(members.iter().copied().map(Cell::Id).collect()),
+                        ]
+                    })
+                    .collect(),
                 _ => crate::catalog::s7_operators::rows(),
             };
             let key = spec.map_or_else(
@@ -433,6 +470,12 @@ impl Registry {
                 spec.checks
                     .iter()
                     .map(|(name, sql)| Cell::Struct(vec![Cell::text(name), Cell::text(sql)]))
+                    .collect(),
+            ),
+            Cell::List(
+                spec.delta_properties
+                    .iter()
+                    .map(|(name, value)| Cell::Struct(vec![Cell::text(name), Cell::text(value)]))
                     .collect(),
             ),
         ]
@@ -546,7 +589,16 @@ impl Registry {
                     Cell::Id(invariant.id),
                     Cell::opt_id(self.relation(&invariant.relation).map(|spec| spec.id)),
                     Cell::Enum(invariant.kind.as_str()),
-                    Cell::opt_id(self.rule(&invariant.rule).map(|rule| rule.id)),
+                    Cell::text(&invariant.query),
+                    Cell::List(invariant.inputs.iter().map(Cell::text).collect()),
+                    Cell::List(
+                        invariant
+                            .key_columns
+                            .iter()
+                            .copied()
+                            .map(Cell::text)
+                            .collect(),
+                    ),
                     Cell::Enum(invariant.severity.as_str()),
                     Cell::text(invariant.doc),
                 ]
@@ -570,9 +622,9 @@ impl Registry {
             .collect()
     }
 
-    /// Every `reference.pass_specs` row.
-    fn pass_specs_rows(&self) -> Vec<Vec<Cell>> {
-        self.passes
+    /// Every `reference.algorithm_specs` row.
+    fn algorithm_specs_rows(&self) -> Vec<Vec<Cell>> {
+        self.algorithms
             .iter()
             .map(|pass| {
                 vec![
@@ -604,42 +656,45 @@ impl Registry {
             .collect()
     }
 
-    /// Every `reference.pass_input_ports` row.
-    fn pass_input_ports_rows(&self) -> Vec<Vec<Cell>> {
-        self.passes
+    /// Every `reference.algorithm_arguments` row.
+    fn algorithm_arguments_rows(&self) -> Vec<Vec<Cell>> {
+        self.algorithms
             .iter()
             .flat_map(|pass| {
                 pass.inputs.iter().map(move |input| {
-                    let (source_pass, source_port) = match input.source {
-                        PortSource::Pinned => (None, None),
-                        PortSource::Derived { pass, port } => (Some(pass), Some(port)),
-                    };
                     vec![
                         Cell::Id(pass.id),
-                        Cell::text(input.port),
+                        Cell::text(&input.port),
                         Cell::opt_id(self.relation(&input.relation).map(|spec| spec.id)),
-                        Cell::opt_id(
-                            source_pass
-                                .and_then(|name| self.pass(name))
-                                .map(|spec| spec.id),
-                        ),
-                        Cell::opt_text(source_port),
                         Cell::Bool(input.required),
+                        match &input.consumption {
+                            crate::model::algorithm::InputConsumption::Whole => {
+                                Cell::Struct(vec![Cell::Enum("whole"), Cell::Null])
+                            }
+                            crate::model::algorithm::InputConsumption::Columns(columns) => {
+                                Cell::Struct(vec![
+                                    Cell::Enum("columns"),
+                                    Cell::Struct(vec![Cell::List(
+                                        columns.iter().map(Cell::text).collect(),
+                                    )]),
+                                ])
+                            }
+                        },
                     ]
                 })
             })
             .collect()
     }
 
-    /// Every `reference.pass_output_ports` row.
-    fn pass_output_ports_rows(&self) -> Vec<Vec<Cell>> {
-        self.passes
+    /// Every `reference.algorithm_results` row.
+    fn algorithm_results_rows(&self) -> Vec<Vec<Cell>> {
+        self.algorithms
             .iter()
             .flat_map(|pass| {
                 pass.outputs.iter().map(move |output| {
                     vec![
                         Cell::Id(pass.id),
-                        Cell::text(output.port),
+                        Cell::text(&output.port),
                         Cell::opt_id(self.relation(&output.relation).map(|spec| spec.id)),
                     ]
                 })
@@ -655,229 +710,28 @@ impl Registry {
                 vec![
                     Cell::Id(rule.id),
                     Cell::text(rule.version),
-                    Cell::U64(u64::from(rule.stratum)),
-                    Cell::opt_id(self.relation(rule.head.relation()).map(|spec| spec.id)),
+                    Cell::I64(i64::from(rule.stratum)),
+                    Cell::opt_id(self.relation(&rule.head).map(|spec| spec.id)),
                     Cell::opt_id(
                         rule.assertion_relation
                             .as_deref()
                             .and_then(|name| self.relation(name))
                             .map(|spec| spec.id),
                     ),
-                    Cell::Id(rule_node_id(rule, ROOT_NODE_PATH)),
+                    Cell::List(
+                        rule.queries
+                            .iter()
+                            .map(|query| {
+                                Cell::Struct(vec![Cell::text(query.truth), Cell::text(&query.sql)])
+                            })
+                            .collect(),
+                    ),
                     Cell::Enum(rule.negation.as_str()),
                     Cell::Bool(rule.monotonic),
                     Cell::Enum(rule.conflict_policy.as_str()),
-                    Cell::Enum(rule.head.kind().as_str()),
-                    Cell::List(match &rule.head {
-                        crate::model::RuleHead::Relation(_) => Vec::new(),
-                        crate::model::RuleHead::Violations { key_columns, .. } => key_columns
-                            .iter()
-                            .map(|column| Cell::text(*column))
-                            .collect(),
-                    }),
                 ]
             })
             .collect()
-    }
-
-    /// Every `reference.rule_plan_nodes` row.
-    fn rule_plan_nodes_rows(&self) -> Vec<Vec<Cell>> {
-        let mut rows = Vec::new();
-        for rule in &self.rules {
-            for (path, node) in walk_plan(&rule.plan) {
-                let (relation, port) = match node {
-                    RulePlan::Scan { relation, port } => (Some(relation.as_str()), Some(*port)),
-                    _ => (None, None),
-                };
-                let keys = match node {
-                    RulePlan::EquiJoin { keys, .. } | RulePlan::AntiJoin { keys, .. } => Some(keys),
-                    _ => None,
-                };
-                let predicate = match node {
-                    RulePlan::Filter { .. } | RulePlan::Assert { .. } => {
-                        Some(rule_expr_id(rule, &path, "predicate"))
-                    }
-                    _ => None,
-                };
-                let projection = match node {
-                    RulePlan::Project { columns, .. } => Some(Cell::List(
-                        columns
-                            .iter()
-                            .enumerate()
-                            .map(|(index, (name, _))| {
-                                Cell::Struct(vec![
-                                    Cell::text(name.as_ref()),
-                                    Cell::Id(rule_expr_id(
-                                        rule,
-                                        &path,
-                                        &format!("project:{index}"),
-                                    )),
-                                ])
-                            })
-                            .collect(),
-                    )),
-                    _ => None,
-                };
-                rows.push(vec![
-                    Cell::Id(rule_node_id(rule, &path)),
-                    Cell::Id(rule.id),
-                    Cell::Enum(node.op()),
-                    Cell::opt_id(
-                        relation
-                            .and_then(|name| self.relation(name))
-                            .map(|spec| spec.id),
-                    ),
-                    Cell::opt_text(port),
-                    keys.map_or(Cell::Null, |keys| {
-                        Cell::List(
-                            keys.iter()
-                                .map(|(left, right)| {
-                                    Cell::Struct(vec![
-                                        Cell::text(left.as_ref()),
-                                        Cell::text(right.as_ref()),
-                                    ])
-                                })
-                                .collect(),
-                        )
-                    }),
-                    Cell::opt_id(predicate),
-                    projection.unwrap_or(Cell::Null),
-                    Cell::Null,
-                    Cell::text(""),
-                    Cell::opt_enum(match node {
-                        RulePlan::EquiJoin { null_equality, .. } => Some(null_equality.as_str()),
-                        _ => None,
-                    }),
-                    Cell::opt_text(match node {
-                        RulePlan::Recursive { name, .. } | RulePlan::RecursiveRef { name } => {
-                            Some(*name)
-                        }
-                        _ => None,
-                    }),
-                    Cell::opt_id(recursive_target(rule, &path, node)),
-                    match node {
-                        RulePlan::Recursive { is_distinct, .. } => Cell::Bool(*is_distinct),
-                        RulePlan::Union(_) => Cell::Bool(false),
-                        _ => Cell::Null,
-                    },
-                    Cell::opt_enum(match node {
-                        RulePlan::Recursive { depth_bound, .. } => Some(depth_bound.as_str()),
-                        _ => None,
-                    }),
-                    match node {
-                        RulePlan::Recursive { depth_bound, .. } => depth_bound
-                            .limit()
-                            .map_or(Cell::Null, |bound| Cell::U64(u64::from(bound))),
-                        _ => Cell::Null,
-                    },
-                ]);
-            }
-        }
-        rows
-    }
-
-    /// Every `reference.rule_aggregates` row.
-    fn rule_aggregates_rows(&self) -> Vec<Vec<Cell>> {
-        let mut rows = Vec::new();
-        for rule in &self.rules {
-            for (path, node) in walk_plan(&rule.plan) {
-                let RulePlan::Aggregate { aggregates, .. } = node else {
-                    continue;
-                };
-                for (ordinal, aggregate) in aggregates.iter().enumerate() {
-                    rows.push(vec![
-                        Cell::Id(rule_node_id(rule, &path)),
-                        Cell::U64(count(ordinal)),
-                        Cell::Enum(aggregate.function.as_str()),
-                        Cell::opt_id(
-                            aggregate.input.as_ref().map(|_| {
-                                rule_expr_id(rule, &path, &format!("aggregate:{ordinal}"))
-                            }),
-                        ),
-                        Cell::text(aggregate.output_name.as_ref()),
-                        Cell::List(
-                            aggregate
-                                .order_by
-                                .iter()
-                                .map(|(column, ascending)| {
-                                    Cell::Struct(vec![
-                                        Cell::text(column.as_ref()),
-                                        Cell::Bool(*ascending),
-                                    ])
-                                })
-                                .collect(),
-                        ),
-                        Cell::Enum(aggregate.null_policy.as_str()),
-                        Cell::Enum(aggregate.empty_policy.as_str()),
-                    ]);
-                }
-            }
-        }
-        rows
-    }
-
-    /// Every `reference.rule_group_keys` row.
-    fn rule_group_keys_rows(&self) -> Vec<Vec<Cell>> {
-        let mut rows = Vec::new();
-        for rule in &self.rules {
-            for (path, node) in walk_plan(&rule.plan) {
-                let RulePlan::Aggregate { group, .. } = node else {
-                    continue;
-                };
-                for (ordinal, column) in group.iter().enumerate() {
-                    rows.push(vec![
-                        Cell::Id(rule_node_id(rule, &path)),
-                        Cell::U64(count(ordinal)),
-                        Cell::text(column.as_ref()),
-                    ]);
-                }
-            }
-        }
-        rows
-    }
-
-    /// Every `reference.rule_unnest` row.
-    fn rule_unnest_rows(&self) -> Vec<Vec<Cell>> {
-        let mut rows = Vec::new();
-        for rule in &self.rules {
-            for (path, node) in walk_plan(&rule.plan) {
-                let RulePlan::Unnest {
-                    column,
-                    value_name,
-                    null_list,
-                    empty_list,
-                    ..
-                } = node
-                else {
-                    continue;
-                };
-                rows.push(vec![
-                    Cell::Id(rule_node_id(rule, &path)),
-                    Cell::text(column.as_ref()),
-                    Cell::text(value_name.as_ref()),
-                    Cell::Enum(null_list.as_str()),
-                    Cell::Enum(empty_list.as_str()),
-                ]);
-            }
-        }
-        rows
-    }
-
-    /// Every `reference.rule_plan_edges` row.
-    fn rule_plan_edges_rows(&self) -> Vec<Vec<Cell>> {
-        let mut rows = Vec::new();
-        for rule in &self.rules {
-            for (path, node) in walk_plan(&rule.plan) {
-                for (ordinal, _) in node.children().iter().enumerate() {
-                    rows.push(vec![
-                        Cell::Id(rule_node_id(rule, &path)),
-                        Cell::U64(count(ordinal)),
-                        Cell::Id(rule_node_id(rule, &child_path(&path, ordinal))),
-                    ]);
-                }
-            }
-        }
-        rows
     }
 
     /// Every `reference.rule_dependencies` row.
@@ -890,7 +744,7 @@ impl Registry {
                     Cell::Id(dependency.relation_id),
                     Cell::opt_text(dependency.input_port),
                     Cell::Enum(dependency.mode.as_str()),
-                    Cell::U64(u64::from(dependency.stratum)),
+                    Cell::I64(i64::from(dependency.stratum)),
                     Cell::Id(named_id(
                         dependency.rule_id,
                         &format!(
@@ -906,55 +760,8 @@ impl Registry {
             .collect()
     }
 
-    fn rule_expression_rows(&self) -> RuleExpressionRows {
-        let mut nodes = Vec::new();
-        let mut edges = Vec::new();
-        let mut calls = Vec::new();
-        for rule in &self.rules {
-            for (path, node) in walk_plan(&rule.plan) {
-                let expressions: Vec<(String, &crate::model::RuleExpr)> = match node {
-                    RulePlan::Filter { predicate, .. } | RulePlan::Assert { predicate, .. } => {
-                        vec![("predicate".to_owned(), predicate)]
-                    }
-                    RulePlan::Project { columns, .. } => columns
-                        .iter()
-                        .enumerate()
-                        .map(|(ordinal, (_, expr))| (format!("project:{ordinal}"), expr))
-                        .collect(),
-                    RulePlan::Aggregate { aggregates, .. } => aggregates
-                        .iter()
-                        .enumerate()
-                        .filter_map(|(ordinal, aggregate)| {
-                            aggregate
-                                .input
-                                .as_ref()
-                                .map(|expr| (format!("aggregate:{ordinal}"), expr))
-                        })
-                        .collect(),
-                    _ => Vec::new(),
-                };
-                for (slot, expression) in expressions {
-                    emit_expression(
-                        rule,
-                        &path,
-                        &slot,
-                        ExpressionNode::Expr(expression),
-                        &mut nodes,
-                        &mut edges,
-                        &mut calls,
-                    );
-                }
-            }
-        }
-        RuleExpressionRows {
-            nodes,
-            edges,
-            calls,
-        }
-    }
-
     /// The identity of the invariant named `<relation>:<name>`.
-    fn invariant_id(&self, qualified_name: &str) -> Option<SemanticId> {
+    pub fn invariant_id(&self, qualified_name: &str) -> Option<SemanticId> {
         self.invariants
             .iter()
             .find(|invariant| invariant.qualified_name() == qualified_name)
@@ -962,136 +769,7 @@ impl Registry {
     }
 }
 
-struct RuleExpressionRows {
-    nodes: Vec<Vec<Cell>>,
-    edges: Vec<Vec<Cell>>,
-    calls: Vec<Vec<Cell>>,
-}
-
-fn recursive_target(rule: &RuleSpec, path: &str, node: &RulePlan) -> Option<SemanticId> {
-    let RulePlan::RecursiveRef { name } = node else {
-        return None;
-    };
-    walk_plan(&rule.plan)
-        .into_iter()
-        .filter(|(parent, candidate)| {
-            matches!(candidate, RulePlan::Recursive { name: binder, .. } if binder == name)
-                && (path == format!("{parent}.1") || path.starts_with(&format!("{parent}.1.")))
-        })
-        .max_by_key(|(parent, _)| parent.len())
-        .map(|(parent, _)| rule_node_id(rule, &parent))
-}
-
-#[derive(Clone, Copy)]
-enum ExpressionNode<'a> {
-    Expr(&'a crate::model::RuleExpr),
-    Literal(&'a Cell),
-}
-
-fn emit_expression(
-    rule: &RuleSpec,
-    path: &str,
-    slot: &str,
-    node: ExpressionNode<'_>,
-    nodes: &mut Vec<Vec<Cell>>,
-    edges: &mut Vec<Vec<Cell>>,
-    calls: &mut Vec<Vec<Cell>>,
-) {
-    use crate::model::RuleExpr as E;
-    let node = match node {
-        ExpressionNode::Expr(E::Lit(value)) => ExpressionNode::Literal(value),
-        other => other,
-    };
-    let id = rule_expr_id(rule, path, slot);
-    let mut row = vec![
-        Cell::Id(id),
-        Cell::Id(rule.id),
-        Cell::Enum(match node {
-            ExpressionNode::Expr(expr) => expr.op(),
-            ExpressionNode::Literal(_) => "lit",
-        }),
-    ];
-    row.extend(std::iter::repeat_n(Cell::Null, 11));
-    match node {
-        ExpressionNode::Expr(E::Col(name)) => row[3] = Cell::text(name.as_ref()),
-        ExpressionNode::Expr(E::Cmp { op, .. }) => row[4] = Cell::Enum(op.as_str()),
-        ExpressionNode::Expr(E::Field { name, .. }) => row[5] = Cell::text(name.as_ref()),
-        ExpressionNode::Expr(E::Call {
-            function,
-            result,
-            nullable,
-            ..
-        }) => {
-            calls.push(vec![
-                Cell::Id(id),
-                Cell::text(function),
-                Cell::text(result.to_string()),
-                Cell::Bool(*nullable),
-            ]);
-        }
-        ExpressionNode::Literal(value) => {
-            row[6] = Cell::Enum(value.literal_kind().as_str());
-            match value {
-                Cell::Bool(value) => row[7] = Cell::Bool(*value),
-                Cell::I64(value) => row[8] = Cell::I64(*value),
-                Cell::U64(value) => row[9] = Cell::U64(*value),
-                Cell::F64(value) => row[10] = Cell::U64(value.to_bits()),
-                Cell::Text(value) => row[11] = Cell::text(value.clone()),
-                Cell::Enum(value) => row[11] = Cell::text(*value),
-                Cell::Id(value) => row[12] = Cell::Id(*value),
-                Cell::Hash(value) => row[13] = Cell::Hash(*value),
-                Cell::Null | Cell::List(_) | Cell::Struct(_) => {}
-            }
-        }
-        ExpressionNode::Expr(_) => {}
-    }
-    nodes.push(row);
-    for (ordinal, child) in expression_children(node).into_iter().enumerate() {
-        let child_slot = format!("{slot}.{ordinal}");
-        edges.push(vec![
-            Cell::Id(id),
-            Cell::U64(count(ordinal)),
-            Cell::Id(rule_expr_id(rule, path, &child_slot)),
-        ]);
-        emit_expression(rule, path, &child_slot, child, nodes, edges, calls);
-    }
-}
-
-fn expression_children(node: ExpressionNode<'_>) -> Vec<ExpressionNode<'_>> {
-    use crate::model::RuleExpr as E;
-    match node {
-        ExpressionNode::Literal(Cell::List(values) | Cell::Struct(values)) => {
-            values.iter().map(ExpressionNode::Literal).collect()
-        }
-        ExpressionNode::Literal(_) | ExpressionNode::Expr(E::Col(_) | E::Lit(_)) => Vec::new(),
-        ExpressionNode::Expr(E::And(values) | E::Or(values) | E::Call { args: values, .. }) => {
-            values.iter().map(ExpressionNode::Expr).collect()
-        }
-        ExpressionNode::Expr(
-            E::Cmp { l, r, .. } | E::IsDistinctFrom(l, r) | E::IsNotDistinctFrom(l, r),
-        ) => vec![ExpressionNode::Expr(l), ExpressionNode::Expr(r)],
-        ExpressionNode::Expr(E::InList { expr, list }) => {
-            std::iter::once(ExpressionNode::Expr(expr))
-                .chain(list.iter().map(ExpressionNode::Literal))
-                .collect()
-        }
-        ExpressionNode::Expr(
-            E::Not(expr)
-            | E::IsNull(expr)
-            | E::IsNotNull(expr)
-            | E::Field { expr, .. }
-            | E::ListLen(expr)
-            | E::IsTrue(expr)
-            | E::IsFalse(expr)
-            | E::IsUnknown(expr),
-        ) => vec![ExpressionNode::Expr(expr)],
-    }
-}
-
-/// The path of the root plan node.
-const ROOT_NODE_PATH: &str = "0";
-
-/// Checked projection of a declaration position into canonical signed storage.
+/// reach.
 fn signed_ordinal(ordinal: usize) -> Result<Cell, SchemaError> {
     i64::try_from(ordinal)
         .map(Cell::I64)
@@ -1099,52 +777,6 @@ fn signed_ordinal(ordinal: usize) -> Result<Cell, SchemaError> {
             context: "registry ordinal".into(),
             reason: error.to_string(),
         })
-}
-
-/// An ordinal as a row count cell.
-///
-/// The saturating conversion is unreachable on every supported target; it exists because
-/// the crate's panic policy has no room for an `expect` only a 128-bit address space could
-/// reach.
-fn count(ordinal: usize) -> u64 {
-    u64::try_from(ordinal).unwrap_or(u64::MAX)
-}
-
-/// The path of the `ordinal`-th child of the node at `parent`.
-fn child_path(parent: &str, ordinal: usize) -> String {
-    format!("{parent}.{ordinal}")
-}
-
-/// Every `(preorder path, node)` of a rule plan.
-fn walk_plan(plan: &RulePlan) -> Vec<(String, &RulePlan)> {
-    let mut out = Vec::new();
-    walk_plan_into(plan, ROOT_NODE_PATH.to_owned(), &mut out);
-    out
-}
-
-/// Appends `plan` and its descendants to `out` under `path`.
-fn walk_plan_into<'a>(plan: &'a RulePlan, path: String, out: &mut Vec<(String, &'a RulePlan)>) {
-    for (ordinal, child) in plan.children().into_iter().enumerate() {
-        walk_plan_into(child, child_path(&path, ordinal), out);
-    }
-    out.push((path, plan));
-}
-
-/// The identity of a rule plan node: `rule_node:<rule>@<v>:<preorder path>` (ADR-0050).
-pub fn rule_node_id(rule: &RuleSpec, path: &str) -> SemanticId {
-    registry_id(&format!("rule_node:{}:{path}", rule.qualified_name()))
-}
-
-/// The identity of an expression graph attached to a rule plan node.
-///
-/// `slot` names which expression of the node it is — `predicate`, `project:<n>` or
-/// `aggregate:<n>` — because one node can carry several. Packet A-3's `expr_family`
-/// serializer emits the `reference.rule_expr_*` rows under these identities.
-pub fn rule_expr_id(rule: &RuleSpec, path: &str, slot: &str) -> SemanticId {
-    registry_id(&format!(
-        "rule_expr:{}:{path}:{slot}",
-        rule.qualified_name()
-    ))
 }
 
 /// Sorts `rows` by the relation's declared primary key (blueprint §5.3 step 1).
@@ -1253,18 +885,24 @@ pub struct RegistryBuilder {
     /// Rules, in declaration order.
     rules: Vec<RuleDecl>,
     /// Passes, in declaration order.
-    passes: Vec<PassDecl>,
+    algorithms: Vec<AlgorithmDecl>,
     /// Migrations, in declaration order.
     migrations: Vec<MigrationSpec>,
     /// Authoring document shapes, in declaration order.
     documents: Vec<DocumentSpec>,
-    /// The manifest envelope, if declared.
-    manifest: Option<ManifestSpec>,
-    /// A duplicate singleton remains an admission failure instead of an overwrite.
-    duplicate_manifest: bool,
+    artifact_profiles: Vec<(String, BTreeSet<String>)>,
 }
 
 impl RegistryBuilder {
+    /// Declare artifact completeness once, referencing authoritative relation names.
+    pub fn declare_artifact_profile(&mut self, name: &str, members: BTreeSet<String>) -> &mut Self {
+        self.artifact_profiles.push((name.into(), members));
+        self
+    }
+    /// Native signatures can supply profile requirements without restating outputs.
+    pub fn declared_algorithms(&self) -> &[AlgorithmDecl] {
+        &self.algorithms
+    }
     /// Project declared field/relation integrity into the same executable rule catalog.
     /// Exact existing projections are retained; conflicting declarations remain errors.
     pub(crate) fn derive_integrity(&mut self) {
@@ -1318,8 +956,8 @@ impl RegistryBuilder {
     }
 
     /// Declares a pass.
-    pub fn declare_pass(&mut self, decl: PassDecl) -> &mut Self {
-        self.passes.push(decl);
+    pub fn declare_algorithm(&mut self, decl: AlgorithmDecl) -> &mut Self {
+        self.algorithms.push(decl);
         self
     }
 
@@ -1335,13 +973,6 @@ impl RegistryBuilder {
         self
     }
 
-    /// Declares the `pse.manifest.v2` envelope (blueprint §20.2).
-    pub fn declare_manifest(&mut self, spec: ManifestSpec) -> &mut Self {
-        self.duplicate_manifest |= self.manifest.is_some();
-        self.manifest = Some(spec);
-        self
-    }
-
     /// Resolves every declaration into an immutable [`Registry`].
     ///
     /// # Errors
@@ -1350,16 +981,8 @@ impl RegistryBuilder {
     /// [`SchemaError::UnknownReference`] for a dangling foreign key, enumeration,
     /// per-row-quantity sibling, primary-key column, invariant relation or rule head;
     /// [`SchemaError::MissingGranularity`] for a derived relation without one;
-    /// [`SchemaError::StageGraph`] for a duplicate output port, an unresolved derived
-    /// input port, or a compiler output port targeting `authored` or `reference`;
     /// [`SchemaError::RuleFloatKey`] for a rule that keys on an `f64` column.
     pub fn build(mut self) -> Result<Registry, SchemaError> {
-        if self.duplicate_manifest {
-            return Err(SchemaError::DuplicateDeclaration {
-                kind: "manifest",
-                name: "manifest".to_owned(),
-            });
-        }
         let relations = self.resolve_relations()?;
         self.derive_integrity();
         let relation_index = index_relations(&relations);
@@ -1379,16 +1002,19 @@ impl RegistryBuilder {
             relation_by_id,
             enums,
             logical_types,
+            logical_storage: Vec::new(),
             invariants: Vec::new(),
             migrations: Vec::new(),
-            passes: Vec::new(),
+            algorithms: Vec::new(),
             rules: Vec::new(),
             rule_dependencies: Vec::new(),
             documents: Vec::new(),
-            manifest: self.manifest,
+            artifact_profiles: BTreeMap::new(),
             self_description: Vec::new(),
             compiled_declarations: Vec::new(),
         };
+
+        registry.logical_storage = registry.compile_logical_storage()?;
 
         check_relation_references(&registry)?;
         registry.rules = resolve_rules(self.rules, &registry)?;
@@ -1398,10 +1024,36 @@ impl RegistryBuilder {
         registry
             .invariants
             .sort_by_key(InvariantSpec::qualified_name);
-        registry.passes = resolve_passes(self.passes, &registry)?;
-        registry.passes.sort_by_key(PassSpec::qualified_name);
+        registry.algorithms = resolve_algorithms(self.algorithms, &registry)?;
+        registry
+            .algorithms
+            .sort_by_key(AlgorithmSpec::qualified_name);
         registry.migrations = resolve_migrations(self.migrations, &registry)?;
         registry.documents = resolve_documents(self.documents, &registry)?;
+        for (name, members) in self.artifact_profiles {
+            let members = members
+                .into_iter()
+                .map(|relation| {
+                    registry
+                        .relation(&relation)
+                        .map(|spec| spec.id)
+                        .ok_or_else(|| SchemaError::UnknownReference {
+                            context: format!("artifact profile {name}"),
+                            reference: relation,
+                        })
+                })
+                .collect::<Result<_, _>>()?;
+            if registry
+                .artifact_profiles
+                .insert(name.clone(), members)
+                .is_some()
+            {
+                return Err(SchemaError::DuplicateDeclaration {
+                    kind: "artifact profile",
+                    name,
+                });
+            }
+        }
         crate::checks::documents(&registry.documents, &registry)?;
         crate::checks::run(&registry)?;
 
@@ -1460,6 +1112,7 @@ impl RegistryBuilder {
                 })?,
                 columns: decl.columns.clone(),
                 checks: decl.checks.clone(),
+                delta_properties: decl.delta_properties.clone(),
                 doc: decl.doc,
                 fingerprint: ContentHash::NIL,
             });
@@ -1783,23 +1436,23 @@ fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSp
         if !seen.insert(name.clone()) {
             return Err(SchemaError::DuplicateDeclaration { kind: "rule", name });
         }
-        if registry.relation(decl.head.relation()).is_none() {
+        if registry.relation(&decl.head).is_none() {
             return Err(SchemaError::UnknownReference {
                 context: format!("head of rule {name}"),
-                reference: decl.head.relation().to_owned(),
+                reference: decl.head.clone(),
             });
         }
-        if matches!(decl.head, crate::model::RuleHead::Relation(_))
-            && registry
-                .relation(decl.head.relation())
-                .is_some_and(|relation| NON_DERIVABLE_NAMESPACES.contains(&relation.key.namespace))
+        if registry
+            .relation(&decl.head)
+            .is_some_and(|relation| NON_DERIVABLE_NAMESPACES.contains(&relation.key.namespace))
         {
             return Err(crate::checks::invalid(
                 format!("head of rule {name}"),
                 "a derived rule cannot write authored or reference facts",
             ));
         }
-        for (relation, _, _) in decl.plan.dependencies() {
+        for input in &decl.inputs {
+            let relation = input.relation.as_str();
             if registry.relation(relation).is_none() {
                 return Err(SchemaError::UnknownReference {
                     context: format!("body of rule {name}"),
@@ -1807,7 +1460,29 @@ fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSp
                 });
             }
         }
-        crate::model::rule_validation::validate(&name, &decl.plan, &decl.head, registry)?;
+        if decl.queries.is_empty()
+            || decl.queries.iter().any(|query| {
+                query.sql.trim().is_empty() || !["true", "false", "unknown"].contains(&query.truth)
+            })
+        {
+            return Err(crate::checks::invalid(
+                format!("rule {name}"),
+                "native assertion queries require SQL and a valid truth outcome",
+            ));
+        }
+        let mut ports = BTreeMap::new();
+        for input in &decl.inputs {
+            if input.mode == crate::model::DependencyMode::Write
+                || ports
+                    .insert(input.port, &input.relation)
+                    .is_some_and(|previous| previous != &input.relation)
+            {
+                return Err(crate::checks::invalid(
+                    format!("rule {name}"),
+                    "input ports must name one read scope",
+                ));
+            }
+        }
         out.push(RuleSpec {
             id: registry_id(&format!("rule:{name}")),
             name: decl.name,
@@ -1815,7 +1490,8 @@ fn resolve_rules(decls: Vec<RuleDecl>, registry: &Registry) -> Result<Vec<RuleSp
             stratum: decl.stratum,
             head: decl.head,
             assertion_relation: decl.assertion_relation,
-            plan: decl.plan,
+            queries: decl.queries,
+            inputs: decl.inputs,
             negation: decl.negation,
             monotonic: decl.monotonic,
             conflict_policy: decl.conflict_policy,
@@ -1849,17 +1525,31 @@ fn resolve_invariants(
                 reference: decl.relation.clone(),
             });
         }
-        let Some(rule) = registry.rule(&decl.rule) else {
-            return Err(SchemaError::UnknownReference {
-                context: format!("invariant {name}"),
-                reference: decl.rule.clone(),
-            });
-        };
-        if !matches!(&rule.head, crate::model::RuleHead::Violations { of, .. } if of == &decl.relation)
+        if decl.query.trim().is_empty() || !decl.inputs.contains(&decl.relation) {
+            return Err(crate::checks::invalid(
+                format!("invariant {name}"),
+                "native query must bind its constrained relation",
+            ));
+        }
+        for input in &decl.inputs {
+            if registry.relation(input).is_none() {
+                return Err(SchemaError::UnknownReference {
+                    context: format!("invariant {name}"),
+                    reference: input.clone(),
+                });
+            }
+        }
+        let target = registry
+            .relation(&decl.relation)
+            .ok_or_else(|| crate::checks::invalid(format!("invariant {name}"), "unknown target"))?;
+        if decl
+            .key_columns
+            .iter()
+            .any(|key| target.column(key).is_none())
         {
             return Err(crate::checks::invalid(
                 format!("invariant {name}"),
-                "the exact rule must report violations for the constrained relation",
+                "unknown offending key",
             ));
         }
         out.push(InvariantSpec {
@@ -1867,7 +1557,9 @@ fn resolve_invariants(
             name: decl.name,
             relation: decl.relation,
             kind: decl.kind,
-            rule: decl.rule,
+            query: decl.query,
+            inputs: decl.inputs,
+            key_columns: decl.key_columns,
             severity: decl.severity,
             doc: decl.doc,
         });
@@ -1875,48 +1567,44 @@ fn resolve_invariants(
     Ok(out)
 }
 
-/// Assigns identities to the pass declarations and checks the port graph.
+/// Assign identities and validate native argument, result and obligation declarations.
 ///
 /// # Errors
 ///
 /// [`SchemaError::DuplicateDeclaration`], [`SchemaError::UnknownReference`] or
-/// [`SchemaError::StageGraph`].
-fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassSpec>, SchemaError> {
+/// Invalid declaration or unresolved relation contract.
+fn resolve_algorithms(
+    decls: Vec<AlgorithmDecl>,
+    registry: &Registry,
+) -> Result<Vec<AlgorithmSpec>, SchemaError> {
     let mut seen: BTreeSet<String> = BTreeSet::new();
     let mut out = Vec::with_capacity(decls.len());
     for decl in decls {
         let name = format!("{}@{}", decl.name, decl.version);
         if !seen.insert(name.clone()) {
-            return Err(SchemaError::DuplicateDeclaration { kind: "pass", name });
+            return Err(SchemaError::DuplicateDeclaration {
+                kind: "algorithm",
+                name,
+            });
         }
-        let mut ports: BTreeSet<&'static str> = BTreeSet::new();
+        let mut ports: BTreeSet<&str> = BTreeSet::new();
         for output in &decl.outputs {
-            if !ports.insert(output.port) {
+            if !ports.insert(output.port.as_str()) {
                 return Err(SchemaError::DuplicateDeclaration {
                     kind: "output port",
                     name: format!("{name}.{}", output.port),
                 });
             }
-            let target = registry.relation(&output.relation).ok_or_else(|| {
-                SchemaError::UnknownReference {
-                    context: format!("output port {name}.{}", output.port),
+            registry
+                .relation(&output.relation)
+                .ok_or_else(|| SchemaError::UnknownReference {
+                    context: format!("result {name}.{}", output.port),
                     reference: output.relation.clone(),
-                }
-            })?;
-            if pass_ordinal(decl.name).is_some_and(|ordinal| ordinal >= 3)
-                && NON_DERIVABLE_NAMESPACES.contains(&target.key.namespace)
-            {
-                return Err(SchemaError::StageGraph {
-                    reason: format!(
-                        "{name} outputs {} into `{}`; compilation writes neither authored nor reference relations (blueprint §14.1)",
-                        output.port, target.key.namespace
-                    ),
-                });
-            }
+                })?;
         }
         let mut input_ports = BTreeSet::new();
         for input in &decl.inputs {
-            if !input_ports.insert(input.port) {
+            if !input_ports.insert(input.port.as_str()) {
                 return Err(SchemaError::DuplicateDeclaration {
                     kind: "input port",
                     name: format!("{name}.{}", input.port),
@@ -1927,6 +1615,25 @@ fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassS
                     context: format!("input port {name}.{}", input.port),
                     reference: input.relation.clone(),
                 });
+            }
+            if let crate::model::algorithm::InputConsumption::Columns(columns) = &input.consumption
+            {
+                let relation = registry
+                    .relation(&input.relation)
+                    .ok_or_else(|| crate::checks::invalid(&name, "argument relation absent"))?;
+                if columns
+                    .iter()
+                    .any(|name| !relation.columns.iter().any(|field| field.name() == name))
+                    || relation
+                        .primary_key
+                        .iter()
+                        .any(|name| !columns.contains(*name))
+                {
+                    return Err(crate::checks::invalid(
+                        &name,
+                        "argument projection must name existing root fields and include every primary key",
+                    ));
+                }
             }
         }
         for conditions in [&decl.preconditions, &decl.postconditions] {
@@ -1946,9 +1653,9 @@ fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassS
                 }
             }
         }
-        check_pass_diagnostics(&decl, registry)?;
-        out.push(PassSpec {
-            id: registry_id(&format!("pass:{name}")),
+        check_algorithm_diagnostics(&decl, registry)?;
+        out.push(AlgorithmSpec {
+            id: registry_id(&format!("algorithm:{name}")),
             name: decl.name,
             version: decl.version,
             inputs: decl.inputs,
@@ -1960,11 +1667,13 @@ fn resolve_passes(decls: Vec<PassDecl>, registry: &Registry) -> Result<Vec<PassS
             effects: decl.effects,
         });
     }
-    check_derived_ports(&out)?;
     Ok(out)
 }
 
-fn check_pass_diagnostics(decl: &PassDecl, registry: &Registry) -> Result<(), SchemaError> {
+fn check_algorithm_diagnostics(
+    decl: &AlgorithmDecl,
+    registry: &Registry,
+) -> Result<(), SchemaError> {
     let mut seen = BTreeSet::new();
     for diagnostic in &decl.diagnostics {
         if !seen.insert(diagnostic) {
@@ -1986,60 +1695,6 @@ fn check_pass_diagnostics(decl: &PassDecl, registry: &Registry) -> Result<(), Sc
                 context: format!("diagnostic of {}@{}", decl.name, decl.version),
                 reference: format!("FailureClass.{diagnostic}"),
             });
-        }
-    }
-    Ok(())
-}
-
-/// The `n` of a pass named `P<n>`, when the name has that shape (blueprint §14.1).
-fn pass_ordinal(name: &str) -> Option<u16> {
-    name.strip_prefix('P').and_then(|rest| rest.parse().ok())
-}
-
-/// Resolves every derived input port against its producing pass.
-///
-/// # Errors
-///
-/// [`SchemaError::StageGraph`].
-fn check_derived_ports(passes: &[PassSpec]) -> Result<(), SchemaError> {
-    for pass in passes {
-        for input in &pass.inputs {
-            let PortSource::Derived { pass: from, port } = input.source else {
-                continue;
-            };
-            let mut candidates = passes
-                .iter()
-                .filter(|candidate| candidate.name == from || candidate.qualified_name() == from);
-            let producer = candidates.next().ok_or_else(|| SchemaError::StageGraph {
-                reason: format!(
-                    "{}.{} reads {from}.{port}, and no pass named {from} is declared",
-                    pass.name, input.port
-                ),
-            })?;
-            if candidates.next().is_some() {
-                return Err(SchemaError::StageGraph {
-                    reason: format!(
-                        "{}.{} names ambiguous producer {from}; qualify its version",
-                        pass.name, input.port
-                    ),
-                });
-            }
-            let Some(output) = producer.output(port) else {
-                return Err(SchemaError::StageGraph {
-                    reason: format!(
-                        "{}.{} reads {from}.{port}, and {from} declares no such output port",
-                        pass.name, input.port
-                    ),
-                });
-            };
-            if output.relation != input.relation {
-                return Err(SchemaError::StageGraph {
-                    reason: format!(
-                        "{}.{} requires {}, but {from}.{port} produces {}",
-                        pass.name, input.port, input.relation, output.relation
-                    ),
-                });
-            }
         }
     }
     Ok(())
@@ -2140,6 +1795,63 @@ mod tests {
     }
 
     #[test]
+    fn argument_projection_refuses_unknown_fields_and_missing_keys() {
+        use crate::model::algorithm::InputConsumption;
+        let build = |columns: &[&str]| {
+            let mut builder = RegistryBuilder::new();
+            builder.declare_relation(simple("argument"));
+            builder.declare_algorithm(
+                AlgorithmDecl::new("projection", "1", crate::model::Determinism::Deterministic)
+                    .inputs(vec![crate::model::ArgumentSpec {
+                        port: "values".into(),
+                        relation: "authored.argument".into(),
+                        required: true,
+                        consumption: InputConsumption::Columns(
+                            columns.iter().map(|name| (*name).into()).collect(),
+                        ),
+                    }]),
+            );
+            builder.build()
+        };
+        assert!(build(&["id"]).is_ok());
+        assert!(build(&[]).is_err());
+        assert!(build(&["id", "unknown"]).is_err());
+    }
+
+    #[test]
+    fn native_table_policy_changes_identity_and_survives_cold_metadata() {
+        let build = |value: &str| {
+            let mut builder = RegistryBuilder::new();
+            builder.declare_relation(
+                simple("policy")
+                    .delta_properties([("delta.logRetentionDuration".into(), value.into())]),
+            );
+            builder.build().unwrap()
+        };
+        let before = build("interval 30 days");
+        let after = build("interval 60 days");
+        let spec = before.relation("authored.policy").unwrap();
+        assert_ne!(
+            spec.fingerprint,
+            after.relation("authored.policy").unwrap().fingerprint
+        );
+        let schema = crate::arrow::relation_schema(&before, spec).unwrap();
+        assert_eq!(
+            crate::arrow::delta_properties(&schema).unwrap(),
+            spec.delta_properties
+        );
+        let mut metadata = schema.metadata().clone();
+        metadata.insert(crate::arrow::KEY_DELTA_PROPERTIES.into(),
+            "{\"delta.logRetentionDuration\":\"30 days\",\"delta.logRetentionDuration\":\"60 days\"}".into());
+        assert!(crate::arrow::delta_properties(&schema.with_metadata(metadata)).is_err());
+        let mut builder = RegistryBuilder::new();
+        builder.declare_relation(
+            simple("bad").delta_properties([("delta.constraints.shadow".into(), "true".into())]),
+        );
+        assert!(builder.build().is_err());
+    }
+
+    #[test]
     fn the_package_id_is_the_frozen_vector() {
         assert_eq!(
             REGISTRY_PACKAGE_ID.to_hex(),
@@ -2164,6 +1876,35 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn artifact_profiles_are_declared_reflected_and_identity_bearing() {
+        let build = |required: BTreeSet<String>| {
+            let mut builder = RegistryBuilder::new();
+            builder.declare_relation(simple("a"));
+            builder.declare_artifact_profile("test", required);
+            builder.build()
+        };
+        let full = build(["authored.a".into()].into_iter().collect()).unwrap();
+        let empty = build(BTreeSet::new()).unwrap();
+        assert_ne!(full.fingerprint(), empty.fingerprint());
+        assert_eq!(
+            full.artifact_profile("test").unwrap(),
+            &[full.relation("authored.a").unwrap().id]
+                .into_iter()
+                .collect()
+        );
+        assert!(
+            full.schema_rows_ref()
+                .iter()
+                .any(|(key, rows)| key.name == "artifact_profiles" && rows.len() == 1)
+        );
+        assert!(build(["authored.absent".into()].into_iter().collect()).is_err());
+        let mut duplicate = RegistryBuilder::new();
+        duplicate.declare_artifact_profile("test", BTreeSet::new());
+        duplicate.declare_artifact_profile("test", BTreeSet::new());
+        assert!(duplicate.build().is_err());
     }
 
     #[test]

@@ -4,7 +4,6 @@
 """Typed rows in the provenance namespace."""
 
 import builtins as b
-from datetime import datetime
 
 import attrs
 
@@ -110,10 +109,10 @@ class ProvenanceDemandActiveReadAssertionsRow:
     symbol_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     guard_source_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    guard_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    guard_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     guard_index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     outer_guard_source_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    outer_guard_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    outer_guard_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
 
 @attrs.frozen(kw_only=True)
@@ -190,10 +189,8 @@ class ProvenanceDerivationsRow:
     relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     rule_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    pass_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    algorithm_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     supporting: b.tuple[ProvenanceDerivationsFieldSupportingItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenanceDerivationsFieldSupportingItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    snapshot_id: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    fingerprint: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
 
 
 @attrs.frozen(kw_only=True)
@@ -473,6 +470,321 @@ class ProvenanceInvalidIndexAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectTotalPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectTotalPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectTotalPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectTotalPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectTotalPhaseFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectTotalPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectTotalPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectTotal:
+    """Declared relation row or nested value."""
+
+    phase: ProvenanceLawApplicationAssertionsFieldSubjectTotalPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectTotalPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhaseFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectEnergy:
+    """Declared relation row or nested value."""
+
+    phase: ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectEnergyPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhaseFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectMomentum:
+    """Declared relation row or nested value."""
+
+    phase: ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectMomentumPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMemberFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhaseFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectSpecies:
+    """Declared relation row or nested value."""
+
+    member: ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMember = attrs.field(validator=attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectSpeciesMember))
+    phase: ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectSpeciesPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectElementMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectElementMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectElementMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectElementMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectElementMemberFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectElementMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectElementMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectElementPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectElementPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectElementPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectElementPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectElementPhaseFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectElementPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectElementPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectElement:
+    """Declared relation row or nested value."""
+
+    member: ProvenanceLawApplicationAssertionsFieldSubjectElementMember = attrs.field(validator=attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectElementMember))
+    phase: ProvenanceLawApplicationAssertionsFieldSubjectElementPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectElementPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMemberFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhaseFixed)))
+    axis: ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpecies:
+    """Declared relation row or nested value."""
+
+    member: ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMember = attrs.field(validator=attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesMember))
+    phase: ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhase = attrs.field(validator=attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpeciesPhase))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawApplicationAssertionsFieldSubject:
+    """Declared relation row or nested value."""
+
+    kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
+    total: ProvenanceLawApplicationAssertionsFieldSubjectTotal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectTotal)))
+    energy: ProvenanceLawApplicationAssertionsFieldSubjectEnergy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectEnergy)))
+    momentum: ProvenanceLawApplicationAssertionsFieldSubjectMomentum | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectMomentum)))
+    species: ProvenanceLawApplicationAssertionsFieldSubjectSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectSpecies)))
+    element: ProvenanceLawApplicationAssertionsFieldSubjectElement | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectElement)))
+    phase_species: ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubjectPhaseSpecies)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "element" and self.element is not None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "energy" and self.element is None and self.energy is not None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "momentum" and self.element is None and self.energy is None and self.momentum is not None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "phase_species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is not None and self.species is None and self.total is None) or (self.kind == "species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is not None and self.total is None) or (self.kind == "total" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class ProvenanceLawApplicationAssertionsRow:
     """Declared relation row or nested value."""
 
@@ -488,11 +800,7 @@ class ProvenanceLawApplicationAssertionsRow:
     law_family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    subject_kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
-    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    subject_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    subject: ProvenanceLawApplicationAssertionsFieldSubject = attrs.field(validator=attrs.validators.instance_of(ProvenanceLawApplicationAssertionsFieldSubject))
     source_family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
     subject_projection: e.LawSubjectProjection = attrs.field(validator=attrs.validators.instance_of(e.LawSubjectProjection))
     expansion: e.LawExpansion = attrs.field(validator=attrs.validators.instance_of(e.LawExpansion))
@@ -542,6 +850,35 @@ class ProvenanceLawOrderedTermAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenanceLawParticipationAssertionsFieldDecisionIncluded:
+    """Declared relation row or nested value."""
+
+    sign: e.ContributionSign = attrs.field(validator=attrs.validators.instance_of(e.ContributionSign))
+    conversion_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawParticipationAssertionsFieldDecisionExcluded:
+    """Declared relation row or nested value."""
+
+    reason: e.ParticipationExclusionReason = attrs.field(validator=attrs.validators.instance_of(e.ParticipationExclusionReason))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceLawParticipationAssertionsFieldDecision:
+    """Declared relation row or nested value."""
+
+    kind: e.ParticipationDecision = attrs.field(validator=attrs.validators.instance_of(e.ParticipationDecision))
+    included: ProvenanceLawParticipationAssertionsFieldDecisionIncluded | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawParticipationAssertionsFieldDecisionIncluded)))
+    excluded: ProvenanceLawParticipationAssertionsFieldDecisionExcluded | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceLawParticipationAssertionsFieldDecisionExcluded)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "excluded" and self.excluded is not None and self.included is None) or (self.kind == "included" and self.excluded is None and self.included is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class ProvenanceLawParticipationAssertionsRow:
     """Declared relation row or nested value."""
 
@@ -550,9 +887,7 @@ class ProvenanceLawParticipationAssertionsRow:
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
     application_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     contribution_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    decision: e.ParticipationDecision = attrs.field(validator=attrs.validators.instance_of(e.ParticipationDecision))
-    reason: e.ParticipationReason = attrs.field(validator=attrs.validators.instance_of(e.ParticipationReason))
-    sign: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
+    decision: ProvenanceLawParticipationAssertionsFieldDecision = attrs.field(validator=attrs.validators.instance_of(ProvenanceLawParticipationAssertionsFieldDecision))
 
 
 @attrs.frozen(kw_only=True)
@@ -575,8 +910,8 @@ class ProvenanceMaterialCheckAssertionsRow:
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     material_system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    phase_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    species_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    phase_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    species_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -588,7 +923,7 @@ class ProvenanceMaterialCountAssertionsRow:
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
     material_system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     kind: e.DomainKind = attrs.field(validator=attrs.validators.instance_of(e.DomainKind))
-    count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -620,6 +955,26 @@ class ProvenanceMethodCompatibilityAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenanceMethodResolutionAssertionsFieldOutcomeResolved:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenanceMethodResolutionAssertionsFieldOutcome:
+    """Declared relation row or nested value."""
+
+    kind: e.ResolutionStatus = attrs.field(validator=attrs.validators.instance_of(e.ResolutionStatus))
+    resolved: ProvenanceMethodResolutionAssertionsFieldOutcomeResolved | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenanceMethodResolutionAssertionsFieldOutcomeResolved)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "ambiguous" and self.resolved is None) or (self.kind == "resolved" and self.resolved is not None) or (self.kind == "unresolved" and self.resolved is None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class ProvenanceMethodResolutionAssertionsRow:
     """Declared relation row or nested value."""
 
@@ -627,125 +982,15 @@ class ProvenanceMethodResolutionAssertionsRow:
     rule_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
     requirement_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    method_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    realization: e.MethodRealization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.MethodRealization)))
-    template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    status: e.ResolutionStatus = attrs.field(validator=attrs.validators.instance_of(e.ResolutionStatus))
+    outcome: ProvenanceMethodResolutionAssertionsFieldOutcome = attrs.field(validator=attrs.validators.instance_of(ProvenanceMethodResolutionAssertionsFieldOutcome))
 
 
 @attrs.frozen(kw_only=True)
 class ProvenanceNodeRewritesRow:
     """Declared relation row or nested value."""
 
-    input_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    output_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldPlanEvidenceItem:
-    """Declared relation row or nested value."""
-
-    encoding_checksum: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    encoding: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    codec_version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldRulesFiredItem:
-    """Declared relation row or nested value."""
-
-    plan_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    rule_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldFindingsItemEvidenceRow:
-    """Declared relation row or nested value."""
-
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldFindingsItemEvidenceExecution:
-    """Declared relation row or nested value."""
-
-    failure_class: e.FailureClass = attrs.field(validator=attrs.validators.instance_of(e.FailureClass))
-    diagnostic_code: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    attempt_error: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldFindingsItemEvidence:
-    """Declared relation row or nested value."""
-
-    kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    row: ProvenancePassRecordsFieldFindingsItemEvidenceRow | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItemEvidenceRow)))
-    execution: ProvenancePassRecordsFieldFindingsItemEvidenceExecution | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItemEvidenceExecution)))
-
-    def __attrs_post_init__(self) -> None:
-        if not ((self.kind == "execution" and self.execution is not None and self.row is None) or (self.kind == "row" and self.execution is None and self.row is not None)):
-            message = "tagged value requires exactly its selected arm"
-            raise ValueError(message)
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldFindingsItem:
-    """Declared relation row or nested value."""
-
-    finding_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    subject_snapshot: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    run_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    check_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    severity: e.FindingSeverity = attrs.field(validator=attrs.validators.instance_of(e.FindingSeverity))
-    subjects: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    evidence: ProvenancePassRecordsFieldFindingsItemEvidence = attrs.field(validator=attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItemEvidence))
-    message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    next_steps: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldDerivationsItemSupportingItem:
-    """Declared relation row or nested value."""
-
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsFieldDerivationsItem:
-    """Declared relation row or nested value."""
-
-    derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    rule_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    pass_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    supporting: b.tuple[ProvenancePassRecordsFieldDerivationsItemSupportingItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldDerivationsItemSupportingItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    snapshot_id: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    fingerprint: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenancePassRecordsRow:
-    """Declared relation row or nested value."""
-
-    pass_run_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    pass_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    snapshot_in: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    snapshot_out: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    engine_profile_hash: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
-    plan_evidence: b.tuple[ProvenancePassRecordsFieldPlanEvidenceItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldPlanEvidenceItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    plan_explain: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    rules_fired: b.tuple[ProvenancePassRecordsFieldRulesFiredItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldRulesFiredItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    duration_ms: b.float = attrs.field(validator=v.finite_float)
-    finding_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-    status: e.PassStatus = attrs.field(validator=attrs.validators.instance_of(e.PassStatus))
-    findings: b.tuple[ProvenancePassRecordsFieldFindingsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldFindingsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    failure_class: e.FailureClass | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.FailureClass)))
-    derivations: b.tuple[ProvenancePassRecordsFieldDerivationsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(ProvenancePassRecordsFieldDerivationsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    input_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    output_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -843,6 +1088,26 @@ class ProvenancePotentialMethodCandidateAssertionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved:
+    """Declared relation row or nested value."""
+
+    method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class ProvenancePotentialMethodResolutionAssertionsFieldOutcome:
+    """Declared relation row or nested value."""
+
+    kind: e.ResolutionStatus = attrs.field(validator=attrs.validators.instance_of(e.ResolutionStatus))
+    resolved: ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "ambiguous" and self.resolved is None) or (self.kind == "resolved" and self.resolved is not None) or (self.kind == "unresolved" and self.resolved is None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class ProvenancePotentialMethodResolutionAssertionsRow:
     """Declared relation row or nested value."""
 
@@ -850,10 +1115,7 @@ class ProvenancePotentialMethodResolutionAssertionsRow:
     rule_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     truth: e.TruthValue = attrs.field(validator=attrs.validators.instance_of(e.TruthValue))
     requirement_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    method_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    realization: e.MethodRealization | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.MethodRealization)))
-    template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    status: e.ResolutionStatus = attrs.field(validator=attrs.validators.instance_of(e.ResolutionStatus))
+    outcome: ProvenancePotentialMethodResolutionAssertionsFieldOutcome = attrs.field(validator=attrs.validators.instance_of(ProvenancePotentialMethodResolutionAssertionsFieldOutcome))
 
 
 @attrs.frozen(kw_only=True)
@@ -876,8 +1138,8 @@ class ProvenancePropertyReadOccurrencesRow:
     read_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    read_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    guard_predicate_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    read_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    guard_predicate_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
 
 
 @attrs.frozen(kw_only=True)
@@ -891,16 +1153,6 @@ class ProvenancePropertyRequirementAssertionsRow:
     state_scope_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     property_kind_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class ProvenanceRefsRow:
-    """Declared relation row or nested value."""
-
-    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    snapshot_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    manifest_checksum: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    updated_at: datetime = attrs.field(validator=v.utc_timestamp)
 
 
 @attrs.frozen(kw_only=True)

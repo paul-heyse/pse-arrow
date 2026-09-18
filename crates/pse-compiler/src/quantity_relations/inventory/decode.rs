@@ -21,6 +21,10 @@ use pse_relations::{
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "inventory keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) fn inventory(
     batches: &BTreeMap<RelationKey, FieldCheckedBatch>,
     registry: &Registry,
@@ -150,12 +154,32 @@ pub(super) fn inventory(
             reference_rule: enumeration(row.reference_rule.as_str(), ReferenceRule::parse)?,
             scale_rule: enumeration(row.scale_rule.as_str(), QuantityScaleRule::parse)?,
             shape_rule: enumeration(row.shape_rule.as_str(), QuantityShapeRule::parse)?,
-            basis_source: row.basis_source,
-            reference_source: row.reference_source,
-            scale_source: row.scale_source,
-            shape_source: row.shape_source,
+            basis_source: row
+                .basis_source
+                .map(u16::try_from)
+                .transpose()
+                .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
+            reference_source: row
+                .reference_source
+                .map(u16::try_from)
+                .transpose()
+                .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
+            scale_source: row
+                .scale_source
+                .map(u16::try_from)
+                .transpose()
+                .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
+            shape_source: row
+                .shape_source
+                .map(u16::try_from)
+                .transpose()
+                .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
             subject_rule: enumeration(row.subject_rule.as_str(), SubjectRule::parse)?,
-            subject_source: row.subject_source,
+            subject_source: row
+                .subject_source
+                .map(u16::try_from)
+                .transpose()
+                .map_err(|_| invalid("quantity operand ordinal exceeds declared width"))?,
             result_subject_kind: row
                 .result_subject_kind
                 .map(|x| enumeration(x.as_str(), SubjectKind::parse))
@@ -165,11 +189,14 @@ pub(super) fn inventory(
             input_conversions: row
                 .input_conversions
                 .into_iter()
-                .map(|x| InputConversion {
-                    operand: x.operand,
-                    conversion: ConversionId::from_id(x.conversion_id),
+                .map(|x| {
+                    Ok(InputConversion {
+                        operand: u16::try_from(x.operand)
+                            .map_err(|_| invalid("conversion operand exceeds declared width"))?,
+                        conversion: ConversionId::from_id(x.conversion_id),
+                    })
                 })
-                .collect(),
+                .collect::<Result<_, CompilerError>>()?,
             precondition_invariants: row
                 .precondition_invariant_ids
                 .into_iter()

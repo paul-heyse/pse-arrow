@@ -6,6 +6,7 @@ use super::{
     Axis, BTreeMap, BTreeSet, CompilerError, Context, Coordinate, Extra, IndexEvaluator, Inventory,
     NodeId, Payload, Read, SemanticId, Support, Target, ValueRef, invalid, n, unique,
 };
+use crate::mathir_relations::domain::DomainValue;
 use pse_ids::CancellationToken;
 use pse_relations::generated::enums::PathTargetKind;
 
@@ -43,9 +44,7 @@ pub(super) async fn assignments(
         support.insert(evaluator.inventory.origin(binder)?);
         let domain = evaluator.inventory.domain(
             &context.instance.row,
-            binder.row.domain_id,
-            binder.row.template_id,
-            binder.row.domain_name.as_deref(),
+            &binder.row.domain.domain_ref()?,
             &mut support,
         )?;
         let members = evaluator.inventory.members(domain, &mut support)?;
@@ -111,7 +110,7 @@ pub(super) fn guard_index(
     axes.into_iter()
         .enumerate()
         .map(|(position, axis)| {
-            if usize::from(axis.row.position) != position {
+            if usize::try_from(axis.row.position).ok() != Some(position) {
                 return Err(invalid("guard axis positions are incomplete"));
             }
             bindings
@@ -122,6 +121,10 @@ pub(super) fn guard_index(
         .collect()
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "targets keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) fn targets(
     evaluator: &IndexEvaluator<'_>,
     extra: &Extra,

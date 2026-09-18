@@ -1,309 +1,160 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! One mechanical projection of declared integrity into ordinary rule programs.
-
+//! Mechanical integrity declarations expressed directly in native SQL.
 use super::RegistryBuilder;
-use crate::model::{
-    AggregateEmptyPolicy, AggregateNullPolicy, Cell, CmpOp, EmptyListPolicy, ExtensionUse,
-    FieldContract, InvariantDecl, InvariantKind, NullEquality, NullListPolicy, RelationDecl,
-    RuleAggregate, RuleAggregateFn, RuleDecl, RuleExpr, RuleHead, RulePlan,
+use crate::{
+    catalog::inv::{columns, declare as invariant, identifier, table},
+    model::{ExtensionUse, FieldContract, InvariantKind, RelationDecl},
 };
 use arrow_schema::DataType;
-use std::{borrow::Cow, collections::BTreeSet};
-
-type Name = Cow<'static, str>;
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
     for relation in builder.relations.clone() {
-        if relation.primary_key.is_none() {
-            // The relation declaration validator reports the missing identity.
+        let Some(keys) = relation.primary_key.as_deref() else {
             continue;
-        }
-        let mut used = relation
-            .columns
-            .iter()
-            .map(|column| column.name().to_owned())
-            .collect();
-        let count_name = fresh(&mut used, "__pse_count");
-        let names = Names {
-            value: fresh(&mut used, "__pse_integrity_value"),
-            item: fresh(&mut used, "__pse_integrity_item"),
-            count: fresh(&mut used, "__pse_integrity_count"),
-            left: fresh(&mut used, "__pse_integrity_left"),
-            right: fresh(&mut used, "__pse_integrity_right"),
         };
         let name = relation.key.qualified_name();
-        let repeated = filter(
-            RulePlan::Aggregate {
-                input: Box::new(scan(&name, "subject")),
-                group: keys(&relation).iter().map(|name| (*name).into()).collect(),
-                aggregates: vec![count(count_name.clone())],
-            },
-            RuleExpr::cmp(
-                CmpOp::Gt,
-                RuleExpr::col(count_name),
-                RuleExpr::Lit(Cell::U64(1)),
-            ),
-        );
-        install(
+        let source = table(&name);
+        let group = columns(keys, "s");
+        let query = if keys.is_empty() {
+            format!("SELECT COUNT(*) AS violations FROM {source} s HAVING COUNT(*) > 1")
+        } else {
+            format!("SELECT {group} FROM {source} s GROUP BY {group} HAVING COUNT(*) > 1")
+        };
+        invariant(
             builder,
-            &relation,
+            &name,
             "unique:pk",
             InvariantKind::Unique,
-            project(repeated, keys(&relation), None),
+            keys,
+            query,
+            &[&name],
             "The declared primary key identifies exactly one row.",
         );
-        for column in &relation.columns {
-            if let Some(fk) = column.fk() {
-                let missing = RulePlan::AntiJoin {
-                    left: Box::new(filter(
-                        scan(&name, "subject"),
-                        present(column.name().to_owned().into()),
-                    )),
-                    right: Box::new(scan(fk.relation, "referenced")),
-                    keys: vec![(column.name().to_owned().into(), fk.column.to_owned().into())],
-                };
-                install(
+        for field in &relation.columns {
+            if let Some(fk) = field.fk() {
+                let key = identifier(field.name());
+                let target = table(fk.relation);
+                let target_key = identifier(fk.column);
+                let projection = projection(keys, "s");
+                invariant(
                     builder,
-                    &relation,
-                    &format!("foreign_key:{}", column.name()),
+                    &name,
+                    &format!("foreign_key:{}", field.name()),
                     InvariantKind::ForeignKey,
-                    RulePlan::Distinct(Box::new(project(missing, keys(&relation), None))),
+                    keys,
+                    format!(
+                        "SELECT DISTINCT {projection} FROM {source} s WHERE s.{key} IS NOT NULL AND NOT EXISTS (SELECT 1 FROM {target} t WHERE s.{key} = t.{target_key})"
+                    ),
+                    &[&name, fk.relation],
                     "Every present foreign-key value resolves to its declared relation and column.",
                 );
             }
-            if has_ordinal(&column.value_type()) {
-                let input = project(
-                    scan(&name, "subject"),
-                    keys(&relation),
-                    Some((names.value.clone(), RuleExpr::col(column.name().to_owned()))),
+            if has_ordinal(field) {
+                let mut value = "__pse_ordinal_value".to_owned();
+                while relation.columns.iter().any(|field| field.name() == value) {
+                    value.push('_');
+                }
+                let prefix = if keys.is_empty() {
+                    String::new()
+                } else {
+                    format!("{}, ", columns(keys, "s"))
+                };
+                let input = format!(
+                    "SELECT {prefix}s.{} AS {} FROM {source} s",
+                    identifier(field.name()),
+                    identifier(&value)
                 );
-                ordinals(
-                    builder,
-                    &relation,
-                    &column.value_type(),
-                    column.name(),
-                    input,
-                    &names,
-                );
+                ordinals(builder, &relation, field, field.name(), &input, &value);
             }
         }
     }
 }
-
-// Aliases belong to this finite plan construction, never to the declared row model.
-struct Names {
-    value: Name,
-    item: Name,
-    count: Name,
-    left: Name,
-    right: Name,
-}
-fn fresh(used: &mut BTreeSet<String>, stem: &str) -> Name {
-    let mut name = stem.to_owned();
-    while used.contains(&name) {
-        name.push('_');
+fn projection(keys: &[&str], alias: &str) -> String {
+    if keys.is_empty() {
+        "TRUE AS singleton".into()
+    } else {
+        columns(keys, alias)
     }
-    used.insert(name.clone());
-    name.into()
 }
-
-fn has_ordinal(ty: &FieldContract) -> bool {
-    matches!(ty.extension(), Some(ExtensionUse::OrdinalRef { .. }))
-        || ty.children().iter().any(has_ordinal)
+fn has_ordinal(field: &FieldContract) -> bool {
+    matches!(field.extension(), Some(ExtensionUse::OrdinalRef { .. }))
+        || field.children().iter().any(has_ordinal)
 }
-
 fn ordinals(
     builder: &mut RegistryBuilder,
     relation: &RelationDecl,
-    ty: &FieldContract,
+    field: &FieldContract,
     path: &str,
-    input: RulePlan,
-    names: &Names,
+    input: &str,
+    value: &str,
 ) {
-    match (ty.extension(), ty.data_type()) {
+    let name = relation.key.qualified_name();
+    let keys = relation.primary_key.as_deref().unwrap_or_default();
+    let prefix = if keys.is_empty() {
+        String::new()
+    } else {
+        format!("{}, ", columns(keys, "s"))
+    };
+    let address = format!("s.{}", identifier(value));
+    match (field.extension(), field.data_type()) {
         (Some(ExtensionUse::OrdinalRef { target }), _) => {
-            ordinal_range(builder, relation, target, path, input, names);
-        }
-        (None, DataType::List(item) | DataType::FixedSizeList(item, _))
-            if has_ordinal(&FieldContract::from_field((*item).clone())) =>
-        {
-            let expanded = RulePlan::Unnest {
-                input: Box::new(input),
-                column: names.value.clone(),
-                value_name: names.item.clone(),
-                null_list: NullListPolicy::NoMembers,
-                empty_list: EmptyListPolicy::NoMembers,
-            };
-            let projected = project(
-                expanded,
-                keys(relation),
-                Some((names.value.clone(), RuleExpr::col(names.item.clone()))),
-            );
-            ordinals(
+            invariant(
                 builder,
-                relation,
-                &FieldContract::from_field((*item).clone()),
-                &format!("{path}[]"),
-                projected,
-                names,
+                &name,
+                &format!("ordinal_range:{path}"),
+                InvariantKind::Domain,
+                keys,
+                format!(
+                    "SELECT DISTINCT {} FROM ({input}) s WHERE {address} IS NOT NULL AND ({address} < 0 OR {address} >= (SELECT COUNT(*) FROM {}))",
+                    projection(keys, "s"),
+                    table(target)
+                ),
+                &[&name, target],
+                "Every visible ordinal is within its explicitly declared target relation's row count.",
             );
         }
-        (None, DataType::Struct(fields)) => {
-            for field in &fields {
-                let name = field.name();
-                let child = &FieldContract::from_field((**field).clone());
-                if has_ordinal(child) {
-                    let projected = project(
-                        input.clone(),
-                        keys(relation),
-                        Some((
-                            names.value.clone(),
-                            RuleExpr::Field {
-                                expr: Box::new(RuleExpr::col(names.value.clone())),
-                                name: name.to_owned().into(),
-                            },
-                        )),
+        (
+            None,
+            DataType::List(child) | DataType::LargeList(child) | DataType::FixedSizeList(child, _),
+        ) => {
+            let child = FieldContract::from_field(child.as_ref().clone());
+            if has_ordinal(&child) {
+                let expanded = format!(
+                    "SELECT {prefix}unnest({address}) AS {} FROM ({input}) s",
+                    identifier(value)
+                );
+                ordinals(
+                    builder,
+                    relation,
+                    &child,
+                    &format!("{path}[]"),
+                    &expanded,
+                    value,
+                );
+            }
+        }
+        (None, DataType::Struct(children)) => {
+            for child in &children {
+                let child = FieldContract::from_field(child.as_ref().clone());
+                if has_ordinal(&child) {
+                    let nested = format!(
+                        "SELECT {prefix}get_field({address}, '{}') AS {} FROM ({input}) s WHERE {address} IS NOT NULL",
+                        child.name().replace('\'', "''"),
+                        identifier(value)
                     );
                     ordinals(
                         builder,
                         relation,
-                        child,
-                        &format!("{path}.{name}"),
-                        projected,
-                        names,
+                        &child,
+                        &format!("{path}.{}", child.name()),
+                        &nested,
+                        value,
                     );
                 }
             }
         }
         _ => {}
     }
-}
-
-fn ordinal_range(
-    builder: &mut RegistryBuilder,
-    relation: &RelationDecl,
-    target: &str,
-    path: &str,
-    input: RulePlan,
-    names: &Names,
-) {
-    let visible = filter(input, present(names.value.clone()));
-    let mut left_columns = keys(relation)
-        .iter()
-        .map(|name| ((*name).into(), RuleExpr::col(*name)))
-        .collect::<Vec<_>>();
-    left_columns.extend([
-        (names.value.clone(), RuleExpr::col(names.value.clone())),
-        (names.left.clone(), RuleExpr::Lit(Cell::Bool(true))),
-    ]);
-    let cardinality = RulePlan::Aggregate {
-        input: Box::new(scan(target, "ordinal_target")),
-        group: vec![],
-        aggregates: vec![count(names.count.clone())],
-    };
-    let joined = RulePlan::EquiJoin {
-        left: Box::new(RulePlan::Project {
-            input: Box::new(visible),
-            columns: left_columns,
-        }),
-        right: Box::new(RulePlan::Project {
-            input: Box::new(cardinality),
-            columns: vec![
-                (names.count.clone(), RuleExpr::col(names.count.clone())),
-                (names.right.clone(), RuleExpr::Lit(Cell::Bool(true))),
-            ],
-        }),
-        keys: vec![(names.left.clone(), names.right.clone())],
-        null_equality: NullEquality::NullEqualsNothing,
-    };
-    let invalid = filter(
-        joined,
-        RuleExpr::cmp(
-            CmpOp::GtEq,
-            RuleExpr::col(names.value.clone()),
-            RuleExpr::col(names.count.clone()),
-        ),
-    );
-    install(
-        builder,
-        relation,
-        &format!("ordinal_range:{path}"),
-        InvariantKind::Domain,
-        RulePlan::Distinct(Box::new(project(invalid, keys(relation), None))),
-        "Every visible ordinal is below its explicitly declared target relation's row count.",
-    );
-}
-
-fn install(
-    builder: &mut RegistryBuilder,
-    relation: &RelationDecl,
-    name: &str,
-    kind: InvariantKind,
-    plan: RulePlan,
-    doc: &'static str,
-) {
-    let relation_name = relation.key.qualified_name();
-    let rule_name = format!("{name}:{relation_name}");
-    let rule = RuleDecl::new(
-        rule_name.clone(),
-        "1",
-        1,
-        RuleHead::Violations {
-            of: relation_name.clone(),
-            key_columns: keys(relation).to_vec(),
-        },
-        plan,
-    )
-    .stratified_negation();
-    let invariant = InvariantDecl::error(relation_name, name, kind, format!("{rule_name}@1"), doc);
-    // Repeated projection during catalog/pass assembly is exact structural agreement.
-    // A same-name different declaration is appended and rejected by normal admission.
-    if !builder.rules.contains(&rule) {
-        builder.rules.push(rule);
-    }
-    if !builder.invariants.contains(&invariant) {
-        builder.invariants.push(invariant);
-    }
-}
-fn scan(relation: impl Into<String>, port: &'static str) -> RulePlan {
-    RulePlan::Scan {
-        relation: relation.into(),
-        port,
-    }
-}
-fn present(name: Name) -> RuleExpr {
-    RuleExpr::IsNotNull(Box::new(RuleExpr::col(name)))
-}
-fn filter(input: RulePlan, predicate: RuleExpr) -> RulePlan {
-    RulePlan::Filter {
-        input: Box::new(input),
-        predicate,
-    }
-}
-fn project(input: RulePlan, keys: &[&'static str], value: Option<(Name, RuleExpr)>) -> RulePlan {
-    let mut columns = keys
-        .iter()
-        .map(|key| ((*key).into(), RuleExpr::col(*key)))
-        .collect::<Vec<_>>();
-    columns.extend(value);
-    RulePlan::Project {
-        input: Box::new(input),
-        columns,
-    }
-}
-fn count(output_name: Name) -> RuleAggregate {
-    RuleAggregate {
-        function: RuleAggregateFn::Count,
-        input: None,
-        output_name,
-        order_by: vec![],
-        null_policy: AggregateNullPolicy::Reject,
-        empty_policy: AggregateEmptyPolicy::Zero,
-    }
-}
-
-fn keys(relation: &RelationDecl) -> &[&'static str] {
-    relation.primary_key.as_deref().unwrap_or_default()
 }

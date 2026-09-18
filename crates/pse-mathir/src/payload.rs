@@ -3,10 +3,8 @@
 
 //! The typed operator payloads (blueprint §6.9 `compiled.math_*`, §7.2).
 //!
-//! §6.9 stores one relation per operator family that needs data beyond its children —
-//! `math_float_constants`, `math_affine`, `math_weighted_means`, `math_reductions` and the
-//! rest. [`Payload`] is the in-memory union of exactly those relations, one variant per
-//! relation, so the row model and the graph model cannot drift into different field sets.
+//! Every expression node carries one declared tagged payload struct. This enum is
+//! the bounded algorithm view of that value; it has no independent persistence path.
 //!
 //! Two payloads hold node references rather than values, and both do so for a reason §7.4
 //! names:
@@ -30,7 +28,7 @@ use pse_quantity::{
 use crate::node::NodeId;
 use crate::{DomainRef, GuardRef, ValueRef};
 
-/// One ordered term of an [`Payload::Affine`] node (blueprint §6.9 `math_affine.terms`).
+/// One ordered term of an [`Payload::Affine`] node (blueprint §6.9 `math_expr_nodes.payload.affine.terms`).
 ///
 /// The child need not be linear: an `Affine` node records that its *own* combination is a
 /// constant plus weighted terms, not that the terms are affine in the decision variables.
@@ -44,7 +42,7 @@ pub struct AffineTerm {
 }
 
 /// One ordered weight/value pair of a [`Payload::WeightedMean`] node
-/// (blueprint §6.9 `math_weighted_means.pairs`).
+/// (blueprint §6.9 `math_expr_nodes.payload.weighted_mean.pairs`).
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct WeightedPair {
     /// The dimensionless weight.
@@ -60,14 +58,14 @@ pub enum Payload {
     /// No payload: the operator's operands are exactly its children.
     None,
 
-    /// A reference to a symbol (`math_symbol_refs`); the symbol supplies the type.
+    /// A reference to a symbol (`math_expr_nodes.payload.symbol`); the symbol supplies the type.
     SymbolRef {
         /// The symbol's identity.
         symbol: ValueRef,
     },
 
     /// A floating-point literal with the unit it was written in
-    /// (`math_float_constants`).
+    /// (`math_expr_nodes.payload.float`).
     FloatConst {
         /// The value; always finite in a well-formed graph (§7.6: a null is never a value,
         /// and an infinity is never a bound).
@@ -76,13 +74,13 @@ pub enum Payload {
         unit: UnitId,
     },
 
-    /// An integer literal (`math_int_constants`).
+    /// An integer literal (`math_expr_nodes.payload.integer`).
     IntConst {
         /// The value.
         value: i64,
     },
 
-    /// An ordered constant plus coefficient/child terms (`math_affine`).
+    /// An ordered constant plus coefficient/child terms (`math_expr_nodes.payload.affine`).
     Affine {
         /// The additive constant.
         constant: f64,
@@ -94,7 +92,7 @@ pub enum Payload {
         terms: Vec<AffineTerm>,
     },
 
-    /// An ordered weighted mean with an explicit normalization (`math_weighted_means`).
+    /// An ordered weighted mean with an explicit normalization (`math_expr_nodes.payload.weighted_mean`).
     WeightedMean {
         /// The ordered weight/value pairs; never empty.
         pairs: Vec<WeightedPair>,
@@ -105,7 +103,7 @@ pub enum Payload {
         unit_sum_invariant: Option<InvariantId>,
     },
 
-    /// A reduction over a bound index of a domain (`math_reductions`).
+    /// A reduction over a bound index of a domain (`math_expr_nodes.payload.reduction`).
     Reduction {
         /// Which reduction; it must agree with the node's opcode.
         kind: ReductionKind,
@@ -117,7 +115,7 @@ pub enum Payload {
         filter: Option<GuardRef>,
     },
 
-    /// A read of a group member at an explicit coordinate map (`math_gathers`).
+    /// A read of a group member at an explicit coordinate map (`math_expr_nodes.payload.gather`).
     Gather {
         /// The group being read from.
         group: SemanticId,
@@ -138,12 +136,12 @@ pub enum Payload {
         /// Exact source declaration identity.
         source_id: SemanticId,
         /// Source-local path ordinal; its ordered segment rows remain authoritative.
-        path_id: u64,
+        path_id: i64,
         /// Flattened index expressions in segment order, partitioned by the path declaration.
         indices: Vec<NodeId>,
     },
 
-    /// An explicit broadcast over a domain (`math_broadcasts`).
+    /// An explicit broadcast over a domain (`math_expr_nodes.payload.broadcast`).
     Broadcast {
         /// The domain broadcast over.
         domain: DomainRef,
@@ -151,7 +149,7 @@ pub enum Payload {
         bound_index: BoundIndexId,
     },
 
-    /// A derivative with respect to a continuous domain (`math_derivatives`).
+    /// A derivative with respect to a continuous domain (`math_expr_nodes.payload.derivative`).
     Derivative {
         /// The continuous domain differentiated with respect to.
         wrt_domain: DomainRef,
@@ -159,7 +157,7 @@ pub enum Payload {
         order: u8,
     },
 
-    /// An integral over a continuous domain (`math_integrals`).
+    /// An integral over a continuous domain (`math_expr_nodes.payload.integral`).
     Integral {
         /// The continuous domain integrated over.
         domain: DomainRef,
@@ -179,20 +177,20 @@ pub enum Payload {
         unit: UnitId,
     },
 
-    /// The smoothing parameter of a smooth or safe operator (`math_smooth_ops`).
+    /// The smoothing parameter of a smooth or safe operator (`math_expr_nodes.payload.smooth`).
     SmoothOp {
         /// The smoothing parameter; §7.2 requires it to be positive.
         eps: f64,
     },
 
-    /// The guard of a conditional (`math_conditionals`).
+    /// The guard of a conditional (`math_expr_nodes.payload.conditional`).
     Conditional {
         /// The guard node. Phase 0 admits a boolean-kind `SymbolRef` or an `IntConst` 0/1
         /// decided by feature selection (§7.2).
         guard: GuardRef,
     },
 
-    /// A call into a kernel binding (`math_kernel_calls`).
+    /// A call into a kernel binding (`math_expr_nodes.payload.kernel_call`).
     KernelCall {
         /// The kernel binding invoked.
         kernel_binding: SemanticId,
@@ -200,7 +198,7 @@ pub enum Payload {
         output_ordinal: u16,
     },
 
-    /// A reference to one unknown of an implicit system (`math_implicit_refs`).
+    /// A reference to one unknown of an implicit system (`math_expr_nodes.payload.implicit_ref`).
     ImplicitRef {
         /// The implicit system.
         implicit_system: SemanticId,
@@ -208,7 +206,7 @@ pub enum Payload {
         unknown_ordinal: u16,
     },
 
-    /// A declared unit-conversion edge (`math_unit_converts`).
+    /// A declared unit-conversion edge (`math_expr_nodes.payload.unit_convert`).
     UnitConvert(UnitConvertSpec),
 
     /// Normalized target-unit request, resolved only with a complete operand quantity.
@@ -218,7 +216,7 @@ pub enum Payload {
     },
 
     /// A piecewise-linear interpolation over declared breakpoints
-    /// (`math_piecewise_linear`).
+    /// (`math_expr_nodes.payload.piecewise_linear`).
     PiecewiseLinear {
         /// The `(x, y)` breakpoints, in the order they were declared.
         breakpoints: Vec<(f64, f64)>,
@@ -230,6 +228,42 @@ pub enum Payload {
 }
 
 impl Payload {
+    /// Storage retained while materializing a whole-node Arrow value.
+    /// Fixed enum storage and owned strings/vectors are charged before conversion.
+    /// # Errors
+    /// The combined allocation extent cannot be represented by this process.
+    pub fn allocation_extent(&self) -> Result<usize, crate::MathIrError> {
+        let vector = match self {
+            Self::Affine { terms, .. } => size_of_val(terms.as_slice()),
+            Self::WeightedMean { pairs, .. } => size_of_val(pairs.as_slice()),
+            Self::Gather { coordinate_map, .. } => size_of_val(coordinate_map.as_slice()),
+            Self::PendingGather { indices, .. } | Self::PendingPath { indices, .. } => {
+                size_of_val(indices.as_slice())
+            }
+            Self::PiecewiseLinear { breakpoints, .. } => size_of_val(breakpoints.as_slice()),
+            _ => 0,
+        };
+        let reference = match self {
+            Self::SymbolRef {
+                symbol: ValueRef::Template { name, .. },
+            } => name.len(),
+            Self::SymbolRef {
+                symbol: ValueRef::Domain(DomainRef::Template { domain_name, .. }),
+            } => domain_name.len(),
+            _ => 0,
+        };
+        let domain = match self.domain() {
+            Some(DomainRef::Template { domain_name, .. }) => domain_name.len(),
+            _ => 0,
+        };
+        [vector, reference, domain]
+            .into_iter()
+            .try_fold(size_of_val(self), usize::checked_add)
+            .ok_or_else(|| {
+                crate::MathIrError::malformed("whole-node value allocation extent overflow")
+            })
+    }
+
     /// Optional predicate dependency, preserving normalized predicate identity.
     pub fn guard(&self) -> Option<GuardRef> {
         match self {
@@ -251,30 +285,30 @@ impl Payload {
         }
     }
 
-    /// The relation name of §6.9 this payload is stored in, or `None` for
-    /// [`Payload::None`].
-    ///
-    /// Naming the relation in a diagnostic is more useful than naming the Rust variant,
-    /// because the relation is what a reader can go and query.
-    pub const fn relation_name(&self) -> Option<&'static str> {
+    /// The declared coherent payload discriminator.
+    pub const fn kind(&self) -> &'static str {
         match self {
-            Self::None => None,
-            Self::SymbolRef { .. } | Self::PendingPath { .. } => Some("math_symbol_refs"),
-            Self::FloatConst { .. } => Some("math_float_constants"),
-            Self::IntConst { .. } => Some("math_int_constants"),
-            Self::Affine { .. } => Some("math_affine"),
-            Self::WeightedMean { .. } => Some("math_weighted_means"),
-            Self::Reduction { .. } => Some("math_reductions"),
-            Self::Gather { .. } | Self::PendingGather { .. } => Some("math_gathers"),
-            Self::Broadcast { .. } => Some("math_broadcasts"),
-            Self::Derivative { .. } => Some("math_derivatives"),
-            Self::Integral { .. } => Some("math_integrals"),
-            Self::SmoothOp { .. } | Self::PendingSmoothOp { .. } => Some("math_smooth_ops"),
-            Self::Conditional { .. } => Some("math_conditionals"),
-            Self::KernelCall { .. } => Some("math_kernel_calls"),
-            Self::ImplicitRef { .. } => Some("math_implicit_refs"),
-            Self::UnitConvert(_) | Self::PendingUnitConvert { .. } => Some("math_unit_converts"),
-            Self::PiecewiseLinear { .. } => Some("math_piecewise_linear"),
+            Self::None => "none",
+            Self::SymbolRef { .. } => "symbol",
+            Self::FloatConst { .. } => "float",
+            Self::IntConst { .. } => "integer",
+            Self::Affine { .. } => "affine",
+            Self::WeightedMean { .. } => "weighted_mean",
+            Self::Reduction { .. } => "reduction",
+            Self::Gather { .. } => "gather",
+            Self::PendingGather { .. } => "pending_gather",
+            Self::PendingPath { .. } => "pending_path",
+            Self::Broadcast { .. } => "broadcast",
+            Self::Derivative { .. } => "derivative",
+            Self::Integral { .. } => "integral",
+            Self::SmoothOp { .. } => "smooth",
+            Self::PendingSmoothOp { .. } => "pending_smooth",
+            Self::Conditional { .. } => "conditional",
+            Self::KernelCall { .. } => "kernel_call",
+            Self::ImplicitRef { .. } => "implicit_ref",
+            Self::UnitConvert(_) => "unit_convert",
+            Self::PendingUnitConvert { .. } => "pending_unit_convert",
+            Self::PiecewiseLinear { .. } => "piecewise_linear",
         }
     }
 
@@ -381,16 +415,10 @@ mod tests {
     use crate::node::NodeId;
 
     #[test]
-    fn a_payload_names_the_relation_it_is_stored_in() {
-        assert_eq!(Payload::None.relation_name(), None);
-        assert_eq!(
-            Payload::IntConst { value: 1 }.relation_name(),
-            Some("math_int_constants")
-        );
-        assert_eq!(
-            Payload::SmoothOp { eps: 1e-3 }.relation_name(),
-            Some("math_smooth_ops")
-        );
+    fn a_payload_names_its_coherent_value_alternative() {
+        assert_eq!(Payload::None.kind(), "none");
+        assert_eq!(Payload::IntConst { value: 1 }.kind(), "integer");
+        assert_eq!(Payload::SmoothOp { eps: 1e-3 }.kind(), "smooth");
     }
 
     #[test]

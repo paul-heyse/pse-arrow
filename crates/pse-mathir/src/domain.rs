@@ -20,31 +20,6 @@ pub enum DomainRef {
     },
 }
 impl DomainRef {
-    /// Admit the mutually exclusive normalized relation columns.
-    ///
-    /// # Errors
-    /// Rejects absent, overlapping or incomplete alternatives and empty local names.
-    pub fn from_columns(
-        actual: Option<DomainId>,
-        template_id: Option<SemanticId>,
-        domain_name: Option<String>,
-    ) -> Result<Self, MathIrError> {
-        let result = match (actual, template_id, domain_name) {
-            (Some(actual), None, None) => Self::Actual(actual),
-            (None, Some(template_id), Some(domain_name)) => Self::Template {
-                template_id,
-                domain_name,
-            },
-            _ => {
-                return Err(MathIrError::malformed(
-                    "domain reference requires exactly one complete alternative",
-                ));
-            }
-        };
-        result.validate()?;
-        Ok(result)
-    }
-
     /// Return the actual declaration before physical or index inference.
     ///
     /// # Errors

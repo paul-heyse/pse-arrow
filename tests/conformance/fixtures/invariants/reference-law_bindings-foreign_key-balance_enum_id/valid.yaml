@@ -13,14 +13,11 @@
         "subject_projection": "[\"enum\",\"identity\"]"
       }
     ],
-    "reference.schema_enums": [
+    "reference.schema_enum_types": [
       {
-        "deprecated": "[\"bool\",true]",
-        "doc": "[\"text\",\"value-1\"]",
         "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "idaes_name": "[\"text\",\"value-1\"]",
-        "member": "[\"text\",\"value-1\"]",
-        "member_ordinal": "[\"i64\",1]"
+        "idaes_source": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
       }
     ]
   },

@@ -93,10 +93,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
 | `index` | `index_tuple` | false | `payload` | — | — |
 | `guard_source_id` | `semantic_id` | true | `payload` | — | — |
-| `guard_node_id` | `UInt64` | true | `payload` | — | — |
+| `guard_node_id` | `Int64` | true | `payload` | — | — |
 | `guard_index` | `index_tuple` | false | `payload` | — | — |
 | `outer_guard_source_id` | `semantic_id` | true | `payload` | — | — |
-| `outer_guard_node_id` | `UInt64` | true | `payload` | — | — |
+| `outer_guard_node_id` | `Int64` | true | `payload` | — | — |
 
 ## `demand_obligation_assertions`
 
@@ -180,13 +180,11 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `derivation_id`.
 | `relation_id` | `semantic_id` | false | `payload` | — | — |
 | `row_key` | `content_hash` | false | `payload` | — | — |
 | `rule_id` | `semantic_id` | true | `payload` | — | — |
-| `pass_id` | `semantic_id` | true | `payload` | — | — |
+| `algorithm_id` | `semantic_id` | true | `payload` | — | — |
 | `supporting` | `List` | false | `payload` | — | — |
 | `supporting.item` | `Struct` | false | `payload` | — | — |
 | `supporting.item.relation_id` | `semantic_id` | false | `payload` | — | — |
 | `supporting.item.row_key` | `content_hash` | false | `payload` | — | — |
-| `snapshot_id` | `content_hash` | true | `payload` | — | — |
-| `fingerprint` | `content_hash` | true | `payload` | — | — |
 
 ## `domain_member_assertions`
 
@@ -360,7 +358,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `ancestor_id` | `semantic_id` | false | `payload` | — | — |
 | `descendant_id` | `semantic_id` | false | `payload` | — | — |
-| `depth` | `UInt16` | false | `payload` | — | — |
+| `depth` | `Int64` | false | `payload` | — | — |
 
 ## `invalid_index_assertions`
 
@@ -396,11 +394,68 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `law_family` | `enum:LawFamily` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `basis_id` | `semantic_id` | true | `payload` | — | — |
-| `subject_kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
-| `subject_id` | `semantic_id` | true | `payload` | — | — |
-| `subject_axis` | `UInt16` | true | `payload` | — | — |
-| `phase_axis` | `UInt16` | true | `payload` | — | — |
-| `phase_id` | `semantic_id` | true | `payload` | — | — |
+| `subject` | `Struct` | false | `payload` | — | — |
+| `subject.kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
+| `subject.total` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.total.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.total.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.energy` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.energy.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.energy.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.momentum` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.momentum.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.momentum.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.species` | `Struct` | true | `payload` | — | — |
+| `subject.species.member` | `Struct` | false | `payload` | — | — |
+| `subject.species.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.species.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.species.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.species.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.species.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.species.phase` | `Struct` | true | `payload` | — | — |
+| `subject.species.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.species.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.species.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.species.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.species.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.element` | `Struct` | true | `payload` | — | — |
+| `subject.element.member` | `Struct` | false | `payload` | — | — |
+| `subject.element.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.element.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.element.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.element.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.element.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.element.phase` | `Struct` | true | `payload` | — | — |
+| `subject.element.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.element.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.element.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.element.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.element.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.phase_species` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member` | `Struct` | false | `payload` | — | — |
+| `subject.phase_species.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.phase_species.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.phase_species.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.phase_species.phase` | `Struct` | false | `payload` | — | — |
+| `subject.phase_species.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.phase_species.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.phase_species.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.phase.axis.position` | `Int64` | false | `payload` | — | — |
 | `source_family` | `enum:LawFamily` | false | `payload` | — | — |
 | `subject_projection` | `enum:LawSubjectProjection` | false | `payload` | — | — |
 | `expansion` | `enum:LawExpansion` | false | `payload` | — | — |
@@ -474,9 +529,13 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `application_id` | `semantic_id` | false | `payload` | — | — |
 | `contribution_id` | `semantic_id` | false | `payload` | — | — |
-| `decision` | `enum:ParticipationDecision` | false | `payload` | — | — |
-| `reason` | `enum:ParticipationReason` | false | `payload` | — | — |
-| `sign` | `Int32` | false | `payload` | — | — |
+| `decision` | `Struct` | false | `payload` | — | — |
+| `decision.kind` | `enum:ParticipationDecision` | false | `payload` | — | — |
+| `decision.included` | `Struct` | true | `payload` | — | — |
+| `decision.included.sign` | `enum:ContributionSign` | false | `payload` | — | — |
+| `decision.included.conversion_id` | `semantic_id` | true | `payload` | — | — |
+| `decision.excluded` | `Struct` | true | `payload` | — | — |
+| `decision.excluded.reason` | `enum:ParticipationExclusionReason` | false | `payload` | — | — |
 
 ## `law_subject_match_assertions`
 
@@ -505,8 +564,8 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `instance_id` | `semantic_id` | false | `payload` | — | — |
 | `material_system_id` | `semantic_id` | false | `payload` | — | — |
-| `phase_count` | `UInt64` | false | `payload` | — | — |
-| `species_count` | `UInt64` | false | `payload` | — | — |
+| `phase_count` | `Int64` | false | `payload` | — | — |
+| `species_count` | `Int64` | false | `payload` | — | — |
 
 ## `material_count_assertions`
 
@@ -521,7 +580,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `material_system_id` | `semantic_id` | false | `payload` | — | — |
 | `kind` | `enum:DomainKind` | false | `payload` | — | — |
-| `count` | `UInt64` | false | `payload` | — | — |
+| `count` | `Int64` | false | `payload` | — | — |
 
 ## `method_candidate_assertions`
 
@@ -538,7 +597,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `selection_id` | `semantic_id` | false | `payload` | — | — |
 | `method_id` | `semantic_id` | false | `payload` | — | — |
 | `applicable` | `Boolean` | false | `payload` | — | — |
-| `rank` | `UInt16` | true | `payload` | — | — |
+| `rank` | `Int64` | true | `payload` | — | — |
 | `reason` | `enum:MethodCandidateReason` | false | `payload` | — | — |
 
 ## `method_compatibility_assertions`
@@ -569,10 +628,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `rule_id` | `semantic_id` | false | `reference` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `requirement_id` | `semantic_id` | false | `payload` | — | — |
-| `method_id` | `semantic_id` | true | `payload` | — | — |
-| `realization` | `enum:MethodRealization` | true | `payload` | — | — |
-| `template_id` | `semantic_id` | true | `payload` | — | — |
-| `status` | `enum:ResolutionStatus` | false | `payload` | — | — |
+| `outcome` | `Struct` | false | `payload` | — | — |
+| `outcome.kind` | `enum:ResolutionStatus` | false | `payload` | — | — |
+| `outcome.resolved` | `Struct` | true | `payload` | — | — |
+| `outcome.resolved.method_id` | `semantic_id` | false | `payload` | `reference.method_specs.method_id` | — |
 
 ## `node_rewrites`
 
@@ -582,73 +641,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `input_node_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `input_node_id` | `UInt64` | false | `key` | — | — |
-| `output_node_id` | `UInt64` | false | `payload` | — | — |
-
-## `pass_records`
-
-blueprint §6.13 noncanonical execution evidence.
-
-Version: 2. Snapshot class: `sidecar`. Primary key: `pass_run_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `pass_run_id` | `semantic_id` | false | `key` | — | — |
-| `pass_id` | `semantic_id` | false | `payload` | — | — |
-| `version` | `Utf8` | false | `payload` | — | — |
-| `snapshot_in` | `content_hash` | true | `payload` | — | — |
-| `snapshot_out` | `content_hash` | true | `payload` | — | — |
-| `engine_profile_hash` | `content_hash` | true | `payload` | — | — |
-| `plan_evidence` | `List` | false | `payload` | — | — |
-| `plan_evidence.item` | `Struct` | false | `payload` | — | — |
-| `plan_evidence.item.encoding_checksum` | `content_hash` | false | `payload` | — | — |
-| `plan_evidence.item.encoding` | `Utf8` | false | `payload` | — | — |
-| `plan_evidence.item.codec_version` | `Utf8` | false | `payload` | — | — |
-| `plan_explain` | `List` | false | `payload` | — | — |
-| `plan_explain.item` | `Utf8` | false | `payload` | — | — |
-| `rules_fired` | `List` | false | `payload` | — | — |
-| `rules_fired.item` | `Struct` | false | `payload` | — | — |
-| `rules_fired.item.plan_ordinal` | `Int64` | false | `payload` | — | — |
-| `rules_fired.item.rule_name` | `Utf8` | false | `payload` | — | — |
-| `rules_fired.item.ordinal` | `Int64` | false | `payload` | — | — |
-| `duration_ms` | `Float64` | false | `payload` | — | — |
-| `finding_count` | `Int64` | false | `payload` | — | — |
-| `status` | `enum:PassStatus` | false | `payload` | — | — |
-| `findings` | `List` | false | `payload` | — | — |
-| `findings.item` | `Struct` | false | `payload` | — | — |
-| `findings.item.finding_id` | `semantic_id` | false | `payload` | — | — |
-| `findings.item.subject_snapshot` | `content_hash` | true | `payload` | — | — |
-| `findings.item.run_id` | `semantic_id` | true | `payload` | — | — |
-| `findings.item.check_id` | `semantic_id` | true | `payload` | — | — |
-| `findings.item.severity` | `enum:FindingSeverity` | false | `payload` | — | — |
-| `findings.item.subjects` | `List` | false | `payload` | — | — |
-| `findings.item.subjects.item` | `semantic_id` | false | `payload` | — | — |
-| `findings.item.evidence` | `Struct` | false | `payload` | — | — |
-| `findings.item.evidence.kind` | `Utf8` | false | `payload` | — | — |
-| `findings.item.evidence.row` | `Struct` | true | `payload` | — | — |
-| `findings.item.evidence.row.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `findings.item.evidence.row.row_key` | `content_hash` | false | `payload` | — | — |
-| `findings.item.evidence.execution` | `Struct` | true | `payload` | — | — |
-| `findings.item.evidence.execution.failure_class` | `enum:FailureClass` | false | `payload` | — | — |
-| `findings.item.evidence.execution.diagnostic_code` | `Utf8` | true | `payload` | — | — |
-| `findings.item.evidence.execution.attempt_error` | `Utf8` | false | `payload` | — | — |
-| `findings.item.message` | `Utf8` | false | `payload` | — | — |
-| `findings.item.next_steps` | `List` | false | `payload` | — | — |
-| `findings.item.next_steps.item` | `Utf8` | false | `payload` | — | — |
-| `failure_class` | `enum:FailureClass` | true | `payload` | — | — |
-| `derivations` | `List` | false | `payload` | — | — |
-| `derivations.item` | `Struct` | false | `payload` | — | — |
-| `derivations.item.derivation_id` | `semantic_id` | false | `key` | — | — |
-| `derivations.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `derivations.item.row_key` | `content_hash` | false | `payload` | — | — |
-| `derivations.item.rule_id` | `semantic_id` | true | `payload` | — | — |
-| `derivations.item.pass_id` | `semantic_id` | true | `payload` | — | — |
-| `derivations.item.supporting` | `List` | false | `payload` | — | — |
-| `derivations.item.supporting.item` | `Struct` | false | `payload` | — | — |
-| `derivations.item.supporting.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `derivations.item.supporting.item.row_key` | `content_hash` | false | `payload` | — | — |
-| `derivations.item.snapshot_id` | `content_hash` | true | `payload` | — | — |
-| `derivations.item.fingerprint` | `content_hash` | true | `payload` | — | — |
+| `input_node_id` | `Int64` | false | `key` | — | — |
+| `output_node_id` | `Int64` | false | `payload` | — | — |
 
 ## `phase_species_assertions`
 
@@ -696,7 +690,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `rule_id` | `semantic_id` | false | `reference` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `port_id` | `semantic_id` | false | `payload` | — | — |
-| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `payload` | — | — |
 | `symbol_group` | `Utf8` | false | `payload` | — | — |
 | `symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
@@ -713,7 +707,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `rule_id` | `semantic_id` | false | `reference` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `port_id` | `semantic_id` | false | `payload` | — | — |
-| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `payload` | — | — |
 | `domain_ids` | `List` | false | `payload` | — | — |
 | `domain_ids.item` | `semantic_id` | false | `payload` | — | — |
 | `product_id` | `semantic_id` | false | `payload` | — | — |
@@ -764,7 +758,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `selection_id` | `semantic_id` | false | `payload` | — | — |
 | `method_id` | `semantic_id` | false | `payload` | — | — |
 | `applicable` | `Boolean` | false | `payload` | — | — |
-| `rank` | `UInt16` | true | `payload` | — | — |
+| `rank` | `Int64` | true | `payload` | — | — |
 | `reason` | `enum:MethodCandidateReason` | false | `payload` | — | — |
 
 ## `potential_method_resolution_assertions`
@@ -779,10 +773,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `rule_id` | `semantic_id` | false | `reference` | — | — |
 | `truth` | `enum:TruthValue` | false | `payload` | — | — |
 | `requirement_id` | `semantic_id` | false | `payload` | — | — |
-| `method_id` | `semantic_id` | true | `payload` | — | — |
-| `realization` | `enum:MethodRealization` | true | `payload` | — | — |
-| `template_id` | `semantic_id` | true | `payload` | — | — |
-| `status` | `enum:ResolutionStatus` | false | `payload` | — | — |
+| `outcome` | `Struct` | false | `payload` | — | — |
+| `outcome.kind` | `enum:ResolutionStatus` | false | `payload` | — | — |
+| `outcome.resolved` | `Struct` | true | `payload` | — | — |
+| `outcome.resolved.method_id` | `semantic_id` | false | `payload` | `reference.method_specs.method_id` | — |
 
 ## `potential_method_winner_assertions`
 
@@ -798,7 +792,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `requirement_id` | `semantic_id` | false | `payload` | — | — |
 | `selection_id` | `semantic_id` | false | `payload` | — | — |
 | `method_id` | `semantic_id` | false | `payload` | — | — |
-| `rank` | `UInt16` | false | `payload` | — | — |
+| `rank` | `Int64` | false | `payload` | — | — |
 
 ## `property_read_occurrences`
 
@@ -811,8 +805,8 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `read_id`.
 | `read_id` | `semantic_id` | false | `key` | — | — |
 | `source_id` | `semantic_id` | false | `payload` | — | — |
 | `symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
-| `read_node_id` | `UInt64` | false | `payload` | — | — |
-| `guard_predicate_id` | `UInt64` | true | `payload` | — | — |
+| `read_node_id` | `Int64` | false | `payload` | — | — |
+| `guard_predicate_id` | `Int64` | true | `payload` | — | — |
 
 ## `property_requirement_assertions`
 
@@ -829,19 +823,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `assertion_id`.
 | `state_scope_id` | `semantic_id` | false | `payload` | — | — |
 | `property_kind_id` | `semantic_id` | false | `payload` | — | — |
 | `index` | `index_tuple` | false | `payload` | — | — |
-
-## `refs`
-
-blueprint §6.13 mutable refs.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `name` | `Utf8` | false | `key` | — | — |
-| `snapshot_id` | `content_hash` | false | `payload` | — | — |
-| `manifest_checksum` | `content_hash` | false | `payload` | — | — |
-| `updated_at` | `Timestamp(ns, "UTC")` | false | `payload` | — | — |
 
 ## `requirement_support_assertions`
 

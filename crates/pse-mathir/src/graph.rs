@@ -131,7 +131,7 @@ impl ExprGraph {
             return Ok(id);
         }
 
-        let id = NodeId(self.nodes.len() as u64);
+        let id = NodeId::from_index(self.nodes.len())?;
         self.nodes.push(Node {
             opcode,
             payload,
@@ -163,7 +163,7 @@ impl ExprGraph {
 
     pub(crate) fn rebuild_structural_index(&mut self) {
         self.by_structure.clear();
-        for (position, node) in self.nodes.iter().enumerate() {
+        for (node, position) in self.nodes.iter().zip(0_i64..) {
             self.by_structure
                 .entry(typed_key(
                     node.opcode,
@@ -171,7 +171,7 @@ impl ExprGraph {
                     &node.children,
                     node.quantity_type,
                 ))
-                .or_insert(NodeId(position as u64));
+                .or_insert(NodeId(position));
         }
     }
 
@@ -204,8 +204,8 @@ impl ExprGraph {
     pub fn iter(&self) -> impl Iterator<Item = (NodeId, &Node)> {
         self.nodes
             .iter()
-            .enumerate()
-            .map(|(index, node)| (NodeId(index as u64), node))
+            .zip(0_i64..)
+            .map(|(node, index)| (NodeId(index), node))
     }
 
     /// Records the quantity type P10 inferred for a node.
@@ -378,78 +378,17 @@ impl ExprGraph {
 
 /// Is this payload the one §6.9 stores for this opcode?
 fn check_payload_belongs_to(opcode: Opcode, payload: &Payload) -> Result<(), MathIrError> {
-    let ok = match opcode {
-        Opcode::Const => matches!(
-            payload,
-            Payload::FloatConst { .. } | Payload::IntConst { .. }
-        ),
-        Opcode::SymbolRef => matches!(
-            payload,
-            Payload::SymbolRef { .. } | Payload::PendingPath { .. }
-        ),
-        Opcode::Affine => matches!(payload, Payload::Affine { .. }),
-        Opcode::WeightedMean => matches!(payload, Payload::WeightedMean { .. }),
-        Opcode::SmoothMax
-        | Opcode::SmoothMin
-        | Opcode::SmoothAbs
-        | Opcode::SafeSqrt
-        | Opcode::SafeLog => matches!(
-            payload,
-            Payload::SmoothOp { .. } | Payload::PendingSmoothOp { .. }
-        ),
-        Opcode::Conditional => matches!(payload, Payload::Conditional { .. }),
-        Opcode::SumOver => matches_reduction(payload, pse_quantity::ReductionKind::Sum),
-        Opcode::ProdOver => matches_reduction(payload, pse_quantity::ReductionKind::Prod),
-        Opcode::MinOver => matches_reduction(payload, pse_quantity::ReductionKind::Min),
-        Opcode::MaxOver => matches_reduction(payload, pse_quantity::ReductionKind::Max),
-        Opcode::Gather => matches!(
-            payload,
-            Payload::Gather { .. } | Payload::PendingGather { .. } | Payload::PendingPath { .. }
-        ),
-        Opcode::Broadcast => matches!(payload, Payload::Broadcast { .. }),
-        Opcode::Derivative => matches!(payload, Payload::Derivative { .. }),
-        Opcode::Integral => matches!(payload, Payload::Integral { .. }),
-        Opcode::KernelCall => matches!(payload, Payload::KernelCall { .. }),
-        Opcode::ImplicitRef => matches!(payload, Payload::ImplicitRef { .. }),
-        Opcode::UnitConvert => matches!(
-            payload,
-            Payload::UnitConvert(_) | Payload::PendingUnitConvert { .. }
-        ),
-        Opcode::PiecewiseLinear => matches!(payload, Payload::PiecewiseLinear { .. }),
-        Opcode::Add
-        | Opcode::Sub
-        | Opcode::Mul
-        | Opcode::Div
-        | Opcode::Pow
-        | Opcode::Neg
-        | Opcode::Abs
-        | Opcode::Exp
-        | Opcode::Log
-        | Opcode::Log10
-        | Opcode::Sqrt
-        | Opcode::Sin
-        | Opcode::Cos
-        | Opcode::Tan
-        | Opcode::Asin
-        | Opcode::Acos
-        | Opcode::Atan
-        | Opcode::Sinh
-        | Opcode::Cosh
-        | Opcode::Tanh
-        | Opcode::Erf => matches!(payload, Payload::None),
-    };
+    let ok = pse_schema::math::operators::payload_kinds(opcode).contains(&payload.kind())
+        && pse_schema::math::operators::reduction_kind(opcode).is_none_or(
+            |expected| matches!(payload, Payload::Reduction { kind, .. } if *kind == expected),
+        );
     if ok {
         return Ok(());
     }
-    let found = payload.relation_name().unwrap_or("no payload");
+    let found = payload.kind();
     Err(MathIrError::malformed(format!(
         "`{opcode}` does not carry the payload of `{found}`"
     )))
-}
-
-/// Is this a reduction payload of the kind the opcode names?
-fn matches_reduction(payload: &Payload, expected: pse_quantity::ReductionKind) -> bool {
-    matches!(payload, Payload::Reduction { kind, .. } if *kind == expected)
 }
 
 /// Does the child count satisfy the operator's arity (§7.2)?
@@ -637,7 +576,7 @@ pub(crate) fn structural_key(opcode: Opcode, payload: &Payload, children: &[Node
     encode_payload(&mut out, payload);
     put_len(&mut out, children.len());
     for child in children {
-        put_u64(&mut out, child.0);
+        out.extend_from_slice(&child.0.to_le_bytes());
     }
     out
 }
@@ -712,7 +651,7 @@ fn put_guard(out: &mut Vec<u8>, guard: crate::GuardRef) {
     match guard {
         crate::GuardRef::Math(node) => {
             out.push(0);
-            put_u64(out, node.0);
+            out.extend_from_slice(&node.0.to_le_bytes());
         }
         crate::GuardRef::Predicate {
             source_id,
@@ -720,7 +659,7 @@ fn put_guard(out: &mut Vec<u8>, guard: crate::GuardRef) {
         } => {
             out.push(1);
             put_id(out, source_id);
-            put_u64(out, predicate_id);
+            out.extend_from_slice(&predicate_id.to_le_bytes());
         }
     }
 }
@@ -750,7 +689,7 @@ fn put_optional_id(out: &mut Vec<u8>, id: Option<SemanticId>) {
     reason = "one arm per §6.9 payload relation; splitting it would hide the one-to-one correspondence"
 )]
 pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
-    put_str(out, payload.relation_name().unwrap_or(""));
+    put_str(out, payload.kind());
     match payload {
         Payload::None => {}
         Payload::SymbolRef { symbol } => put_value(out, symbol),
@@ -761,10 +700,10 @@ pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
         } => {
             put_str(out, pse_schema::math::PENDING_PATH_KIND);
             put_id(out, *source_id);
-            put_u64(out, *path_id);
+            out.extend_from_slice(&path_id.to_le_bytes());
             put_len(out, indices.len());
             for index in indices {
-                put_u64(out, index.0);
+                out.extend_from_slice(&index.0.to_le_bytes());
             }
         }
         Payload::FloatConst { value, unit } => {
@@ -784,7 +723,7 @@ pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
             put_len(out, terms.len());
             for term in terms {
                 put_f64(out, term.coefficient);
-                put_u64(out, term.child.0);
+                out.extend_from_slice(&term.child.0.to_le_bytes());
             }
         }
         Payload::WeightedMean {
@@ -794,8 +733,8 @@ pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
         } => {
             put_len(out, pairs.len());
             for pair in pairs {
-                put_u64(out, pair.weight.0);
-                put_u64(out, pair.value.0);
+                out.extend_from_slice(&pair.weight.0.to_le_bytes());
+                out.extend_from_slice(&pair.value.0.to_le_bytes());
             }
             put_str(out, normalization.as_str());
             put_optional_id(
@@ -831,7 +770,7 @@ pub(crate) fn encode_payload(out: &mut Vec<u8>, payload: &Payload) {
             put_id(out, *group);
             put_len(out, indices.len());
             for index in indices {
-                put_u64(out, index.0);
+                out.extend_from_slice(&index.0.to_le_bytes());
             }
         }
         Payload::Broadcast {

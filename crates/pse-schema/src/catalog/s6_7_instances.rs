@@ -110,7 +110,7 @@ fn declare_authored_selector_terms(builder: &mut RegistryBuilder) {
             column("parent_term_id", T::id())
                 .optional()
                 .with_fk("authored.selector_terms", "term_id"),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("op", T::enumeration("SelectorOp")),
             column("entity_id", T::id()).optional(),
             column("entity_kind", T::enumeration("EntityKind")).optional(),
@@ -151,7 +151,7 @@ fn declare_inferred_instance_tree(builder: &mut RegistryBuilder) {
         vec![
             column("ancestor_id", T::id()),
             column("descendant_id", T::id()),
-            column("depth", T::native(arrow_schema::DataType::UInt16)),
+            column("depth", T::nonnegative(i64::from(u16::MAX))),
             crate::model::FieldContract::provenance(
                 "derivation_id",
                 T::id(),
@@ -238,7 +238,7 @@ fn declare_inferred_port_members(builder: &mut RegistryBuilder) {
         &["port_id", "ordinal"],
         vec![
             column("port_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("symbol_group", T::native(arrow_schema::DataType::Utf8)),
             column("symbol_decl_id", T::id()),
             column("quantity_type_id", T::id()),
@@ -283,7 +283,7 @@ fn declare_inferred_connection_equations(builder: &mut RegistryBuilder) {
         &["connection_id", "member_ordinal"],
         vec![
             column("connection_id", T::id()).with_fk("authored.connections", "connection_id"),
-            column("member_ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("member_ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("product_id", T::id()),
             column("equation_id", T::id()),
         ],
@@ -300,9 +300,9 @@ fn declare_inferred_initialization_order(builder: &mut RegistryBuilder) {
         &["instance"],
         vec![
             column("instance", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
         ],
-        "blueprint §17.3: instance and plug-in preparation order; finalization traverses this order in reverse. Ordinal follows the §6.11 init_stages UInt16 convention.",
+        "blueprint §17.3: instance and plug-in preparation order; finalization traverses this order in reverse. Ordinal uses the bounded signed contract shared with §6.11 init_stages.",
     );
 }
 

@@ -3,7 +3,6 @@
 
 //! Native descriptor binding from typed component inputs; no graph or upstream receipt fixture.
 use super::*;
-use crate::PolicySet;
 use crate::passes::native_test::{Inputs, put, read, session};
 use pse_authoring::document::OwnedDocumentSet;
 use pse_ids::{CancellationToken, FixedBudget};
@@ -25,7 +24,7 @@ fn id(value: u8) -> SemanticId {
 #[tokio::test]
 async fn kernel_reader_uses_only_the_declared_p9_input_inventory() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let spec = registry.pass("P9@1").unwrap();
+    let spec = registry.algorithm("P9@1").unwrap();
     let rows = spec
         .inputs
         .iter()
@@ -40,11 +39,10 @@ async fn kernel_reader_uses_only_the_declared_p9_input_inventory() {
     let budget = FixedBudget::new(256 << 20);
     let cancel = CancellationToken::new();
     let (session, sources) = session(&registry, rows, &budget, &cancel).unwrap();
-    let ctx = PassContext {
+    let ctx = AlgorithmContext {
         physical: None,
         registry: &registry,
         documents: &OwnedDocumentSet::default(),
-        policies: &PolicySet::default(),
         cancel: &cancel,
         reserver: budget.as_ref(),
         session: &session,
@@ -83,17 +81,17 @@ fn inputs(registry: &Registry) -> Inputs {
     put::<reference::method_specs::Row>(&mut rows, registry, serde_json::from_value(json!([
         {"method_id":id(80),"family":"pure_component","name":"fixture_method","version":"1",
          "provides":[id(82)],"requires":[],"parameter_kinds":[{"name":"coefficient","quantity_kind_id":id(21),"indexed_by":[],"required":true}],
-         "realization":"kernel","template_id":null,"kernel_id":id(81),"validity":[],"doc":"declared method"}
+         "realization":{"kind":"kernel","kernel":{"kernel_id":id(81)}},"validity":[],"doc":"declared method"}
     ])).unwrap());
     put::<reference::method_provisions::Row>(&mut rows, registry, serde_json::from_value(json!([
-        {"method_id":id(80),"property_kind_id":id(82),"output_kind":"kernel_output","symbol_decl_id":null,"kernel_output_ordinal":0,
+        {"method_id":id(80),"property_kind_id":id(82),"output":{"kind":"kernel_output","kernel_output":{"ordinal":0}},
          "quantity_type_id":id(31),"natural_unit_id":id(11),"indexed_by":[]}
     ])).unwrap());
     put::<inferred::property_requirements::Row>(&mut rows, registry, serde_json::from_value(json!([
         {"requirement_id":id(83),"state_scope_id":id(84),"property_kind_id":id(82),"index":[],"derivation_id":id(99)}
     ])).unwrap());
     put::<inferred::method_resolutions::Row>(&mut rows, registry, serde_json::from_value(json!([
-        {"requirement_id":id(83),"method_id":id(80),"realization":"kernel","template_id":null,"status":"resolved","derivation_id":id(99)}
+        {"requirement_id":id(83),"outcome":{"kind":"resolved","resolved":{"method_id":id(80)}},"derivation_id":id(99)}
     ])).unwrap());
     put::<inferred::state_scopes::Row>(&mut rows, registry, serde_json::from_value(json!([
         {"state_scope_id":id(84),"state_instance_id":id(85),"property_package_id":id(86),"derivation_id":id(99)}
@@ -194,10 +192,9 @@ async fn prepare_rows(
     );
     let (methods, _arguments) = prepare(
         &selection,
-        &PassContext {
+        &AlgorithmContext {
             registry,
             documents: &OwnedDocumentSet::default(),
-            policies: &PolicySet::default(),
             cancel,
             reserver: budget.as_ref(),
             session: &native,

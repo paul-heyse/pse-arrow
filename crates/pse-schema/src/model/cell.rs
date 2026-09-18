@@ -83,19 +83,19 @@ impl Cell {
     }
 
     /// The value's concrete variant, including the distinction between text and enum.
-    pub const fn literal_kind(&self) -> RuleLiteralKind {
+    const fn literal_kind(&self) -> CellKind {
         match self {
-            Self::Null => RuleLiteralKind::Null,
-            Self::Bool(_) => RuleLiteralKind::Bool,
-            Self::I64(_) => RuleLiteralKind::I64,
-            Self::U64(_) => RuleLiteralKind::U64,
-            Self::F64(_) => RuleLiteralKind::F64,
-            Self::Text(_) => RuleLiteralKind::Text,
-            Self::Id(_) => RuleLiteralKind::Id,
-            Self::Hash(_) => RuleLiteralKind::Hash,
-            Self::Enum(_) => RuleLiteralKind::Enum,
-            Self::List(_) => RuleLiteralKind::List,
-            Self::Struct(_) => RuleLiteralKind::Struct,
+            Self::Null => CellKind::Null,
+            Self::Bool(_) => CellKind::Bool,
+            Self::I64(_) => CellKind::I64,
+            Self::U64(_) => CellKind::U64,
+            Self::F64(_) => CellKind::F64,
+            Self::Text(_) => CellKind::Text,
+            Self::Id(_) => CellKind::Id,
+            Self::Hash(_) => CellKind::Hash,
+            Self::Enum(_) => CellKind::Enum,
+            Self::List(_) => CellKind::List,
+            Self::Struct(_) => CellKind::Struct,
         }
     }
 
@@ -230,9 +230,9 @@ fn frame_sequence(elements: &[Cell], hasher: &mut FramedHasher) {
     }
 }
 
-/// The declared `RuleLiteralKind` wire vocabulary.
+/// The declared `CellKind` wire vocabulary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum RuleLiteralKind {
+enum CellKind {
     /// `null`.
     Null,
     /// `bool`.
@@ -256,23 +256,9 @@ pub enum RuleLiteralKind {
     /// `struct`.
     Struct,
 }
-impl RuleLiteralKind {
-    /// Every admitted spelling, in declaration order.
-    pub const ALL: [Self; 11] = [
-        Self::Null,
-        Self::Bool,
-        Self::I64,
-        Self::U64,
-        Self::F64,
-        Self::Text,
-        Self::Id,
-        Self::Hash,
-        Self::Enum,
-        Self::List,
-        Self::Struct,
-    ];
+impl CellKind {
     /// The wire spelling.
-    pub const fn as_str(self) -> &'static str {
+    const fn as_str(self) -> &'static str {
         match self {
             Self::Null => "null",
             Self::Bool => "bool",

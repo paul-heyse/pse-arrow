@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+#![allow(
+    clippy::panic,
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
 //! Source syntax and provenance through ordinary admitted native P3 execution.
 #[path = "../../support/native_pipeline.rs"]
 mod native_pipeline;
@@ -8,23 +13,22 @@ mod native_pipeline;
 mod physical_source;
 
 use datafusion::arrow::array::FixedSizeBinaryArray;
+use native_pipeline::Values;
 use pse_authoring::{
     ParseBudget,
     document::{DocumentBundle, load_package_texts},
 };
-use pse_catalog::Snapshot;
 use pse_ids::SemanticId;
 use pse_relations::{
     columnar::RelationRow,
     generated::{
         authored,
-        enums::{EquationSyntax, ExpressionSyntax, PredicateComparison, Sense},
+        enums::{ExpressionSyntax, PredicateComparison, Sense},
         normalized,
     },
 };
 use pse_schema::Registry;
 use serde_json::json;
-use std::sync::Arc;
 
 fn id(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
@@ -53,26 +57,23 @@ fn source(registry: &Registry, expression: &str) -> DocumentBundle {
     .unwrap()
 }
 
-fn rows<T: RelationRow>(snapshot: &Snapshot, registry: &Registry) -> Vec<T> {
+fn rows<T: RelationRow>(snapshot: &Values, registry: &Registry) -> Vec<T> {
     let spec = T::relation(registry).unwrap();
     T::rows(
-        snapshot
-            .relation(spec.key.namespace.as_str(), spec.key.name)
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(snapshot, spec.key.namespace.as_str(), spec.key.name).unwrap(),
     )
     .unwrap()
 }
 
-async fn compile(expression: &str) -> (native_pipeline::Fixture, Arc<Snapshot>) {
-    let mut fixture = native_pipeline::Fixture::new();
+async fn compile(expression: &str) -> (native_pipeline::Fixture, Values) {
+    let fixture = native_pipeline::Fixture::new();
     let input = source(&fixture.registry, expression);
-    let committed = fixture.commit(vec![input]).await;
+    let committed = fixture.source(vec![input]);
     let report = fixture
-        .run(committed, "P3")
+        .evaluate(committed, "P3")
         .await
         .unwrap_or_else(|error| panic!("P3 failed: {error}"));
-    let snapshot = Arc::clone(&report.stages.last().unwrap().snapshot);
+    let snapshot = report;
     (fixture, snapshot)
 }
 
@@ -114,44 +115,65 @@ async fn conditional_equations_keep_declared_senses_branches_and_source_key() {
     assert_eq!(sources[0].source_key.as_bytes(), keys.value(0));
     let equations = rows::<normalized::equation_nodes::Row>(&output, &fixture.registry);
     assert_eq!(equations.len(), 3);
-    assert!(equations.iter().any(|row| row.sense == Some(Sense::Le)));
-    assert!(equations.iter().any(|row| row.sense == Some(Sense::Ge)));
+    assert!(equations.iter().any(|row| {
+        row.value
+            .relation
+            .as_ref()
+            .is_some_and(|value| value.sense == Sense::Le)
+    }));
+    assert!(equations.iter().any(|row| {
+        row.value
+            .relation
+            .as_ref()
+            .is_some_and(|value| value.sense == Sense::Ge)
+    }));
     let conditional = equations
         .iter()
-        .find(|row| row.kind == EquationSyntax::Conditional)
+        .find_map(|row| row.value.conditional.as_ref())
         .unwrap();
-    assert!(conditional.guard_predicate.is_some());
-    assert_ne!(conditional.then_equation, conditional.else_equation);
+    assert_ne!(conditional.then, conditional.otherwise);
     let predicates = rows::<normalized::predicate_nodes::Row>(&output, &fixture.registry);
     assert_eq!(predicates.len(), 2);
     let guard = predicates
         .iter()
-        .find(|row| Some(row.predicate_id) == conditional.guard_predicate)
+        .find(|row| row.predicate_id == conditional.guard)
         .unwrap();
-    assert_eq!(guard.comparison, Some(PredicateComparison::Gt));
+    assert_eq!(
+        guard.value.compare.as_ref().unwrap().comparison,
+        PredicateComparison::Gt
+    );
     let otherwise = predicates
         .iter()
         .find(|row| row.predicate_id != guard.predicate_id)
         .unwrap();
     assert_eq!(
-        otherwise.kind,
+        otherwise.value.kind,
         pse_relations::generated::enums::PredicateKind::Not
     );
-    assert_eq!(otherwise.left_predicate, Some(guard.predicate_id));
+    assert_eq!(
+        otherwise.value.not.as_ref().unwrap().predicate,
+        guard.predicate_id
+    );
 }
 
 #[tokio::test]
 async fn lexical_binding_leaves_only_the_outer_symbol_reference() {
     let (fixture, output) = compile("x == (x + 1 where x = 3)").await;
-    let references = rows::<normalized::template_expr_symbol_refs::Row>(&output, &fixture.registry);
+    let references = rows::<normalized::template_expr_nodes::Row>(&output, &fixture.registry)
+        .into_iter()
+        .filter_map(|row| row.payload.symbol)
+        .collect::<Vec<_>>();
     assert_eq!(references.len(), 1);
-    assert_eq!(references[0].symbol_id, Some(id(92)));
-    assert!(references[0].bound_index_id.is_none());
+    assert_eq!(
+        references[0].reference.symbol.as_ref().unwrap().symbol_id,
+        id(92)
+    );
+    assert!(references[0].reference.index.is_none());
 }
 
 #[tokio::test]
 async fn cached_configuration_ast_binds_each_parent_and_preserves_full_width_literals() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let mut texts = source_texts(&fixture.registry, "x == 0");
     let mut model: serde_json::Value =
         serde_json::from_str(&texts["templates/model.yaml"]).unwrap();
@@ -182,9 +204,9 @@ async fn cached_configuration_ast_binds_each_parent_and_preserves_full_width_lit
         .to_string(),
     );
     let source = load_package_texts(texts, &fixture.registry, ParseBudget::default()).unwrap();
-    let committed = fixture.commit(vec![source]).await;
-    let report = fixture.run(committed, "P3").await.unwrap();
-    let output = &report.stages.last().unwrap().snapshot;
+    let committed = fixture.source(vec![source]);
+    let report = fixture.evaluate(committed, "P3").await.unwrap();
+    let output = &report;
     let instances = rows::<normalized::instance_bindings::Row>(output, &fixture.registry);
     let values = rows::<normalized::config_values::Row>(output, &fixture.registry);
     for (parent, expected) in expected {
@@ -213,7 +235,7 @@ async fn cached_configuration_ast_binds_each_parent_and_preserves_full_width_lit
 
 #[tokio::test]
 async fn indexed_reads_keep_the_declared_order_without_inventing_binders() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let mut texts = source_texts(&fixture.registry, "x[1, 2] == x[2, 1]");
     let mut model: serde_json::Value =
         serde_json::from_str(&texts["templates/model.yaml"]).unwrap();
@@ -224,18 +246,20 @@ async fn indexed_reads_keep_the_declared_order_without_inventing_binders() {
     ]);
     texts.insert("templates/model.yaml".into(), model.to_string());
     let source = load_package_texts(texts, &fixture.registry, ParseBudget::default()).unwrap();
-    let committed = fixture.commit(vec![source]).await;
+    let committed = fixture.source(vec![source]);
     let report = fixture
-        .run(committed, "P3")
+        .evaluate(committed, "P3")
         .await
         .unwrap_or_else(|error| panic!("P3 failed: {error}"));
-    let output = &report.stages.last().unwrap().snapshot;
-    let gathers = rows::<normalized::template_expr_gathers::Row>(output, &fixture.registry);
+    let output = &report;
+    let nodes = rows::<normalized::template_expr_nodes::Row>(output, &fixture.registry);
+    let gathers = nodes
+        .iter()
+        .filter_map(|row| row.payload.pending_gather.as_ref())
+        .collect::<Vec<_>>();
     assert_eq!(gathers.len(), 2);
-    assert!(gathers.iter().all(|row| row.coordinate_map.is_none()
-        && row.gather_state == pse_relations::generated::enums::GatherState::Pending));
-    let first = gathers[0].index_nodes.as_ref().unwrap();
-    let second = gathers[1].index_nodes.as_ref().unwrap();
+    let first = &gathers[0].indices;
+    let second = &gathers[1].indices;
     assert_eq!(
         first.iter().rev().collect::<Vec<_>>(),
         second.iter().collect::<Vec<_>>()
@@ -243,7 +267,10 @@ async fn indexed_reads_keep_the_declared_order_without_inventing_binders() {
     assert!(
         rows::<normalized::expression_index_bindings::Row>(output, &fixture.registry).is_empty()
     );
-    let constants = rows::<normalized::template_expr_int_constants::Row>(output, &fixture.registry);
+    let constants = nodes
+        .iter()
+        .filter_map(|row| row.payload.integer.as_ref())
+        .collect::<Vec<_>>();
     assert_eq!(
         constants
             .iter()
@@ -255,7 +282,7 @@ async fn indexed_reads_keep_the_declared_order_without_inventing_binders() {
 
 #[tokio::test]
 async fn distinct_compound_literals_use_each_actual_component_unit() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let mut texts = source_texts(&fixture.registry, "x == 2{cm/s} + 4{m/s}");
     let physical_text = texts["materials/physical.yaml"]
         .lines()
@@ -271,95 +298,30 @@ async fn distinct_compound_literals_use_each_actual_component_unit() {
     physical["units"].as_array_mut().unwrap().push(centimetre);
     texts.insert("materials/physical.yaml".into(), physical.to_string());
     let source = load_package_texts(texts, &fixture.registry, ParseBudget::default()).unwrap();
-    let committed = fixture.commit(vec![source]).await;
+    let committed = fixture.source(vec![source]);
     let report = fixture
-        .run(committed, "P3")
+        .evaluate(committed, "P3")
         .await
         .unwrap_or_else(|error| panic!("P3 failed: {error}"));
-    let output = &report.stages.last().unwrap().snapshot;
-    let mut values =
-        rows::<normalized::template_expr_float_constants::Row>(output, &fixture.registry)
-            .iter()
-            .map(|row| row.value)
-            .collect::<Vec<_>>();
+    let output = &report;
+    let mut values = rows::<normalized::template_expr_nodes::Row>(output, &fixture.registry)
+        .into_iter()
+        .filter_map(|row| row.payload.float)
+        .map(|row| row.value)
+        .collect::<Vec<_>>();
     values.sort_by(f64::total_cmp);
     assert_eq!(values, [0.02, 4.0]);
 }
 
 #[tokio::test]
-async fn cold_stage_reopen_retains_selected_policy_and_rejects_missing_invocation() {
-    use pse_catalog::store::membership::AdmissionContext;
-    use pse_compiler::{BoundInput, PolicySet, driver::PipelineRequest, passes::PolicyBinding};
-    use pse_ids::CancellationToken;
-    use std::collections::BTreeMap;
-
-    let mut fixture = native_pipeline::Fixture::new();
-    let input = source(&fixture.registry, "x == 7");
-    let committed = fixture.commit(vec![input]).await;
-    let declaration = fixture
-        .registry
-        .relation("reference.quantity_types")
-        .unwrap();
-    let mut owners = vec![committed.clone()];
-    let owner = loop {
-        let owner = owners
-            .pop()
-            .expect("actual policy owner in committed input graph");
-        if owner
-            .relations()
-            .values()
-            .any(|relation| relation.contract().canonical.relation_id == declaration.id)
-        {
-            break owner;
-        }
-        owners.extend(owner.parents().values().cloned());
-    };
-    let policy = BoundInput::bind(owner, declaration.key, &fixture.registry).unwrap();
-    let policies = PolicySet(BTreeMap::from([(
-        "physical_scope".to_owned(),
-        PolicyBinding {
-            policy_id: id(31),
-            input: policy,
-        },
-    )]));
-    let cancel = CancellationToken::new();
-    let report = fixture
-        .driver
-        .run(
-            PipelineRequest {
-                through: "P3".into(),
-                snapshot: committed,
-                policies,
-                reuse: false,
-            },
-            &cancel,
-        )
-        .await
-        .unwrap();
-    let output = &report.stages.last().unwrap().snapshot;
-    let reader = fixture.reader();
-    let restored = reader
-        .read_pinned_manifest(output.manifest_ref(), &cancel)
-        .await
-        .unwrap();
-    let invocation = restored.invocation().unwrap();
-    assert_eq!(invocation.policies["physical_scope"].policy_id, id(31));
-    assert_eq!(invocation.policies.len(), 1);
-    assert_eq!(invocation.engine, output.invocation().unwrap().engine);
-    for (port, relation) in restored.relations() {
-        assert_eq!(relation.batch(), output.relations()[port].batch());
-    }
-    let missing = AdmissionContext {
-        traversal: Arc::default(),
-        parents: restored.parents().clone(),
-        stage_pass: restored.stage_pass(),
-        invocation: None,
-    };
-    assert!(
-        reader
-            .read_manifest(restored.manifest_ref(), &missing, &cancel)
-            .await
-            .is_err(),
-        "an explicit context cannot omit the stored invocation and replay defaults"
+async fn cold_publication_reopen_preserves_actual_normalized_values() {
+    let (fixture, values) = compile("x == 7").await;
+    let reopened = fixture.roundtrip(&values).await;
+    assert_eq!(
+        values.keys().collect::<Vec<_>>(),
+        reopened.keys().collect::<Vec<_>>()
     );
+    for (key, value) in values {
+        assert_eq!(value.batch(), reopened[&key].batch(), "{key}");
+    }
 }

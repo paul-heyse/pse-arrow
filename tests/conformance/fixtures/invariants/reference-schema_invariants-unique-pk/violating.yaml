@@ -4,18 +4,22 @@
     "reference.schema_invariants": [
       {
         "doc": "[\"text\",\"value-1\"]",
+        "inputs": "[\"list\",[]]",
         "invariant_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "key_columns": "[\"list\",[]]",
         "kind": "[\"enum\",\"unique\"]",
+        "query": "[\"text\",\"value-1\"]",
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "severity": "[\"enum\",\"error\"]"
       },
       {
         "doc": "[\"text\",\"value-1\"]",
+        "inputs": "[\"list\",[]]",
         "invariant_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "key_columns": "[\"list\",[]]",
         "kind": "[\"enum\",\"unique\"]",
+        "query": "[\"text\",\"value-1\"]",
         "relation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "severity": "[\"enum\",\"error\"]"
       }
     ]

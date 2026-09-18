@@ -8,7 +8,7 @@ mod program;
 use crate::{RuleError, errmap::internal};
 use datafusion::arrow::array::RecordBatch;
 use pse_catalog::session::{CompletedComputation, SnapshotSession};
-use pse_ids::{CancellationToken, SemanticId, SnapshotId};
+use pse_ids::{CancellationToken, SemanticId};
 use pse_relations::{
     columnar::FieldCheckedBatch,
     generated::{enums::FindingSeverity, runtime::diagnostics_findings},
@@ -19,8 +19,9 @@ use std::collections::{BTreeMap, BTreeSet};
 /// Provider policies use the same registry-to-native lowering as bundle admission.
 #[derive(Debug)]
 pub struct RegistryRequirementPlanner;
+#[async_trait::async_trait]
 impl pse_catalog::session::policy::RequirementPlanner for RegistryRequirementPlanner {
-    fn plan(
+    async fn plan(
         &self,
         session: &SnapshotSession,
         requirements: &BTreeSet<SemanticId>,
@@ -31,9 +32,9 @@ impl pse_catalog::session::policy::RequirementPlanner for RegistryRequirementPla
             session,
             session.registry(),
             InvariantScope::Required(requirements),
-            None,
             cancel,
         )
+        .await
         .map_err(|error| pse_catalog::CatalogError::Semantic(std::sync::Arc::new(error)))?;
         result
             .0
@@ -121,7 +122,6 @@ pub async fn run_invariants(
     session: &SnapshotSession,
     registry: &Registry,
     scope: InvariantScope<'_>,
-    subject: Option<SnapshotId>,
     cancel: &CancellationToken,
 ) -> Result<InvariantReport, RuleError> {
     session.validate_bindings(candidates)?;
@@ -130,9 +130,9 @@ pub async fn run_invariants(
         session,
         registry,
         scope,
-        subject,
         cancel,
-    )?;
+    )
+    .await?;
     let Some(plan) = plan else {
         return Ok(InvariantReport {
             completion: None,

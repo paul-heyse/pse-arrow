@@ -96,8 +96,12 @@ fn append_physical(_: &Path, _: &pse_schema::Registry, _: &mut GeneratedTree) ->
 // The pure registry emitter has no physical package data. Its bootstrap phase
 // must not claim those empty roots and prune the previously compiled fixtures.
 fn contract_roots(tree: &mut GeneratedTree) {
-    tree.roots
-        .retain(|root| tree.files.keys().any(|path| path.starts_with(root)));
+    tree.roots.retain(|root| {
+        !matches!(
+            root.to_str(),
+            Some("crates/pse-quantity/src/generated" | "crates/pse-material/src/generated")
+        )
+    });
 }
 
 fn add_python_manifest(tree: &mut GeneratedTree) -> Result<()> {
@@ -326,7 +330,13 @@ mod tests {
         assert_eq!(fs::read(fixture).unwrap(), b"retained fixture");
         assert_eq!(
             tree.roots,
-            vec![PathBuf::from("crates/pse-authoring/src/generated")]
+            [
+                "pse-relations",
+                "pse-authoring",
+                "pse-catalog",
+                "pse-compiler"
+            ]
+            .map(|name| PathBuf::from(format!("crates/{name}/src/generated")))
         );
     }
 

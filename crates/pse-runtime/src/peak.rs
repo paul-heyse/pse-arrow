@@ -18,6 +18,8 @@ pub struct ResourceReport {
     pub top_consumers: Vec<(String, usize)>,
     /// Whole-process peak resident bytes; `None` on unsupported platforms.
     pub process_peak_rss_bytes: Option<u64>,
+    /// Native retained capacities and hits, observed without cloning cached values.
+    pub caches: Vec<pse_catalog::cache_service::CacheReport>,
 }
 
 #[cfg(target_os = "linux")]

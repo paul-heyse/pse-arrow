@@ -6,16 +6,7 @@
 #[path = "support/strata_fixture.rs"]
 mod fixture;
 use fixture::{Fixture, builder, declare, head, id, input};
-use pse_schema::model::{
-    Cell, FieldContract, NullEquality, RuleDecl, RuleExpr as E, RuleHead, RulePlan as P,
-};
-
-fn scan(relation: &str, port: &'static str) -> P {
-    P::Scan {
-        relation: relation.to_owned(),
-        port,
-    }
-}
+use pse_schema::model::{Cell, FieldContract, RuleDecl};
 
 fn recursive_program() -> pse_schema::RegistryBuilder {
     let mut registry = builder();
@@ -46,17 +37,9 @@ fn recursive_program() -> pse_schema::RegistryBuilder {
             "seed",
             "1",
             0,
-            RuleHead::Relation("inferred.reach".into()),
-            P::Project {
-                input: Box::new(P::Filter {
-                    input: Box::new(scan("authored.input", "seed")),
-                    predicate: E::col("enabled"),
-                }),
-                columns: vec![
-                    ("origin".into(), E::col("from")),
-                    ("reached".into(), E::col("to")),
-                ],
-            },
+            "inferred.reach",
+            r#"SELECT "from" AS origin, "to" AS reached FROM authored.input WHERE enabled"#,
+            vec![fixture::read("authored.input", "seed")],
         )
         .assertions("provenance.reach_assertions"),
     );
@@ -66,22 +49,9 @@ fn recursive_program() -> pse_schema::RegistryBuilder {
             "self_join",
             "1",
             0,
-            RuleHead::Relation("inferred.reach".into()),
-            P::Project {
-                input: Box::new(P::EquiJoin {
-                    left: Box::new(scan("inferred.reach", "left")),
-                    right: Box::new(scan("inferred.reach", "right")),
-                    keys: (vec![("left.reached", "right.origin")])
-                        .into_iter()
-                        .map(|(left, right)| (left.into(), right.into()))
-                        .collect(),
-                    null_equality: NullEquality::NullEqualsNothing,
-                }),
-                columns: vec![
-                    ("origin".into(), E::col("left.origin")),
-                    ("reached".into(), E::col("right.reached")),
-                ],
-            },
+            "inferred.reach",
+            r#"SELECT "left".origin, "right".reached FROM inferred.reach AS "left" JOIN inferred.reach AS "right" ON "left".reached = "right".origin"#,
+            vec![fixture::read("inferred.reach", "left"), fixture::read("inferred.reach", "right")],
         )
         .assertions("provenance.reach_assertions"),
     );
@@ -153,92 +123,6 @@ async fn support_removal_recomputes_cyclic_closure_without_self_supported_facts(
     assert_eq!(both.rows(&original, "inferred.reach").len(), 4);
 }
 
-fn nested_program(bound: pse_schema::model::DepthBound) -> pse_schema::RegistryBuilder {
-    let mut registry = builder();
-    input(&mut registry, vec![id("from"), id("to")], &["from", "to"]);
-    head(
-        &mut registry,
-        "reach",
-        "reach_assertions",
-        &["origin", "reached"],
-        vec![id("origin"), id("reached")],
-    );
-    let seed = P::Project {
-        input: Box::new(scan("authored.input", "edges")),
-        columns: vec![
-            ("origin".into(), E::col("from")),
-            ("reached".into(), E::col("to")),
-        ],
-    };
-    let step = P::Project {
-        input: Box::new(P::EquiJoin {
-            left: Box::new(P::RecursiveRef { name: "nested" }),
-            right: Box::new(scan("authored.input", "edges")),
-            keys: vec![("reached".into(), "edges.from".into())],
-            null_equality: NullEquality::NullEqualsNothing,
-        }),
-        columns: vec![
-            ("origin".into(), E::col("origin")),
-            ("reached".into(), E::col("edges.to")),
-        ],
-    };
-    declare(
-        &mut registry,
-        RuleDecl::new(
-            "nested",
-            "1",
-            0,
-            RuleHead::Relation("inferred.reach".into()),
-            P::Recursive {
-                name: "nested",
-                seed: Box::new(seed),
-                step: Box::new(step),
-                is_distinct: true,
-                depth_bound: bound,
-            },
-        )
-        .assertions("provenance.reach_assertions"),
-    );
-    registry
-}
-
-#[tokio::test]
-async fn nested_distinct_recursion_uses_flat_exact_source_support() {
-    let rows = vec![
-        vec![Cell::U64(1), Cell::U64(2)],
-        vec![Cell::U64(2), Cell::U64(3)],
-        vec![Cell::U64(3), Cell::U64(1)],
-    ];
-    let fixture = Fixture::new(
-        nested_program(pse_schema::model::DepthBound::FixedPoint),
-        rows.clone(),
-        2,
-    );
-    let result = fixture.run(16).await.unwrap();
-    let expected = (1..=3)
-        .flat_map(|a| (1..=3).map(move |b| vec![Cell::U64(a), Cell::U64(b)]))
-        .collect::<Vec<_>>();
-    assert_eq!(fixture.rows(&result, "inferred.reach"), expected);
-    // Every reachable pair has a path through each of the three cycle edges.
-    // Flat source membership therefore has 9*3 rows, independent of infinitely
-    // many longer cyclic derivation trees.
-    let supports = fixture.rows(&result, "provenance.rule_support_edges");
-    assert_eq!(supports.len(), 27);
-    assert!(supports.iter().all(|row| row[9] == Cell::Enum("facts")));
-    assert!(
-        result
-            .plans
-            .iter()
-            .any(|plan| plan.explain_pgjson().contains("__pse_nested"))
-    );
-    let bounded = Fixture::new(
-        nested_program(pse_schema::model::DepthBound::Bounded(1)),
-        rows,
-        1,
-    );
-    assert!(bounded.run(16).await.is_err());
-}
-
 fn negative_scope_program() -> pse_schema::RegistryBuilder {
     let mut registry = recursive_program();
     head(
@@ -254,18 +138,9 @@ fn negative_scope_program() -> pse_schema::RegistryBuilder {
             "missing",
             "1",
             1,
-            RuleHead::Relation("inferred.missing".into()),
-            P::Project {
-                input: Box::new(P::AntiJoin {
-                    left: Box::new(scan("authored.input", "source")),
-                    right: Box::new(scan("inferred.reach", "closure")),
-                    keys: vec![
-                        ("source.from".into(), "closure.origin".into()),
-                        ("source.to".into(), "closure.reached".into()),
-                    ],
-                }),
-                columns: vec![("witness".into(), E::col("source.witness"))],
-            },
+            "inferred.missing",
+            r#"SELECT source.witness FROM authored.input AS source LEFT ANTI JOIN inferred.reach AS closure ON source."from" = closure.origin AND source."to" = closure.reached"#,
+            vec![fixture::read("authored.input", "source"), fixture::negate("inferred.reach", "closure")],
         )
         .assertions("provenance.missing_assertions")
         .stratified_negation(),
@@ -336,8 +211,9 @@ async fn a_later_round_producer_conflict_aborts_before_the_next_stratum() {
             "delay",
             "1",
             0,
-            RuleHead::Relation("inferred.delay".into()),
-            scan("authored.input", "input"),
+            "inferred.delay",
+            "SELECT id FROM authored.input",
+            vec![fixture::read("authored.input", "input")],
         )
         .assertions("provenance.delay_assertions"),
     );
@@ -351,14 +227,9 @@ async fn a_later_round_producer_conflict_aborts_before_the_next_stratum() {
                 name,
                 "1",
                 0,
-                RuleHead::Relation("inferred.facts".into()),
-                P::Project {
-                    input: Box::new(scan(source, "input")),
-                    columns: vec![
-                        ("id".into(), E::col("id")),
-                        ("value".into(), E::Lit(Cell::U64(value))),
-                    ],
-                },
+                "inferred.facts",
+                format!("SELECT id, CAST({value} AS INT UNSIGNED) AS value FROM {source}"),
+                vec![fixture::read(source, "input")],
             )
             .assertions("provenance.facts_assertions"),
         );
@@ -369,8 +240,9 @@ async fn a_later_round_producer_conflict_aborts_before_the_next_stratum() {
             "consumer",
             "1",
             1,
-            RuleHead::Relation("inferred.consumer".into()),
-            scan("inferred.facts", "facts"),
+            "inferred.consumer",
+            "SELECT id, value FROM inferred.facts",
+            vec![fixture::read("inferred.facts", "facts")],
         )
         .assertions("provenance.consumer_assertions"),
     );

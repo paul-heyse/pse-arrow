@@ -58,7 +58,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("group_id", T::id()).with_fk("compiled.element_projection_groups", "group_id"),
             column("index", index()),
             column("symbol_id", T::id()),
-            column("node_id", T::native(arrow_schema::DataType::UInt64)),
+            column("node_id", T::nonnegative(i64::MAX)),
             column("element_id", T::id()),
             column("species_id", T::id()),
             column("count", T::native(arrow_schema::DataType::Float64)),

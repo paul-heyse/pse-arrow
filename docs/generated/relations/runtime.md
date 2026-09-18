@@ -2,6 +2,57 @@
 
 # runtime relations
 
+## `cache_entry_statistics`
+
+Explicit bounded cache entry diagnostics; not execution identity.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `cache, key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `cache` | `Utf8` | false | `key` | — | — |
+| `key` | `Utf8` | false | `key` | — | — |
+| `bytes` | `Int64` | false | `payload` | — | — |
+| `hits` | `Int64` | false | `payload` | — | — |
+
+## `cache_statistics`
+
+Observed native cache counters; NULL means unavailable, not zero.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `name` | `Utf8` | false | `key` | — | — |
+| `policy_limit_bytes` | `Int64` | false | `payload` | — | — |
+| `capacity_bytes` | `Int64` | false | `payload` | — | — |
+| `retained_bytes` | `Int64` | false | `payload` | — | — |
+| `live_bytes` | `Int64` | true | `payload` | — | — |
+| `pinned_bytes` | `Int64` | true | `payload` | — | — |
+| `inflight_bytes` | `Int64` | true | `payload` | — | — |
+| `active_loads` | `Int64` | true | `payload` | — | — |
+| `entries` | `Int64` | false | `payload` | — | — |
+| `hits` | `Int64` | false | `payload` | — | — |
+| `misses` | `Int64` | false | `payload` | — | — |
+| `bypasses` | `Int64` | false | `payload` | — | — |
+| `evictions` | `Int64` | true | `payload` | — | — |
+
+## `change_events`
+
+Typed native CDF identity; each event travels with its complete declared before/after row value.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri, commit_version, kind, row_key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `table_uri` | `Utf8` | false | `key` | — | — |
+| `relation_id` | `semantic_id` | false | `payload` | — | — |
+| `contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `commit_version` | `Int64` | false | `key` | — | — |
+| `kind` | `enum:ChangeKind` | false | `key` | — | — |
+| `row_key` | `content_hash` | false | `key` | — | — |
+| `committed_at` | `Timestamp(ns, "UTC")` | true | `payload` | — | — |
+
 ## `diagnostics_findings`
 
 blueprint §6.13 execution and evidence: diagnostics_findings.
@@ -11,7 +62,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `finding_id`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `finding_id` | `semantic_id` | false | `key` | — | — |
-| `subject_snapshot` | `content_hash` | true | `payload` | — | — |
 | `run_id` | `semantic_id` | true | `payload` | — | — |
 | `check_id` | `semantic_id` | false | `payload` | — | — |
 | `severity` | `enum:FindingSeverity` | false | `payload` | — | — |
@@ -43,6 +93,17 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, equation_id`.
 | `dual` | `Float64` | false | `payload` | — | — |
 | `bound_multiplier_lower` | `Float64` | true | `payload` | — | — |
 | `bound_multiplier_upper` | `Float64` | true | `payload` | — | — |
+
+## `execution_statistics`
+
+Actual native planning, load and post-commit acceleration observations.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `name` | `Utf8` | false | `key` | — | — |
+| `count` | `Int64` | true | `payload` | — | — |
 
 ## `host_capabilities`
 
@@ -90,6 +151,19 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, iteration`.
 | `regularization` | `Float64` | false | `payload` | — | — |
 | `restoration` | `Boolean` | false | `payload` | — | — |
 
+## `jacobian_coordinates`
+
+Ordered sparse coordinates bound to one exact prepared numerical program.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `program_id, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `program_id` | `semantic_id` | false | `key` | `runtime.numerical_programs.program_id` | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `residual` | `Int64` | false | `payload` | — | — |
+| `variable` | `Int64` | false | `payload` | — | — |
+
 ## `kernel_evaluation_outcomes`
 
 blueprint §6.13 execution and evidence: kernel_evaluation_outcomes.
@@ -122,11 +196,123 @@ Version: 1. Snapshot class: `derived`. Primary key: `evaluation_id`.
 | `input_hash` | `content_hash` | false | `payload` | — | — |
 | `output_batch_hash` | `content_hash` | false | `payload` | — | — |
 
+## `maintenance_outcomes`
+
+Actual native Delta maintenance outcomes; no bespoke data file deletion.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `table_uri` | `Utf8` | false | `key` | — | — |
+| `delta_version` | `Int64` | false | `payload` | — | — |
+| `deleted_files` | `List` | false | `payload` | — | — |
+| `deleted_files.item` | `Utf8` | false | `payload` | — | — |
+| `deleted_logs` | `Int64` | false | `payload` | — | — |
+
+## `native_dependencies`
+
+Exact native input, implementation generation, policy and observation facts. Names alone never establish implementation equivalence.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `kind, scope, name`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `kind` | `enum:NativeDependencyKind` | false | `key` | — | — |
+| `scope` | `Utf8` | false | `key` | — | — |
+| `name` | `Utf8` | false | `key` | — | — |
+| `evidence` | `Struct` | false | `payload` | — | — |
+| `evidence.kind` | `enum:NativeDependencyEvidenceKind` | false | `payload` | — | — |
+| `evidence.text` | `Struct` | true | `payload` | — | — |
+| `evidence.text.value` | `Utf8` | false | `payload` | — | — |
+| `evidence.identity` | `Struct` | true | `payload` | — | — |
+| `evidence.identity.value` | `semantic_id` | false | `payload` | — | — |
+| `evidence.identified_text` | `Struct` | true | `payload` | — | — |
+| `evidence.identified_text.identity` | `semantic_id` | false | `payload` | — | — |
+| `evidence.identified_text.text` | `Utf8` | false | `payload` | — | — |
+| `evidence.fingerprint` | `Struct` | true | `payload` | — | — |
+| `evidence.fingerprint.value` | `content_hash` | false | `payload` | — | — |
+| `evidence.selection` | `Struct` | true | `payload` | — | — |
+| `evidence.selection.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `evidence.selection.schema_name` | `Utf8` | false | `payload` | — | — |
+| `evidence.selection.table_name` | `Utf8` | false | `payload` | — | — |
+| `evidence.selection.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `evidence.selection.relation_version` | `Int64` | false | `payload` | — | — |
+| `evidence.selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `evidence.selection.table_uri` | `Utf8` | false | `payload` | — | — |
+| `evidence.selection.delta_version` | `Int64` | false | `payload` | — | — |
+| `evidence.selection.selection` | `Struct` | false | `payload` | — | — |
+| `evidence.selection.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `evidence.selection.selection.revision` | `Struct` | true | `payload` | — | — |
+| `evidence.selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `evidence.selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
+| `evidence.projection` | `Struct` | true | `payload` | — | — |
+| `evidence.projection.selection` | `Struct` | false | `payload` | — | — |
+| `evidence.projection.selection.catalog_name` | `Utf8` | false | `payload` | — | — |
+| `evidence.projection.selection.schema_name` | `Utf8` | false | `payload` | — | — |
+| `evidence.projection.selection.table_name` | `Utf8` | false | `payload` | — | — |
+| `evidence.projection.selection.relation_id` | `semantic_id` | false | `payload` | — | — |
+| `evidence.projection.selection.relation_version` | `Int64` | false | `payload` | — | — |
+| `evidence.projection.selection.contract_fingerprint` | `content_hash` | false | `payload` | — | — |
+| `evidence.projection.selection.table_uri` | `Utf8` | false | `payload` | — | — |
+| `evidence.projection.selection.delta_version` | `Int64` | false | `payload` | — | — |
+| `evidence.projection.selection.selection` | `Struct` | false | `payload` | — | — |
+| `evidence.projection.selection.selection.kind` | `enum:MemberSelectionKind` | false | `payload` | — | — |
+| `evidence.projection.selection.selection.revision` | `Struct` | true | `payload` | — | — |
+| `evidence.projection.selection.selection.revision.column` | `Utf8` | false | `payload` | — | — |
+| `evidence.projection.selection.selection.revision.revision_id` | `semantic_id` | false | `payload` | — | — |
+| `evidence.projection.columns` | `List` | false | `payload` | — | — |
+| `evidence.projection.columns.item` | `Utf8` | false | `payload` | — | — |
+
+## `numerical_evaluations`
+
+Scenario values in exact prepared-program order. Empty vectors represent zero dimensions.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `program_id, scenario_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `program_id` | `semantic_id` | false | `key` | `runtime.numerical_programs.program_id` | — |
+| `scenario_id` | `semantic_id` | false | `key` | — | — |
+| `residual_dimension` | `Int64` | false | `payload` | — | — |
+| `variable_dimension` | `Int64` | false | `payload` | — | — |
+| `jacobian_dimension` | `Int64` | false | `payload` | — | — |
+| `residuals` | `List` | false | `payload` | — | — |
+| `residuals.item` | `Float64` | false | `payload` | — | — |
+| `jacobian` | `List` | false | `payload` | — | — |
+| `jacobian.item` | `Float64` | false | `payload` | — | — |
+
+Native row check `jacobian_extent` (must be true):
+
+```sql
+array_length(jacobian) = jacobian_dimension
+```
+
+Native row check `residual_extent` (must be true):
+
+```sql
+array_length(residuals) = residual_dimension
+```
+
+## `numerical_programs`
+
+Exact ordered variable columns and residual/Jacobian dimensions of one prepared program.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `program_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `program_id` | `semantic_id` | false | `key` | — | — |
+| `residual_dimension` | `Int64` | false | `payload` | — | — |
+| `variable_columns` | `List` | false | `payload` | — | — |
+| `variable_columns.item` | `Utf8` | false | `payload` | — | — |
+| `jacobian_dimension` | `Int64` | false | `payload` | — | — |
+
 ## `publications`
 
-ADR-0068: one Delta control row atomically selects exact relation versions and slices; its Delta version identifies a publication root.
+One native Delta control row selects exact members; native transactions index publication and attempt identities.
 
-Version: 1. Snapshot class: `sidecar`. Primary key: `workspace_id`.
+Version: 2. Snapshot class: `sidecar`. Primary key: `workspace_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -180,6 +366,25 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, equation_id`.
 | `scaled_residual` | `Float64` | false | `payload` | — | — |
 | `relative_residual` | `Float64` | true | `payload` | — | — |
 
+## `retained_versions`
+
+Native retention query outputs; ranges preserve each exact version and change window.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `table_uri, from_version, through_version, reason`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `table_uri` | `Utf8` | false | `key` | — | — |
+| `from_version` | `Int64` | false | `key` | — | — |
+| `through_version` | `Int64` | false | `key` | — | — |
+| `reason` | `enum:RetentionReason` | false | `key` | — | — |
+
+Native row check `ordered_range` (must be true):
+
+```sql
+from_version <= through_version
+```
+
 ## `runs`
 
 blueprint §6.13 execution and evidence: runs.
@@ -228,3 +433,60 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, symbol_id`.
 | `value` | `Float64` | false | `payload` | — | — |
 | `unit_id` | `semantic_id` | false | `payload` | — | — |
 | `bound_status` | `enum:BoundStatus` | false | `payload` | — | — |
+
+## `solver_outcomes`
+
+Actual Ipopt outcome for one program/scenario. Null numeric values are unavailable or nonfinite; they never certify success. Objective is program residual zero; constraints follow in program order.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `program_id, scenario_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `program_id` | `semantic_id` | false | `key` | `runtime.numerical_programs.program_id` | — |
+| `scenario_id` | `semantic_id` | false | `key` | — | — |
+| `variable_columns` | `List` | false | `payload` | — | — |
+| `variable_columns.item` | `Utf8` | false | `payload` | — | — |
+| `constraint_dimension` | `Int64` | false | `payload` | — | — |
+| `ipopt_status` | `Int64` | false | `payload` | — | — |
+| `termination` | `enum:SolverTermination` | false | `payload` | — | — |
+| `objective` | `Float64` | true | `payload` | — | — |
+| `values` | `List` | false | `payload` | — | — |
+| `values.item` | `Float64` | true | `payload` | — | — |
+| `constraints` | `List` | false | `payload` | — | — |
+| `constraints.item` | `Float64` | true | `payload` | — | — |
+| `constraint_duals` | `List` | false | `payload` | — | — |
+| `constraint_duals.item` | `Float64` | true | `payload` | — | — |
+| `lower_duals` | `List` | false | `payload` | — | — |
+| `lower_duals.item` | `Float64` | true | `payload` | — | — |
+| `upper_duals` | `List` | false | `payload` | — | — |
+| `upper_duals.item` | `Float64` | true | `payload` | — | — |
+| `diagnostic` | `Struct` | true | `payload` | — | — |
+| `diagnostic.code` | `Utf8` | true | `payload` | — | — |
+| `diagnostic.message` | `Utf8` | false | `payload` | — | — |
+| `iterations` | `List` | false | `payload` | — | — |
+| `iterations.item` | `Struct` | false | `payload` | — | — |
+| `iterations.item.iteration` | `Int64` | false | `payload` | — | — |
+| `iterations.item.restoration` | `Boolean` | false | `payload` | — | — |
+| `iterations.item.objective` | `Float64` | true | `payload` | — | — |
+| `iterations.item.primal_infeasibility` | `Float64` | true | `payload` | — | — |
+| `iterations.item.dual_infeasibility` | `Float64` | true | `payload` | — | — |
+| `iterations.item.barrier` | `Float64` | true | `payload` | — | — |
+| `iterations.item.step` | `Float64` | true | `payload` | — | — |
+
+Native row check `constraint_extents` (must be true):
+
+```sql
+array_length(constraints) = constraint_dimension AND array_length(constraint_duals) = constraint_dimension
+```
+
+Native row check `successful_values` (must be true):
+
+```sql
+termination <> 'success' OR (ipopt_status IN (0, 1, 6) AND objective IS NOT NULL AND diagnostic IS NULL AND array_length(array_compact(values)) = array_length(values) AND array_length(array_compact(constraints)) = array_length(constraints) AND array_length(array_compact(constraint_duals)) = array_length(constraint_duals) AND array_length(array_compact(lower_duals)) = array_length(lower_duals) AND array_length(array_compact(upper_duals)) = array_length(upper_duals))
+```
+
+Native row check `variable_extents` (must be true):
+
+```sql
+array_length(values) = array_length(variable_columns) AND array_length(lower_duals) = array_length(variable_columns) AND array_length(upper_duals) = array_length(variable_columns)
+```

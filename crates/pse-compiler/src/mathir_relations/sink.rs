@@ -6,24 +6,13 @@
 use super::malformed;
 use pse_authoring::SourceSpan;
 use pse_ids::{CancellationToken, MemoryReserver, Reservation, SemanticId};
-use pse_mathir::{DomainRef, GuardRef, MathIrError, NodeId, ValueRef};
+use pse_mathir::{MathIrError, NodeId};
 use pse_relations::{
     RelationError,
     columnar::{Collection, FieldCheckedBatch},
 };
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
-
-type DomainColumns = (Option<SemanticId>, Option<SemanticId>, Option<String>);
-type GuardColumns = (Option<u64>, Option<SemanticId>, Option<u64>);
-type ReferenceColumns = (
-    &'static str,
-    Option<SemanticId>,
-    Option<SemanticId>,
-    Option<String>,
-    Option<SemanticId>,
-    Option<SemanticId>,
-);
 
 /// A mathematical storage family and its explicit normalization provenance.
 #[derive(Clone, Debug)]
@@ -37,7 +26,7 @@ pub enum Family {
         /// Declared expression family.
         prefix: &'static str,
         /// Global ordinal offset.
-        offset: u64,
+        offset: i64,
         /// Source derivation identity.
         derivation: SemanticId,
         /// Original authored expression range.
@@ -75,7 +64,7 @@ impl<'a> RelationSink<'a> {
     pub fn into_batches(self) -> Result<BTreeMap<RelationKey, FieldCheckedBatch>, RelationError> {
         self.columns.finish()
     }
-    pub(crate) fn node(&self, node: NodeId) -> Result<u64, MathIrError> {
+    pub(crate) fn node(&self, node: NodeId) -> Result<i64, MathIrError> {
         let offset = match self.family {
             Family::Compiled | Family::Inferred => 0,
             Family::Normalized { offset, .. } => offset,
@@ -83,8 +72,15 @@ impl<'a> RelationSink<'a> {
         node.0
             .checked_add(offset)
             .ok_or_else(|| malformed("math ordinal overflow"))
+            .and_then(|value| {
+                if value < 0 {
+                    Err(malformed("negative node ordinal"))
+                } else {
+                    Ok(value)
+                }
+            })
     }
-    pub(crate) fn optional_node(&self, node: Option<NodeId>) -> Result<Option<u64>, MathIrError> {
+    pub(crate) fn optional_node(&self, node: Option<NodeId>) -> Result<Option<i64>, MathIrError> {
         node.map(|node| self.node(node)).transpose()
     }
     pub(crate) fn provenance(&self) -> Result<(SemanticId, SourceSpan), MathIrError> {
@@ -97,67 +93,6 @@ impl<'a> RelationSink<'a> {
             Family::Compiled | Family::Inferred => Err(malformed(
                 "source provenance requested outside normalized family",
             )),
-        }
-    }
-    pub(crate) fn domain_parts(&self, domain: DomainRef) -> Result<DomainColumns, MathIrError> {
-        match domain {
-            DomainRef::Actual(id) => Ok((Some(id.as_id()), None, None)),
-            DomainRef::Template {
-                template_id,
-                domain_name,
-            } if matches!(self.family, Family::Normalized { .. }) => {
-                Ok((None, Some(template_id), Some(domain_name)))
-            }
-            DomainRef::Template { .. } => Err(malformed(
-                "unresolved template domain in instantiated output",
-            )),
-        }
-    }
-    pub(crate) fn guard_parts(&self, guard: Option<GuardRef>) -> Result<GuardColumns, MathIrError> {
-        match guard {
-            None => Ok((None, None, None)),
-            Some(GuardRef::Math(node)) => Ok((Some(self.node(node)?), None, None)),
-            Some(GuardRef::Predicate {
-                source_id,
-                predicate_id,
-            }) if matches!(self.family, Family::Normalized { .. }) => {
-                Ok((None, Some(source_id), Some(predicate_id)))
-            }
-            _ => Err(malformed(
-                "unresolved source predicate in instantiated output",
-            )),
-        }
-    }
-    pub(crate) fn reference_parts(reference: ValueRef) -> ReferenceColumns {
-        match reference {
-            ValueRef::ActualSymbol(id) => ("symbol", Some(id), None, None, None, None),
-            ValueRef::Index(id) => ("index", None, None, None, None, Some(id.as_id())),
-            ValueRef::Template {
-                template_id,
-                kind,
-                name,
-            } => (
-                kind.as_str(),
-                None,
-                Some(template_id),
-                Some(name),
-                None,
-                None,
-            ),
-            ValueRef::Domain(DomainRef::Actual(id)) => {
-                ("domain", None, None, None, Some(id.as_id()), None)
-            }
-            ValueRef::Domain(DomainRef::Template {
-                template_id,
-                domain_name,
-            }) => (
-                "domain",
-                None,
-                Some(template_id),
-                Some(domain_name),
-                None,
-                None,
-            ),
         }
     }
     pub(crate) fn reserve_row(&self, payload: usize) -> Result<Box<dyn Reservation>, MathIrError> {

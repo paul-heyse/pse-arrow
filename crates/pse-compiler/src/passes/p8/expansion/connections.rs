@@ -3,7 +3,7 @@
 
 use super::super::{inventory::Located, outputs::Output};
 use super::{Inputs, axes, invalid, typed_zero, unique};
-use crate::{CompilerError, PassContext};
+use crate::{AlgorithmContext, CompilerError};
 use pse_ids::{Reservation, SemanticId};
 use pse_mathir::{
     ExprGraph, Opcode, Payload,
@@ -16,9 +16,13 @@ use pse_relations::generated::{compiled, inferred};
 use pse_schema::math::Sense;
 use std::collections::{BTreeMap, BTreeSet};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "expand keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) fn expand(
     inputs: &Inputs,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
     physical: &QuantityRegistry,
     graph: &mut ExprGraph,
     equations: &mut Vec<EquationRecord>,
@@ -85,7 +89,7 @@ pub(super) fn expand(
             let ordinal = member.ordinal;
             output.active.clone_from(&connection_support);
             output.use_row(member);
-            if usize::from(ordinal) != position {
+            if usize::try_from(ordinal).ok() != Some(position) {
                 return Err(invalid("port member ordinal has a gap"));
             }
             let other = right
@@ -160,7 +164,7 @@ pub(super) fn expand(
                         Ok((
                             index.bound_index,
                             u16::try_from(position)
-                                .map_err(|_| invalid("connection axis exceeds u16"))?,
+                                .map_err(|_| invalid("connection axis exceeds i64"))?,
                         ))
                     })
                     .collect::<Result<Vec<_>, CompilerError>>()?;
@@ -202,7 +206,7 @@ pub(super) fn expand(
                 filter: None,
                 body,
                 sense: Sense::Eq,
-                lower: Some(zero),
+                lower: None,
                 upper: Some(zero),
                 free_indices: indices
                     .iter()
@@ -212,7 +216,7 @@ pub(super) fn expand(
                             bound_index: index.bound_index,
                             domain: index.domain,
                             position: u16::try_from(position)
-                                .map_err(|_| invalid("connection axis exceeds u16"))?,
+                                .map_err(|_| invalid("connection axis exceeds i64"))?,
                         })
                     })
                     .collect::<Result<_, CompilerError>>()?,
@@ -234,7 +238,7 @@ pub(super) fn expand(
 fn member_domain(
     rows: &[Located<inferred::port_member_domains::Row>],
     port: SemanticId,
-    ordinal: u16,
+    ordinal: i64,
 ) -> Result<&Located<inferred::port_member_domains::Row>, CompilerError> {
     unique(
         rows,
@@ -242,9 +246,13 @@ fn member_domain(
         "port member domains",
     )
 }
+#[expect(
+    clippy::too_many_arguments,
+    reason = "group keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 fn group(
     inputs: &Inputs,
-    _ctx: &PassContext<'_>,
+    _ctx: &AlgorithmContext<'_>,
     physical: &QuantityRegistry,
     port: &inferred::ports::Row,
     member: &inferred::port_members::Row,

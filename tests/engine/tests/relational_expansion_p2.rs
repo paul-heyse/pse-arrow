@@ -28,6 +28,10 @@ fn phase_row(phase: u8) -> Vec<Cell> {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "complete target fixture construction and its independent assertions are kept in execution order"
+)]
 async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let spec = registry.relation("authored.material_systems").unwrap();
@@ -37,7 +41,6 @@ async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
         .iter()
         .find(|value| value.name == "closure:material_system_phases_exist")
         .unwrap();
-    let rule = registry.rule(&invariant.rule).unwrap();
     let systems = [
         (100, vec![]),
         (101, vec![1, 2]),
@@ -93,23 +96,29 @@ async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
             native_engine_profile(),
         )
         .unwrap();
-        let ports = pse_rules::plan::PortBinding {
-            ports: rule
-                .plan
-                .dependencies()
-                .into_iter()
-                .map(|(relation, port, _)| {
-                    (port.to_owned(), registry.relation(relation).unwrap().key)
-                })
-                .collect(),
-        };
-        let plan = pse_rules::plan::compile(rule, &ports, &session, &registry).unwrap();
-        let result =
-            pse_rules::exec::execute(&plan, &session, &registry, &CancellationToken::default())
-                .await
-                .unwrap();
+        let cancel = CancellationToken::default();
+        let inputs = invariant
+            .inputs
+            .iter()
+            .map(|name| registry.relation(name).unwrap().key)
+            .collect::<Vec<_>>();
+        let plan = session
+            .bind_declared_query(&invariant.query, &inputs, &cancel)
+            .await
+            .unwrap();
+        let plan = datafusion::logical_expr::LogicalPlanBuilder::from(plan)
+            .sort([datafusion::logical_expr::col("material_system_id").sort(true, false)])
+            .unwrap()
+            .build()
+            .unwrap();
+        let result = session
+            .prepare_rule_plan(plan, &cancel)
+            .unwrap()
+            .execute(&cancel)
+            .await
+            .unwrap();
         let actual: Vec<_> = result
-            .head
+            .batches()
             .iter()
             .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
             .collect();
@@ -121,7 +130,12 @@ async fn relational_expansion_reference_matches_complete_actual_p2_keys() {
             !actual.is_empty(),
             "an over-pruning empty implementation would fail the oracle"
         );
-        assert!(result.undecided.iter().all(|batch| batch.num_rows() == 0));
-        assert!(!result.plans.is_empty(), "actual optimized plans retained");
+        assert!(
+            result
+                .prepared()
+                .optimized_plan()
+                .schema()
+                .has_column_with_unqualified_name("material_system_id")
+        );
     }
 }

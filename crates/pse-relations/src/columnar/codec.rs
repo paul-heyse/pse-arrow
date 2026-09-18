@@ -18,11 +18,34 @@ use pse_ids::{ContentHash, SemanticId};
 use super::{array, builder, mismatch, visible};
 use crate::RelationError;
 
-/// Storage conversion only. Generated push methods check logical values before append.
-pub(crate) trait ArrowValue: Sized {
+/// Storage conversion for generated algorithm values. This establishes no domain,
+/// key or relation validity; generated push methods perform local value admission.
+/// Callers account for temporary storage at their explicit algorithm boundary.
+pub trait ArrowValue: Sized {
+    /// Append the exact storage value into an already typed Arrow builder.
+    /// # Errors
+    /// Incompatible builder or invalid native offsets/widths.
     fn append(&self, output: &mut dyn ArrayBuilder) -> Result<(), RelationError>;
+    /// Append a masked value into the exact generated storage builder.
+    /// # Errors
+    /// Incompatible builder or invalid native offsets/widths.
     fn append_null(output: &mut dyn ArrayBuilder) -> Result<(), RelationError>;
+    /// Borrow a visible native array element and decode its generated algorithm value.
+    /// # Errors
+    /// Out-of-range index, null required value or incompatible storage.
     fn read(input: &dyn Array, index: usize) -> Result<Self, RelationError>;
+    /// Encode one algorithm value directly into explicitly supplied Arrow storage.
+    /// No intermediate row representation or declaration inference is involved.
+    /// # Errors
+    /// Incompatible or unsupported generated storage.
+    fn to_array(
+        &self,
+        data_type: &arrow_schema::DataType,
+    ) -> Result<arrow_array::ArrayRef, RelationError> {
+        let mut output = super::storage::make(data_type, 1)?;
+        self.append(output.as_mut())?;
+        Ok(output.finish())
+    }
 }
 
 macro_rules! scalar {

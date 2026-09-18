@@ -14,10 +14,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("method_id", T::id()).with_fk("reference.method_specs", "method_id"),
             column("input_name", T::native(arrow_schema::DataType::Utf8)),
-            column(
-                "dependency_ordinal",
-                T::native(arrow_schema::DataType::UInt16),
-            ),
+            column("dependency_ordinal", T::nonnegative(i64::from(u16::MAX))),
         ],
         "Exact kernel input name to declared method dependency ordinal; complete ordered signature admission is required.",
     );
@@ -34,7 +31,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("state_scope_id", T::id()).with_fk("inferred.state_scopes", "state_scope_id"),
             column("method_id", T::id()).with_fk("reference.method_specs", "method_id"),
             column("kernel_binding_id", T::id()),
-            column("output_ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("output_ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("index", T::extended(ExtensionUse::IndexTuple)),
             column("quantity_type_id", T::id())
                 .with_fk("reference.quantity_types", "quantity_type_id"),

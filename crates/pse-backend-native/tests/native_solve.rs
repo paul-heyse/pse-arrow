@@ -9,7 +9,7 @@
 )]
 use datafusion::{
     arrow::array::{
-        Array, BooleanArray, Float64Array, Int32Array, LargeListArray, RecordBatch, StringArray,
+        Array, Float64Array, Int64Array, ListArray, RecordBatch, StringArray, StructArray,
     },
     common::Column,
     execution::runtime_env::RuntimeEnv,
@@ -24,7 +24,6 @@ use pse_catalog::session::{
     planner::UnifiedPlanner,
 };
 use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, Reservation};
-use pse_schema::RegistryBuilder;
 use std::{collections::BTreeMap, sync::Arc};
 
 fn session(reserver: Arc<dyn MemoryReserver>) -> SnapshotSession {
@@ -49,7 +48,7 @@ fn session(reserver: Arc<dyn MemoryReserver>) -> SnapshotSession {
     )])))
     .candidate(
         BTreeMap::new(),
-        Arc::new(RegistryBuilder::new().build().unwrap()),
+        Arc::new(pse_schema::catalog::assemble().unwrap()),
         &CancellationToken::new(),
     )
     .unwrap()
@@ -84,6 +83,7 @@ fn input(values: &[(&str, f64)]) -> LogicalPlan {
             values
                 .iter()
                 .map(|(name, value)| lit(*value).alias(*name))
+                .chain(std::iter::once(scenario()))
                 .collect::<Vec<_>>(),
         )
         .unwrap()
@@ -106,12 +106,12 @@ async fn execute(
     }));
     batches[0].clone()
 }
-fn status(batch: &RecordBatch) -> i32 {
+fn status(batch: &RecordBatch) -> i64 {
     batch
         .column_by_name("ipopt_status")
         .unwrap()
         .as_any()
-        .downcast_ref::<Int32Array>()
+        .downcast_ref::<Int64Array>()
         .unwrap()
         .value(0)
 }
@@ -120,7 +120,7 @@ fn values(batch: &RecordBatch, column: &str) -> Vec<f64> {
         .column_by_name(column)
         .unwrap()
         .as_any()
-        .downcast_ref::<LargeListArray>()
+        .downcast_ref::<ListArray>()
         .unwrap()
         .value(0);
     let array = list.as_any().downcast_ref::<Float64Array>().unwrap();
@@ -139,6 +139,7 @@ async fn nonlinear_feasibility_uses_exact_sparse_jacobian_and_returns_owned_valu
     let budget = FixedBudget::new(128 << 20);
     let session = session(budget.clone());
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 1.0)]),
         vec![variable("x", Some(0.0), Some(3.0))],
         vec![equal(col("x") * col("x") - lit(2.0))],
@@ -163,6 +164,7 @@ async fn constrained_objective_and_multipliers_have_independent_optimum() {
     let objective = (col("x") - lit(1.0)) * (col("x") - lit(1.0))
         + (col("y") - lit(1.0)) * (col("y") - lit(1.0));
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 0.5), ("y", 2.5)]),
         vec![variable("x", None, None), variable("y", None, None)],
         vec![equal(col("x") + col("y") - lit(3.0))],
@@ -184,6 +186,7 @@ async fn nonlinear_mixer_heater_conserves_mass_and_integrated_enthalpy() {
     let enthalpy = |value: Expr| value.clone() + lit(0.001) * value.clone() * value;
     let session = session(FixedBudget::new(256 << 20));
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("flow", 4.0), ("mix", 325.0), ("out", 340.0)]),
         vec![
             variable("flow", Some(0.1), None),
@@ -219,6 +222,7 @@ async fn nonlinear_mixer_heater_conserves_mass_and_integrated_enthalpy() {
 async fn infeasible_and_invalid_evaluation_are_results_with_actual_status() {
     let session = session(FixedBudget::new(128 << 20));
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 0.5)]),
         vec![variable("x", Some(0.0), Some(1.0))],
         vec![equal(col("x") - lit(2.0))],
@@ -230,6 +234,7 @@ async fn infeasible_and_invalid_evaluation_are_results_with_actual_status() {
     assert_eq!(status(&batch), 2);
     assert!(values(&batch, "constraints")[0].abs() > 0.9);
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", -1.0)]),
         vec![variable("x", None, Some(0.0))],
         vec![equal(datafusion::functions::math::expr_fn::ln(col("x")))],
@@ -240,7 +245,12 @@ async fn infeasible_and_invalid_evaluation_are_results_with_actual_status() {
     let batch = execute(&session, plan, &CancellationToken::new()).await;
     assert_eq!(status(&batch), -13);
     let code = batch
-        .column_by_name("diagnostic_code")
+        .column_by_name("diagnostic")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StructArray>()
+        .unwrap()
+        .column_by_name("code")
         .unwrap()
         .as_any()
         .downcast_ref::<StringArray>()
@@ -269,6 +279,7 @@ async fn callback_cancellation_settles_through_common_stream_with_last_values() 
         token: cancel.clone(),
     }));
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 1.0)]),
         vec![variable("x", None, None)],
         vec![equal(col("x") * col("x") - lit(2.0))],
@@ -279,24 +290,26 @@ async fn callback_cancellation_settles_through_common_stream_with_last_values() 
     let batch = execute(&session, plan, &cancel).await;
     assert!(cancel.is_cancelled());
     assert_ne!(status(&batch), 0);
-    assert!(
+    assert_eq!(
         batch
-            .column_by_name("cancelled")
+            .column_by_name("termination")
             .unwrap()
             .as_any()
-            .downcast_ref::<BooleanArray>()
+            .downcast_ref::<StringArray>()
             .unwrap()
-            .value(0)
+            .value(0),
+        "cancelled"
     );
     assert_eq!(values(&batch, "values").len(), 1);
 }
 
-#[tokio::test]
-async fn inspection_policy_refuses_solver_variation_before_callbacks() {
+#[test]
+fn inspection_policy_refuses_solver_variation_before_callbacks() {
     let session = session(FixedBudget::new(128 << 20))
         .with_purpose(pse_schema::model::provider::OperationPurpose::Inspect);
     let cancel = CancellationToken::new();
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 1.0)]),
         vec![variable("x", None, None)],
         vec![equal(col("x"))],
@@ -304,12 +317,7 @@ async fn inspection_policy_refuses_solver_variation_before_callbacks() {
         options(),
     )
     .unwrap();
-    let error = session
-        .prepare_rule_plan(plan, &cancel)
-        .unwrap()
-        .execute(&cancel)
-        .await
-        .unwrap_err();
+    let error = session.prepare_rule_plan(plan, &cancel).unwrap_err();
     assert!(error.to_string().contains("nondeterministic"), "{error}");
 }
 
@@ -344,6 +352,8 @@ async fn panic_inside_an_actual_native_expression_is_contained_at_the_c_boundary
         .unwrap();
     let child = LogicalPlanBuilder::scan(reference, provider_as_source(provider), None)
         .unwrap()
+        .project(vec![col("x"), col("parameter"), scenario()])
+        .unwrap()
         .build()
         .unwrap();
     let function = create_udf(
@@ -354,6 +364,7 @@ async fn panic_inside_an_actual_native_expression_is_contained_at_the_c_boundary
         Arc::new(|_| panic!("injected callback panic")),
     );
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         child,
         vec![variable("x", None, None)],
         vec![equal(col("x") + function.call(vec![col("parameter")]))],
@@ -365,6 +376,11 @@ async fn panic_inside_an_actual_native_expression_is_contained_at_the_c_boundary
     assert_eq!(status(&batch), -13);
     let diagnostic = batch
         .column_by_name("diagnostic")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StructArray>()
+        .unwrap()
+        .column_by_name("message")
         .unwrap()
         .as_any()
         .downcast_ref::<StringArray>()
@@ -403,6 +419,7 @@ async fn dropped_native_stream_retains_callback_owners_until_foreign_work_return
         gate: gate.clone(),
     }));
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 1.0)]),
         vec![variable("x", None, None)],
         vec![equal(col("x") * col("x") - lit(2.0))],
@@ -446,6 +463,7 @@ async fn foreign_allocation_allowance_is_refused_by_the_actual_session_budget() 
     let session = session(FixedBudget::new(2 << 20));
     let cancel = CancellationToken::new();
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 1.0)]),
         vec![variable("x", None, None)],
         vec![equal(col("x"))],
@@ -480,6 +498,7 @@ async fn pull_cancellation_signals_the_running_invocation_without_cancelling_its
         gate: gate.clone(),
     }));
     let plan = Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input(&[("x", 1.0)]),
         vec![variable("x", None, None)],
         vec![equal(col("x") * col("x") - lit(2.0))],
@@ -504,16 +523,27 @@ async fn pull_cancellation_signals_the_running_invocation_without_cancelling_its
     *gate.0.lock().unwrap() = true;
     gate.1.notify_one();
     let batch = next.await.unwrap().unwrap();
-    assert!(
+    assert_eq!(
         batch
-            .column_by_name("cancelled")
+            .column_by_name("termination")
             .unwrap()
             .as_any()
-            .downcast_ref::<BooleanArray>()
+            .downcast_ref::<StringArray>()
             .unwrap()
-            .value(0)
+            .value(0),
+        "cancelled"
     );
     assert!(stream.next_batch(&pull_cancel).await.unwrap().is_none());
     assert!(!prepare_cancel.is_cancelled());
     assert!(!execute_cancel.is_cancelled());
+}
+
+fn scenario() -> Expr {
+    let schema = pse_relations::generated::runtime::numerical_evaluations::schema().unwrap();
+    let field = schema.field_with_name("scenario_id").unwrap();
+    Expr::Literal(
+        datafusion::common::ScalarValue::FixedSizeBinary(16, Some(vec![1; 16])),
+        Some(field.metadata().into()),
+    )
+    .alias("scenario_id")
 }

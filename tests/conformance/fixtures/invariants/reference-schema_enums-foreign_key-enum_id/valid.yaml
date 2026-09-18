@@ -1,0 +1,23 @@
+{
+  "invariant": "reference.schema_enums:foreign_key:enum_id",
+  "rows": {
+    "reference.schema_enum_types": [
+      {
+        "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_source": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
+      }
+    ],
+    "reference.schema_enums": [
+      {
+        "deprecated": "[\"bool\",true]",
+        "doc": "[\"text\",\"value-1\"]",
+        "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "member": "[\"text\",\"value-1\"]",
+        "member_ordinal": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

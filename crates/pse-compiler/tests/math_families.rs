@@ -14,9 +14,7 @@ use pse_mathir::{
     relations::{emit_untyped, load_untyped},
 };
 use pse_quantity::{BoundIndexId, DomainId, QuantityTypeId, UnitId};
-use pse_relations::{
-    columnar::FieldCheckedBatch, generated::normalized::template_expr_symbol_refs,
-};
+use pse_relations::{columnar::FieldCheckedBatch, generated::normalized::template_expr_nodes};
 use pse_schema::{
     Registry,
     model::{Namespace, RelationKey},
@@ -48,12 +46,9 @@ fn batches(
                 _ => false,
             }
     }) {
-        if !rows.contains_key(&spec.key) {
-            rows.insert(
-                spec.key,
-                FieldCheckedBatch::concat_reserved(reg, spec, &[], budget, cancel).unwrap(),
-            );
-        }
+        rows.entry(spec.key).or_insert_with(|| {
+            FieldCheckedBatch::concat_reserved(reg, spec, &[], budget, cancel).unwrap()
+        });
     }
     rows
 }
@@ -200,7 +195,7 @@ fn inferred_family_keeps_pending_physical_requests_and_refuses_unresolved_source
     );
 }
 #[test]
-fn normalized_loader_rejects_overlapping_typed_alternatives_even_with_unchanged_hashes() {
+fn normalized_builder_rejects_overlapping_typed_alternatives_even_with_unchanged_hashes() {
     let reg = pse_schema::catalog::assemble().unwrap();
     let budget = FixedBudget::new(512 << 20);
     let cancel = CancellationToken::new();
@@ -218,25 +213,19 @@ fn normalized_loader_rejects_overlapping_typed_alternatives_even_with_unchanged_
         .unwrap();
     let mut sink = RelationSink::new(&reg, normalized(), budget.as_ref(), &cancel);
     emit_untyped(&graph, &[root], &mut sink).unwrap();
-    let mut batches = batches(&reg, Namespace::Normalized, sink, budget.as_ref(), &cancel);
-    let key = template_expr_symbol_refs::RELATION_KEY;
-    let mut refs = template_expr_symbol_refs::View::from_checked(&batches[&key])
+    let batches = batches(&reg, Namespace::Normalized, sink, budget.as_ref(), &cancel);
+    let key = template_expr_nodes::RELATION_KEY;
+    let mut refs = template_expr_nodes::View::from_checked(&batches[&key])
         .unwrap()
         .rows()
         .unwrap();
-    refs[0].bound_index_id = Some(id(99));
-    let mut builder = template_expr_symbol_refs::Builder::with_registry(&reg, refs.len()).unwrap();
-    for row in refs {
-        builder.push(row).unwrap();
-    }
-    batches.insert(key, builder.finish().unwrap());
-    let source = RelationSource::from_checked(
-        &batches,
-        &reg,
-        SourceFamily::Normalized { prefix: "template" },
-    )
-    .unwrap();
-    assert!(load_untyped(&source, &[NodeId(100)]).is_err());
+    refs[0].payload.symbol.as_mut().unwrap().reference.index = Some(
+        template_expr_nodes::NormalizedTemplateExprNodesFieldPayloadSymbolReferenceIndex {
+            bound_index_id: id(99),
+        },
+    );
+    let mut builder = template_expr_nodes::Builder::with_registry(&reg, refs.len()).unwrap();
+    assert!(builder.push(refs.remove(0)).is_err());
 }
 
 #[test]

@@ -1,30 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Every failure the catalog and the artifact store can return, carrying its blueprint
-//! §23.2 class as a `#[diagnostic(code(...))]` in Rust path form.
-//!
-//! One enum rather than one per module, because the §23.2 class — not the module a
-//! failure happened to originate in — is what a caller dispatches on. A reader who has
-//! to ask "is a `StoreError::Corrupt` the same thing as a `ProviderError::Corrupt`?" has
-//! already lost the taxonomy.
-//!
-//! The three `#[from]` variants are `#[diagnostic(transparent)]`: `pse-ids` already
-//! assigned those failures a §23.2 class, and re-classifying them here would create a
-//! second opinion about the same event.
+//! Native provider, admission and execution failures with their diagnostic classes.
 
-use pse_ids::{ContentHash, LogicalHash};
-
-/// A catalog, artifact-store or session failure (blueprint §23.2).
-///
-/// # Why some of these look alike
-///
-/// [`Self::CorruptObject`] and [`Self::LogicalHashMismatch`] are both "the bytes are not
-/// what the manifest says", and ADR-0045 insists they stay apart: the first is an
-/// encoding checksum over stored bytes and means the object is damaged, the second is a
-/// `pse.canon.v2` logical hash and means the object is intact but does not hold the
-/// relation it claims to. Collapsing them would make a corrupt disk and a mislabelled
-/// publication indistinguishable.
+/// A native catalog, field-contract or execution failure.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[non_exhaustive]
 pub enum CatalogError {
@@ -75,77 +54,11 @@ pub enum CatalogError {
     #[error("{op} failed")]
     #[diagnostic(code(runtime::infrastructure))]
     Infrastructure {
-        /// What was being attempted, in the imperative: `read manifest`, `put relation`.
+        /// What was being attempted, in the imperative: `read Delta log`, `write Delta table`.
         op: String,
         /// The underlying failure.
         #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
-    },
-
-    /// A stored object's bytes do not match the checksum its name claims.
-    ///
-    /// Never a successful idempotent write: §20.1 requires an existing object to be
-    /// verified before `AlreadyExists` is accepted, and a truncated object under a
-    /// plausible name is exactly what that verification exists to catch.
-    #[error("`{path}` hashes to {actual}, not the {expected} its name claims")]
-    #[diagnostic(code(runtime::infrastructure))]
-    CorruptObject {
-        /// The object-store path of the offending object.
-        path: String,
-        /// The checksum the path asserts.
-        expected: String,
-        /// The checksum the bytes actually have.
-        actual: String,
-    },
-
-    /// A ref's compare-and-swap lost to a concurrent publication.
-    #[error("ref `{name}` moved under a conditional update")]
-    #[diagnostic(code(runtime::infrastructure))]
-    RefConflict {
-        /// The ref that moved.
-        name: String,
-    },
-
-    /// Execution or delivery failed after a conditional write may have taken effect.
-    /// Exact outcomes must be reconciled before retrying the logical operation.
-    #[error("publication outcome must be reconciled: {source}")]
-    #[diagnostic(code(runtime::infrastructure))]
-    Publication {
-        /// Every actual write in this operation, independent of native result delivery.
-        outcomes: Vec<crate::store::publication::PublicationOutcome>,
-        /// Original failure, retaining its diagnostic class and detail.
-        #[source]
-        source: Box<CatalogError>,
-    },
-
-    /// A manifest is structurally or semantically inconsistent (blueprint §20.2).
-    #[error("manifest is invalid: {reason}")]
-    #[diagnostic(code(schema::manifest_invalid))]
-    ManifestInvalid {
-        /// Which of the §20.2 validations failed, and on what.
-        reason: String,
-    },
-
-    /// A snapshot was declared under a schema registry this build does not have.
-    ///
-    /// Refused rather than read optimistically: §20.5 rejects an unknown registry
-    /// fingerprint outright, because a relation read under the wrong contract decodes
-    /// into plausible nonsense.
-    #[error("schema registry fingerprint {fingerprint} is unknown")]
-    #[diagnostic(code(schema::unknown_registry))]
-    UnknownRegistry {
-        /// The fingerprint the manifest carries.
-        fingerprint: ContentHash,
-    },
-
-    /// A format version string this build does not implement (blueprint §20.5).
-    #[error("`{field}` is `{value}`, which this build does not implement")]
-    #[diagnostic(code(schema::unknown_version))]
-    UnknownVersion {
-        /// The manifest field carrying the version.
-        field: String,
-        /// The version that was offered.
-        value: String,
     },
 
     /// A plan, batch or import was refused by semantic admission (blueprint §4.4, §5.4).
@@ -155,42 +68,6 @@ pub enum CatalogError {
         /// Where in the plan or schema the refusal happened.
         path: String,
         /// Why.
-        reason: String,
-    },
-
-    /// A plan scanned a table that is not a snapshot relation.
-    ///
-    /// §5.4 pins a session to a snapshot; a scan of anything else would put a second,
-    /// unversioned authority into the same query.
-    #[error("`{table}` is not a relation of this snapshot")]
-    #[diagnostic(code(schema::foreign_source))]
-    ForeignSource {
-        /// The offending table reference.
-        table: String,
-    },
-
-    /// Registration was attempted after the session was sealed (blueprint §5.4).
-    #[error("the session is sealed; its catalogs cannot change")]
-    #[diagnostic(code(schema::sealed))]
-    Sealed,
-
-    /// A relation's decoded content does not hash to its declared logical hash.
-    #[error("`{relation}` hashes to {actual}, but the manifest declares {expected}")]
-    #[diagnostic(code(validation::invariant))]
-    LogicalHashMismatch {
-        /// The relation, as `namespace.name`.
-        relation: String,
-        /// The manifest's declared logical hash.
-        expected: LogicalHash,
-        /// What the decoded relation actually hashes to.
-        actual: LogicalHash,
-    },
-
-    /// Snapshot membership is incomplete or inconsistent (blueprint §5.3 step 7).
-    #[error("snapshot membership is invalid: {reason}")]
-    #[diagnostic(code(validation::invariant))]
-    Membership {
-        /// Which membership rule failed.
         reason: String,
     },
 
@@ -235,11 +112,6 @@ pub enum CatalogError {
     #[error(transparent)]
     #[diagnostic(transparent)]
     Canon(#[from] pse_ids::CanonError),
-
-    /// A snapshot frame could not be named, keeping the class `pse-ids` gave it.
-    #[error(transparent)]
-    #[diagnostic(transparent)]
-    Snapshot(#[from] pse_ids::SnapshotError),
 
     /// A reservation was refused, keeping the class `pse-ids` gave it.
     #[error(transparent)]
@@ -292,43 +164,10 @@ mod tests {
             (CatalogError::Cancelled, "runtime::cancelled"),
             (
                 CatalogError::Infrastructure {
-                    op: "read manifest".to_owned(),
+                    op: "read Delta log".to_owned(),
                     source: Box::new(std::io::Error::other("no such object")),
                 },
                 "runtime::infrastructure",
-            ),
-            (
-                CatalogError::CorruptObject {
-                    path: "manifests/aa.json".to_owned(),
-                    expected: "aa".to_owned(),
-                    actual: "bb".to_owned(),
-                },
-                "runtime::infrastructure",
-            ),
-            (
-                CatalogError::RefConflict {
-                    name: "head".to_owned(),
-                },
-                "runtime::infrastructure",
-            ),
-            (
-                CatalogError::ManifestInvalid {
-                    reason: "duplicate port".to_owned(),
-                },
-                "schema::manifest_invalid",
-            ),
-            (
-                CatalogError::UnknownRegistry {
-                    fingerprint: ContentHash::NIL,
-                },
-                "schema::unknown_registry",
-            ),
-            (
-                CatalogError::UnknownVersion {
-                    field: "manifest_version".to_owned(),
-                    value: "pse.manifest.v1".to_owned(),
-                },
-                "schema::unknown_version",
             ),
             (
                 CatalogError::Admission {
@@ -336,27 +175,6 @@ mod tests {
                     reason: "unknown extension".to_owned(),
                 },
                 "schema::admission",
-            ),
-            (
-                CatalogError::ForeignSource {
-                    table: "other.t".to_owned(),
-                },
-                "schema::foreign_source",
-            ),
-            (CatalogError::Sealed, "schema::sealed"),
-            (
-                CatalogError::LogicalHashMismatch {
-                    relation: "authored.units".to_owned(),
-                    expected: LogicalHash(ContentHash::NIL),
-                    actual: LogicalHash(ContentHash::from_bytes([1; 32])),
-                },
-                "validation::invariant",
-            ),
-            (
-                CatalogError::Membership {
-                    reason: "missing required relation".to_owned(),
-                },
-                "validation::invariant",
             ),
             (
                 CatalogError::ConfigInvalid {
@@ -405,9 +223,6 @@ mod tests {
             limit_hint: "FixedBudget limit_bytes=0".to_owned(),
         });
         assert_eq!(code_of(&reserve), "runtime::resource_limit");
-
-        let snapshot = CatalogError::from(pse_ids::SnapshotError::MissingModelParent);
-        assert_eq!(code_of(&snapshot), "validation::invariant");
 
         let canon = CatalogError::from(pse_ids::CanonError::Cancelled);
         assert_eq!(code_of(&canon), "runtime::cancelled");

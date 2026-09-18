@@ -84,6 +84,7 @@
   - [ADR-0067: Construct semantic execution through native logical plans](adr/0067-native-logical-plan-hard-pivot.md)
   - [ADR-0068: Unify simulator data and execution through DataFusion and Delta Lake](adr/0068-unified-datafusion-delta.md)
   - [ADR-0069: Make recursive native contracts authoritative for existing data operations](adr/0069-schema-first-native-contracts.md)
+  - [ADR-0070: Unify native cache lifetimes and consumed-input identity](adr/0070-native-cache-lifetimes-and-consumed-inputs.md)
 <!-- adr:end -->
 
 # Plans
@@ -97,6 +98,8 @@
     - [Restart checkpoint](plans/05-native-logical-plan-hard-pivot-restart.md)
   - [06 — Provider-contract hard pivot](plans/06-provider-contracts-hard-pivot.md)
   - [07 — Unified DataFusion and Delta Lake hard pivot](plans/07-unified-datafusion-delta-hard-pivot.md)
+  - [08 — Schema-first native data pivot](plans/08-schema-first-native-data-pivot.md)
+  - [09 — Native caching and pivot completion](plans/09-native-caching-and-pivot-completion.md)
 
 # Design reviews
 
@@ -116,6 +119,7 @@
   - [Pinned construction characterization](design_review/evidence/wave1-logical-plans-2026-09-14/README.md)
 - [Review: DataFusion-integral semantics versus scripted checks](design_review/reviews/design_review_datafusion-integral-semantics_2026-09-14.md)
 - [Review: unified DataFusion and Delta Lake](design_review/reviews/design_review_unified-datafusion-delta_2026-09-15.md)
+- [Review: caching across DataFusion and Delta](design_review/reviews/design_review_datafusion-delta-caching_2026-09-17.md)
 
 # Capability maps
 

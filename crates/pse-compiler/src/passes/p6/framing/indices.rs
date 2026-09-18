@@ -7,12 +7,12 @@ use super::{
     array_length, c, coalesce, col, concat, distinct, emit, error, explode, filter, join, lit,
     prefix, project, scalar, union,
 };
+use datafusion::functions_aggregate::expr_fn::array_agg;
 use datafusion::functions_aggregate::string_agg::string_agg;
 use datafusion::{
     functions::encoding::expr_fn::encode, functions_aggregate::expr_fn::count,
     functions_nested::expr_fn::flatten, logical_expr::ExprFunctionExt,
 };
-use pse_catalog::session::aggregate::array_agg;
 
 pub(super) struct Indices {
     pub requirements: LogicalPlan,
@@ -20,6 +20,10 @@ pub(super) struct Indices {
     pub pool: LogicalPlan,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "build keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn build(
     plans: &mut Plans<'_>,
     outputs: &mut Outputs,
@@ -214,7 +218,7 @@ pub(super) async fn build(
         .require(
             &axes,
             col("axis_position").lt_eq(lit(u16::MAX)),
-            "requirement axis exceeds u16",
+            "requirement axis exceeds the declared 16-bit bound",
         )
         .await?;
     let axes = project(
@@ -223,7 +227,7 @@ pub(super) async fn build(
             c("requirement", "requirement_id").alias("requirement_id"),
             Expr::Cast(datafusion::logical_expr::expr::Cast::new(
                 Box::new(col("axis_position")),
-                datafusion::arrow::datatypes::DataType::UInt16,
+                datafusion::arrow::datatypes::DataType::Int64,
             ))
             .alias("position"),
             c("axis", "domain_id").alias("domain_id"),
@@ -290,6 +294,10 @@ pub(super) async fn build(
     })
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "scopes keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 async fn scopes(
     plans: &mut Plans<'_>,
     outputs: &mut Outputs,

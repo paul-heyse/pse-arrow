@@ -25,7 +25,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["source_id", "path_id"],
         vec![
             column("source_id", T::id()).with_fk("normalized.expression_sources", "source_id"),
-            column("path_id", T::native(arrow_schema::DataType::UInt64)),
+            column("path_id", T::nonnegative(i64::MAX)),
             column("root_instance_id", T::id()).optional(),
             column(
                 "segments",
@@ -36,13 +36,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     T::native(arrow_schema::DataType::Utf8)
                         .with_name("name")
                         .with_nullable(false),
-                    T::native(arrow_schema::DataType::UInt16)
+                    T::nonnegative(i64::from(u16::MAX))
                         .with_name("index_count")
                         .with_nullable(false),
                 ])),
             ),
-            column("path_start", T::native(arrow_schema::DataType::UInt32)),
-            column("path_end", T::native(arrow_schema::DataType::UInt32)),
+            column("path_start", T::nonnegative(i64::from(u32::MAX))),
+            column("path_end", T::nonnegative(i64::from(u32::MAX))),
         ],
         "Exact source-relative child/member keys and index partitions. Each child key is resolved under the actual selected parent template, never under one globally substituted template. Path byte offsets address the decoded source DSL string.",
     );
@@ -55,7 +55,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("group_id", T::id()).with_fk("compiled.symbol_groups", "group_id"),
             column("root_instance_id", T::id()),
             column("source_id", T::id()).with_fk("normalized.expression_sources", "source_id"),
-            column("path_id", T::native(arrow_schema::DataType::UInt64)),
+            column("path_id", T::nonnegative(i64::MAX)),
             column("product_id", T::id()).with_fk("normalized.domain_products", "product_id"),
             column("quantity_type_id", T::id())
                 .with_fk("reference.quantity_types", "quantity_type_id"),
@@ -93,7 +93,7 @@ fn path_targets(builder: &mut RegistryBuilder) {
         vec![
             column("requester_instance_id", T::id()),
             column("source_id", T::id()).with_fk("normalized.expression_sources", "source_id"),
-            column("path_id", T::native(arrow_schema::DataType::UInt64)),
+            column("path_id", T::nonnegative(i64::MAX)),
             column("path_index", index()),
             column("path_domains", T::list(T::id())),
             column("owner_instance_id", T::id()),

@@ -21,11 +21,12 @@ fn plan(
     scale: f64,
 ) -> Result<LogicalPlan, pse_backend_native::NativeError> {
     let input = LogicalPlanBuilder::empty(true)
-        .project(vec![lit(1.0_f64).alias("x")])
+        .project(vec![lit(1.0_f64).alias("x"), scenario()])
         .unwrap()
         .build()
         .unwrap();
     Solve::plan(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         input,
         vec![Variable {
             column: Column::from_name("x"),
@@ -91,7 +92,7 @@ async fn unavailable_native_capability_is_explicit_and_never_selects_another_bac
     )])))
     .candidate(
         BTreeMap::new(),
-        Arc::new(pse_schema::RegistryBuilder::new().build().unwrap()),
+        Arc::new(pse_schema::catalog::assemble().unwrap()),
         &cancel,
     )
     .unwrap();
@@ -107,4 +108,14 @@ async fn unavailable_native_capability_is_explicit_and_never_selects_another_bac
             .contains("requires the ipopt build capability"),
         "{error}"
     );
+}
+
+fn scenario() -> datafusion::logical_expr::Expr {
+    let schema = pse_relations::generated::runtime::numerical_evaluations::schema().unwrap();
+    let field = schema.field_with_name("scenario_id").unwrap();
+    datafusion::logical_expr::Expr::Literal(
+        datafusion::common::ScalarValue::FixedSizeBinary(16, Some(vec![1; 16])),
+        Some(field.metadata().into()),
+    )
+    .alias("scenario_id")
 }

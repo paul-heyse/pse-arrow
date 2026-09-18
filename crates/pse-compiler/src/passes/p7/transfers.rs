@@ -24,6 +24,11 @@ struct Layout {
     quantity: QuantityTypeId,
 }
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_arguments,
+        clippy::too_many_lines,
+        reason = "transfer keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn transfer(
         &mut self,
         instance: &inferred::instances::Row,
@@ -34,18 +39,11 @@ impl Realizer<'_> {
         root: NodeId,
         domains: &[DomainId],
     ) -> Result<Option<SemanticId>, CompilerError> {
-        let (name, ordinal) = match (
-            &contract.transfer_port_name,
-            contract.transfer_member_ordinal,
-        ) {
-            (None, None) => return Ok(None),
-            (Some(name), Some(ordinal)) => (name, ordinal),
-            _ => {
-                return Err(invalid(
-                    "transfer port name/member ordinal must be present together",
-                ));
-            }
+        let Some(transfer) = &contract.transfer else {
+            return Ok(None);
         };
+        let name = &transfer.port_name;
+        let ordinal = transfer.member_ordinal;
         let mut workspace = self.reserver.open("P7:transfer-proof");
         let bytes = self.inputs.values().try_fold(0_usize, |sum, batch| {
             sum.checked_add(pse_ids::validation_extent(batch.batch())?)
@@ -205,7 +203,7 @@ impl Realizer<'_> {
         }
         Ok(Some(connection))
     }
-    fn port_layout(&self, port: SemanticId, ordinal: u16) -> Result<Layout, CompilerError> {
+    fn port_layout(&self, port: SemanticId, ordinal: i64) -> Result<Layout, CompilerError> {
         let member = one(
             self.inventory
                 .port_members
@@ -342,10 +340,11 @@ impl Realizer<'_> {
                             .ok_or_else(|| invalid("transfer source axis has no actual binder"))?;
                         Ok((
                             actual.bound_index,
-                            usize::from(
+                            usize::try_from(
                                 row.position
                                     .ok_or_else(|| invalid("transfer source position absent"))?,
-                            ),
+                            )
+                            .map_err(|_| invalid("negative transfer source position"))?,
                         ))
                     })
                     .collect::<Result<BTreeMap<_, _>, CompilerError>>()?;
@@ -400,7 +399,7 @@ impl Realizer<'_> {
         &mut self,
         owner: SemanticId,
         declaration: &normalized::template_contributions::Row,
-        ordinal: u16,
+        ordinal: i64,
         connection: SemanticId,
     ) -> Result<(), CompilerError> {
         for row in self.output_rows::<compiled::contributions::Row>("compiled.contributions")? {
@@ -417,7 +416,11 @@ impl Realizer<'_> {
                         }),
                     "existing transfer contract",
                 )?;
-                if contract.transfer_member_ordinal == Some(ordinal) {
+                if contract
+                    .transfer
+                    .as_ref()
+                    .is_some_and(|transfer| transfer.member_ordinal == ordinal)
+                {
                     return Err(invalid(
                         "duplicate same-orientation transfer claim for one actual owner/member",
                     ));

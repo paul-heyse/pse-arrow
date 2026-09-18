@@ -4,18 +4,11 @@
 //! Self-describing Delta contracts: native SQL predicates and table properties.
 use super::layout::DurableLayout;
 use datafusion::{
-    common::{DFSchema, DataFusionError, Result, config::Dialect as ParserDialect},
+    common::{DFSchema, DataFusionError, Result},
     execution::session_state::SessionState,
     logical_expr::{Expr, registry::FunctionRegistry},
-    sql::{
-        sqlparser::ast,
-        unparser::{
-            Unparser,
-            dialect::{Dialect, DuckDBDialect},
-            expr_to_sql,
-        },
-    },
 };
+use datafusion_proto::bytes::Serializeable;
 use deltalake::{
     DeltaTable,
     kernel::{
@@ -26,6 +19,8 @@ use deltalake::{
 };
 use pse_schema::Registry;
 use std::{collections::BTreeMap, sync::Arc};
+
+const EXPRESSION_ENCODING: &str = "datafusion-proto-55.1.0";
 
 /// One exact relation declaration lowered to native Delta CHECK and identity properties.
 #[derive(Debug, Clone)]
@@ -56,7 +51,10 @@ impl DeclaredCheck {
             let column = Expr::Column(datafusion::common::Column::from_name(field.name()));
             let predicate = super::predicates::field_value(registry, field, column.clone(), 0)?;
             if super::nested_check::contains_collection(field) {
-                properties.insert(expression_property(field.name()), native_sql(&predicate)?);
+                properties.insert(
+                    expression_property(field.name()),
+                    serde_json::to_string(predicate.to_bytes()?.as_ref()).map_err(external)?,
+                );
                 let adapter = super::nested_check::NestedCheck::new(
                     format!("pse_nested_{}_{index}", spec.fingerprint),
                     layout.storage_schema().field(index).clone(),
@@ -69,11 +67,16 @@ impl DeclaredCheck {
             }
         }
         if !nested.is_empty() {
-            properties.insert("pse.check.nested.dialect".into(), "duckdb".into());
+            properties.insert(
+                "pse.check.nested.encoding".into(),
+                EXPRESSION_ENCODING.into(),
+            );
         }
-        let sql = expr_to_sql(&super::predicates::combine(checks))?.to_string();
+        let sql = datafusion::sql::unparser::expr_to_sql(&super::predicates::combine(checks))?
+            .to_string();
         properties.insert("delta.constraints.pse_contract".into(), sql);
-        properties.extend(super::row_checks::properties(&schema)?);
+        properties.extend(crate::contract::row_checks::properties(&schema)?);
+        properties.extend(pse_schema::arrow::delta_properties(&schema).map_err(external)?);
         Ok(Self {
             layout,
             properties,
@@ -84,7 +87,7 @@ impl DeclaredCheck {
     /// This establishes self-consistency, not publication admission or agreement
     /// with an independently supplied registry contract.
     /// # Errors
-    /// Missing descriptors/properties, unknown collection dialect or invalid SQL.
+    /// Missing descriptors/properties, unknown expression codec or invalid predicates.
     pub fn open(table: &DeltaTable, state: &SessionState) -> Result<Self> {
         let snapshot = table.snapshot().map_err(external)?;
         let stored: datafusion::arrow::datatypes::Schema = snapshot
@@ -95,6 +98,17 @@ impl DeclaredCheck {
         let execution = pse_schema::delta::execution_schema(&stored).map_err(external)?;
         let layout = DurableLayout::new(Arc::new(execution))?;
         let configuration = snapshot.metadata().configuration();
+        if configuration
+            .get(pse_schema::arrow::KEY_CONTRACT_ID)
+            .is_some_and(|id| {
+                id == &pse_relations::generated::runtime::publications::RELATION_ID.to_string()
+            })
+            && configuration.contains_key("delta.setTransactionRetentionDuration")
+        {
+            return Err(invalid(
+                "publication transaction identities must survive control log cleanup",
+            ));
+        }
         let get = |key: &str| {
             configuration
                 .get(key)
@@ -111,37 +125,38 @@ impl DeclaredCheck {
             .get(pse_schema::arrow::KEY_CONTRACT_FINGERPRINT)
             .ok_or_else(|| invalid("missing durable contract fingerprint"))?
             .clone();
-        let mut parser = state.clone();
-        parser.config_mut().options_mut().sql_parser.dialect = ParserDialect::DuckDB;
         let mut nested = vec![];
         for (index, field) in layout.execution_schema().fields().iter().enumerate() {
             if !super::nested_check::contains_collection(field) {
                 continue;
             }
-            let dialect = get("pse.check.nested.dialect")?;
-            if dialect != "duckdb" {
-                return Err(invalid("unknown nested CHECK dialect"));
+            let encoding = get("pse.check.nested.encoding")?;
+            if encoding != EXPRESSION_ENCODING {
+                return Err(invalid("unknown nested CHECK encoding"));
             }
-            properties.insert("pse.check.nested.dialect".into(), dialect);
+            properties.insert("pse.check.nested.encoding".into(), encoding);
             let key = expression_property(field.name());
-            let sql = get(&key)?;
+            let encoded = get(&key)?;
             let stored_field = stored.field(index).clone();
-            let schema = DFSchema::try_from(datafusion::arrow::datatypes::Schema::new(vec![
-                stored_field.clone(),
-            ]))?;
-            let predicate = parser.create_logical_expr(&sql, &schema)?;
+            let bytes: Vec<u8> = serde_json::from_str(&encoded).map_err(external)?;
+            let predicate = Expr::from_bytes_with_ctx(&bytes, &state.task_ctx())?;
             nested.push(super::nested_check::NestedCheck::new(
                 format!("pse_nested_{fingerprint}_{index}"),
                 stored_field,
                 predicate,
             )?);
-            properties.insert(key, sql);
+            properties.insert(key, encoded);
         }
         properties.insert(
             "delta.constraints.pse_contract".into(),
             get("delta.constraints.pse_contract")?,
         );
-        properties.extend(super::row_checks::properties(layout.execution_schema())?);
+        properties.extend(crate::contract::row_checks::properties(
+            layout.execution_schema(),
+        )?);
+        properties.extend(
+            pse_schema::arrow::delta_properties(layout.execution_schema()).map_err(external)?,
+        );
         let contract = Self {
             layout,
             properties,
@@ -165,7 +180,11 @@ impl DeclaredCheck {
     pub fn bind(&self, state: &SessionState) -> Result<SessionState> {
         let mut state = state.clone();
         for nested in &self.nested {
-            let function = Arc::new(nested.bind(&state)?);
+            let function = Arc::new(
+                nested
+                    .bind(&state)
+                    .map_err(|error| error.context("bind durable collection CHECK"))?,
+            );
             if let Ok(existing) = state.udf(function.name())
                 && existing != function
             {
@@ -176,8 +195,12 @@ impl DeclaredCheck {
             state.register_udf(function)?;
         }
         let schema = DFSchema::try_from(self.layout.storage_schema().as_ref().clone())?;
-        for expression in super::row_checks::expressions(self.layout.storage_schema(), &state)? {
-            state.create_physical_expr(expression, &schema)?;
+        for (name, expression) in
+            crate::contract::row_checks::bind(self.layout.storage_schema(), &state)?
+        {
+            state
+                .create_physical_expr(expression, &schema)
+                .map_err(|error| error.context(format!("bind durable row CHECK {name}")))?;
         }
         Ok(state)
     }
@@ -208,8 +231,7 @@ impl DeclaredCheck {
         let properties = self
             .properties
             .iter()
-            .map(|(key, value)| (key.clone(), Some(value.clone())))
-            .chain([("delta.minWriterVersion".into(), Some("3".into()))]);
+            .map(|(key, value)| (key.clone(), Some(value.clone())));
         table
             .create()
             .with_columns(schema.fields().cloned())
@@ -233,6 +255,17 @@ impl DeclaredCheck {
         pse_schema::field_contract::delta_scan_schema(&stored, self.layout.storage_schema())
             .map_err(external)?;
         let configuration = snapshot.metadata().configuration();
+        if configuration
+            .get(pse_schema::arrow::KEY_CONTRACT_ID)
+            .is_some_and(|id| {
+                id == &pse_relations::generated::runtime::publications::RELATION_ID.to_string()
+            })
+            && configuration.contains_key("delta.setTransactionRetentionDuration")
+        {
+            return Err(invalid(
+                "publication transaction identities must survive control log cleanup",
+            ));
+        }
         if let Some(name) = configuration.keys().find(|name| {
             name.starts_with("delta.constraints.") && !self.properties.contains_key(*name)
         }) {
@@ -254,42 +287,86 @@ fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(reason.to_owned())
 }
 fn expression_property(field: &str) -> String {
-    // Field names occupy their own property namespace, including a field named dialect.
+    // Field names occupy their own property namespace, including a field named encoding.
     format!("pse.check.nested.expression.{field}")
 }
 fn external(error: impl std::error::Error + Send + Sync + 'static) -> DataFusionError {
     DataFusionError::External(Box::new(error))
 }
 
-// Dot syntax loses lambda scope in the pinned SQL planner. Its native unparser
-// override hook renders explicit get_field calls, preserving the actual Expr tree.
-fn native_sql(predicate: &Expr) -> Result<String> {
-    let dialect = DuckDBDialect::new().with_custom_scalar_overrides(vec![(
-        "get_field",
-        Box::new(|unparser, args| {
-            let args = args
-                .iter()
-                .map(|arg| {
-                    Ok(ast::FunctionArg::Unnamed(ast::FunctionArgExpr::Expr(
-                        unparser.expr_to_sql(arg)?,
-                    )))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            Ok(Some(ast::Expr::Function(ast::Function {
-                name: ast::ObjectName::from(vec![ast::Ident::new("get_field")]),
-                args: ast::FunctionArguments::List(ast::FunctionArgumentList {
-                    duplicate_treatment: None,
-                    args,
-                    clauses: vec![],
-                }),
-                filter: None,
-                null_treatment: None,
-                over: None,
-                within_group: vec![],
-                parameters: ast::FunctionArguments::None,
-                uses_odbc_syntax: false,
-            })))
-        }),
-    )]);
-    Ok(Unparser::new(&dialect).expr_to_sql(predicate)?.to_string())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn all_registry_durable_projections_plan_against_native_physical_inputs() {
+        use datafusion::{
+            arrow::array::RecordBatch,
+            datasource::{MemTable, provider_as_source},
+            logical_expr::LogicalPlanBuilder,
+        };
+        let registry = pse_schema::registry().unwrap();
+        let state = datafusion::execution::session_state::SessionStateBuilder::new()
+            .with_default_features()
+            .build();
+        for relation in registry.relations() {
+            let contract = DeclaredCheck::new(registry, relation.id).unwrap();
+            let schema = Arc::new(pse_schema::arrow::relation_schema(registry, relation).unwrap());
+            let provider = Arc::new(
+                MemTable::try_new(schema.clone(), vec![vec![RecordBatch::new_empty(schema)]])
+                    .unwrap(),
+            );
+            let input = LogicalPlanBuilder::scan("input", provider_as_source(provider), None)
+                .unwrap()
+                .build()
+                .unwrap();
+            let encoded = contract.layout.encode(input).unwrap();
+            state
+                .create_physical_plan(&encoded)
+                .await
+                .unwrap_or_else(|error| {
+                    panic!("{} durable projection: {error}", relation.qualified_name())
+                });
+        }
+    }
+
+    #[test]
+    fn all_registry_durable_checks_bind_to_their_actual_storage_fields() {
+        let registry = pse_schema::registry().unwrap();
+        let state = datafusion::execution::session_state::SessionStateBuilder::new()
+            .with_default_features()
+            .build();
+        for relation in registry.relations() {
+            let contract = DeclaredCheck::new(registry, relation.id).unwrap_or_else(|error| {
+                panic!("{} declaration: {error}", relation.qualified_name())
+            });
+            let bound = contract.bind(&state).unwrap_or_else(|error| {
+                panic!(
+                    "{} native CHECK binding: {error}",
+                    relation.qualified_name()
+                )
+            });
+            let schema =
+                DFSchema::try_from(contract.layout.storage_schema().as_ref().clone()).unwrap();
+            let expression = deltalake::delta_datafusion::expr::parse_predicate_expression(
+                &schema,
+                &contract.properties["delta.constraints.pse_contract"],
+                &bound,
+            )
+            .unwrap_or_else(|error| {
+                panic!(
+                    "{} native SQL CHECK parsing: {error}",
+                    relation.qualified_name()
+                )
+            });
+            bound
+                .create_physical_expr(expression, &schema)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} native SQL CHECK binding: {error}",
+                        relation.qualified_name()
+                    )
+                });
+        }
+    }
 }

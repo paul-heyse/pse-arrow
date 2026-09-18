@@ -25,13 +25,12 @@ impl TableReader {
     /// Absent/ambiguous member, incompatible policy, planning, cancellation or resources.
     pub async fn new(
         session: &SnapshotSession,
-        qualified_name: &str,
-        port: Option<&str>,
+        reference: &datafusion::common::ResolvedTableReference,
         batch_size: NonZeroUsize,
         cancel: CancellationToken,
     ) -> Result<Self, CatalogError> {
         cancel.checkpoint()?;
-        let plan = session.inspection_plan(qualified_name, port)?;
+        let plan = session.relation_plan(reference)?.plan().clone();
         let prepared = session.prepare(plan, &cancel)?;
         let schema = Arc::new(prepared.optimized_plan().schema().as_arrow().clone());
         let stream = prepared

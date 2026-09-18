@@ -2023,9 +2023,9 @@ fn q<T>(node: NodeId, result: Result<T, pse_quantity::QuantityError>) -> Result<
     result.map_err(|source| MathIrError::Quantity { node, source })
 }
 
-fn validate_equation_bounds(equation: &EquationRecord) -> Result<(), MathIrError> {
+pub(crate) fn validate_equation_bounds(equation: &EquationRecord) -> Result<(), MathIrError> {
     let valid = match equation.sense {
-        Sense::Eq | Sense::Definition => equation.lower.is_some() || equation.upper.is_some(),
+        Sense::Eq | Sense::Definition => equation.lower.is_some() != equation.upper.is_some(),
         Sense::Le => equation.lower.is_none() && equation.upper.is_some(),
         Sense::Ge => equation.lower.is_some() && equation.upper.is_none(),
         Sense::Range => equation.lower.is_some() && equation.upper.is_some(),

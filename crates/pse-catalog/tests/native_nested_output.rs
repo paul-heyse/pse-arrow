@@ -171,7 +171,8 @@ fn invoke(
 
 #[tokio::test]
 async fn native_array_selection_retains_child_fields_and_index_null_behavior() {
-    use pse_catalog::session::{output::checked_literal, scalar::array_element};
+    use datafusion::functions_nested::expr_fn::array_element;
+    use pse_catalog::session::output::checked_literal;
     let session = session();
     let field = declared_list(&session);
     let DataType::List(child) = field.data_type() else {
@@ -418,7 +419,7 @@ async fn native_collection_preserves_fields_through_ordered_distinct_and_grouped
         .unwrap()
         .clone();
     for mode in ["ordered", "distinct", "groups"] {
-        let collection = pse_catalog::session::aggregate::array_agg(col("ids"));
+        let collection = datafusion::functions_aggregate::expr_fn::array_agg(col("ids"));
         let aggregate = match mode {
             "ordered" => collection
                 .order_by(vec![col("ids").sort(false, false)])
@@ -448,7 +449,7 @@ async fn native_collection_preserves_fields_through_ordered_distinct_and_grouped
                 .optimized_plan()
                 .display_indent()
                 .to_string()
-                .contains("pse_array_agg")
+                .contains("array_agg")
         );
         let complete = prepared
             .clone()

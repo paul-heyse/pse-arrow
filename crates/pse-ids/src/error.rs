@@ -276,32 +276,6 @@ impl CanonError {
     }
 }
 
-/// A snapshot frame could not be named (blueprint §5.3 step 7).
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error, miette::Diagnostic)]
-#[non_exhaustive]
-pub enum SnapshotError {
-    /// Two semantic parents claimed the same role.
-    #[error("parent role `{role}` appears more than once")]
-    #[diagnostic(code(validation::invariant))]
-    DuplicateParentRole {
-        /// The repeated role.
-        role: String,
-    },
-
-    /// Two members claimed the same port.
-    #[error("member port `{port}` appears more than once")]
-    #[diagnostic(code(validation::invariant))]
-    DuplicateMemberPort {
-        /// The repeated port.
-        port: String,
-    },
-
-    /// A case snapshot did not name the model it overlays.
-    #[error("a case snapshot requires exactly one parent with role `model`")]
-    #[diagnostic(code(validation::invariant))]
-    MissingModelParent,
-}
-
 /// An accounted allocation was refused (blueprint §14.3, ADR-0046).
 ///
 /// The variant names the consumer and the configuration that bounds it, because a

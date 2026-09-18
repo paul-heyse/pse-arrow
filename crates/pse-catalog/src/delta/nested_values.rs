@@ -11,28 +11,42 @@ use datafusion::{
     functions_nested::expr_fn::{map_keys, map_values},
     logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, cast, lit},
 };
+use std::collections::BTreeSet;
 
 pub(super) struct Occurrence {
     pub field: Field,
     pub path: Vec<String>,
     pub input: LogicalPlan,
 }
+impl Occurrence {
+    pub(super) fn value(&self) -> Result<Expr> {
+        value(&self.input)
+    }
+}
 
-/// The resulting plans expose one non-null `value` column, preserving multiplicity.
+/// The resulting plans expose one non-null column, preserving multiplicity.
+/// Private names never shadow a source field or another occurrence projection.
 pub(super) fn occurrences<'a>(
     input: &LogicalPlan,
     fields: impl IntoIterator<Item = &'a Field>,
     matches: fn(&Field) -> bool,
 ) -> Result<Vec<Occurrence>> {
     let mut output = vec![];
+    let mut names = input
+        .schema()
+        .fields()
+        .iter()
+        .map(|field| field.name().clone())
+        .collect();
     for field in fields {
         if contains(field, matches) {
             descend(
                 field,
                 vec![field.name().clone()],
-                project(input.clone(), column(field.name()))?,
+                project(input.clone(), column(field.name()), &mut names)?,
                 matches,
                 &mut output,
+                &mut names,
             )?;
         }
     }
@@ -59,9 +73,11 @@ fn descend(
     input: LogicalPlan,
     matches: fn(&Field) -> bool,
     output: &mut Vec<Occurrence>,
+    names: &mut BTreeSet<String>,
 ) -> Result<()> {
+    let source = value(&input)?;
     let input = LogicalPlanBuilder::from(input)
-        .filter(column("value").is_not_null())?
+        .filter(source.clone().is_not_null())?
         .build()?;
     if matches(field) {
         output.push(Occurrence {
@@ -78,17 +94,22 @@ fn descend(
                 descend(
                     child,
                     child_path,
-                    project(input.clone(), get_field(column("value"), child.name()))?,
+                    project(
+                        input.clone(),
+                        get_field(source.clone(), child.name()),
+                        names,
+                    )?,
                     matches,
                     output,
+                    names,
                 )?;
             }
         }
         DataType::Map(child, _) if contains(child, matches) => {
-            let input = map_input(input, child)?;
+            let input = map_input(input, child, names)?;
             let mut child_path = path;
             child_path.push("[]".into());
-            descend(child, child_path, input, matches, output)?;
+            descend(child, child_path, input, matches, output, names)?;
         }
         DataType::List(child)
         | DataType::LargeList(child)
@@ -99,30 +120,36 @@ fn descend(
         {
             let input = match field.data_type() {
                 DataType::ListView(child) => {
-                    project(input, cast(column("value"), DataType::List(child.clone())))?
+                    project(input, cast(source, DataType::List(child.clone())), names)?
                 }
                 DataType::LargeListView(child) => project(
                     input,
-                    cast(column("value"), DataType::LargeList(child.clone())),
+                    cast(source, DataType::LargeList(child.clone())),
+                    names,
                 )?,
                 _ => input,
             };
+            let name = input.schema().field(0).name().clone();
             let input = LogicalPlanBuilder::from(input)
                 .unnest_column_with_options(
-                    "value",
+                    name,
                     UnnestOptions::new().with_null_handling(NullHandling::Drop),
                 )?
                 .build()?;
             let mut child_path = path;
             child_path.push("[]".into());
-            descend(child, child_path, input, matches, output)?;
+            descend(child, child_path, input, matches, output, names)?;
         }
         _ => {}
     }
     Ok(())
 }
 
-fn map_input(input: LogicalPlan, entries: &Field) -> Result<LogicalPlan> {
+fn map_input(
+    input: LogicalPlan,
+    entries: &Field,
+    names: &mut BTreeSet<String>,
+) -> Result<LogicalPlan> {
     let DataType::Struct(fields) = entries.data_type() else {
         return Err(DataFusionError::Plan("map entries must be a struct".into()));
     };
@@ -133,13 +160,16 @@ fn map_input(input: LogicalPlan, entries: &Field) -> Result<LogicalPlan> {
     };
     // map_entries normalizes child names at this pin. Paired native UNNEST over
     // the same map preserves entry correlation and arbitrary declared names.
+    let source = self::value(&input)?;
+    let key_name = fresh_name(names);
+    let value_name = fresh_name(names);
     let input = LogicalPlanBuilder::from(input)
         .project(vec![
-            map_keys(column("value")).alias("map_key"),
-            map_values(column("value")).alias("map_value"),
+            map_keys(source.clone()).alias(&key_name),
+            map_values(source).alias(&value_name),
         ])?
         .unnest_columns_with_options(
-            vec![Column::from_name("map_key"), Column::from_name("map_value")],
+            vec![Column::from_name(&key_name), Column::from_name(&value_name)],
             UnnestOptions::new().with_null_handling(NullHandling::Drop),
         )?
         .build()?;
@@ -147,17 +177,41 @@ fn map_input(input: LogicalPlan, entries: &Field) -> Result<LogicalPlan> {
         input,
         named_struct(vec![
             lit(key.name().clone()),
-            column("map_key"),
+            column(&key_name),
             lit(value.name().clone()),
-            column("map_value"),
+            column(&value_name),
         ]),
+        names,
     )
 }
 
-fn project(input: LogicalPlan, value: Expr) -> Result<LogicalPlan> {
+fn project(input: LogicalPlan, value: Expr, names: &mut BTreeSet<String>) -> Result<LogicalPlan> {
     LogicalPlanBuilder::from(input)
-        .project(vec![value.alias("value")])?
+        .project(vec![value.alias(fresh_name(names))])?
+        .alias("__pse_nested_occurrence")?
         .build()
+}
+fn fresh_name(names: &mut BTreeSet<String>) -> String {
+    let mut index = names.len();
+    loop {
+        let name = format!("__pse_nested_value_{index}");
+        if names.insert(name.clone()) {
+            return name;
+        }
+        index += 1;
+    }
+}
+fn value(input: &LogicalPlan) -> Result<Expr> {
+    let mut columns = input.schema().columns().into_iter();
+    let column = columns
+        .next()
+        .ok_or_else(|| DataFusionError::Internal("nested occurrence column absent".into()))?;
+    if columns.next().is_some() {
+        return Err(DataFusionError::Internal(
+            "nested occurrence requires one column".into(),
+        ));
+    }
+    Ok(Expr::Column(column))
 }
 fn column(name: &str) -> Expr {
     Expr::Column(Column::from_name(name))

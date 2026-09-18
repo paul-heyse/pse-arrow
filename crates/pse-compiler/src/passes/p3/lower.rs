@@ -3,7 +3,10 @@
 
 //! Source-bound lowering preserves predicate/equation structure and lexical scope.
 
-use crate::CompilerError;
+use crate::{
+    CompilerError,
+    mathir_relations::{domain::DomainValue, syntax},
+};
 use pse_authoring::{
     document::binding::{BoundPath, ParsedExpression, PathMeaning, SourceExpression},
     dsl,
@@ -14,7 +17,7 @@ use pse_mathir::{
     WeightNormalization, WeightedPair,
 };
 use pse_relations::generated::{
-    enums::{EquationSyntax, PredicateComparison, PredicateKind, PredicateOperandKind, Sense},
+    enums::{PredicateComparison, PredicateOperandKind, Sense},
     normalized,
 };
 use pse_schema::math::TemplateValueKind;
@@ -22,13 +25,13 @@ use std::collections::BTreeMap;
 
 pub(super) struct Lowered {
     pub graph: ExprGraph,
-    pub root: u64,
+    pub root: i64,
     pub syntax: &'static str,
     pub predicates: Vec<normalized::predicate_nodes::Row>,
     pub equations: Vec<normalized::equation_nodes::Row>,
     pub bindings: Vec<normalized::expression_index_bindings::Row>,
     pub instance_paths: Vec<normalized::expression_paths::Row>,
-    pub literal_units: BTreeMap<u64, Vec<SemanticId>>,
+    pub literal_units: BTreeMap<i64, Vec<SemanticId>>,
 }
 #[derive(Clone)]
 enum Local {
@@ -36,10 +39,14 @@ enum Local {
     Index(BoundIndexId, DomainRef),
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "lower keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) fn lower(
     source: &SourceExpression,
     source_id: SemanticId,
-    offset: u64,
+    offset: i64,
     context: &pse_authoring::document::Batches,
     cancel: &CancellationToken,
     units: &mut super::units::Units<'_>,
@@ -78,7 +85,7 @@ pub(super) fn lower(
             domain_name: name.clone(),
         };
         let position =
-            u16::try_from(position).map_err(|_| lower.error("too many index dimensions"))?;
+            i64::try_from(position).map_err(|_| lower.error("too many index dimensions"))?;
         lower.bind_index(name, domain, Some(position));
     }
     let (root, syntax) = match &source.parsed {
@@ -107,7 +114,7 @@ struct Lower<'a, 'b, 'c> {
     source: &'a SourceExpression,
     context: &'a pse_authoring::document::Batches,
     source_id: SemanticId,
-    offset: u64,
+    offset: i64,
     cancel: &'a CancellationToken,
     units: &'b mut super::units::Units<'c>,
     work: &'b mut dyn Reservation,
@@ -119,7 +126,7 @@ struct Lower<'a, 'b, 'c> {
     equations: Vec<normalized::equation_nodes::Row>,
     bindings: Vec<normalized::expression_index_bindings::Row>,
     instance_paths: Vec<normalized::expression_paths::Row>,
-    literal_units: BTreeMap<u64, Vec<SemanticId>>,
+    literal_units: BTreeMap<i64, Vec<SemanticId>>,
 }
 impl Lower<'_, '_, '_> {
     fn error(&self, reason: &str) -> CompilerError {
@@ -129,7 +136,7 @@ impl Lower<'_, '_, '_> {
         }
         .into()
     }
-    fn global(&self, node: NodeId) -> Result<u64, CompilerError> {
+    fn global(&self, node: NodeId) -> Result<i64, CompilerError> {
         node.0
             .checked_add(self.offset)
             .ok_or_else(|| self.error("normalized node ordinal overflow"))
@@ -250,15 +257,15 @@ impl Lower<'_, '_, '_> {
             .flat_map(|segment| &segment.indices)
             .collect::<Vec<_>>();
         if let PathMeaning::InstancePath(binding) = meaning {
-            let path_id = u64::try_from(self.instance_paths.len())
+            let path_id = i64::try_from(self.instance_paths.len())
                 .map_err(|_| self.error("path count overflow"))?;
             // Insert the obligation before descending so nested index paths get distinct ordinals.
             self.instance_paths.push(normalized::expression_paths::Row {
                 source_id: self.source_id, path_id, root_instance_id: binding.root_instance_id,
                 segments: binding.segments.into_iter().map(|segment| Ok(normalized::expression_paths::NormalizedExpressionPathsFieldSegmentsItem {
-                    kind: segment.kind.as_str().parse()?, name: segment.name, index_count: segment.index_count,
+                    kind: segment.kind.as_str().parse()?, name: segment.name, index_count: i64::from(segment.index_count),
                 })).collect::<Result<_, pse_relations::RelationError>>()?,
-                path_start: span.start, path_end: span.end,
+                path_start: i64::from(span.start), path_end: i64::from(span.end),
                 derivation_id: pse_ids::named_id(self.source_id, &format!("pass:P3:path:{path_id}")),
             });
             let indices = indices
@@ -390,21 +397,18 @@ impl Lower<'_, '_, '_> {
         }
         Ok(())
     }
-    fn bind_index(&mut self, name: &str, domain: DomainRef, position: Option<u16>) -> BoundIndexId {
+    fn bind_index(&mut self, name: &str, domain: DomainRef, position: Option<i64>) -> BoundIndexId {
         let ordinal = self.bindings.len();
         let id = BoundIndexId::from_id(pse_ids::named_id(
             self.source_id,
             &format!("pse:p3:index:v1:{ordinal}"),
         ));
-        let (actual, template, domain_name) = domain_fields(&domain);
         self.bindings
             .push(normalized::expression_index_bindings::Row {
                 source_id: self.source_id,
                 bound_index_id: id.as_id(),
                 name: name.to_owned(),
-                domain_id: actual,
-                template_id: template,
-                domain_name,
+                domain: DomainValue::from_domain(&domain),
                 position,
             });
         self.locals
@@ -518,7 +522,7 @@ impl Lower<'_, '_, '_> {
                     );
                 }
                 let position = u16::try_from(position)
-                    .map_err(|_| self.error("coordinate ordinal overflow"))?;
+                    .map_err(|_| self.error("coordinate ordinal exceeds its declared width"))?;
                 Ok(Some((*binding, position)))
             })
             .collect::<Result<Vec<_>, CompilerError>>()?;
@@ -571,9 +575,8 @@ impl Lower<'_, '_, '_> {
                     .iter()
                     .find(|row| row.bound_index_id == index.as_id())
                     .ok_or_else(|| self.error("index value lacks an actual lexical binding"))?;
-                if binding.domain_id.is_some()
-                    || binding.template_id != Some(template)
-                    || binding.domain_name.as_deref() != Some(axis)
+                if !matches!(binding.domain.domain_ref()?, DomainRef::Template { template_id, domain_name }
+                    if template_id == template && domain_name == axis)
                 {
                     return Err(self.error("index expression uses a different declared axis"));
                 }
@@ -722,93 +725,75 @@ impl Lower<'_, '_, '_> {
         }
         Ok(())
     }
-    fn predicate(&mut self, predicate: &dsl::Predicate) -> Result<u64, CompilerError> {
+    fn predicate(&mut self, predicate: &dsl::Predicate) -> Result<i64, CompilerError> {
         self.cancel.checkpoint()?;
         self.work
             .try_grow(4096)
             .map_err(pse_ids::CanonError::from)?;
-        let mut row = predicate_row(self.source_id, PredicateKind::Null);
-        match &predicate.kind {
+        let value = match &predicate.kind {
             dsl::PredicateKind::Bool(value) => {
-                row.kind = PredicateKind::Boolean;
-                row.boolean_value = Some(*value);
+                syntax::Predicate::from_boolean(syntax::Boolean { value: *value })
             }
-            dsl::PredicateKind::Null => {}
+            dsl::PredicateKind::Null => syntax::Predicate::from_null(),
             dsl::PredicateKind::Atom(value) => {
-                row.kind = PredicateKind::Atom;
                 let node = self.expr(value)?;
-                row.left_expr = Some(self.global(node)?);
-                row.left_kind = Some(PredicateOperandKind::Expression);
+                syntax::Predicate::from_atom(syntax::Atom {
+                    expression: self.global(node)?,
+                })
             }
             dsl::PredicateKind::Compare { op, lhs, rhs } => {
-                row.kind = PredicateKind::Compare;
-                row.comparison = Some(match op {
-                    dsl::CompareOp::Eq => PredicateComparison::Eq,
-                    dsl::CompareOp::NotEq => PredicateComparison::NotEq,
-                    dsl::CompareOp::Lt => PredicateComparison::Lt,
-                    dsl::CompareOp::Le => PredicateComparison::Le,
-                    dsl::CompareOp::Gt => PredicateComparison::Gt,
-                    dsl::CompareOp::Ge => PredicateComparison::Ge,
-                });
-                self.predicate_operand(lhs, &mut row, true)?;
-                self.predicate_operand(rhs, &mut row, false)?;
-                if (row.left_kind == Some(PredicateOperandKind::EnumLiteral)
-                    || row.right_kind == Some(PredicateOperandKind::EnumLiteral))
+                let operands = vec![self.predicate_operand(lhs)?, self.predicate_operand(rhs)?];
+                if operands
+                    .iter()
+                    .any(|operand| operand.kind == PredicateOperandKind::EnumLiteral)
                     && !matches!(op, dsl::CompareOp::Eq | dsl::CompareOp::NotEq)
                 {
                     return Err(self.error("enum ordering is not declared"));
                 }
+                syntax::Predicate::from_compare(syntax::Compare {
+                    comparison: match op {
+                        dsl::CompareOp::Eq => PredicateComparison::Eq,
+                        dsl::CompareOp::NotEq => PredicateComparison::NotEq,
+                        dsl::CompareOp::Lt => PredicateComparison::Lt,
+                        dsl::CompareOp::Le => PredicateComparison::Le,
+                        dsl::CompareOp::Gt => PredicateComparison::Gt,
+                        dsl::CompareOp::Ge => PredicateComparison::Ge,
+                    },
+                    operands,
+                })
             }
             dsl::PredicateKind::In { expr, domain } => {
-                row.kind = PredicateKind::In;
                 let node = self.expr(expr)?;
-                row.left_expr = Some(self.global(node)?);
-                row.left_kind = Some(PredicateOperandKind::Expression);
-                (row.domain_id, row.domain_template_id, row.domain_name) =
-                    domain_fields(&self.domain(domain)?);
+                syntax::Predicate::from_in(syntax::Membership {
+                    expression: self.global(node)?,
+                    domain: DomainValue::from_domain(&self.domain(domain)?),
+                })
             }
-            dsl::PredicateKind::And(left, right) | dsl::PredicateKind::Or(left, right) => {
-                row.kind = if matches!(predicate.kind, dsl::PredicateKind::And(..)) {
-                    PredicateKind::And
-                } else {
-                    PredicateKind::Or
-                };
-                row.left_predicate = Some(self.predicate(left)?);
-                row.right_predicate = Some(self.predicate(right)?);
-            }
-            dsl::PredicateKind::Not(value) => {
-                row.kind = PredicateKind::Not;
-                row.left_predicate = Some(self.predicate(value)?);
-            }
-        }
+            dsl::PredicateKind::And(left, right) => syntax::Predicate::from_and(syntax::And {
+                left: self.predicate(left)?,
+                right: self.predicate(right)?,
+            }),
+            dsl::PredicateKind::Or(left, right) => syntax::Predicate::from_or(syntax::Or {
+                left: self.predicate(left)?,
+                right: self.predicate(right)?,
+            }),
+            dsl::PredicateKind::Not(value) => syntax::Predicate::from_not(syntax::Not {
+                predicate: self.predicate(value)?,
+            }),
+        };
+        let mut row = normalized::predicate_nodes::Row {
+            source_id: self.source_id,
+            predicate_id: 0,
+            value,
+        };
         // Assign parents after children: syntax ordinals establish acyclicity at construction.
-        row.predicate_id = u64::try_from(self.predicates.len())
+        row.predicate_id = i64::try_from(self.predicates.len())
             .map_err(|_| self.error("predicate ordinal overflow"))?;
         let id = row.predicate_id;
         self.predicates.push(row);
         Ok(id)
     }
-    fn predicate_operand(
-        &mut self,
-        expr: &dsl::Expr,
-        row: &mut normalized::predicate_nodes::Row,
-        left: bool,
-    ) -> Result<(), CompilerError> {
-        let (value, kind, identity, member) = if left {
-            (
-                &mut row.left_expr,
-                &mut row.left_kind,
-                &mut row.left_enum_id,
-                &mut row.left_enum_member,
-            )
-        } else {
-            (
-                &mut row.right_expr,
-                &mut row.right_kind,
-                &mut row.right_enum_id,
-                &mut row.right_enum_member,
-            )
-        };
+    fn predicate_operand(&mut self, expr: &dsl::Expr) -> Result<syntax::Operand, CompilerError> {
         if let dsl::ExprKind::Path(path) = &expr.kind
             && let Some(binding) = self.paths.as_slice().first()
             && matches!(binding.meaning, PathMeaning::EnumLiteral { .. })
@@ -821,93 +806,55 @@ impl Lower<'_, '_, '_> {
                 return Err(self.error("enum literal binding changed"));
             };
             // Exact enum/member membership is owned by the actual source binder.
-            *kind = Some(PredicateOperandKind::EnumLiteral);
-            *identity = Some(enum_id);
-            *member = Some(spelling);
+            Ok(syntax::Operand::from_enum_literal(syntax::EnumLiteral {
+                enum_id,
+                member: spelling,
+            }))
         } else {
             let node = self.expr(expr)?;
-            *kind = Some(PredicateOperandKind::Expression);
-            *value = Some(self.global(node)?);
+            Ok(syntax::Operand::from_expression(syntax::Expression {
+                node_id: self.global(node)?,
+            }))
         }
-        Ok(())
     }
-    fn equation(&mut self, equation: &dsl::Equation) -> Result<u64, CompilerError> {
+    fn equation(&mut self, equation: &dsl::Equation) -> Result<i64, CompilerError> {
         self.cancel.checkpoint()?;
         self.work
             .try_grow(4096)
             .map_err(pse_ids::CanonError::from)?;
-        let mut row = normalized::equation_nodes::Row {
-            source_id: self.source_id,
-            equation_id: 0,
-            kind: EquationSyntax::Relation,
-            sense: None,
-            left_expr: None,
-            right_expr: None,
-            guard_predicate: None,
-            then_equation: None,
-            else_equation: None,
-        };
-        match &equation.kind {
+        let value = match &equation.kind {
             dsl::EquationKind::Relation { lhs, sense, rhs } => {
-                row.sense = Some(match sense {
-                    dsl::EquationSense::Eq => Sense::Eq,
-                    dsl::EquationSense::Le => Sense::Le,
-                    dsl::EquationSense::Ge => Sense::Ge,
-                });
                 let left = self.expr(lhs)?;
                 let right = self.expr(rhs)?;
-                row.left_expr = Some(self.global(left)?);
-                row.right_expr = Some(self.global(right)?);
+                syntax::Equation::from_relation(syntax::Relation {
+                    sense: match sense {
+                        dsl::EquationSense::Eq => Sense::Eq,
+                        dsl::EquationSense::Le => Sense::Le,
+                        dsl::EquationSense::Ge => Sense::Ge,
+                    },
+                    left: self.global(left)?,
+                    right: self.global(right)?,
+                })
             }
             dsl::EquationKind::Conditional {
                 guard,
                 then,
                 otherwise,
-            } => {
-                row.kind = EquationSyntax::Conditional;
-                row.guard_predicate = Some(self.predicate(guard)?);
-                row.then_equation = Some(self.equation(then)?);
-                row.else_equation = Some(self.equation(otherwise)?);
-            }
-        }
-        row.equation_id = u64::try_from(self.equations.len())
+            } => syntax::Equation::from_conditional(syntax::Conditional {
+                guard: self.predicate(guard)?,
+                then: self.equation(then)?,
+                otherwise: self.equation(otherwise)?,
+            }),
+        };
+        let mut row = normalized::equation_nodes::Row {
+            source_id: self.source_id,
+            equation_id: 0,
+            value,
+        };
+        row.equation_id = i64::try_from(self.equations.len())
             .map_err(|_| self.error("equation ordinal overflow"))?;
         let id = row.equation_id;
         self.equations.push(row);
         Ok(id)
-    }
-}
-fn domain_fields(domain: &DomainRef) -> (Option<SemanticId>, Option<SemanticId>, Option<String>) {
-    match domain {
-        DomainRef::Actual(id) => (Some(id.as_id()), None, None),
-        DomainRef::Template {
-            template_id,
-            domain_name,
-        } => (None, Some(*template_id), Some(domain_name.clone())),
-    }
-}
-pub(super) fn predicate_row(
-    source_id: SemanticId,
-    kind: PredicateKind,
-) -> normalized::predicate_nodes::Row {
-    normalized::predicate_nodes::Row {
-        source_id,
-        predicate_id: 0,
-        kind,
-        boolean_value: None,
-        comparison: None,
-        left_expr: None,
-        right_expr: None,
-        left_predicate: None,
-        right_predicate: None,
-        domain_id: None,
-        domain_template_id: None,
-        domain_name: None,
-        left_kind: None,
-        left_enum_id: None,
-        left_enum_member: None,
-        right_kind: None,
-        right_enum_id: None,
-        right_enum_member: None,
     }
 }

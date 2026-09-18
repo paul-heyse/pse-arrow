@@ -1,0 +1,23 @@
+{
+  "invariant": "runtime.cache_statistics:unique:pk",
+  "rows": {
+    "runtime.cache_statistics": [
+      {
+        "active_loads": "[\"i64\",1]",
+        "bypasses": "[\"i64\",1]",
+        "capacity_bytes": "[\"i64\",1]",
+        "entries": "[\"i64\",1]",
+        "evictions": "[\"i64\",1]",
+        "hits": "[\"i64\",1]",
+        "inflight_bytes": "[\"i64\",1]",
+        "live_bytes": "[\"i64\",1]",
+        "misses": "[\"i64\",1]",
+        "name": "[\"text\",\"value-1\"]",
+        "pinned_bytes": "[\"i64\",1]",
+        "policy_limit_bytes": "[\"i64\",1]",
+        "retained_bytes": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

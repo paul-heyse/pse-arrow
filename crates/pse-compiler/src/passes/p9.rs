@@ -8,14 +8,14 @@ mod parameters;
 mod selections;
 
 use super::{native_outputs::Sources, native_rows::workspace};
-use crate::{CompilerError, InputBundle, PassContext};
-use pse_catalog::computation::ProducedStage;
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use pse_catalog::session::SnapshotSession;
 use pse_ids::SemanticId;
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{
     Registry,
-    model::{PassSpec, RelationKey},
+    model::{AlgorithmSpec, RelationKey},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -27,7 +27,7 @@ type Inputs = BTreeMap<RelationKey, FieldCheckedBatch>;
 /// The declared method-realization pass; it adds no per-method numerical constructors.
 #[derive(Debug)]
 pub struct P9 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 impl P9 {
     /// Bind the complete actual registered pass specification.
@@ -36,21 +36,21 @@ impl P9 {
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         Ok(Self {
             spec: registry
-                .pass("P9@1")
+                .algorithm("P9@1")
                 .ok_or_else(|| invalid("P9 is undeclared"))?
                 .clone(),
         })
     }
 }
-impl crate::Pass for P9 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P9 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             inputs.validate(&self.spec, ctx.registry)?;
             let result = Box::pin(run(&self.spec, ctx, inputs)).await?;
@@ -66,10 +66,10 @@ impl crate::Pass for P9 {
                         let batch = result.rows.get(&relation.key).ok_or_else(|| {
                             invalid(format!("P9 output {} omitted", port.relation))
                         })?;
-                        Ok((port.port.to_owned(), batch.clone()))
+                        Ok((port.port.clone(), batch.clone()))
                     })
                     .collect::<Result<_, CompilerError>>()?;
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: Vec::new(),
                 derivations: result.derivations,
@@ -79,9 +79,9 @@ impl crate::Pass for P9 {
     }
 }
 async fn run(
-    spec: &PassSpec,
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
+    spec: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
 ) -> Result<super::p7::RealizationOutput, CompilerError> {
     let started = Instant::now();
     let original = inputs.checked_rows(ctx.registry)?;
@@ -192,9 +192,9 @@ async fn selected_instances(
     selection: &selections::Selection,
     inputs: &Inputs,
     sources: &Sources,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
 ) -> Result<BTreeSet<SemanticId>, CompilerError> {
     use crate::passes::native_construction::{
         Plans, c, distinct, filter, join, prefix, project, union,
@@ -301,7 +301,7 @@ fn unbound_kernel(
 pub(crate) fn kernel_output_id(
     scope: SemanticId,
     method: SemanticId,
-    ordinal: u16,
+    ordinal: i64,
     index: &[SemanticId],
 ) -> SemanticId {
     pse_ids::named_id(

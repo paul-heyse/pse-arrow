@@ -61,29 +61,16 @@ async fn two_templates_produce_declared_symbols_expressions_and_equations() {
         .with_env_filter("pse_compiler=info")
         .with_test_writer()
         .try_init();
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let input = source(&fixture.registry, true);
-    let committed = fixture.commit(vec![input]).await;
+    let committed = fixture.source(vec![input]);
     let report = fixture
-        .run(committed, "P10")
+        .evaluate(committed, "P10")
         .await
         .unwrap_or_else(|error| panic!("source-to-P10 failed: {error}"));
-    assert_eq!(
-        report
-            .stages
-            .iter()
-            .map(|stage| stage.pass.as_str())
-            .collect::<Vec<_>>(),
-        ["P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"]
-    );
-    let result = &report
-        .stages
-        .iter()
-        .find(|stage| stage.pass == "P7")
-        .unwrap()
-        .snapshot;
+    let result = &report;
     let symbols = compiled::symbols::View::from_checked(
-        result.relation("compiled", "symbols").unwrap().checked(),
+        native_pipeline::relation(result, "compiled", "symbols").unwrap(),
     )
     .unwrap()
     .rows()
@@ -97,30 +84,21 @@ async fn two_templates_produce_declared_symbols_expressions_and_equations() {
         BTreeSet::from([0, 1])
     );
     let expressions = compiled::symbol_expressions::View::from_checked(
-        result
-            .relation("compiled", "symbol_expressions")
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(result, "compiled", "symbol_expressions").unwrap(),
     )
     .unwrap()
     .rows()
     .unwrap();
     assert_eq!(expressions.len(), 1);
     let roots = compiled::expression_roots::View::from_checked(
-        result
-            .relation("compiled", "expression_roots")
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(result, "compiled", "expression_roots").unwrap(),
     )
     .unwrap()
     .rows()
     .unwrap();
     assert!(!roots.is_empty());
     let equations = inferred::math_indexed_equations::View::from_checked(
-        result
-            .relation("inferred", "math_indexed_equations")
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(result, "inferred", "math_indexed_equations").unwrap(),
     )
     .unwrap()
     .rows()
@@ -128,14 +106,11 @@ async fn two_templates_produce_declared_symbols_expressions_and_equations() {
     assert_eq!(equations.len(), 1);
     assert_eq!(equations[0].owner_instance_id, id(71));
     assert_eq!(equations[0].equation_decl_id, Some(id(65)));
-    assert_eq!(equations[0].sense, Sense::Eq);
+    assert_eq!(equations[0].constraint.kind, Sense::Eq);
 
-    let canonical = &report.stages.last().unwrap().snapshot;
+    let canonical = &report;
     let equations = compiled::math_indexed_equations::View::from_checked(
-        canonical
-            .relation("compiled", "math_indexed_equations")
-            .unwrap()
-            .checked(),
+        native_pipeline::relation(canonical, "compiled", "math_indexed_equations").unwrap(),
     )
     .unwrap()
     .rows()
@@ -143,6 +118,6 @@ async fn two_templates_produce_declared_symbols_expressions_and_equations() {
     assert_eq!(equations.len(), 1);
     assert_eq!(equations[0].owner_instance_id, id(71));
     assert_eq!(equations[0].equation_decl_id, Some(id(65)));
-    assert_eq!(equations[0].sense, Sense::Eq);
+    assert_eq!(equations[0].constraint.kind, Sense::Eq);
     assert_eq!(equations[0].residual_quantity_type_id, Some(id(31)));
 }

@@ -16,10 +16,10 @@
     ],
     "normalized.template_material_constraints": [
       {
-        "max_phases": "[\"u64\",1]",
-        "max_species": "[\"u64\",1]",
-        "min_phases": "[\"u64\",1]",
-        "min_species": "[\"u64\",1]",
+        "max_phases": "[\"i64\",1]",
+        "max_species": "[\"i64\",1]",
+        "min_phases": "[\"i64\",1]",
+        "min_species": "[\"i64\",1]",
         "template_id": "[\"id\",\"02020202020202020202020202020202\"]"
       }
     ]

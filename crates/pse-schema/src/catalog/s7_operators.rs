@@ -27,7 +27,7 @@ pub(crate) fn rows() -> Vec<Vec<Cell>> {
         .iter()
         .map(|spec| {
             let (arity, count) = match spec.arity {
-                crate::math::Arity::Fixed(count) => ("fixed", Cell::U64(u64::from(count))),
+                crate::math::Arity::Fixed(count) => ("fixed", Cell::I64(i64::from(count))),
                 crate::math::Arity::Variadic => ("variadic", Cell::Null),
                 crate::math::Arity::Payload => ("payload", Cell::Null),
             };
@@ -50,7 +50,7 @@ pub(crate) fn rows() -> Vec<Vec<Cell>> {
                         .iter()
                         .map(|r| {
                             Cell::Struct(vec![
-                                Cell::U64(u64::from(r.argument)),
+                                Cell::I64(i64::from(r.argument)),
                                 Cell::Enum(r.relation.as_str()),
                                 Cell::F64(r.bound),
                             ])
@@ -91,7 +91,7 @@ fn declare_reference_operator_specs(builder: &mut RegistryBuilder) {
         vec![
             column("opcode", T::enumeration("Opcode")),
             column("arity", T::enumeration("Arity")),
-            column("fixed_arity", T::native(arrow_schema::DataType::UInt8)).optional(),
+            column("fixed_arity", T::nonnegative(i64::from(u8::MAX))).optional(),
             column("quantity_operation_ids", T::list(T::id())),
             column("shape_rule", T::native(arrow_schema::DataType::Utf8)),
             column("derivative_rule", T::native(arrow_schema::DataType::Utf8)),
@@ -100,7 +100,7 @@ fn declare_reference_operator_specs(builder: &mut RegistryBuilder) {
             column(
                 "domain_restrictions",
                 T::list(structure(vec![
-                    ("argument", T::native(arrow_schema::DataType::UInt16)),
+                    ("argument", T::nonnegative(i64::from(u16::MAX))),
                     ("relation", T::enumeration("RelationOp")),
                     ("bound", T::native(arrow_schema::DataType::Float64)),
                 ])),

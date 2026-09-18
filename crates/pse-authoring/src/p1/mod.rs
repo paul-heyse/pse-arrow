@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! P1 parses a complete package inventory and stages typed candidate changes.
+//! Parse complete document inventories into authoritative typed source relations.
 
-use crate::change_set::AuthoredReader;
 use crate::document::DocumentBundle;
 use crate::{AuthoringError, SourceSpan};
 use pse_ids::SemanticId;
@@ -52,45 +51,23 @@ pub fn source_batches(
         .collect()
 }
 
-/// Construct source rows, bindings and their native before/after difference once.
-/// The immutable result retains the actual source projection for P2/commit consumption.
+/// Parse and bind a complete desired document inventory to typed source relations.
+/// This is the parser boundary used by the native source operator; it retains no
+/// stage envelope, base snapshot, publication controller or predecessor graph.
 /// # Errors
-/// Source binding, stale base, duplicate keys, cancellation or native execution.
-pub async fn stage_owned(
+/// Source syntax, ambiguous bindings, target resolution, cancellation or resources.
+pub async fn project(
     bundles: &crate::document::OwnedDocumentSet,
-    base: &dyn AuthoredReader,
-    header: authored::change_sets::Row,
     session: &pse_catalog::session::SnapshotSession,
     cancel: &pse_ids::CancellationToken,
-) -> Result<crate::change_set::OwnedChangeSet, AuthoringError> {
-    let registry = session.registry();
-    bundles.validate_registry(registry)?;
-    let mut work = session.reserver().open("authoring:source-construction");
+) -> Result<crate::document::Batches, AuthoringError> {
+    bundles.validate_registry(session.registry())?;
+    let mut work = session
+        .reserver()
+        .open("authoring:native-source-projection");
     work.try_grow(crate::work::sources(bundles.bundles())?)?;
-    let (batches, bindings, completed) =
-        project_sources(bundles, session, cancel, work.as_mut()).await?;
-    let prior = crate::change_set::base::checked(base, session)?;
-    let staged = crate::change_set::stage::stage_checked(
-        base.revision_id(),
-        header,
-        &batches,
-        &prior,
-        session,
-        cancel,
-    )
-    .await?;
-    let mut changes = (*staged).clone();
-    let mut candidate = prior.into_owned();
-    candidate.extend(batches);
-    changes.attach_source(crate::change_set::SourceConstruction {
-        documents: bundles.clone(),
-        candidate,
-        bindings,
-        completed,
-        edits: Vec::new(),
-        renamed: std::collections::BTreeSet::new(),
-    });
-    Ok(crate::change_set::OwnedChangeSet::new(changes, work))
+    let (batches, _, _) = project_sources(bundles, session, cancel, work.as_mut()).await?;
+    Ok(batches)
 }
 
 pub(crate) async fn project_sources(
@@ -102,7 +79,7 @@ pub(crate) async fn project_sources(
     (
         crate::document::Batches,
         crate::document::binding::OwnedSourceBindings,
-        crate::change_set::plans::Completions,
+        crate::native_relations::plans::Completions,
     ),
     AuthoringError,
 > {
@@ -118,94 +95,6 @@ pub(crate) async fn project_sources(
     Ok((batches, bindings, completed))
 }
 
-/// Establish source/result correspondence at the external change admission boundary.
-/// Local source constructors retain this coupling and do not invoke this comparison.
-/// # Errors
-/// Supplied rows differ from actual parsed source projection/target resolution.
-pub async fn admit_source_candidate(
-    bundles: &crate::document::OwnedDocumentSet,
-    candidate: &crate::change_set::OwnedCandidateSnapshot,
-    session: &pse_catalog::session::SnapshotSession,
-    cancel: &pse_ids::CancellationToken,
-) -> Result<crate::change_set::OwnedCandidateSnapshot, AuthoringError> {
-    bundles.validate_registry(session.registry())?;
-    let mut work = session
-        .reserver()
-        .open("authoring:external-source-correspondence");
-    work.try_grow(crate::work::sources(bundles.bundles())?)?;
-    let (batches, bindings, mut completed) =
-        project_sources(bundles, session, cancel, work.as_mut()).await?;
-    let execution = crate::change_set::plans::session(session)?;
-    for (id, expected) in batches {
-        let spec = session
-            .registry()
-            .relation_by_id(id)
-            .ok_or_else(|| contract("source relation absent"))?;
-        let actual = candidate
-            .checked_relations()
-            .get(&id)
-            .ok_or_else(|| contract("candidate omits source relation"))?
-            .clone();
-        let bound = crate::change_set::plans::roles(&execution, actual, expected, cancel)?;
-        let plan = crate::change_set::plans::difference(&bound, spec)?;
-        if crate::change_set::plans::execute_recorded(&bound, plan, cancel, &mut completed)
-            .await?
-            .iter()
-            .any(|batch| batch.num_rows() != 0)
-        {
-            return Err(contract(
-                "external candidate differs from complete source projection",
-            ));
-        }
-    }
-    let mut changes = candidate.changes.clone();
-    changes.attach_source(crate::change_set::SourceConstruction {
-        documents: bundles.clone(),
-        candidate: candidate.checked_relations().clone(),
-        bindings,
-        completed,
-        edits: Vec::new(),
-        renamed: std::collections::BTreeSet::new(),
-    });
-    Ok(crate::change_set::OwnedCandidateSnapshot::new(
-        crate::change_set::CandidateSnapshot {
-            relations: candidate.relations.clone(),
-            base_revision_id: candidate.base_revision_id,
-            changes,
-        },
-        candidate.checked_relations().clone(),
-        work,
-    ))
-}
-
-/// Consume locally constructed source rows without replaying stage/application.
-/// P2 still establishes the complete relational/domain obligations.
-/// # Errors
-/// The same source construction failures as [`stage_owned`].
-pub async fn construct(
-    bundles: &crate::document::OwnedDocumentSet,
-    base: &dyn AuthoredReader,
-    header: authored::change_sets::Row,
-    session: &pse_catalog::session::SnapshotSession,
-    cancel: &pse_ids::CancellationToken,
-) -> Result<crate::change_set::OwnedCandidateSnapshot, AuthoringError> {
-    let changes = stage_owned(bundles, base, header, session, cancel).await?;
-    let source = changes
-        .source()
-        .ok_or_else(|| contract("source constructor output missing"))?;
-    let mut work = session.reserver().open("authoring:source-candidate");
-    work.try_grow(crate::work::mul(source.candidate.len(), 2048)?)?;
-    Ok(crate::change_set::OwnedCandidateSnapshot::new(
-        crate::change_set::CandidateSnapshot {
-            relations: raw_batches(&source.candidate),
-            base_revision_id: base.revision_id(),
-            changes: (*changes).clone(),
-        },
-        source.candidate.clone(),
-        work,
-    ))
-}
-
 /// Bind target syntax against its actual declared instance/domain inventory.
 /// # Errors
 /// Ambiguous declarations, invalid domain selectors or unavailable resources.
@@ -213,9 +102,10 @@ async fn bind_targets(
     batches: &mut crate::document::Batches,
     session: &pse_catalog::session::SnapshotSession,
     work: &mut dyn pse_ids::Reservation,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
     cancel: &pse_ids::CancellationToken,
 ) -> Result<(), AuthoringError> {
+    use pse_relations::columnar::ArrowValue;
     macro_rules! targets {
         ($source:ident, $destination:ident, $key:ident) => {{
             let mut output = authored::$destination::Builder::with_registry(session.registry(), 0)?;
@@ -234,13 +124,18 @@ async fn bind_targets(
                             $key: row.$key,
                             ordinal: target.ordinal,
                             instance_id: target.instance_id,
-                            member_kind: target.member_kind,
-                            symbol_decl_id: target.symbol_decl_id,
-                            equation_decl_id: target.equation_decl_id,
-                            port_template_id: target.port_template_id,
-                            port_name: target.port_name,
-                            index: target.index,
-                            wildcard: target.wildcard,
+                            member: ArrowValue::read(
+                                target
+                                    .member
+                                    .to_array(
+                                        &authored::$destination::spec(session.registry())?
+                                            .column("member")
+                                            .ok_or_else(|| contract("target member field absent"))?
+                                            .data_type(),
+                                    )?
+                                    .as_ref(),
+                                0,
+                            )?,
                         })?;
                     }
                 }
@@ -261,12 +156,4 @@ fn contract(reason: &str) -> AuthoringError {
         at: None,
         reason: reason.to_owned(),
     }
-}
-
-pub(crate) fn raw_batches(
-    rows: &crate::document::Batches,
-) -> BTreeMap<SemanticId, datafusion::arrow::array::RecordBatch> {
-    rows.iter()
-        .map(|(id, batch)| (*id, batch.batch().clone()))
-        .collect()
 }

@@ -12,7 +12,7 @@ use datafusion::{
 use fixture::{Fixture, builder, declare, head, id, input};
 use pse_ids::CancellationToken;
 use pse_rules::strata::{StratumLimits, native::plan_strata};
-use pse_schema::model::{Cell, RuleDecl, RuleHead, RulePlan};
+use pse_schema::model::{Cell, RuleDecl};
 use std::sync::Arc;
 
 fn fixture() -> Fixture {
@@ -25,11 +25,9 @@ fn fixture() -> Fixture {
             "copy",
             "1",
             0,
-            RuleHead::Relation("inferred.facts".into()),
-            RulePlan::Scan {
-                relation: "authored.input".into(),
-                port: "input",
-            },
+            "inferred.facts",
+            "SELECT id FROM authored.input",
+            vec![fixture::read("authored.input", "input")],
         )
         .assertions("provenance.fact_assertions"),
     );

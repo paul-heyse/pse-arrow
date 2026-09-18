@@ -138,7 +138,7 @@ impl fmt::Display for SemanticId {
 ///
 /// Produced by [`crate::derive::derive_hash`] under a `derive_key` context, by
 /// `pse.canon.v2` logical hashing, or by a plain hash over stored bytes. The role
-/// newtypes [`LogicalHash`], [`EncodingChecksum`] and [`SnapshotId`] exist because
+/// newtypes [`LogicalHash`] and [`EncodingChecksum`] exist because
 /// ADR-0045 separates those three roles and a bare `ContentHash` would let one stand in
 /// for another.
 ///
@@ -294,14 +294,6 @@ hash_role! {
     /// Two encodings of the same logical relation have different checksums and the same
     /// [`LogicalHash`]; ADR-0045 refuses to let either substitute for the other.
     EncodingChecksum
-}
-
-hash_role! {
-    /// The name of a snapshot's membership (blueprint §5.3 step 7).
-    ///
-    /// Computed from a `pse.snapshot.v2` frame by [`crate::snapshot::snapshot_id`]; a
-    /// snapshot never enters its own membership.
-    SnapshotId
 }
 
 /// An artifact-local ordinal (blueprint §5.1).
@@ -463,8 +455,6 @@ mod tests {
         let digest = ContentHash::from_bytes([0x5a; 32]);
         assert_eq!(LogicalHash(digest).content_hash(), digest);
         assert_eq!(EncodingChecksum(digest).content_hash(), digest);
-        assert_eq!(SnapshotId(digest).content_hash(), digest);
-        assert_eq!(SnapshotId(digest).to_string(), digest.to_hex());
     }
 
     #[test]

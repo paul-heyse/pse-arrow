@@ -3,10 +3,9 @@
 
 //! Structural selector lowering preserves every ordered source child.
 use super::{N, RegistryBuilder, S, T, column, provenance, relation};
-
 #[expect(
     clippy::too_many_lines,
-    reason = "Keep the declarative relation and native rule family together for schema review"
+    reason = "one declarative catalog family keeps its native rules and field declarations together"
 )]
 pub(super) fn declare(builder: &mut RegistryBuilder) {
     relation(
@@ -33,10 +32,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("projection_id", T::id()),
             column("product_id", T::id()),
             column("parent_product_id", T::id()),
-            column(
-                "positions",
-                T::list(T::native(arrow_schema::DataType::UInt16)),
-            ),
+            column("positions", T::list(T::nonnegative(i64::from(u16::MAX)))),
             provenance(),
         ],
         "Exact ordered parent-factor positions for each prospective subset product, including repeated factor identities.",
@@ -63,7 +59,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("product_id", T::id()),
             column("tuple", T::extended(crate::model::ExtensionUse::IndexTuple)),
-            column("position", T::native(arrow_schema::DataType::UInt16)),
+            column("position", T::nonnegative(i64::from(u16::MAX))),
             column("domain_id", T::id()),
             column("member_id", T::id()),
             provenance(),
@@ -118,7 +114,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("entity_kind", T::enumeration("EntityKind")).optional(),
             column("parameter_name", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("constant", T::native(arrow_schema::DataType::Boolean)).optional(),
-            column("fold_position", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column("fold_position", T::nonnegative(i64::from(u16::MAX))).optional(),
             provenance(),
         ],
         "P3 binary selector witnesses, including exact source correspondence; no set membership is decided here.",
@@ -144,8 +140,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["source_term_id", "position"],
         vec![
             column("source_term_id", T::id()),
-            column("position", T::native(arrow_schema::DataType::UInt16)),
-            column("source_ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("position", T::nonnegative(i64::from(u16::MAX))),
+            column("source_ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("child_term_id", T::id()),
             provenance(),
         ],

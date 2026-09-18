@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 pub(super) fn syntax(
     lowered: &mut lower::Lowered,
     source_id: SemanticId,
-    offset: u64,
+    offset: i64,
     session: &pse_catalog::session::SnapshotSession,
     cancel: &CancellationToken,
     work: &mut dyn Reservation,

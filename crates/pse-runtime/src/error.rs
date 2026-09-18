@@ -109,8 +109,11 @@ mod tests {
 
     #[test]
     fn the_from_variants_keep_the_class_the_lower_crate_assigned() {
-        let catalog = RuntimeError::from(CatalogError::Sealed);
-        assert_eq!(code_of(&catalog), "schema::sealed");
+        let catalog = RuntimeError::from(CatalogError::Admission {
+            path: "native.input".into(),
+            reason: "incompatible declaration".into(),
+        });
+        assert_eq!(code_of(&catalog), "schema::admission");
 
         let reserve = RuntimeError::from(pse_ids::ReserveError::Exhausted {
             owner: "canonicalize".to_owned(),

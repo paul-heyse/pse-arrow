@@ -1,0 +1,14 @@
+{
+  "invariant": "runtime.native_dependencies:unique:pk",
+  "rows": {
+    "runtime.native_dependencies": [
+      {
+        "evidence": "[\"struct\",[[\"text\",\"absent\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]",
+        "kind": "[\"enum\",\"operation\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "scope": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

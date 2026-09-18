@@ -24,6 +24,10 @@ use pse_relations::{
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "load_input_graph keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) async fn load_input_graph(&mut self) -> Result<(), CompilerError> {
         let input_graph = self
             .inputs
@@ -240,7 +244,7 @@ impl Realizer<'_> {
                     }
                     for (name, output) in [
                         ("indexed_equation_id", &mut self.equation_support),
-                        ("kernel_binding_id", &mut self.kernel_support),
+                        ("binding_id", &mut self.kernel_support),
                     ] {
                         if let Some(id) = crate::passes::native_graph::identity(&values, name, row)?
                         {

@@ -23,7 +23,7 @@ use pse_relations::{
 use pse_rules::strata::native_input::NativeInput;
 use pse_schema::{
     Registry,
-    model::{ExpressionOwnerKind, PassSpec, RelationKey},
+    model::{AlgorithmSpec, ExpressionOwnerKind, RelationKey},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -38,7 +38,7 @@ pub(super) async fn emit(
     batches: &Batches,
     construction: &provenance::Construction,
     physical: &crate::quantity_relations::PhysicalInventory,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {
@@ -46,7 +46,7 @@ pub(super) async fn emit(
     let mut support = Support::new(construction, session, cancel);
     let mut units = units::Units::new(physical, batches, registry)?;
     let mut work = session.reserver().open("P3:source-lowering");
-    let mut offsets = BTreeMap::<&'static str, u64>::new();
+    let mut offsets = BTreeMap::<&'static str, i64>::new();
     let mut output = OutputRows::new(registry, session.reserver(), cancel)?;
     let mut unit_origins = BTreeMap::<pse_quantity::UnitId, Origins>::new();
     output.ensure::<normalized::expression_sources::Row>()?;
@@ -115,7 +115,7 @@ pub(super) async fn emit(
         }
         let next = offset
             .checked_add(
-                u64::try_from(lowered.graph.len())
+                i64::try_from(lowered.graph.len())
                     .map_err(|_| invalid("source graph extent overflow"))?,
             )
             .ok_or_else(|| invalid("source graph ordinal overflow"))?;
@@ -151,11 +151,15 @@ pub(super) async fn emit(
     provenance::materialize(output.finish()?, construction, pass, session, cancel).await
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "emit_source keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 fn emit_source(
     source: &SourceExpression,
     source_id: SemanticId,
     prefix: &'static str,
-    offset: u64,
+    offset: i64,
     lowered: lower::Lowered,
     registry: &Registry,
     session: &SnapshotSession,
@@ -223,7 +227,7 @@ fn source_row(
     id: SemanticId,
     family: &str,
     syntax: &str,
-    root: u64,
+    root: i64,
     derivation: SemanticId,
 ) -> Result<normalized::expression_sources::Row, CompilerError> {
     Ok(normalized::expression_sources::Row {
@@ -232,11 +236,22 @@ fn source_row(
         source_relation_id: source.relation_id,
         source_key: source.row_key,
         field_path: source.document_path.clone(),
-        owner_template_id: (source.owner_kind == ExpressionOwnerKind::Template)
-            .then_some(source.owner_id),
-        owner_instance_id: (source.owner_kind == ExpressionOwnerKind::Instance)
-            .then_some(source.owner_id),
-        owner_kind: source.owner_kind.as_str().parse()?,
+        owner: match source.owner_kind {
+            ExpressionOwnerKind::Template => {
+                normalized::expression_sources::NormalizedExpressionSourcesFieldOwner::from_template(
+                    normalized::expression_sources::NormalizedExpressionSourcesFieldOwnerTemplate {
+                        template_id: source.owner_id,
+                    },
+                )
+            }
+            ExpressionOwnerKind::Instance => {
+                normalized::expression_sources::NormalizedExpressionSourcesFieldOwner::from_instance(
+                    normalized::expression_sources::NormalizedExpressionSourcesFieldOwnerInstance {
+                        instance_id: source.owner_id,
+                    },
+                )
+            }
+        },
         syntax: syntax.parse()?,
         root_id: root,
         derivation_id: derivation,

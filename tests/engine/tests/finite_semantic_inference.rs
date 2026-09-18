@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
 //! Production P3/P4/P5 fixtures use actual authoring, shared DataFusion and admitted stages.
 #[path = "support/demand_source.rs"]
 mod demand_source;
 #[path = "../../support/native_pipeline.rs"]
 mod native_pipeline;
+
 use demand_source::id;
 use pse_authoring::{
     ParseBudget,
@@ -32,10 +37,9 @@ fn edit(texts: &mut BTreeMap<String, String>, path: &str, change: impl FnOnce(&m
     change(&mut value);
     texts.insert(path.to_owned(), value.to_string());
 }
-fn rows(registry: &Registry, stage: &pse_catalog::Snapshot, name: &str) -> Vec<Vec<Cell>> {
+fn rows(registry: &Registry, stage: &native_pipeline::Values, name: &str) -> Vec<Vec<Cell>> {
     let spec = registry.relation(name).unwrap();
-    let batch = stage
-        .relation(spec.key.namespace.as_str(), spec.key.name)
+    let batch = native_pipeline::relation(stage, spec.key.namespace.as_str(), spec.key.name)
         .unwrap()
         .batch();
     pse_relations::cells::cells_from_batch(registry, spec, batch).unwrap()
@@ -63,7 +67,7 @@ fn selector(
 #[tokio::test]
 async fn relative_parameter_selector_tracks_actual_target_and_refuses_missing_instance() {
     for target in [70, 71, 200] {
-        let mut fixture = native_pipeline::Fixture::new();
+        let fixture = native_pipeline::Fixture::new();
         let semantic_id_type = fixture.registry.logical_type("semantic_id").unwrap().id;
         let document = changed(&fixture.registry, |texts| {
             edit(texts, "templates/state.yaml", |value| {
@@ -83,8 +87,8 @@ async fn relative_parameter_selector_tracks_actual_target_and_refuses_missing_in
                 value["selector_terms"][0]["parameter_name"] = json!("selected_instance");
             });
         });
-        let model = fixture.commit(vec![document]).await;
-        let result = fixture.run(model, "P5").await;
+        let model = fixture.source(vec![document]);
+        let result = fixture.evaluate(model, "P5").await;
         if target == 200 {
             assert!(
                 result.is_err(),
@@ -92,8 +96,8 @@ async fn relative_parameter_selector_tracks_actual_target_and_refuses_missing_in
             );
             continue;
         }
-        let report = result.unwrap();
-        let stage = &report.stages.last().unwrap().snapshot;
+        let report = result.unwrap_or_else(|error| panic!("P5 failed: {error}"));
+        let stage = &report;
         let scopes = rows(&fixture.registry, stage, "inferred.scope_bindings");
         let binding = scopes
             .iter()
@@ -125,8 +129,7 @@ async fn relative_parameter_selector_tracks_actual_target_and_refuses_missing_in
             .collect::<Vec<_>>();
         assert_eq!(members, vec![Cell::Id(id(target))]);
         assert!(
-            stage
-                .relation("provenance", "selector_parameter_target_assertions")
+            native_pipeline::relation(stage, "provenance", "selector_parameter_target_assertions")
                 .unwrap()
                 .batch()
                 .num_rows()
@@ -138,7 +141,7 @@ async fn relative_parameter_selector_tracks_actual_target_and_refuses_missing_in
 #[tokio::test]
 async fn scalar_child_guards_and_nested_selector_difference_use_actual_instance_keys() {
     for enabled in [true, false] {
-        let mut fixture = native_pipeline::Fixture::new();
+        let fixture = native_pipeline::Fixture::new();
         let document = changed(&fixture.registry, |texts| {
             edit(texts, "templates/state.yaml", |value| {
                 value["template_guards"] = json!([{"guard_id":id(140),"template_id":id(60),"predicate":enabled.to_string(),"doc":"actual scalar child decision"}]);
@@ -159,9 +162,12 @@ async fn scalar_child_guards_and_nested_selector_difference_use_actual_instance_
                 ]);
             });
         });
-        let model = fixture.commit(vec![document]).await;
-        let report = fixture.run(model, "P5").await.unwrap();
-        let stage = &report.stages.last().unwrap().snapshot;
+        let model = fixture.source(vec![document]);
+        let report = fixture
+            .evaluate(model, "P5")
+            .await
+            .unwrap_or_else(|error| panic!("P5 failed: {error}"));
+        let stage = &report;
         let instances = rows(&fixture.registry, stage, "inferred.instances");
         let child = instances
             .iter()
@@ -184,7 +190,7 @@ async fn scalar_child_guards_and_nested_selector_difference_use_actual_instance_
                 "ancestor_id"
             ) == &Cell::Id(id(70))
                 && get(&fixture.registry, "inferred.instance_tree", row, "depth")
-                    == &Cell::U64(1)));
+                    == &Cell::I64(1)));
         }
         let members = rows(&fixture.registry, stage, "inferred.scope_members");
         let selected = members
@@ -194,8 +200,7 @@ async fn scalar_child_guards_and_nested_selector_difference_use_actual_instance_
             .collect::<Vec<_>>();
         assert_eq!(selected, vec![Cell::Id(id(70))]);
         assert!(
-            stage
-                .relation("provenance", "selector_decision_assertions")
+            native_pipeline::relation(stage, "provenance", "selector_decision_assertions")
                 .unwrap()
                 .batch()
                 .num_rows()
@@ -207,7 +212,7 @@ async fn scalar_child_guards_and_nested_selector_difference_use_actual_instance_
 #[tokio::test]
 async fn unresolved_and_conflicting_feature_assignments_refuse_actual_guarded_expansion() {
     for conflict in [false, true] {
-        let mut fixture = native_pipeline::Fixture::new();
+        let fixture = native_pipeline::Fixture::new();
         let document = changed(&fixture.registry, |texts| {
             edit(texts, "templates/state.yaml", |value| {
                 value["template_features"] = json!([
@@ -219,11 +224,11 @@ async fn unresolved_and_conflicting_feature_assignments_refuse_actual_guarded_ex
                 }
                 value["template_guards"] = json!([{"guard_id":id(140),"template_id":id(60),"predicate":"enabled","doc":"actual feature read"}]);
                 value["template_submodels"] = json!([{"template_id":id(60),"name":"child","child_template_id":id(61),"child_from_param":null,"multiplicity_domain":null,"bindings":[],"guard_id":id(140)}]);
-            })
+            });
         });
-        let model = fixture.commit(vec![document]).await;
+        let model = fixture.source(vec![document]);
         assert!(
-            fixture.run(model, "P5").await.is_err(),
+            fixture.evaluate(model, "P5").await.is_err(),
             "unknown and conflict cannot become arbitrary false/true child decisions"
         );
     }
@@ -231,7 +236,7 @@ async fn unresolved_and_conflicting_feature_assignments_refuse_actual_guarded_ex
 
 #[tokio::test]
 async fn cyclic_parallel_connections_keep_exact_interfaces_and_finite_tear_witnesses() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let port = |owner| pse_ids::named_id(id(owner), "port:stream");
     let document = changed(&fixture.registry, |texts| {
         edit(texts, "templates/state.yaml", |value| {
@@ -249,9 +254,12 @@ async fn cyclic_parallel_connections_keep_exact_interfaces_and_finite_tear_witne
             ]);
         });
     });
-    let model = fixture.commit(vec![document]).await;
-    let report = fixture.run(model, "P5").await.unwrap();
-    let stage = &report.stages.last().unwrap().snapshot;
+    let model = fixture.source(vec![document]);
+    let report = fixture
+        .evaluate(model, "P5")
+        .await
+        .unwrap_or_else(|error| panic!("P5 failed: {error}"));
+    let stage = &report;
     assert_eq!(rows(&fixture.registry, stage, "inferred.ports").len(), 2);
     assert_eq!(
         rows(&fixture.registry, stage, "inferred.port_state_targets").len(),
@@ -290,8 +298,7 @@ async fn cyclic_parallel_connections_keep_exact_interfaces_and_finite_tear_witne
     );
     assert_eq!(tears.len(), 3);
     assert_eq!(
-        stage
-            .relation("inferred", "boundary_crossings")
+        native_pipeline::relation(stage, "inferred", "boundary_crossings")
             .unwrap()
             .batch()
             .num_rows(),
@@ -301,7 +308,7 @@ async fn cyclic_parallel_connections_keep_exact_interfaces_and_finite_tear_witne
 
 #[tokio::test]
 async fn separate_phase_species_axes_reject_only_actual_forbidden_pairs() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let document = changed(&fixture.registry, |texts| {
         edit(texts, "materials/system.yaml", |value| {
             value["material_systems"][0]["phase_ids"] = json!([id(170), id(171)]);
@@ -315,25 +322,18 @@ async fn separate_phase_species_axes_reject_only_actual_forbidden_pairs() {
         });
         edit(texts, "templates/state.yaml", |value| {
             value["template_domains"]=[("p","phase"),("s","species")].into_iter().map(|(name,kind)|json!({"template_id":id(60),"name":name,"kind":kind,"continuous":false,"members_from":null,"bounds":null,"unit_id":null})).collect();
-            value["template_domain_bindings"]=[("p","phase"),("s","species")].into_iter().map(|(name,source)|json!({"template_id":id(60),"name":name,"source":source,"domain_id":null,"parameter_name":null})).collect();
+            value["template_domain_bindings"]=[("p","phase"),("s","species")].into_iter().map(|(name,source)|json!({"template_id":id(60),"name":name,"source":{"kind":source,"domain":null,"parameter":null}})).collect();
             value["template_equations"].as_array_mut().unwrap().push(json!({"id":id(174),"template_id":id(60),"name":"pair_shape","indexed_by":["p","s"],"expression":"1 == 1","sense":"eq","doc":"actual separate product factors"}));
         });
     });
-    let model = fixture.commit(vec![document]).await;
-    let report = fixture.run(model, "P5").await.unwrap();
-    let p3 = &report
-        .stages
-        .iter()
-        .find(|stage| stage.pass == "P3")
-        .unwrap()
-        .snapshot;
-    let p4 = &report
-        .stages
-        .iter()
-        .find(|stage| stage.pass == "P4")
-        .unwrap()
-        .snapshot;
-    let p5 = &report.stages.last().unwrap().snapshot;
+    let model = fixture.source(vec![document]);
+    let report = fixture
+        .evaluate(model, "P5")
+        .await
+        .unwrap_or_else(|error| panic!("P5 failed: {error}"));
+    let p3 = &report;
+    let p4 = &report;
+    let p5 = &report;
     let bindings = rows(&fixture.registry, p3, "normalized.instance_domain_bindings");
     let domain = |name| match get(
         &fixture.registry,
@@ -412,11 +412,11 @@ async fn separate_phase_species_axes_reject_only_actual_forbidden_pairs() {
 
 #[tokio::test]
 async fn collection_paths_and_ports_retain_every_actual_child_coordinate() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let document = changed(&fixture.registry, |texts| {
         edit(texts, "templates/state.yaml", |value| {
             value["template_domains"] = json!([{"template_id":id(60),"name":"stage","kind":"stage","continuous":false,"members_from":null,"bounds":null,"unit_id":null}]);
-            value["template_domain_bindings"] = json!([{"template_id":id(60),"name":"stage","source":"domain","domain_id":id(180),"parameter_name":null}]);
+            value["template_domain_bindings"] = json!([{"template_id":id(60),"name":"stage","source":{"kind":"domain","domain":{"domain_id":id(180)},"parameter":null}}]);
             value["template_submodels"] = json!([{"template_id":id(60),"name":"child","child_template_id":id(61),"child_from_param":null,"multiplicity_domain":"stage","bindings":[],"guard_id":null}]);
             value["template_equations"].as_array_mut().unwrap().push(json!({"id":id(183),"template_id":id(60),"name":"path_read","indexed_by":["stage"],"expression":"child[stage].output == 1","sense":"eq","doc":"exact child coordinate path"}));
             value["template_port_members"] = json!([{"template_id":id(61),"ordinal":0,"symbol_decl_id":id(43),"symbol_group":"output"}]);
@@ -430,9 +430,12 @@ async fn collection_paths_and_ports_retain_every_actual_child_coordinate() {
             ]
         }).to_string());
     });
-    let model = fixture.commit(vec![document]).await;
-    let report = fixture.run(model, "P5").await.unwrap();
-    let stage = &report.stages.last().unwrap().snapshot;
+    let model = fixture.source(vec![document]);
+    let report = fixture
+        .evaluate(model, "P5")
+        .await
+        .unwrap_or_else(|error| panic!("P5 failed: {error}"));
+    let stage = &report;
     let paths = rows(&fixture.registry, stage, "inferred.path_targets");
     let targets = paths
         .iter()

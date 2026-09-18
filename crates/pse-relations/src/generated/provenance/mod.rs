@@ -69,8 +69,6 @@ pub mod r#method_resolution_assertions;
 ///Generated relation contract.
 pub mod r#node_rewrites;
 ///Generated relation contract.
-pub mod r#pass_records;
-///Generated relation contract.
 pub mod r#phase_species_assertions;
 ///Generated relation contract.
 pub mod r#port_assertions;
@@ -92,8 +90,6 @@ pub mod r#potential_method_winner_assertions;
 pub mod r#property_read_occurrences;
 ///Generated relation contract.
 pub mod r#property_requirement_assertions;
-///Generated relation contract.
-pub mod r#refs;
 ///Generated relation contract.
 pub mod r#requirement_support_assertions;
 ///Generated relation contract.

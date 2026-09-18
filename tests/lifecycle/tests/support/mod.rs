@@ -1,32 +1,14 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Common actual catalog and shared runtime fixture construction.
-#![allow(
-    dead_code,
-    clippy::expect_used,
-    reason = "shared integration factories with fixed valid declarations"
-)]
-
-#[path = "../../../support/session_factory.rs"]
-pub(crate) mod session_factory;
-
-use pse_catalog::store::{
-    membership::AdmissionContext,
-    open::Catalog,
-    publish::{BundleDraft, RelationDraft},
-};
-use pse_catalog::{
-    EncodingPolicy, ExecutionSettings, FixedClock, RelationContract, ThreadBudget, TrustLevel,
-};
-use pse_ids::{CancellationToken, MemoryReserver, SnapshotKind};
+//! Actual Arrow inputs and shared native execution resources.
+#![allow(dead_code, clippy::expect_used, reason = "shared integration fixtures")]
+use pse_catalog::{ExecutionSettings, ThreadBudget};
+use pse_ids::CancellationToken;
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
-use std::collections::BTreeMap;
-use std::num::NonZeroUsize;
-use std::sync::Arc;
-
+use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 pub(crate) fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
@@ -55,60 +37,29 @@ pub(crate) fn registry() -> Arc<Registry> {
     );
     Arc::new(builder.build().expect("registry"))
 }
-pub(crate) fn catalog(
-    store: Arc<dyn object_store::ObjectStore>,
-    reg: Arc<Registry>,
-    reserver: Arc<dyn MemoryReserver>,
-) -> Catalog {
-    with_invariants(Catalog::open(
-        store,
-        reg,
-        TrustLevel::Untrusted,
-        Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        session_factory::factory(reserver),
-    ))
-}
-pub(crate) fn with_invariants(catalog: Catalog) -> Catalog {
-    let validator = pse_rules::validator::InvariantValidator::new(Arc::clone(catalog.registry()));
-    catalog.with_semantic_validator(Arc::new(validator))
-}
-pub(crate) fn draft(
-    catalog: &Catalog,
-    count: u64,
-    offset: u64,
-    cancel: &CancellationToken,
-) -> BundleDraft {
-    let spec = catalog
-        .registry()
-        .relation("authored.samples")
-        .expect("relation");
-    let rows: Vec<_> = (0..count)
+pub(crate) fn batch(registry: &Registry, count: u64, offset: u64) -> pse_relations::RecordBatch {
+    let spec = registry.relation("authored.samples").expect("relation");
+    let rows = (0..count)
         .map(|id| vec![Cell::U64(id), Cell::U64(count - id + offset)])
-        .collect();
-    let batch = pse_relations::cells::batch_from_cells_owned(
-        catalog.registry(),
-        spec,
-        &rows,
-        catalog.reserver().as_ref(),
-        cancel,
-    )
-    .expect("bounded typed rows");
-    BundleDraft {
-        manifest: catalog
-            .manifest_template(SnapshotKind::Model, &AdmissionContext::default())
-            .expect("template"),
-        relations: BTreeMap::from([(
-            pse_ids::model_port_name("authored", spec.id),
-            RelationDraft {
-                contract: Arc::new(
-                    RelationContract::from_spec(catalog.registry(), spec, EncodingPolicy::IpcFile)
-                        .expect("contract"),
-                ),
-                batches: vec![batch],
-            },
-        )]),
-        context: AdmissionContext::default(),
-    }
+        .collect::<Vec<_>>();
+    pse_relations::cells::batch_from_cells(registry, spec, &rows).expect("typed rows")
+}
+pub(crate) fn session(
+    runtime: &pse_runtime::SharedRuntime,
+    registry: Arc<Registry>,
+    count: u64,
+) -> pse_catalog::session::SnapshotSession {
+    let values = batch(&registry, count, 0);
+    let key = registry.relation("authored.samples").expect("relation").key;
+    runtime
+        .session_factory(pse_catalog::session::native_engine_profile())
+        .expect("factory")
+        .candidate(
+            BTreeMap::from([(key, values)]),
+            registry,
+            &CancellationToken::new(),
+        )
+        .expect("owned native source")
 }
 pub(crate) fn runtime(
     directory: &std::path::Path,
@@ -125,6 +76,7 @@ pub(crate) fn runtime(
             target_partitions: one,
         },
         execution: ExecutionSettings::default(),
+        cache: pse_runtime::CacheBudget::disabled(1),
         hashing_may_use_pool: false,
     })
     .expect("runtime")

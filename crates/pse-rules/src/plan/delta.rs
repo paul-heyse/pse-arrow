@@ -39,7 +39,7 @@ pub(crate) fn substitute_inputs(
 
     let mut count = 0;
     plan.apply(|node| {
-        if matches!(node, LogicalPlan::TableScan(scan) if replacements.contains_key(&scan.table_name)) {
+        if matches!(node, LogicalPlan::TableScan(scan) if replacement(replacements, &scan.table_name).is_some()) {
             count += 1;
         }
         Ok(TreeNodeRecursion::Continue)
@@ -53,7 +53,7 @@ pub(crate) fn substitute_inputs(
                 let LogicalPlan::TableScan(scan) = &node else {
                     return Ok(Transformed::no(node));
                 };
-                let Some(delta) = replacements.get(&scan.table_name) else {
+                let Some(delta) = replacement(replacements, &scan.table_name) else {
                     return Ok(Transformed::no(node));
                 };
                 let current = occurrence;
@@ -83,4 +83,21 @@ pub(crate) fn substitute_inputs(
         variants.push(variant);
     }
     Ok(variants)
+}
+
+fn replacement<'a>(
+    replacements: &'a std::collections::BTreeMap<
+        datafusion_common::TableReference,
+        datafusion_expr::LogicalPlan,
+    >,
+    name: &datafusion_common::TableReference,
+) -> Option<&'a datafusion_expr::LogicalPlan> {
+    replacements.get(name).or_else(|| {
+        name.schema().and_then(|schema| {
+            replacements.get(&datafusion_common::TableReference::partial(
+                schema,
+                name.table(),
+            ))
+        })
+    })
 }

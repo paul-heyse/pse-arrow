@@ -13,17 +13,15 @@ have different lifecycles, which is why they live in different directories.
 | [05 — Native logical-plan hard pivot](05-native-logical-plan-hard-pivot.md) | Historical implementation and receipts; every unfinished HP00–HP13 outcome carried into Plan 06 | Affected contracts through ADR-0067 | abandoned execution sequence; superseded by 06 |
 | [06 — Provider-contract hard pivot](06-provider-contracts-hard-pivot.md) | Historical provider implementation and receipts; useful functions re-scoped to the unified simulator target | Inherited contracts through ADR-0067 | abandoned execution sequence; superseded by 07 |
 | [07 — Unified DataFusion and Delta Lake hard pivot](07-unified-datafusion-delta-hard-pivot.md) | Broader simulator inventory and partial native/Delta implementation receipts; current architecture work re-scoped into Plan 08 | ADR-0065, ADR-0066, proposed ADR-0068 | partial implementation; execution sequence replaced by 08 for the newly narrowed scope |
-| [08 — Schema-first native data pivot](08-schema-first-native-data-pivot.md) | Complete schema engineering and native DataFusion/Delta replacement of existing functions; legacy deletion; no new simulator functionality | ADR-0065, ADR-0066, proposed ADR-0068 and ADR-0069 | in-progress; initial field/durable boundary tested, recursive registry and later cuts open |
+| [08 — Schema-first native data pivot](08-schema-first-native-data-pivot.md) | Implemented schema/native compiler/provider/publication replacements and legacy deletions; remaining E00–E10 obligations and scoped receipts | ADR-0065, ADR-0066, proposed ADR-0068 and ADR-0069 | done; carried remaining scope completed and qualified by Plan 09 |
+| [09 — Native caching and pivot completion](09-native-caching-and-pivot-completion.md) | Shared native caching, exact consumed-input reuse, prepared strata and every remaining Plan 08 obligation; [execution inventory](09-execution-inventory.md) | ADR-0046, ADR-0050, ADR-0065, ADR-0066; proposed ADR-0068–ADR-0070 | done; C00–C12 and carried Plan 08 scope qualified |
 
-**Current execution sequence:** Plan 08, following
-the maintainer's 2026-09-16 scope change. Schema engineering precedes complete replacement
-of the existing codebase's data operations, storage and callers with native DataFusion
-and Delta. One implementation stream deletes replaced mechanisms with each cut; there
-is no compatibility path, historical-object migration or transition period.
-
-Implementation under Plan 08 begins with SP00 and does not add future simulator
-functionality. Plan 07 retains that broader unscheduled functional inventory and its
-implementation receipts. The current boundary is in [STATUS.md](../../STATUS.md).
+**Completed execution sequence:** Plan 09 integrates and completes the caching review
+and all remaining Plan 08 E00–E10 architecture work. Its final acceptance review,
+source archives, exact coverage ledger and measurements distinguish implementation,
+behavioral qualification and performance evidence. No compatibility path or transition
+period remains. Plan 07 retains the broader unscheduled simulator-function inventory;
+that additional functionality was outside Plan 09.
 
 ## Norms
 

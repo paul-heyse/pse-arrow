@@ -88,18 +88,69 @@ Version: 1. Snapshot class: `derived`. Primary key: `contribution_id`.
 | `scope_id` | `semantic_id` | false | `payload` | — | — |
 | `product_id` | `semantic_id` | false | `payload` | — | — |
 | `source_id` | `semantic_id` | false | `payload` | — | — |
-| `expression_root` | `UInt64` | false | `payload` | — | — |
+| `expression_root` | `Int64` | false | `payload` | — | — |
 | `law_family` | `enum:LawFamily` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `basis_id` | `semantic_id` | true | `payload` | — | — |
 | `orientation` | `enum:Orientation` | false | `payload` | — | — |
 | `transfer_connection_id` | `semantic_id` | true | `payload` | — | — |
-| `subject_kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
-| `subject_id` | `semantic_id` | true | `payload` | — | — |
-| `subject_axis` | `UInt16` | true | `payload` | — | — |
-| `phase_axis` | `UInt16` | true | `payload` | — | — |
-| `phase_id` | `semantic_id` | true | `payload` | — | — |
+| `subject` | `Struct` | false | `payload` | — | — |
+| `subject.kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
+| `subject.total` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.total.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.total.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.energy` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.energy.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.energy.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.momentum` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.momentum.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.momentum.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.species` | `Struct` | true | `payload` | — | — |
+| `subject.species.member` | `Struct` | false | `payload` | — | — |
+| `subject.species.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.species.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.species.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.species.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.species.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.element` | `Struct` | true | `payload` | — | — |
+| `subject.element.member` | `Struct` | false | `payload` | — | — |
+| `subject.element.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.element.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.element.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.element.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.element.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.phase_species` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member` | `Struct` | false | `payload` | — | — |
+| `subject.phase_species.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.phase_species.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.phase_species.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.phase_species.phase` | `Struct` | false | `payload` | — | — |
+| `subject.phase_species.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.phase_species.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.phase_species.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.phase.axis.position` | `Int64` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+Native row check `distinct_subject_axes` (must be true):
+
+```sql
+subject.kind <> 'phase_species' OR subject.phase_species.member.kind <> 'axis' OR subject.phase_species.phase.kind <> 'axis' OR subject.phase_species.member.axis.position <> subject.phase_species.phase.axis.position
+```
 
 ## `dm_partition`
 
@@ -126,7 +177,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `group_id, index`.
 | `group_id` | `semantic_id` | false | `key` | `compiled.element_projection_groups.group_id` | — |
 | `index` | `index_tuple` | false | `key` | — | — |
 | `symbol_id` | `semantic_id` | false | `payload` | — | — |
-| `node_id` | `UInt64` | false | `payload` | — | — |
+| `node_id` | `Int64` | false | `payload` | — | — |
 | `element_id` | `semantic_id` | false | `payload` | — | — |
 | `species_id` | `semantic_id` | false | `payload` | — | — |
 | `count` | `Float64` | false | `payload` | — | — |
@@ -169,11 +220,11 @@ Version: 1. Snapshot class: `derived`. Primary key: `indexed_equation_id`.
 | `instance_id` | `semantic_id` | false | `payload` | — | — |
 | `equation_decl_id` | `semantic_id` | false | `payload` | — | — |
 | `source_id` | `semantic_id` | false | `payload` | — | — |
-| `equation_node_id` | `UInt64` | false | `payload` | — | — |
+| `equation_node_id` | `Int64` | false | `payload` | — | — |
 | `branch_guards` | `List` | false | `payload` | — | — |
 | `branch_guards.item` | `Struct` | false | `payload` | — | — |
 | `branch_guards.item.source_id` | `semantic_id` | false | `payload` | — | — |
-| `branch_guards.item.predicate_id` | `UInt64` | false | `payload` | — | — |
+| `branch_guards.item.predicate_id` | `Int64` | false | `payload` | — | — |
 | `branch_guards.item.expected` | `Boolean` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
@@ -229,8 +280,8 @@ Version: 1. Snapshot class: `derived`. Primary key: `owner_id, role, ordinal, po
 |---|---|---|---|---|---|
 | `owner_id` | `semantic_id` | false | `key` | — | — |
 | `role` | `enum:ExpressionRootRole` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
-| `position` | `UInt16` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `position` | `Int64` | false | `key` | — | — |
 | `bound_index_id` | `semantic_id` | false | `payload` | — | — |
 | `domain_id` | `semantic_id` | false | `payload` | `normalized.domains.domain_id` | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
@@ -245,8 +296,8 @@ Version: 1. Snapshot class: `derived`. Primary key: `owner_id, role, ordinal`.
 |---|---|---|---|---|---|
 | `owner_id` | `semantic_id` | false | `key` | — | — |
 | `role` | `enum:ExpressionRootRole` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
-| `node_id` | `UInt64` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `node_id` | `Int64` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `group_collection_members`
@@ -276,7 +327,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
 | `group_id` | `semantic_id` | false | `key` | `compiled.symbol_groups.group_id` | — |
 | `root_instance_id` | `semantic_id` | false | `payload` | — | — |
 | `source_id` | `semantic_id` | false | `payload` | `normalized.expression_sources.source_id` | — |
-| `path_id` | `UInt64` | false | `payload` | — | — |
+| `path_id` | `Int64` | false | `payload` | — | — |
 | `product_id` | `semantic_id` | false | `payload` | `normalized.domain_products.product_id` | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
@@ -293,7 +344,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
 | `source_group_id` | `semantic_id` | false | `payload` | `compiled.symbol_groups.group_id` | — |
 | `fixed_coordinates` | `List` | false | `payload` | — | — |
 | `fixed_coordinates.item` | `Struct` | false | `payload` | — | — |
-| `fixed_coordinates.item.axis` | `UInt16` | false | `payload` | — | — |
+| `fixed_coordinates.item.axis` | `Int64` | false | `payload` | — | — |
 | `fixed_coordinates.item.member_id` | `semantic_id` | false | `payload` | — | — |
 | `product_id` | `semantic_id` | false | `payload` | `normalized.domain_products.product_id` | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
@@ -324,7 +375,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
 | `source_group_id` | `semantic_id` | false | `payload` | `compiled.symbol_groups.group_id` | — |
 | `instance_id` | `semantic_id` | false | `payload` | — | — |
 | `source_id` | `semantic_id` | false | `payload` | `normalized.expression_sources.source_id` | — |
-| `source_node_id` | `UInt64` | false | `payload` | — | — |
+| `source_node_id` | `Int64` | false | `payload` | — | — |
 | `bound_indices` | `List` | false | `payload` | — | — |
 | `bound_indices.item` | `semantic_id` | false | `payload` | — | — |
 | `fixed_indices` | `List` | false | `payload` | — | — |
@@ -360,7 +411,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `stage_id`.
 |---|---|---|---|---|---|
 | `stage_id` | `semantic_id` | false | `key` | — | — |
 | `plan_id` | `semantic_id` | false | `payload` | — | — |
-| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `payload` | — | — |
 | `kind` | `enum:StageKind` | false | `payload` | — | — |
 | `target_kind` | `enum:StageTargetKind` | false | `payload` | — | — |
 | `target_ids` | `List` | false | `payload` | — | — |
@@ -398,13 +449,17 @@ Version: 1. Snapshot class: `derived`. Primary key: `binding_id`.
 | `parameter_bindings` | `List` | false | `payload` | — | — |
 | `parameter_bindings.item` | `Struct` | false | `payload` | — | — |
 | `parameter_bindings.item.name` | `Utf8` | false | `payload` | — | — |
-| `parameter_bindings.item.symbol_id` | `semantic_id` | true | `payload` | — | — |
-| `parameter_bindings.item.value` | `Float64` | true | `payload` | — | — |
-| `parameter_bindings.item.unit_id` | `semantic_id` | true | `payload` | — | — |
+| `parameter_bindings.item.binding` | `Struct` | false | `payload` | — | — |
+| `parameter_bindings.item.binding.kind` | `enum:KernelParameterBindingKind` | false | `payload` | — | — |
+| `parameter_bindings.item.binding.symbol` | `Struct` | true | `payload` | — | — |
+| `parameter_bindings.item.binding.symbol.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `parameter_bindings.item.binding.literal` | `Struct` | true | `payload` | — | — |
+| `parameter_bindings.item.binding.literal.value` | `Float64` | false | `payload` | — | — |
+| `parameter_bindings.item.binding.literal.unit_id` | `semantic_id` | false | `payload` | — | — |
 | `input_bindings` | `List` | false | `payload` | — | — |
 | `input_bindings.item` | `Struct` | false | `payload` | — | — |
 | `input_bindings.item.name` | `Utf8` | false | `payload` | — | — |
-| `input_bindings.item.node_id` | `UInt64` | false | `payload` | — | — |
+| `input_bindings.item.node_id` | `Int64` | false | `payload` | — | — |
 
 ## `kernel_output_symbols`
 
@@ -419,7 +474,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `requirement_id`.
 | `state_scope_id` | `semantic_id` | false | `payload` | `inferred.state_scopes.state_scope_id` | — |
 | `method_id` | `semantic_id` | false | `payload` | `reference.method_specs.method_id` | — |
 | `kernel_binding_id` | `semantic_id` | false | `payload` | — | — |
-| `output_ordinal` | `UInt16` | false | `payload` | — | — |
+| `output_ordinal` | `Int64` | false | `payload` | — | — |
 | `index` | `index_tuple` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
 | `derivation_id` | `semantic_id` | false | `payload` | — | — |
@@ -441,15 +496,84 @@ Version: 1. Snapshot class: `derived`. Primary key: `application_id`.
 | `law_family` | `enum:LawFamily` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `basis_id` | `semantic_id` | true | `payload` | — | — |
-| `subject_kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
-| `subject_id` | `semantic_id` | true | `payload` | — | — |
-| `subject_axis` | `UInt16` | true | `payload` | — | — |
-| `phase_axis` | `UInt16` | true | `payload` | — | — |
-| `phase_id` | `semantic_id` | true | `payload` | — | — |
+| `subject` | `Struct` | false | `payload` | — | — |
+| `subject.kind` | `enum:ContributionSubjectKind` | false | `payload` | — | — |
+| `subject.total` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.total.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.total.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.total.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.energy` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.energy.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.energy.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.energy.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.momentum` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.momentum.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.momentum.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.momentum.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.species` | `Struct` | true | `payload` | — | — |
+| `subject.species.member` | `Struct` | false | `payload` | — | — |
+| `subject.species.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.species.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.species.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.species.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.species.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.species.phase` | `Struct` | true | `payload` | — | — |
+| `subject.species.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.species.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.species.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.species.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.species.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.element` | `Struct` | true | `payload` | — | — |
+| `subject.element.member` | `Struct` | false | `payload` | — | — |
+| `subject.element.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.element.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.element.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.element.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.element.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.element.phase` | `Struct` | true | `payload` | — | — |
+| `subject.element.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.element.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.element.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.element.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.element.phase.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.phase_species` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member` | `Struct` | false | `payload` | — | — |
+| `subject.phase_species.member.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.phase_species.member.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.phase_species.member.axis` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.member.axis.position` | `Int64` | false | `payload` | — | — |
+| `subject.phase_species.phase` | `Struct` | false | `payload` | — | — |
+| `subject.phase_species.phase.kind` | `enum:PhysicalCoordinateKind` | false | `payload` | — | — |
+| `subject.phase_species.phase.fixed` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.phase.fixed.entity_id` | `semantic_id` | false | `payload` | — | — |
+| `subject.phase_species.phase.axis` | `Struct` | true | `payload` | — | — |
+| `subject.phase_species.phase.axis.position` | `Int64` | false | `payload` | — | — |
 | `source_family` | `enum:LawFamily` | false | `payload` | — | — |
 | `subject_projection` | `enum:LawSubjectProjection` | false | `payload` | — | — |
 | `expansion` | `enum:LawExpansion` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
+
+Native row check `distinct_subject_axes` (must be true):
+
+```sql
+subject.kind <> 'phase_species' OR subject.phase_species.member.kind <> 'axis' OR subject.phase_species.phase.kind <> 'axis' OR subject.phase_species.member.axis.position <> subject.phase_species.phase.axis.position
+```
+
+Native row check `species_phase_slice` (must be true):
+
+```sql
+subject.kind NOT IN ('species', 'element') OR coalesce(subject.species.phase.kind, subject.element.phase.kind, 'fixed') = 'fixed'
+```
 
 ## `law_participation`
 
@@ -461,40 +585,14 @@ Version: 1. Snapshot class: `derived`. Primary key: `application_id, contributio
 |---|---|---|---|---|---|
 | `application_id` | `semantic_id` | false | `key` | — | — |
 | `contribution_id` | `semantic_id` | false | `key` | — | — |
-| `decision` | `enum:ParticipationDecision` | false | `payload` | — | — |
-| `reason` | `enum:ParticipationReason` | false | `payload` | — | — |
-| `sign` | `Int32` | false | `payload` | — | — |
-| `conversion_id` | `semantic_id` | true | `payload` | — | — |
+| `decision` | `Struct` | false | `payload` | — | — |
+| `decision.kind` | `enum:ParticipationDecision` | false | `payload` | — | — |
+| `decision.included` | `Struct` | true | `payload` | — | — |
+| `decision.included.sign` | `enum:ContributionSign` | false | `payload` | — | — |
+| `decision.included.conversion_id` | `semantic_id` | true | `payload` | — | — |
+| `decision.excluded` | `Struct` | true | `payload` | — | — |
+| `decision.excluded.reason` | `enum:ParticipationExclusionReason` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
-
-## `math_affine`
-
-blueprint §6.9 math: math_affine.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `constant` | `Float64` | false | `payload` | — | — |
-| `constant_quantity_type_id` | `semantic_id` | true | `payload` | — | — |
-| `constant_unit_id` | `semantic_id` | true | `payload` | — | — |
-| `terms` | `List` | false | `payload` | — | — |
-| `terms.item` | `Struct` | false | `payload` | — | — |
-| `terms.item.coefficient` | `Float64` | false | `payload` | — | — |
-| `terms.item.child_node_id` | `UInt64` | false | `payload` | — | — |
-
-## `math_broadcasts`
-
-blueprint §6.9 math: math_broadcasts.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `domain_id` | `semantic_id` | false | `payload` | — | — |
-| `bound_index_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_complementarity`
 
@@ -505,20 +603,9 @@ Version: 1. Snapshot class: `derived`. Primary key: `pair_id`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `pair_id` | `semantic_id` | false | `key` | — | — |
-| `expr_a_node_id` | `UInt64` | false | `payload` | — | — |
-| `expr_b_node_id` | `UInt64` | false | `payload` | — | — |
+| `expr_a_node_id` | `Int64` | false | `payload` | — | — |
+| `expr_b_node_id` | `Int64` | false | `payload` | — | — |
 | `formulation` | `enum:ComplementarityForm` | false | `payload` | — | — |
-
-## `math_conditionals`
-
-blueprint §6.9 math: math_conditionals.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `guard_node_id` | `UInt64` | false | `payload` | — | — |
 
 ## `math_dae_links`
 
@@ -531,19 +618,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `derivative_symbol_id`.
 | `derivative_symbol_id` | `semantic_id` | false | `key` | — | — |
 | `state_symbol_id` | `semantic_id` | false | `payload` | — | — |
 | `wrt_domain_id` | `semantic_id` | false | `payload` | — | — |
-| `derivative_order` | `UInt8` | false | `payload` | — | — |
-
-## `math_derivatives`
-
-blueprint §6.9 math: math_derivatives.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `wrt_domain_id` | `semantic_id` | false | `payload` | — | — |
-| `order` | `UInt8` | false | `payload` | — | — |
+| `derivative_order` | `Int64` | false | `payload` | — | — |
 
 ## `math_equations`
 
@@ -554,16 +629,20 @@ Version: 1. Snapshot class: `derived`. Primary key: `equation_id`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `equation_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `payload` | — | — |
 | `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
 | `equation_decl_id` | `semantic_id` | true | `payload` | — | — |
 | `parent_indexed_equation_id` | `semantic_id` | true | `payload` | — | — |
 | `qualified_name` | `Utf8` | false | `payload` | — | — |
 | `index` | `index_tuple` | false | `payload` | — | — |
-| `body_node_id` | `UInt64` | false | `payload` | — | — |
-| `sense` | `enum:Sense` | false | `payload` | — | — |
-| `lower_node_id` | `UInt64` | true | `payload` | — | — |
-| `upper_node_id` | `UInt64` | true | `payload` | — | — |
+| `body_node_id` | `Int64` | false | `payload` | — | — |
+| `constraint` | `Struct` | false | `payload` | — | — |
+| `constraint.kind` | `enum:Sense` | false | `payload` | — | — |
+| `constraint.single` | `Struct` | true | `payload` | — | — |
+| `constraint.single.node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `constraint.range` | `Struct` | true | `payload` | — | — |
+| `constraint.range.lower_node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `constraint.range.upper_node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
 | `residual_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `family` | `enum:EquationFamily` | false | `payload` | — | — |
 | `role` | `enum:EquationRole` | false | `payload` | — | — |
@@ -575,43 +654,184 @@ Version: 1. Snapshot class: `derived`. Primary key: `equation_id`.
 | `law_instance_id` | `semantic_id` | true | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `payload` | — | — |
 
-## `math_expr_args`
-
-blueprint §6.9 math: math_expr_args.
-
-Version: 1. Snapshot class: `derived`. Primary key: `parent_node_id, argument_ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `parent_node_id` | `UInt64` | false | `key` | — | — |
-| `argument_ordinal` | `UInt16` | false | `key` | — | — |
-| `child_node_id` | `UInt64` | false | `payload` | — | — |
-
 ## `math_expr_nodes`
 
-blueprint §6.9 math: math_expr_nodes.
+Coherent mathematical nodes with ordered children and tagged payloads.
 
 Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
+| `node_id` | `Int64` | false | `key` | — | — |
 | `opcode` | `enum:Opcode` | false | `payload` | — | — |
+| `children` | `List` | false | `payload` | — | — |
+| `children.item` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload` | `Struct` | false | `payload` | — | — |
+| `payload.kind` | `enum:MathPayloadKind` | false | `payload` | — | — |
+| `payload.symbol` | `Struct` | true | `payload` | — | — |
+| `payload.symbol.reference` | `Struct` | false | `payload` | — | — |
+| `payload.symbol.reference.kind` | `enum:MathReferenceKind` | false | `payload` | — | — |
+| `payload.symbol.reference.symbol` | `Struct` | true | `payload` | — | — |
+| `payload.symbol.reference.symbol.symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.symbol.reference.template` | `Struct` | true | `payload` | — | — |
+| `payload.symbol.reference.template.template_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.symbol.reference.template.member_kind` | `enum:MathTemplateMemberKind` | false | `payload` | — | — |
+| `payload.symbol.reference.template.name` | `Utf8` | false | `payload` | — | — |
+| `payload.symbol.reference.domain` | `Struct` | true | `payload` | — | — |
+| `payload.symbol.reference.domain.value` | `Struct` | false | `payload` | — | — |
+| `payload.symbol.reference.domain.value.kind` | `enum:MathDomainKind` | false | `payload` | — | — |
+| `payload.symbol.reference.domain.value.actual` | `Struct` | true | `payload` | — | — |
+| `payload.symbol.reference.domain.value.actual.domain_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.symbol.reference.domain.value.template` | `Struct` | true | `payload` | — | — |
+| `payload.symbol.reference.domain.value.template.template_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.symbol.reference.domain.value.template.name` | `Utf8` | false | `payload` | — | — |
+| `payload.symbol.reference.index` | `Struct` | true | `payload` | — | — |
+| `payload.symbol.reference.index.bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.float` | `Struct` | true | `payload` | — | — |
+| `payload.float.value` | `Float64` | false | `payload` | — | — |
+| `payload.float.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.integer` | `Struct` | true | `payload` | — | — |
+| `payload.integer.value` | `Int64` | false | `payload` | — | — |
+| `payload.affine` | `Struct` | true | `payload` | — | — |
+| `payload.affine.constant` | `Float64` | false | `payload` | — | — |
+| `payload.affine.constant_quantity_type_id` | `semantic_id` | true | `payload` | — | — |
+| `payload.affine.constant_unit_id` | `semantic_id` | true | `payload` | — | — |
+| `payload.affine.coefficients` | `List` | false | `payload` | — | — |
+| `payload.affine.coefficients.item` | `Float64` | false | `payload` | — | — |
+| `payload.weighted_mean` | `Struct` | true | `payload` | — | — |
+| `payload.weighted_mean.pairs` | `List` | false | `payload` | — | — |
+| `payload.weighted_mean.pairs.item` | `Struct` | false | `payload` | — | — |
+| `payload.weighted_mean.pairs.item.weight_node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload.weighted_mean.pairs.item.value_node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload.weighted_mean.normalization` | `enum:WeightNormalization` | false | `payload` | — | — |
+| `payload.weighted_mean.unit_sum_invariant_id` | `semantic_id` | true | `payload` | — | — |
+| `payload.reduction` | `Struct` | true | `payload` | — | — |
+| `payload.reduction.reduction_kind` | `enum:ReductionKind` | false | `payload` | — | — |
+| `payload.reduction.domain` | `Struct` | false | `payload` | — | — |
+| `payload.reduction.domain.kind` | `enum:MathDomainKind` | false | `payload` | — | — |
+| `payload.reduction.domain.actual` | `Struct` | true | `payload` | — | — |
+| `payload.reduction.domain.actual.domain_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.reduction.domain.template` | `Struct` | true | `payload` | — | — |
+| `payload.reduction.domain.template.template_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.reduction.domain.template.name` | `Utf8` | false | `payload` | — | — |
+| `payload.reduction.bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.reduction.filter` | `Struct` | true | `payload` | — | — |
+| `payload.reduction.filter.kind` | `enum:MathGuardKind` | false | `payload` | — | — |
+| `payload.reduction.filter.math` | `Struct` | true | `payload` | — | — |
+| `payload.reduction.filter.math.node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload.reduction.filter.predicate` | `Struct` | true | `payload` | — | — |
+| `payload.reduction.filter.predicate.source_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.reduction.filter.predicate.predicate_id` | `Int64` | false | `payload` | — | — |
+| `payload.gather` | `Struct` | true | `payload` | — | — |
+| `payload.gather.group_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.gather.coordinates` | `List` | false | `payload` | — | — |
+| `payload.gather.coordinates.item` | `Struct` | false | `payload` | — | — |
+| `payload.gather.coordinates.item.bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.gather.coordinates.item.position` | `Int64` | false | `payload` | — | — |
+| `payload.pending_gather` | `Struct` | true | `payload` | — | — |
+| `payload.pending_gather.group_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.pending_gather.indices` | `List` | false | `payload` | — | — |
+| `payload.pending_gather.indices.item` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload.pending_path` | `Struct` | true | `payload` | — | — |
+| `payload.pending_path.source_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.pending_path.path_id` | `Int64` | false | `payload` | — | — |
+| `payload.pending_path.indices` | `List` | false | `payload` | — | — |
+| `payload.pending_path.indices.item` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload.broadcast` | `Struct` | true | `payload` | — | — |
+| `payload.broadcast.domain` | `Struct` | false | `payload` | — | — |
+| `payload.broadcast.domain.kind` | `enum:MathDomainKind` | false | `payload` | — | — |
+| `payload.broadcast.domain.actual` | `Struct` | true | `payload` | — | — |
+| `payload.broadcast.domain.actual.domain_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.broadcast.domain.template` | `Struct` | true | `payload` | — | — |
+| `payload.broadcast.domain.template.template_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.broadcast.domain.template.name` | `Utf8` | false | `payload` | — | — |
+| `payload.broadcast.bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.derivative` | `Struct` | true | `payload` | — | — |
+| `payload.derivative.domain` | `Struct` | false | `payload` | — | — |
+| `payload.derivative.domain.kind` | `enum:MathDomainKind` | false | `payload` | — | — |
+| `payload.derivative.domain.actual` | `Struct` | true | `payload` | — | — |
+| `payload.derivative.domain.actual.domain_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.derivative.domain.template` | `Struct` | true | `payload` | — | — |
+| `payload.derivative.domain.template.template_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.derivative.domain.template.name` | `Utf8` | false | `payload` | — | — |
+| `payload.derivative.order` | `Int64` | false | `payload` | — | — |
+| `payload.integral` | `Struct` | true | `payload` | — | — |
+| `payload.integral.domain` | `Struct` | false | `payload` | — | — |
+| `payload.integral.domain.kind` | `enum:MathDomainKind` | false | `payload` | — | — |
+| `payload.integral.domain.actual` | `Struct` | true | `payload` | — | — |
+| `payload.integral.domain.actual.domain_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.integral.domain.template` | `Struct` | true | `payload` | — | — |
+| `payload.integral.domain.template.template_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.integral.domain.template.name` | `Utf8` | false | `payload` | — | — |
+| `payload.integral.bound_index_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.integral.quadrature_policy_id` | `semantic_id` | true | `payload` | — | — |
+| `payload.integral.filter` | `Struct` | true | `payload` | — | — |
+| `payload.integral.filter.kind` | `enum:MathGuardKind` | false | `payload` | — | — |
+| `payload.integral.filter.math` | `Struct` | true | `payload` | — | — |
+| `payload.integral.filter.math.node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload.integral.filter.predicate` | `Struct` | true | `payload` | — | — |
+| `payload.integral.filter.predicate.source_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.integral.filter.predicate.predicate_id` | `Int64` | false | `payload` | — | — |
+| `payload.smooth` | `Struct` | true | `payload` | — | — |
+| `payload.smooth.eps` | `Float64` | false | `payload` | — | — |
+| `payload.pending_smooth` | `Struct` | true | `payload` | — | — |
+| `payload.pending_smooth.eps` | `Float64` | false | `payload` | — | — |
+| `payload.pending_smooth.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.conditional` | `Struct` | true | `payload` | — | — |
+| `payload.conditional.guard` | `Struct` | false | `payload` | — | — |
+| `payload.conditional.guard.kind` | `enum:MathGuardKind` | false | `payload` | — | — |
+| `payload.conditional.guard.math` | `Struct` | true | `payload` | — | — |
+| `payload.conditional.guard.math.node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `payload.conditional.guard.predicate` | `Struct` | true | `payload` | — | — |
+| `payload.conditional.guard.predicate.source_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.conditional.guard.predicate.predicate_id` | `Int64` | false | `payload` | — | — |
+| `payload.kernel_call` | `Struct` | true | `payload` | — | — |
+| `payload.kernel_call.binding_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.kernel_call.output_ordinal` | `Int64` | false | `payload` | — | — |
+| `payload.implicit_ref` | `Struct` | true | `payload` | — | — |
+| `payload.implicit_ref.system_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.implicit_ref.unknown_ordinal` | `Int64` | false | `payload` | — | — |
+| `payload.unit_convert` | `Struct` | true | `payload` | — | — |
+| `payload.unit_convert.scale` | `Float64` | false | `payload` | — | — |
+| `payload.unit_convert.offset` | `Float64` | false | `payload` | — | — |
+| `payload.unit_convert.from_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.unit_convert.to_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.pending_unit_convert` | `Struct` | true | `payload` | — | — |
+| `payload.pending_unit_convert.to_unit_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.piecewise_linear` | `Struct` | true | `payload` | — | — |
+| `payload.piecewise_linear.breakpoints` | `List` | false | `payload` | — | — |
+| `payload.piecewise_linear.breakpoints.item` | `Struct` | false | `payload` | — | — |
+| `payload.piecewise_linear.breakpoints.item.x` | `Float64` | false | `payload` | — | — |
+| `payload.piecewise_linear.breakpoints.item.y` | `Float64` | false | `payload` | — | — |
+| `payload.piecewise_linear.input_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
+| `payload.piecewise_linear.output_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | true | `payload` | — | — |
 | `scope_instance_id` | `semantic_id` | true | `payload` | — | — |
 | `subtree_hash` | `content_hash` | false | `payload` | — | — |
 
-## `math_float_constants`
+Native row check `affine_children` (must be true):
 
-blueprint §6.9 math: math_float_constants.
+```sql
+payload['kind'] <> 'affine' OR array_length(payload['affine']['coefficients']) = array_length(children)
+```
 
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
+Native row check `expression_arity` (must be true):
 
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `value` | `Float64` | false | `payload` | — | — |
-| `unit_id` | `semantic_id` | false | `payload` | — | — |
+```sql
+CASE opcode WHEN 'Const' THEN array_length(children) = 0 WHEN 'SymbolRef' THEN array_length(children) = 0 WHEN 'Add' THEN array_length(children) = 2 WHEN 'Sub' THEN array_length(children) = 2 WHEN 'Affine' THEN TRUE WHEN 'WeightedMean' THEN array_length(children) = 0 WHEN 'Mul' THEN array_length(children) = 2 WHEN 'Div' THEN array_length(children) = 2 WHEN 'Pow' THEN array_length(children) = 2 WHEN 'Neg' THEN array_length(children) = 1 WHEN 'Abs' THEN array_length(children) = 1 WHEN 'Exp' THEN array_length(children) = 1 WHEN 'Log' THEN array_length(children) = 1 WHEN 'Log10' THEN array_length(children) = 1 WHEN 'Sqrt' THEN array_length(children) = 1 WHEN 'Sin' THEN array_length(children) = 1 WHEN 'Cos' THEN array_length(children) = 1 WHEN 'Tan' THEN array_length(children) = 1 WHEN 'Asin' THEN array_length(children) = 1 WHEN 'Acos' THEN array_length(children) = 1 WHEN 'Atan' THEN array_length(children) = 1 WHEN 'Sinh' THEN array_length(children) = 1 WHEN 'Cosh' THEN array_length(children) = 1 WHEN 'Tanh' THEN array_length(children) = 1 WHEN 'Erf' THEN array_length(children) = 1 WHEN 'SmoothMax' THEN array_length(children) = 2 WHEN 'SmoothMin' THEN array_length(children) = 2 WHEN 'SmoothAbs' THEN array_length(children) = 1 WHEN 'SafeSqrt' THEN array_length(children) = 1 WHEN 'SafeLog' THEN array_length(children) = 1 WHEN 'Conditional' THEN array_length(children) = 2 WHEN 'SumOver' THEN array_length(children) = 1 WHEN 'ProdOver' THEN array_length(children) = 1 WHEN 'MinOver' THEN array_length(children) = 1 WHEN 'MaxOver' THEN array_length(children) = 1 WHEN 'Gather' THEN array_length(children) = 0 WHEN 'Broadcast' THEN array_length(children) = 1 WHEN 'Derivative' THEN array_length(children) = 1 WHEN 'Integral' THEN array_length(children) = 1 WHEN 'KernelCall' THEN array_length(children) = 0 WHEN 'ImplicitRef' THEN array_length(children) = 0 WHEN 'UnitConvert' THEN array_length(children) = 1 WHEN 'PiecewiseLinear' THEN array_length(children) = 1 ELSE FALSE END
+```
+
+Native row check `expression_payload` (must be true):
+
+```sql
+CASE opcode WHEN 'Const' THEN payload['kind'] IN ('float', 'integer') WHEN 'SymbolRef' THEN payload['kind'] IN ('symbol', 'pending_path') WHEN 'Add' THEN payload['kind'] IN ('none') WHEN 'Sub' THEN payload['kind'] IN ('none') WHEN 'Affine' THEN payload['kind'] IN ('affine') WHEN 'WeightedMean' THEN payload['kind'] IN ('weighted_mean') WHEN 'Mul' THEN payload['kind'] IN ('none') WHEN 'Div' THEN payload['kind'] IN ('none') WHEN 'Pow' THEN payload['kind'] IN ('none') WHEN 'Neg' THEN payload['kind'] IN ('none') WHEN 'Abs' THEN payload['kind'] IN ('none') WHEN 'Exp' THEN payload['kind'] IN ('none') WHEN 'Log' THEN payload['kind'] IN ('none') WHEN 'Log10' THEN payload['kind'] IN ('none') WHEN 'Sqrt' THEN payload['kind'] IN ('none') WHEN 'Sin' THEN payload['kind'] IN ('none') WHEN 'Cos' THEN payload['kind'] IN ('none') WHEN 'Tan' THEN payload['kind'] IN ('none') WHEN 'Asin' THEN payload['kind'] IN ('none') WHEN 'Acos' THEN payload['kind'] IN ('none') WHEN 'Atan' THEN payload['kind'] IN ('none') WHEN 'Sinh' THEN payload['kind'] IN ('none') WHEN 'Cosh' THEN payload['kind'] IN ('none') WHEN 'Tanh' THEN payload['kind'] IN ('none') WHEN 'Erf' THEN payload['kind'] IN ('none') WHEN 'SmoothMax' THEN payload['kind'] IN ('smooth', 'pending_smooth') WHEN 'SmoothMin' THEN payload['kind'] IN ('smooth', 'pending_smooth') WHEN 'SmoothAbs' THEN payload['kind'] IN ('smooth', 'pending_smooth') WHEN 'SafeSqrt' THEN payload['kind'] IN ('smooth', 'pending_smooth') WHEN 'SafeLog' THEN payload['kind'] IN ('smooth', 'pending_smooth') WHEN 'Conditional' THEN payload['kind'] IN ('conditional') WHEN 'SumOver' THEN payload['kind'] IN ('reduction') AND payload['reduction']['reduction_kind'] = 'sum' WHEN 'ProdOver' THEN payload['kind'] IN ('reduction') AND payload['reduction']['reduction_kind'] = 'prod' WHEN 'MinOver' THEN payload['kind'] IN ('reduction') AND payload['reduction']['reduction_kind'] = 'min' WHEN 'MaxOver' THEN payload['kind'] IN ('reduction') AND payload['reduction']['reduction_kind'] = 'max' WHEN 'Gather' THEN payload['kind'] IN ('gather', 'pending_gather', 'pending_path') WHEN 'Broadcast' THEN payload['kind'] IN ('broadcast') WHEN 'Derivative' THEN payload['kind'] IN ('derivative') WHEN 'Integral' THEN payload['kind'] IN ('integral') WHEN 'KernelCall' THEN payload['kind'] IN ('kernel_call') WHEN 'ImplicitRef' THEN payload['kind'] IN ('implicit_ref') WHEN 'UnitConvert' THEN payload['kind'] IN ('unit_convert', 'pending_unit_convert') WHEN 'PiecewiseLinear' THEN payload['kind'] IN ('piecewise_linear') ELSE FALSE END
+```
+
+Native row check `expression_resolution` (must be true):
+
+```sql
+payload['kind'] NOT IN ('pending_gather', 'pending_path') AND coalesce(payload['symbol']['reference']['kind'], 'symbol') = 'symbol' AND coalesce(payload['reduction']['domain']['kind'], 'actual') = 'actual' AND coalesce(payload['broadcast']['domain']['kind'], 'actual') = 'actual' AND coalesce(payload['derivative']['domain']['kind'], 'actual') = 'actual' AND coalesce(payload['integral']['domain']['kind'], 'actual') = 'actual' AND coalesce(payload['reduction']['filter']['kind'], 'math') = 'math' AND coalesce(payload['integral']['filter']['kind'], 'math') = 'math' AND coalesce(payload['conditional']['guard']['kind'], 'math') = 'math' AND payload['kind'] NOT IN ('pending_unit_convert', 'pending_smooth')
+```
 
 ## `math_free_indices`
 
@@ -624,34 +844,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `indexed_equation_id, bound_
 | `indexed_equation_id` | `semantic_id` | false | `key` | — | — |
 | `bound_index_id` | `semantic_id` | false | `key` | — | — |
 | `domain_id` | `semantic_id` | false | `payload` | — | — |
-| `position` | `UInt16` | false | `payload` | — | — |
-
-## `math_gathers`
-
-blueprint §6.9 math: math_gathers.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `group_id` | `semantic_id` | false | `payload` | — | — |
-| `coordinate_map` | `List` | false | `payload` | — | — |
-| `coordinate_map.item` | `Struct` | false | `payload` | — | — |
-| `coordinate_map.item.bound_index_id` | `semantic_id` | false | `payload` | — | — |
-| `coordinate_map.item.position` | `UInt16` | false | `payload` | — | — |
-
-## `math_implicit_refs`
-
-blueprint §6.9 math: math_implicit_refs.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `implicit_system_id` | `semantic_id` | false | `payload` | — | — |
-| `unknown_ordinal` | `UInt16` | false | `payload` | — | — |
+| `position` | `Int64` | false | `payload` | — | — |
 
 ## `math_implicit_systems`
 
@@ -688,51 +881,18 @@ Version: 1. Snapshot class: `derived`. Primary key: `indexed_equation_id`.
 | `equation_decl_id` | `semantic_id` | true | `payload` | — | — |
 | `qualified_name` | `Utf8` | false | `payload` | — | — |
 | `product_id` | `semantic_id` | true | `payload` | — | — |
-| `filter_node_id` | `UInt64` | true | `payload` | — | — |
-| `body_node_id` | `UInt64` | false | `payload` | — | — |
-| `sense` | `enum:Sense` | false | `payload` | — | — |
-| `lower_node_id` | `UInt64` | true | `payload` | — | — |
-| `upper_node_id` | `UInt64` | true | `payload` | — | — |
+| `filter_node_id` | `Int64` | true | `payload` | — | — |
+| `body_node_id` | `Int64` | false | `payload` | — | — |
+| `constraint` | `Struct` | false | `payload` | — | — |
+| `constraint.kind` | `enum:Sense` | false | `payload` | — | — |
+| `constraint.single` | `Struct` | true | `payload` | — | — |
+| `constraint.single.node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `constraint.range` | `Struct` | true | `payload` | — | — |
+| `constraint.range.lower_node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
+| `constraint.range.upper_node_id` | `Int64` | false | `payload` | `compiled.math_expr_nodes.node_id` | — |
 | `residual_quantity_type_id` | `semantic_id` | true | `payload` | — | — |
 | `law_instance_id` | `semantic_id` | true | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `payload` | — | — |
-
-## `math_int_constants`
-
-blueprint §6.9 math: math_int_constants.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `value` | `Int64` | false | `payload` | — | — |
-
-## `math_integrals`
-
-blueprint §6.9 math: math_integrals.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `domain_id` | `semantic_id` | false | `payload` | — | — |
-| `quadrature_policy_id` | `semantic_id` | true | `payload` | — | — |
-| `bound_index_id` | `semantic_id` | false | `payload` | — | — |
-| `filter_node_id` | `UInt64` | true | `payload` | — | — |
-
-## `math_kernel_calls`
-
-blueprint §6.9 math: math_kernel_calls.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `kernel_binding_id` | `semantic_id` | false | `payload` | — | — |
-| `output_ordinal` | `UInt16` | false | `payload` | — | — |
 
 ## `math_objectives`
 
@@ -744,26 +904,10 @@ Version: 1. Snapshot class: `derived`. Primary key: `objective_id`.
 |---|---|---|---|---|---|
 | `objective_id` | `semantic_id` | false | `key` | — | — |
 | `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
-| `body_node_id` | `UInt64` | false | `payload` | — | — |
+| `body_node_id` | `Int64` | false | `payload` | — | — |
 | `sense` | `enum:ObjectiveSense` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `default_active` | `Boolean` | false | `payload` | — | — |
-
-## `math_piecewise_linear`
-
-blueprint §6.9 math: math_piecewise_linear.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `breakpoints` | `List` | false | `payload` | — | — |
-| `breakpoints.item` | `Struct` | false | `payload` | — | — |
-| `breakpoints.item.x` | `Float64` | false | `payload` | — | — |
-| `breakpoints.item.y` | `Float64` | false | `payload` | — | — |
-| `input_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
-| `output_quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `math_quantity_selections`
 
@@ -773,82 +917,16 @@ Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
+| `node_id` | `Int64` | false | `key` | — | — |
 | `operation_id` | `semantic_id` | true | `payload` | — | — |
 | `builtin_rule` | `enum:BuiltinQuantityRule` | true | `payload` | — | — |
 | `operand_permutation` | `List` | false | `payload` | — | — |
-| `operand_permutation.item` | `UInt16` | false | `payload` | — | — |
+| `operand_permutation.item` | `Int64` | false | `payload` | — | — |
 | `conversions` | `List` | false | `payload` | — | — |
 | `conversions.item` | `Struct` | false | `payload` | — | — |
-| `conversions.item.operand` | `UInt16` | false | `payload` | — | — |
+| `conversions.item.operand` | `Int64` | false | `payload` | — | — |
 | `conversions.item.conversion_id` | `semantic_id` | false | `payload` | — | — |
 | `deferred_static_check` | `Boolean` | false | `payload` | — | — |
-
-## `math_reductions`
-
-blueprint §6.9 math: math_reductions.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `kind` | `enum:ReductionKind` | false | `payload` | — | — |
-| `domain_id` | `semantic_id` | false | `payload` | — | — |
-| `bound_index_id` | `semantic_id` | false | `payload` | — | — |
-| `filter_node_id` | `UInt64` | true | `payload` | — | — |
-
-## `math_smooth_ops`
-
-blueprint §6.9 math: math_smooth_ops.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `eps` | `Float64` | false | `payload` | — | — |
-
-## `math_symbol_refs`
-
-blueprint §6.9 math: math_symbol_refs.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `symbol_id` | `semantic_id` | false | `payload` | — | — |
-
-## `math_unit_converts`
-
-blueprint §6.9 math: math_unit_converts.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `scale` | `Float64` | false | `payload` | — | — |
-| `offset` | `Float64` | false | `payload` | — | — |
-| `from_unit_id` | `semantic_id` | false | `payload` | — | — |
-| `to_unit_id` | `semantic_id` | false | `payload` | — | — |
-
-## `math_weighted_means`
-
-blueprint §6.9 math: math_weighted_means.
-
-Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `UInt64` | false | `key` | — | — |
-| `pairs` | `List` | false | `payload` | — | — |
-| `pairs.item` | `Struct` | false | `payload` | — | — |
-| `pairs.item.weight_node_id` | `UInt64` | false | `payload` | — | — |
-| `pairs.item.value_node_id` | `UInt64` | false | `payload` | — | — |
-| `normalization` | `enum:WeightNormalization` | false | `payload` | — | — |
-| `unit_sum_invariant_id` | `semantic_id` | true | `payload` | — | — |
 
 ## `mesh_nodes`
 
@@ -860,7 +938,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `node_id`.
 |---|---|---|---|---|---|
 | `node_id` | `semantic_id` | false | `key` | — | — |
 | `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` | — |
-| `ordinal` | `UInt32` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `payload` | — | — |
 | `coordinate` | `Float64` | false | `payload` | — | — |
 | `kind` | `enum:NodeKind` | false | `payload` | — | — |
 
@@ -875,7 +953,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `mesh_id`.
 | `mesh_id` | `semantic_id` | false | `key` | — | — |
 | `domain_id` | `semantic_id` | false | `payload` | — | — |
 | `policy_id` | `semantic_id` | false | `payload` | — | — |
-| `node_count` | `UInt32` | false | `payload` | — | — |
+| `node_count` | `Int64` | false | `payload` | — | — |
 | `nodes` | `List` | false | `payload` | — | — |
 | `nodes.item` | `Float64` | false | `payload` | — | — |
 
@@ -908,11 +986,14 @@ Version: 1. Snapshot class: `derived`. Primary key: `requirement_id`.
 |---|---|---|---|---|---|
 | `requirement_id` | `semantic_id` | false | `key` | — | — |
 | `method_id` | `semantic_id` | false | `payload` | — | — |
-| `template_instance_id` | `semantic_id` | true | `payload` | — | — |
-| `kernel_binding_id` | `semantic_id` | true | `payload` | — | — |
-| `output_kind` | `enum:MethodOutputKind` | false | `payload` | — | — |
-| `output_symbol_id` | `semantic_id` | true | `payload` | — | — |
-| `kernel_output_ordinal` | `UInt16` | true | `payload` | — | — |
+| `output_symbol_id` | `semantic_id` | false | `payload` | — | — |
+| `realization` | `Struct` | false | `payload` | — | — |
+| `realization.kind` | `enum:MethodOutputKind` | false | `payload` | — | — |
+| `realization.template_symbol` | `Struct` | true | `payload` | — | — |
+| `realization.template_symbol.template_instance_id` | `semantic_id` | false | `payload` | — | — |
+| `realization.kernel_output` | `Struct` | true | `payload` | — | — |
+| `realization.kernel_output.kernel_binding_id` | `semantic_id` | false | `payload` | — | — |
+| `realization.kernel_output.output_ordinal` | `Int64` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `port_member_groups`
@@ -925,7 +1006,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
 |---|---|---|---|---|---|
 | `group_id` | `semantic_id` | false | `key` | — | — |
 | `port_id` | `semantic_id` | false | `payload` | — | — |
-| `ordinal` | `UInt16` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `product_id` | `semantic_id` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
@@ -941,7 +1022,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `group_id, index`.
 | `group_id` | `semantic_id` | false | `key` | `compiled.predicate_masks.group_id` | — |
 | `index` | `index_tuple` | false | `key` | — | — |
 | `symbol_id` | `semantic_id` | false | `payload` | — | — |
-| `node_id` | `UInt64` | false | `payload` | — | — |
+| `node_id` | `Int64` | false | `payload` | — | — |
 | `value` | `Boolean` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
@@ -956,7 +1037,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `group_id`.
 | `group_id` | `semantic_id` | false | `key` | — | — |
 | `instance_id` | `semantic_id` | false | `payload` | — | — |
 | `source_id` | `semantic_id` | false | `payload` | — | — |
-| `predicate_id` | `UInt64` | false | `payload` | — | — |
+| `predicate_id` | `Int64` | false | `payload` | — | — |
 | `product_id` | `semantic_id` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
@@ -1025,24 +1106,6 @@ Version: 1. Snapshot class: `derived`. Primary key: `problem_id, kind`.
 | `col_idx.item` | `Int64` | false | `payload` | — | — |
 | `content_hash` | `content_hash` | false | `payload` | — | — |
 
-## `stage_bundles`
-
-blueprint §6.11 numerical and rule: stage_bundles.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `bundle_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `bundle_id` | `content_hash` | false | `key` | — | — |
-| `pass_id` | `semantic_id` | false | `payload` | — | — |
-| `pass_version` | `Utf8` | false | `payload` | — | — |
-| `members` | `List` | false | `payload` | — | — |
-| `members.item` | `Struct` | false | `payload` | — | — |
-| `members.item.port` | `Utf8` | false | `payload` | — | — |
-| `members.item.relation_id` | `semantic_id` | false | `payload` | — | — |
-| `members.item.schema_version` | `UInt32` | false | `payload` | — | — |
-| `members.item.logical_hash` | `content_hash` | false | `payload` | — | — |
-
 ## `stencils`
 
 blueprint §6.3 domain: stencils.
@@ -1053,7 +1116,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `stencil_id`.
 |---|---|---|---|---|---|
 | `stencil_id` | `semantic_id` | false | `key` | — | — |
 | `mesh_id` | `semantic_id` | false | `payload` | `compiled.meshes.mesh_id` | — |
-| `derivative_order` | `UInt8` | false | `payload` | — | — |
+| `derivative_order` | `Int64` | false | `payload` | — | — |
 | `scheme` | `enum:DiscretizationScheme` | false | `payload` | — | — |
 | `node_id` | `semantic_id` | false | `payload` | — | — |
 | `neighbor_node_id` | `semantic_id` | false | `payload` | — | — |
@@ -1068,7 +1131,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `symbol_id`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `symbol_id` | `semantic_id` | false | `key` | — | — |
-| `node_id` | `UInt64` | false | `payload` | — | — |
+| `node_id` | `Int64` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `provenance` | — | — |
 
 ## `symbol_group_members`
@@ -1117,7 +1180,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `symbol_id`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `symbol_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `ordinal` | `Int64` | false | `payload` | — | — |
 | `owner_instance_id` | `semantic_id` | false | `payload` | — | — |
 | `symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
 | `qualified_name` | `Utf8` | false | `payload` | — | — |

@@ -7,9 +7,7 @@
 use super::{PlanObservation, SnapshotSession, admission, observation::Recorder};
 use crate::{CatalogError, PlanOrigin};
 use datafusion::{
-    arrow::array::RecordBatch,
-    common::tree_node::{TreeNode, TreeNodeRecursion},
-    logical_expr::LogicalPlan,
+    arrow::array::RecordBatch, common::tree_node::TreeNodeRecursion, logical_expr::LogicalPlan,
 };
 use pse_ids::{CancellationToken, owned_buffer::OwnedRecordBatch};
 use std::sync::{Arc, Mutex};
@@ -30,8 +28,7 @@ struct Preparation {
     volatile: bool,
     started: std::sync::atomic::AtomicBool,
     effects: std::collections::BTreeSet<pse_schema::model::provider::OperationEffect>,
-    requirements: Option<PreparedComputation>,
-    mutation: Option<super::mutation::PreparedMutation>,
+    requirements: bool,
 }
 
 impl std::fmt::Debug for PreparedComputation {
@@ -56,6 +53,25 @@ pub struct CompletedComputation {
 }
 
 impl SnapshotSession {
+    /// One registry/budget-bound field admission scope for a complete artifact.
+    /// Every graph still checks its sources and expressions; identical immutable
+    /// Arrow child declarations are validated once across sibling outputs.
+    /// # Errors
+    /// Foreign sources, invalid native expressions or resource/cancellation refusal.
+    pub fn derive_plan_fields_many(
+        &self,
+        plans: &[LogicalPlan],
+        cancel: &CancellationToken,
+    ) -> Result<Vec<LogicalPlan>, CatalogError> {
+        admission::restore_semantic_fields_many(
+            plans,
+            &self.registry,
+            &self.bindings.providers(),
+            self.reserver.as_ref(),
+            cancel,
+        )
+        .map_err(|error| self.execution_error(error, PlanOrigin::RuleCompiler))
+    }
     /// Derive native fields from exact retained sources without optimizing or executing.
     /// # Errors
     /// A foreign source or incompatible actual expression field.
@@ -102,22 +118,34 @@ impl SnapshotSession {
     ) -> Result<PreparedComputation, CatalogError> {
         self.bind_targets(&plan)?
             .execution_scope()?
-            .prepare_scoped(plan, cancel, origin)
+            .prepare_scoped(plan, cancel, origin, None)
     }
 
-    fn prepare_scoped(
+    pub(crate) fn cache_planning_scope<'a>(
+        &self,
+        cancel: &'a CancellationToken,
+    ) -> super::cache::logical::Scope<'a> {
+        super::cache::logical::Scope::new(self.reserver.as_ref(), cancel)
+    }
+
+    pub(crate) fn prepare_group_member(
         &self,
         plan: LogicalPlan,
         cancel: &CancellationToken,
-        origin: PlanOrigin,
+        scope: &mut super::cache::logical::Scope<'_>,
     ) -> Result<PreparedComputation, CatalogError> {
-        cancel.checkpoint()?;
-        let requirements = self.prepare_requirements(cancel)?;
-        // Native expressions already own their actual function implementations.
-        // The SQL name registry is needed for resolution and diagnostic decoding,
-        // not for restricting executable plans to registered function names.
-        let output_relation = plan
-            .schema()
+        // Only ArtifactPlan's immutable outputs, already derived and admitted
+        // together against this exact captured session, use this private path.
+        self.bind_targets(&plan)?.execution_scope()?.prepare_scoped(
+            plan,
+            cancel,
+            PlanOrigin::RuleCompiler,
+            Some(scope),
+        )
+    }
+
+    fn output_declaration(&self, plan: &LogicalPlan) -> Option<&pse_schema::model::RelationSpec> {
+        plan.schema()
             .metadata()
             .get(pse_schema::arrow::KEY_CONTRACT_ID)
             .and_then(|value| pse_ids::SemanticId::parse_hex(value).ok())
@@ -125,22 +153,48 @@ impl SnapshotSession {
             .filter(|spec| {
                 pse_schema::arrow::relation_schema(&self.registry, spec)
                     .is_ok_and(|schema| &schema == plan.schema().as_arrow())
+            })
+    }
+
+    fn prepare_scoped(
+        &self,
+        plan: LogicalPlan,
+        cancel: &CancellationToken,
+        origin: PlanOrigin,
+        cache_scope: Option<&mut super::cache::logical::Scope<'_>>,
+    ) -> Result<PreparedComputation, CatalogError> {
+        cancel.checkpoint()?;
+        let requirements = !self.effective_policy()?.requirements.is_empty();
+        if requirements && self.requirement_planner.is_none() {
+            return Err(CatalogError::Admission {
+                path: "provider.requirements".to_owned(),
+                reason: "required invariants have no bound native implementation".to_owned(),
             });
-        let plan = admission::restore_semantic_fields(
-            plan,
-            &self.registry,
-            &self.bindings.providers(),
-            self.reserver.as_ref(),
-            cancel,
-        )
-        .map_err(|error| {
-            stage_error(
-                self.execution_error(error, origin),
-                "initial native field derivation",
+        }
+        // Native expressions already own their actual function implementations.
+        // The SQL name registry is needed for resolution and diagnostic decoding,
+        // not for restricting executable plans to registered function names.
+        let output_relation = self.output_declaration(&plan);
+        let plan = if cache_scope.is_some() {
+            plan
+        } else {
+            admission::restore_semantic_fields(
+                plan,
+                &self.registry,
+                &self.bindings.providers(),
+                self.reserver.as_ref(),
+                cancel,
             )
-        })?;
-        let mut volatile =
-            requires_fresh_execution(&plan).map_err(|error| self.execution_error(error, origin))?;
+            .map_err(|error| {
+                stage_error(
+                    self.execution_error(error, origin),
+                    "initial native field derivation",
+                )
+            })?
+        };
+        let mut volatile = self
+            .plans_require_fresh([&plan], cancel)
+            .map_err(|error| self.execution_error(error, origin))?;
         let mut effects = self.admit_effects(&plan, volatile)?;
         volatile |= self.bindings.iter().any(|(_, binding)| {
             binding
@@ -150,19 +204,42 @@ impl SnapshotSession {
         let state =
             super::execution::NativeExecutionContext::bind(self, self.bound_state()?, cancel)?;
         let mut recorder = Recorder::new(self.reserver.as_ref());
+        let mut optimize_producer =
+            |input| self.optimize_cache_producer(input, &state, cancel, &mut recorder);
+        let staged = if let Some(scope) = cache_scope {
+            scope.stage(plan.clone(), &mut optimize_producer)
+        } else {
+            super::cache::logical::stage(
+                plan.clone(),
+                self.reserver.as_ref(),
+                cancel,
+                &mut optimize_producer,
+            )
+        }
+        .map_err(|error| {
+            stage_error(
+                self.execution_error(error, origin),
+                "native cache producer optimization",
+            )
+        })?;
+        crate::cache_service::metrics::record(&state, |metrics| &metrics.analyses);
         let analyzed = state
             .analyzer()
-            .execute_and_check(plan.clone(), state.config_options(), |_, rule| {
+            .execute_and_check(staged, state.config_options(), |_, rule| {
                 recorder.rule(rule.name());
             })
             .map_err(|error| stage_error(self.execution_error(error, origin), "native analyzer"))?;
         cancel.checkpoint()?;
         // Native analysis can introduce function calls. Inspect them before
         // optimization can fold or eliminate their binding-time dependencies.
-        let analyzed_varying = requires_fresh_execution(&analyzed)
+        let visible_analyzed = super::cache::logical::expand(analyzed.clone())
             .map_err(|error| self.execution_error(error, origin))?;
-        effects.extend(self.admit_effects(&analyzed, analyzed_varying)?);
+        let analyzed_varying = self
+            .plans_require_fresh([&visible_analyzed], cancel)
+            .map_err(|error| self.execution_error(error, origin))?;
+        effects.extend(self.admit_effects(&visible_analyzed, analyzed_varying)?);
         volatile |= analyzed_varying;
+        crate::cache_service::metrics::record(&state, |metrics| &metrics.optimizations);
         let optimized = state
             .optimizer()
             .optimize(analyzed.clone(), &state, |_, rule| {
@@ -175,33 +252,14 @@ impl SnapshotSession {
                     &format!("native optimizer ({detail})"),
                 )
             })?;
-        let optimized = admission::restore_semantic_fields(
-            optimized,
-            &self.registry,
-            &self.bindings.providers(),
-            self.reserver.as_ref(),
-            cancel,
-        )
-        .map_err(|error| self.execution_error(error, origin))?;
-        let optimized = if let Some(spec) = output_relation {
-            super::output::declare_relation_output(optimized, &self.registry, spec)
-                .map_err(|error| self.execution_error(error, origin))?
-        } else {
-            optimized
-        };
-        let optimized = super::scalar::materialize_nested_fields(
-            optimized,
-            &self.scalar_function("pse_preserve_field")?,
-        )
-        .map_err(|error| self.execution_error(error, origin))?;
+        let optimized = self.finalize_native_fields(optimized, output_relation, cancel, origin)?;
         recorder.rule("pse.nested_field_materialization.v1");
-        let mutation = super::mutation::PreparedMutation::bind(self, &optimized)?;
-        let observation = recorder.finish(&optimized)?;
+        let observation = recorder.finish(&optimized, cancel)?;
         Ok(PreparedComputation(Arc::new(Preparation {
             session: self.clone(),
             state,
             original: plan,
-            analyzed,
+            analyzed: visible_analyzed,
             optimized,
             observation,
             origin,
@@ -209,8 +267,79 @@ impl SnapshotSession {
             started: std::sync::atomic::AtomicBool::new(false),
             effects,
             requirements,
-            mutation,
         })))
+    }
+}
+
+impl SnapshotSession {
+    fn finalize_native_fields(
+        &self,
+        plan: LogicalPlan,
+        output: Option<&pse_schema::model::RelationSpec>,
+        cancel: &CancellationToken,
+        origin: PlanOrigin,
+    ) -> Result<LogicalPlan, CatalogError> {
+        let plan = admission::restore_semantic_fields(
+            plan,
+            &self.registry,
+            &self.bindings.providers(),
+            self.reserver.as_ref(),
+            cancel,
+        )
+        .map_err(|error| self.execution_error(error, origin))?;
+        let plan = if let Some(spec) = output {
+            super::output::declare_relation_output(plan, &self.registry, spec)
+                .map_err(|error| self.execution_error(error, origin))?
+        } else {
+            plan
+        };
+        let plan = super::scalar::materialize_nested_fields(
+            plan,
+            &self.scalar_function("pse_preserve_field")?,
+        )
+        .map_err(|error| self.execution_error(error, origin))?;
+        super::cache::logical::expand(plan).map_err(|error| self.execution_error(error, origin))
+    }
+
+    fn optimize_cache_producer(
+        &self,
+        input: LogicalPlan,
+        state: &datafusion::execution::session_state::SessionState,
+        cancel: &CancellationToken,
+        recorder: &mut Recorder,
+    ) -> datafusion::common::Result<LogicalPlan> {
+        crate::cache_service::metrics::record(state, |metrics| &metrics.analyses);
+        let analyzed =
+            state
+                .analyzer()
+                .execute_and_check(input, state.config_options(), |_, rule| {
+                    recorder.rule(rule.name());
+                })?;
+        let visible = super::cache::logical::expand(analyzed.clone())?;
+        if self.plans_require_fresh([&visible], cancel)? {
+            return Err(datafusion::common::DataFusionError::Plan(
+                "native analysis introduced a varying or uncontracted cache producer".into(),
+            ));
+        }
+        self.admit_effects(&visible, false)
+            .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?;
+        crate::cache_service::metrics::record(state, |metrics| &metrics.optimizations);
+        let optimized = state
+            .optimizer()
+            .optimize(analyzed, state, |_, rule| recorder.rule(rule.name()))?;
+        let optimized = admission::restore_semantic_fields(
+            optimized,
+            &self.registry,
+            &self.bindings.providers(),
+            self.reserver.as_ref(),
+            cancel,
+        )?;
+        super::scalar::materialize_nested_fields(
+            optimized,
+            &self
+                .scalar_function("pse_preserve_field")
+                .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))?,
+        )
     }
 }
 
@@ -289,74 +418,35 @@ impl PreparedComputation {
         self,
         cancel: &CancellationToken,
     ) -> Result<OwnedComputationStream, CatalogError> {
-        cancel.checkpoint()?;
+        self.execute_stream_in_scope(cancel, None).await
+    }
+
+    pub(crate) async fn execute_group(
+        preparations: impl IntoIterator<Item = Result<Self, CatalogError>>,
+        cancel: &CancellationToken,
+    ) -> Result<Vec<CompletedComputation>, CatalogError> {
+        let caches = Arc::new(super::cache::CacheStore::default());
+        let mut completed = Vec::new();
+        for prepared in preparations {
+            completed.push(
+                prepared?
+                    .execute_stream_in_scope(cancel, Some(Arc::clone(&caches)))
+                    .await?
+                    .collect(cancel)
+                    .await?,
+            );
+        }
+        Ok(completed)
+    }
+
+    async fn execute_stream_in_scope(
+        self,
+        cancel: &CancellationToken,
+        caches: Option<Arc<super::cache::CacheStore>>,
+    ) -> Result<OwnedComputationStream, CatalogError> {
+        let (physical, execution_state, observation) =
+            self.plan_execution(cancel, false, caches).await?;
         let session = &self.0.session;
-        if let Some(requirements) = &self.0.requirements {
-            let mut stream = Box::pin(requirements.clone().execute_stream(cancel)).await?;
-            while let Some(batch) = stream.next_batch(cancel).await? {
-                if batch.num_rows() != 0 {
-                    return Err(CatalogError::Admission {
-                        path: "operation.requirements".to_owned(),
-                        reason: "scoped invariant requirements produced violations".to_owned(),
-                    });
-                }
-            }
-        }
-        let execution_state =
-            super::execution::NativeExecutionContext::execution_state(&self.0.state, cancel);
-        let state = &execution_state;
-        let command = matches!(
-            self.0.original,
-            LogicalPlan::Ddl(_) | LogicalPlan::Statement(_)
-        );
-        let effectful =
-            command || matches!(self.0.original, LogicalPlan::Dml(_) | LogicalPlan::Copy(_));
-        if effectful
-            && self
-                .0
-                .started
-                .swap(true, std::sync::atomic::Ordering::AcqRel)
-        {
-            return Err(CatalogError::Admission {
-                path: "operation.attempt".to_owned(),
-                reason: "an effectful preparation can execute only once".to_owned(),
-            });
-        }
-        let (physical, execution_state) = tokio::select! {
-            biased;
-            () = cancel.cancelled() => { cancel.checkpoint()?; unreachable_cancel()? },
-            result = async {
-                if let Some(mutation) = &self.0.mutation {
-                    let physical = mutation.physical(session.clone(), cancel.clone(), state).await?;
-                    Ok((physical, state.clone()))
-                } else if let LogicalPlan::Extension(extension) = &self.0.optimized
-                    && let Some(operation) = extension.node.as_any().downcast_ref::<super::operation::OperationNode>() {
-                    let physical = datafusion::physical_planner::DefaultPhysicalPlanner::default()
-                        .optimize_physical_plan(operation.physical(session.clone(), cancel.clone()), state, |_, _| {})?;
-                    Ok((physical, state.clone()))
-                } else if command {
-                    // Eager native handlers are called only here, after preparation.
-                    let context = datafusion::execution::context::SessionContext::new_with_state(state.clone());
-                    let namespace = if let LogicalPlan::Ddl(command) = &self.0.optimized {
-                        super::commands::create_namespace(&context, command)?
-                    } else { None };
-                    let frame = match namespace {
-                        Some(frame) => frame,
-                        None => context.execute_logical_plan(self.0.optimized.clone()).await?,
-                    };
-                    let physical = frame.create_physical_plan().await?;
-                    Ok((physical, context.state()))
-                } else {
-                    state.query_planner().create_physical_plan(&self.0.optimized, state).await.map(|physical| (physical, state.clone()))
-                }
-            } => result,
-        }.map_err(|error| session.execution_error(error, self.0.origin))?;
-        unchanged_namespace(&self)?;
-        let observation = self
-            .0
-            .observation
-            .with_physical(physical.as_ref(), session.reserver.as_ref())?;
-        session.trace.record(observation.clone(), self.0.volatile)?;
         let stream = datafusion::physical_plan::execute_stream(
             Arc::clone(&physical),
             execution_state.task_ctx(),
@@ -371,6 +461,225 @@ impl PreparedComputation {
             yielded: false,
             state: execution_state,
         })
+    }
+    /// Plan a pure finite computation once for repeated, fully drained rounds.
+    /// Native dynamic filtering and recursive operators are ineligible for reset.
+    /// # Errors
+    /// Effects, volatility, unsupported reset semantics or physical planning failure.
+    pub async fn prepare_reusable(
+        self,
+        cancel: &CancellationToken,
+    ) -> Result<ReusableComputation, CatalogError> {
+        if self.0.volatile
+            || self
+                .0
+                .effects
+                .iter()
+                .any(|effect| *effect != pse_schema::model::provider::OperationEffect::Read)
+        {
+            return Err(super::engine(datafusion::common::DataFusionError::Plan(
+                "reusable round plans require immutable read semantics".into(),
+            )));
+        }
+        self.0
+            .optimized
+            .apply_with_subqueries(|node| {
+                if matches!(node, LogicalPlan::RecursiveQuery(_)) {
+                    return Err(datafusion::common::DataFusionError::Plan(
+                        "native recursive queries cannot be reset for outer rounds".into(),
+                    ));
+                }
+                if let LogicalPlan::Extension(extension) = node
+                    && !super::cache::supports_round_reset(extension.node.as_ref())
+                    && !extension
+                        .node
+                        .as_any()
+                        .is::<super::contract::ExecutionContract>()
+                {
+                    return Err(datafusion::common::DataFusionError::Plan(format!(
+                        "extension {} has no reusable round reset contract",
+                        extension.node.name()
+                    )));
+                }
+                Ok(TreeNodeRecursion::Continue)
+            })
+            .map_err(super::engine)?;
+        let (physical, state, observation) = self.plan_execution(cancel, true, None).await?;
+        super::round::validate_reset_plan(&physical).map_err(super::engine)?;
+        Ok(ReusableComputation {
+            prepared: self,
+            physical,
+            state,
+            observation,
+            ready: true,
+        })
+    }
+
+    async fn plan_execution(
+        &self,
+        cancel: &CancellationToken,
+        reusable: bool,
+        caches: Option<Arc<super::cache::CacheStore>>,
+    ) -> Result<
+        (
+            Arc<dyn datafusion::physical_plan::ExecutionPlan>,
+            datafusion::execution::session_state::SessionState,
+            PlanObservation,
+        ),
+        CatalogError,
+    > {
+        cancel.checkpoint()?;
+        let session = &self.0.session;
+        let requirements = if self.0.requirements {
+            session.prepare_requirements(cancel).await?
+        } else {
+            None
+        };
+        let effectful = self.0.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                pse_schema::model::provider::OperationEffect::Write
+                    | pse_schema::model::provider::OperationEffect::Namespace
+                    | pse_schema::model::provider::OperationEffect::Publish
+            )
+        });
+        let native = if effectful || matches!(self.0.optimized, LogicalPlan::Explain(_)) {
+            super::mutation::isolate(&self.0.optimized, session, cancel).map_err(super::engine)?
+        } else {
+            self.0.optimized.clone()
+        };
+        let contract = |plan| {
+            super::contract::ExecutionContract::plan(
+                plan,
+                requirements
+                    .as_ref()
+                    .map(|plan| plan.optimized_plan().clone()),
+                self.0.effects.clone(),
+            )
+        };
+        // DataFusion requires EXPLAIN at the root. The inspected operation
+        // retains its contract, without executing either child while explaining.
+        let execution_plan = match native {
+            LogicalPlan::Explain(mut explain) => {
+                explain.plan = Arc::new(contract(Arc::unwrap_or_clone(explain.plan)));
+                LogicalPlan::Explain(explain)
+            }
+            plan => contract(plan),
+        };
+        let mut execution_state = match caches {
+            Some(caches) => super::execution::NativeExecutionContext::execution_state_with_caches(
+                &self.0.state,
+                cancel,
+                caches,
+            ),
+            None => {
+                super::execution::NativeExecutionContext::execution_state(&self.0.state, cancel)
+            }
+        };
+        if reusable {
+            let mut config = execution_state.config().clone();
+            let options = config.options_mut();
+            options.optimizer.enable_dynamic_filter_pushdown = false;
+            options.optimizer.enable_join_dynamic_filter_pushdown = false;
+            options.optimizer.enable_topk_dynamic_filter_pushdown = false;
+            options.optimizer.enable_aggregate_dynamic_filter_pushdown = false;
+            execution_state =
+                datafusion::execution::session_state::SessionStateBuilder::new_from_existing(
+                    execution_state,
+                )
+                .with_config(config)
+                .build();
+        }
+        let state = &execution_state;
+        if effectful
+            && self
+                .0
+                .started
+                .swap(true, std::sync::atomic::Ordering::AcqRel)
+        {
+            return Err(CatalogError::Admission {
+                path: "operation.attempt".to_owned(),
+                reason: "an effectful preparation can execute only once".to_owned(),
+            });
+        }
+        crate::cache_service::metrics::record(state, |metrics| &metrics.physical_plans);
+        let (physical, execution_state) = tokio::select! {
+            biased;
+            () = cancel.cancelled() => { cancel.checkpoint()?; unreachable_cancel()? },
+            result = async {
+                state.query_planner().create_physical_plan(&execution_plan, state).await.map(|physical| (physical, state.clone()))
+            } => result,
+        }.map_err(|error| session.execution_error(error, self.0.origin))?;
+        unchanged_namespace(self)?;
+        let mut recorder = Recorder::new(session.reserver.as_ref());
+        for rule in self.0.observation.rules_fired() {
+            recorder.rule(rule);
+        }
+        let observation = recorder
+            .finish(&execution_plan, cancel)?
+            .with_physical(physical.as_ref(), session.reserver.as_ref())?;
+        session.trace.record(observation.clone(), self.0.volatile)?;
+        Ok((physical, execution_state, observation))
+    }
+}
+
+/// One physical strategy reused only after complete successful exhaustion.
+/// A failed or cancelled invocation poisons this owner; it cannot replay partial work.
+#[derive(Debug)]
+pub struct ReusableComputation {
+    prepared: PreparedComputation,
+    physical: Arc<dyn datafusion::physical_plan::ExecutionPlan>,
+    state: datafusion::execution::session_state::SessionState,
+    observation: PlanObservation,
+    ready: bool,
+}
+impl ReusableComputation {
+    /// Execute one complete epoch using native operator resets; never replans.
+    /// # Errors
+    /// An earlier failed execution, cancellation, reset or native execution failure.
+    pub async fn execute(
+        &mut self,
+        cancel: &CancellationToken,
+    ) -> Result<CompletedComputation, CatalogError> {
+        if !self.ready {
+            return Err(super::engine(
+                datafusion::common::DataFusionError::Execution(
+                    "reusable execution has an unfinished or failed epoch".into(),
+                ),
+            ));
+        }
+        self.ready = false;
+        crate::cache_service::metrics::record(&self.state, |metrics| &metrics.reusable_executions);
+        cancel.checkpoint()?;
+        unchanged_namespace(&self.prepared)?;
+        super::execution::NativeExecutionContext::from_session(&self.state)
+            .map_err(super::engine)?
+            .advance_round_epoch();
+        let stream = datafusion::physical_plan::execute_stream(
+            Arc::clone(&self.physical),
+            self.state.task_ctx(),
+        )
+        .map_err(super::engine)?;
+        let result = OwnedComputationStream {
+            prepared: self.prepared.clone(),
+            physical: Arc::clone(&self.physical),
+            observation: self.observation.clone(),
+            stream: Some(stream),
+            finished: false,
+            yielded: false,
+            state: self.state.clone(),
+        }
+        .collect(cancel)
+        .await?;
+        // A short-circuited native join may retain an unfinished input future in
+        // its plan state even after the root output is exhausted. Release that
+        // state before the caller advances RoundInputs, not at the next execute.
+        self.physical = datafusion::physical_plan::execution_plan::reset_plan_states(Arc::clone(
+            &self.physical,
+        ))
+        .map_err(super::engine)?;
+        self.ready = true;
+        Ok(result)
     }
 }
 
@@ -435,25 +744,13 @@ impl OwnedComputationStream {
         if result.is_err() {
             self.stream = None;
         }
-        result.map_err(|error| match self.prepared.operation() {
-            Some(operation) => operation.execution_failure(error),
-            None => error,
-        })
+        result
     }
     async fn next_owned(
         &mut self,
         cancel: &CancellationToken,
     ) -> Result<Option<OwnedRecordBatch>, CatalogError> {
         let completed_cancel = CancellationToken::new();
-        let cancel = if self
-            .prepared
-            .operation()
-            .is_some_and(super::operation::NativeOperation::irreversible_completion)
-        {
-            &completed_cancel
-        } else {
-            cancel
-        };
         unchanged_namespace(&self.prepared)?;
         if self.finished {
             if !self.must_settle() {
@@ -468,14 +765,7 @@ impl OwnedComputationStream {
                 path: "operation.stream".to_owned(),
                 reason: "stream already failed".to_owned(),
             })?;
-        let next = if self
-            .prepared
-            .operation()
-            .is_some_and(super::operation::NativeOperation::handles_cancellation)
-        {
-            std::future::poll_fn(|cx| stream.as_mut().poll_next(cx)).await
-        } else {
-            tokio::select! {
+        let next = tokio::select! {
                 biased;
                 next = std::future::poll_fn(|cx| stream.as_mut().poll_next(cx)) => next,
                 () = cancel.cancelled() => {
@@ -487,7 +777,6 @@ impl OwnedComputationStream {
                         std::future::poll_fn(|cx| stream.as_mut().poll_next(cx)).await
                     } else { cancel.checkpoint()?; unreachable_cancel()? }
                 },
-            }
         };
         unchanged_namespace(&self.prepared)?;
         let Some(batch) = next else {
@@ -501,12 +790,7 @@ impl OwnedComputationStream {
         let session = &self.prepared.0.session;
         let batch =
             batch.map_err(|error| session.execution_error(error, self.prepared.0.origin))?;
-        let cancel = if self
-            .prepared
-            .operation()
-            .is_some_and(super::operation::NativeOperation::irreversible_completion)
-            || self.must_settle()
-        {
+        let cancel = if self.must_settle() {
             &completed_cancel
         } else {
             cancel
@@ -558,20 +842,6 @@ impl OwnedComputationStream {
     }
 }
 
-impl PreparedComputation {
-    fn operation(&self) -> Option<&dyn super::operation::NativeOperation> {
-        if let LogicalPlan::Extension(extension) = &self.0.original {
-            extension
-                .node
-                .as_any()
-                .downcast_ref::<super::operation::OperationNode>()
-                .map(|node| node.operation.as_ref())
-        } else {
-            None
-        }
-    }
-}
-
 fn unchanged_namespace(prepared: &PreparedComputation) -> Result<(), CatalogError> {
     if prepared
         .0
@@ -605,14 +875,14 @@ impl CompletedComputation {
         cancel: &CancellationToken,
     ) -> Result<SnapshotSession, CatalogError> {
         cancel.checkpoint()?;
-        if let Some(mutation) = &self.prepared.0.mutation {
-            return mutation.resulting_session(&self.prepared.0.session);
-        }
+        let state = super::execution::NativeExecutionContext::from_session(&self.state)
+            .and_then(|services| services.command_state(&self.state))
+            .map_err(super::engine)?;
         let created_memory_table = match &self.prepared.0.original {
             LogicalPlan::Ddl(datafusion::logical_expr::DdlStatement::CreateMemoryTable(
                 command,
             )) => {
-                let defaults = &self.state.config_options().catalog;
+                let defaults = &state.config_options().catalog;
                 let name = command
                     .name
                     .clone()
@@ -628,7 +898,7 @@ impl CompletedComputation {
         self.prepared
             .0
             .session
-            .capture_namespace(&self.state, created_memory_table.as_ref(), cancel)
+            .capture_namespace(&state, created_memory_table.as_ref(), cancel)
             .await
     }
     /// Actual optimized physical execution retained with this completed result.
@@ -731,36 +1001,6 @@ impl CompletedComputation {
             self.observation,
         )
     }
-}
-
-fn requires_fresh_execution(plan: &LogicalPlan) -> datafusion::common::Result<bool> {
-    let mut fresh = false;
-    plan.apply_with_subqueries(|node| {
-        for expression in node.expressions() {
-            expression.apply(|expression| {
-                use datafusion::logical_expr::{Expr, Volatility};
-                fresh |= match expression {
-                    Expr::ScalarFunction(value) => {
-                        value.func.signature().volatility != Volatility::Immutable
-                    }
-                    Expr::AggregateFunction(value) => {
-                        value.func.signature().volatility != Volatility::Immutable
-                    }
-                    Expr::WindowFunction(value) => {
-                        value.fun.signature().volatility != Volatility::Immutable
-                    }
-                    Expr::HigherOrderFunction(value) => {
-                        value.func.signature().volatility != Volatility::Immutable
-                    }
-                    Expr::ScalarVariable(..) => true,
-                    _ => false,
-                };
-                Ok(TreeNodeRecursion::Continue)
-            })?;
-        }
-        Ok(TreeNodeRecursion::Continue)
-    })?;
-    Ok(fresh)
 }
 
 fn unreachable_cancel<T>() -> Result<T, CatalogError> {

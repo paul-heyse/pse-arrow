@@ -5,28 +5,24 @@
       {
         "doc": "[\"text\",\"value-1\"]",
         "family": "[\"enum\",\"state_definition\"]",
-        "kernel_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "name": "[\"text\",\"value-1\"]",
         "parameter_kinds": "[\"list\",[]]",
         "provides": "[\"list\",[]]",
-        "realization": "[\"enum\",\"equation_template\"]",
+        "realization": "[\"struct\",[[\"text\",\"equation_template\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
         "requires": "[\"list\",[]]",
-        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "validity": "[\"list\",[]]",
         "version": "[\"text\",\"value-1\"]"
       },
       {
         "doc": "[\"text\",\"value-1\"]",
         "family": "[\"enum\",\"state_definition\"]",
-        "kernel_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "name": "[\"text\",\"value-1\"]",
         "parameter_kinds": "[\"list\",[]]",
         "provides": "[\"list\",[]]",
-        "realization": "[\"enum\",\"equation_template\"]",
+        "realization": "[\"struct\",[[\"text\",\"equation_template\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
         "requires": "[\"list\",[]]",
-        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "validity": "[\"list\",[]]",
         "version": "[\"text\",\"value-1\"]"
       }

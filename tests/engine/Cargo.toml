@@ -36,6 +36,7 @@ parquet.workspace = true
 datafusion.workspace = true
 datafusion-proto.workspace = true
 object_store.workspace = true
+url.workspace = true
 tokio.workspace = true
 proptest.workspace = true
 insta.workspace = true

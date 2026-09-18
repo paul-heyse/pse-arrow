@@ -18,7 +18,8 @@ use pse_schema::Registry;
 use std::sync::Arc;
 
 /// Exact root selection; member versions are read from that immutable control version.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct PublicationRoot {
     /// Location of the workspace's Delta control table.
     pub location: url::Url,
@@ -26,145 +27,114 @@ pub struct PublicationRoot {
     pub version: i64,
 }
 
-/// Opened target facts and native providers. This contains no materialized model or
-/// predecessor graph; scans load selected relation columns as queries require them.
+/// Exact selected publication and its admitted native execution environment.
+/// Reads retain policies, requirements, cancellation and Arrow ownership through
+/// the same boundary as SQL and compiler plans.
 #[derive(Debug)]
 pub struct Publication {
     root: PublicationRoot,
     record: publications::Row,
-    state: Arc<SessionState>,
+    session: crate::session::SnapshotSession,
 }
 impl Publication {
-    /// Open one exact root and bind all its exact members into native catalogs.
-    /// Required model invariants belong to candidate admission; opening verifies the
-    /// control contract, relation identities/layouts, version availability and binding.
+    /// Open exact control/member versions under the actual caller's native policy.
+    /// Relation payloads remain lazy; opening verifies declaration and selection.
     /// # Errors
-    /// Invalid control rows, duplicate bindings, unknown contracts or unavailable versions.
+    /// Missing versions, incompatible contracts, policy refusal or cancellation.
     pub async fn open(
         root: PublicationRoot,
-        registry: &Registry,
-        state: Arc<SessionState>,
-    ) -> Result<Self> {
-        let record = read_record(&root, registry, Arc::clone(&state)).await?;
-        let state = bind_members(&record, registry, state).await?;
+        registry: Arc<Registry>,
+        factory: &crate::session::SessionFactory,
+        cancel: &pse_ids::CancellationToken,
+    ) -> std::result::Result<Self, crate::CatalogError> {
+        cancel.checkpoint()?;
+        if root.version < 0 {
+            return Err(crate::session::engine(invalid(
+                "publication version must be nonnegative",
+            )));
+        }
+        let mut leases = Vec::new();
+        if let Some(lease) = super::lease::read(&root.location, cancel)
+            .await
+            .map_err(crate::session::engine)?
+        {
+            leases.push(lease);
+        }
+        let state = Arc::new(factory.native_state().clone());
+        let record = cancel
+            .until_cancelled(read_record(&root, &registry, Arc::clone(&state)))
+            .await?
+            .map_err(crate::session::engine)?;
+        super::admission::admit_profile(&record, &registry).map_err(crate::session::engine)?;
+        for location in record
+            .members
+            .iter()
+            .map(|member| member.table_uri.as_str())
+            .collect::<std::collections::BTreeSet<_>>()
+        {
+            let location = url::Url::parse(location)
+                .map_err(external)
+                .map_err(crate::session::engine)?;
+            if let Some(lease) = super::lease::read(&location, cancel)
+                .await
+                .map_err(crate::session::engine)?
+            {
+                leases.push(lease);
+            }
+        }
+        let state = cancel
+            .until_cancelled(bind_members(&record, &registry, state))
+            .await?
+            .map_err(crate::session::engine)?;
+        let mut session =
+            crate::session::facts::bind_publication(&record, &state, registry, factory, cancel)
+                .await?;
+        session.leases = leases;
+        // Binding does not certify requirements, but an open cannot bypass them.
+        session.check_requirements(cancel).await?;
         Ok(Self {
             root,
             record,
-            state,
+            session,
         })
     }
     /// Exact root retained by this handle.
     pub fn root(&self) -> &PublicationRoot {
         &self.root
     }
-    /// The generated typed control record, retained without a parallel schema.
+    /// Complete generated control record; no parallel manifest is retained.
     pub fn record(&self) -> &publications::Row {
         &self.record
     }
-    /// Actual selected provider, including its exact Delta version and revision filter.
-    /// Resolving this provider performs no relation scan.
-    /// # Errors
-    /// The full name is outside this publication or its immutable binding is absent.
-    pub async fn member_provider(
-        &self,
-        reference: &datafusion::common::ResolvedTableReference,
-    ) -> Result<Arc<dyn datafusion::catalog::TableProvider>> {
-        self.member(reference)?;
-        self.state
-            .catalog_list()
-            .catalog(&reference.catalog)
-            .and_then(|catalog| catalog.schema(&reference.schema))
-            .ok_or_else(|| invalid("selected member namespace is absent"))?
-            .table(&reference.table)
-            .await?
-            .ok_or_else(|| invalid("selected member provider is absent"))
+    /// Actual immutable execution environment over the selected native hierarchy.
+    pub fn session(&self) -> &crate::session::SnapshotSession {
+        &self.session
     }
-    /// Exact generated member declaration selected by the control transaction.
+    /// Move the selected provider owners into an invocation without retaining this handle.
+    pub fn into_session(self) -> crate::session::SnapshotSession {
+        self.session
+    }
+    /// Exact generated member selected by the control transaction.
     /// # Errors
-    /// The fully qualified name is not selected.
+    /// The qualified name is outside this publication.
     pub fn member(
         &self,
         reference: &datafusion::common::ResolvedTableReference,
-    ) -> Result<&publications::RuntimePublicationsFieldMembersItem> {
-        self.record
-            .members
-            .iter()
-            .find(|member| {
-                member.catalog_name == reference.catalog.as_ref()
-                    && member.schema_name == reference.schema.as_ref()
-                    && member.table_name == reference.table.as_ref()
-            })
-            .ok_or_else(|| invalid("relation is not selected by this publication"))
+    ) -> std::result::Result<publications::RuntimePublicationsFieldMembersItem, crate::CatalogError>
+    {
+        self.session.selected_member(reference)
     }
-    /// Stream one complete selected relation with its generated Arrow contract.
-    /// Unlike an arbitrary SQL projection this boundary denotes a declared relation;
-    /// schema annotations are restored after native optimization, with exact field
-    /// checks. The stream owns its native providers/runtime independently of this handle.
+    /// Begin an owned native relation stream with common admission and requirements.
+    /// Dropping the publication does not invalidate its stream or exported batches.
     /// # Errors
-    /// The qualified relation is absent from this publication, planning fails or
-    /// native rewrites change declared fields. I/O errors remain stream errors.
+    /// Missing selection, policy refusal, planning, resource or cancellation failure.
     pub async fn relation_stream(
         &self,
         reference: &datafusion::common::ResolvedTableReference,
-    ) -> Result<datafusion::physical_plan::SendableRecordBatchStream> {
-        if !self.record.members.iter().any(|member| {
-            member.catalog_name == reference.catalog.as_ref()
-                && member.schema_name == reference.schema.as_ref()
-                && member.table_name == reference.table.as_ref()
-        }) {
-            return Err(invalid("relation is not selected by this publication"));
-        }
-        let context = datafusion::execution::context::SessionContext::new_with_state(
-            self.session_state().await?,
-        );
-        let plan = context
-            .table(datafusion::common::TableReference::full(
-                reference.catalog.clone(),
-                reference.schema.clone(),
-                reference.table.clone(),
-            ))
-            .await?
-            .into_unoptimized_plan();
-        let schema = Arc::new(plan.schema().as_arrow().clone());
-        let state = context.state();
-        let physical =
-            super::layout::declared_output(state.create_physical_plan(&plan).await?, &schema)?;
-        datafusion::physical_plan::execute_stream(physical, state.task_ctx())
-    }
-    /// A private native namespace for one invocation, sharing exact providers and resources.
-    /// Registering or replacing names cannot change this publication or another invocation.
-    /// # Errors
-    /// Native catalog lookup or registration fails.
-    pub async fn session_state(&self) -> Result<SessionState> {
-        let catalogs = Arc::new(MemoryCatalogProviderList::new());
-        for name in self.state.catalog_list().catalog_names() {
-            let source = self
-                .state
-                .catalog_list()
-                .catalog(&name)
-                .ok_or_else(|| invalid("publication catalog disappeared"))?;
-            let catalog = Arc::new(MemoryCatalogProvider::new());
-            for name in source.schema_names() {
-                let source = source
-                    .schema(&name)
-                    .ok_or_else(|| invalid("publication schema disappeared"))?;
-                let schema = Arc::new(MemorySchemaProvider::new());
-                for table in source.table_names() {
-                    let provider = source
-                        .table(&table)
-                        .await?
-                        .ok_or_else(|| invalid("publication table disappeared"))?;
-                    schema.register_table(table, provider)?;
-                }
-                catalog.register_schema(&name, schema)?;
-            }
-            catalogs.register_catalog(name, catalog);
-        }
-        Ok(
-            SessionStateBuilder::new_from_existing(self.state.as_ref().clone())
-                .with_catalog_list(catalogs)
-                .build(),
-        )
+        cancel: &pse_ids::CancellationToken,
+    ) -> std::result::Result<crate::session::OwnedComputationStream, crate::CatalogError> {
+        self.member(reference)?;
+        self.session.relation_stream(reference, cancel).await
     }
 }
 /// Read only the bounded control relation; relation payloads remain lazy providers.
@@ -184,17 +154,48 @@ pub(super) async fn read_optional_record(
     registry: &Registry,
     state: Arc<SessionState>,
 ) -> Result<Option<publications::Row>> {
+    read_control(root, registry, state, None).await
+}
+
+pub(super) async fn read_maintained_record(
+    root: &PublicationRoot,
+    registry: &Registry,
+    state: Arc<SessionState>,
+    lease: &super::lease::MaintenanceLease,
+) -> Result<publications::Row> {
+    read_control(root, registry, state, Some(lease))
+        .await?
+        .ok_or_else(|| invalid("publication control has no published row"))
+}
+
+async fn read_control(
+    root: &PublicationRoot,
+    registry: &Registry,
+    state: Arc<SessionState>,
+    lease: Option<&super::lease::MaintenanceLease>,
+) -> Result<Option<publications::Row>> {
     let contract = super::contract::DeclaredCheck::new(
         registry,
         publications::spec(registry).map_err(external)?.id,
     )?;
-    let control = super::provider::open_declared_view(
-        root.location.clone(),
-        root.version,
-        &contract,
-        Arc::clone(&state),
-    )
-    .await?;
+    let control = if let Some(lease) = lease {
+        super::provider::open_maintained_view(
+            root.location.clone(),
+            root.version,
+            &contract,
+            Arc::clone(&state),
+            lease,
+        )
+        .await?
+    } else {
+        super::provider::open_declared_view(
+            root.location.clone(),
+            root.version,
+            &contract,
+            Arc::clone(&state),
+        )
+        .await?
+    };
     let plan = LogicalPlanBuilder::scan(
         "publication_control",
         provider_as_source(Arc::new(control)),
@@ -226,53 +227,14 @@ pub(super) async fn bind_members(
 ) -> Result<Arc<SessionState>> {
     let catalogs = Arc::new(MemoryCatalogProviderList::new());
     for member in &record.members {
-        let relation = registry
-            .relation_by_id(member.relation_id)
-            .ok_or_else(|| invalid("publication references an unknown relation contract"))?;
-        if i64::from(relation.key.version) != member.relation_version
-            || relation.fingerprint != member.contract_fingerprint
-        {
-            return Err(invalid(
-                "publication relation version or fingerprint differs from its declaration",
-            ));
-        }
-        let contract = super::contract::DeclaredCheck::new(registry, relation.id)?;
-        let location = url::Url::parse(&member.table_uri).map_err(external)?;
-        let view = super::provider::open_declared_view(
-            location,
-            member.delta_version,
-            &contract,
-            Arc::clone(&state),
-        )
-        .await?;
-        let view = match member.selection.selected().map_err(external)? {
-            publications::RuntimePublicationsFieldMembersItemSelectionSelected::Full => view,
-            publications::RuntimePublicationsFieldMembersItemSelectionSelected::Revision(
-                selection,
-            ) => {
-                let column = relation
-                    .column(&selection.column)
-                    .ok_or_else(|| invalid("revision selection column is undeclared"))?;
-                if column.extension() != Some(pse_schema::model::ExtensionUse::SemanticId) {
-                    return Err(invalid(
-                        "revision selection column is not a semantic identity",
-                    ));
-                }
-                let value = ScalarValue::FixedSizeBinary(
-                    16,
-                    Some(selection.revision_id.as_bytes().to_vec()),
-                );
-                let plan = LogicalPlanBuilder::from(view.logical_plan().clone())
-                    .filter(
-                        datafusion::logical_expr::Expr::Column(
-                            datafusion::common::Column::from_name(&selection.column),
-                        )
-                        .eq(lit(value)),
-                    )?
-                    .build()?;
-                ViewTable::new(plan, None)
-            }
-        };
+        let view = selected_provider(member, registry, Arc::clone(&state))
+            .await
+            .map_err(|error| {
+                error.context(format!(
+                    "open publication member {}.{}",
+                    member.schema_name, member.table_name
+                ))
+            })?;
         let catalog = if let Some(catalog) = catalogs.catalog(&member.catalog_name) {
             catalog
         } else {
@@ -288,7 +250,7 @@ pub(super) async fn bind_members(
             schema
         };
         if schema
-            .register_table(member.table_name.clone(), Arc::new(view))?
+            .register_table(member.table_name.clone(), view)?
             .is_some()
         {
             return Err(invalid(
@@ -302,6 +264,58 @@ pub(super) async fn bind_members(
             .build(),
     );
     Ok(state)
+}
+
+/// Open exactly the declared member slice through the common native provider.
+pub(crate) async fn selected_provider(
+    member: &publications::RuntimePublicationsFieldMembersItem,
+    registry: &Registry,
+    state: Arc<SessionState>,
+) -> Result<Arc<dyn datafusion::catalog::TableProvider>> {
+    let relation = registry
+        .relation_by_id(member.relation_id)
+        .ok_or_else(|| invalid("publication references an unknown relation contract"))?;
+    if i64::from(relation.key.version) != member.relation_version
+        || relation.fingerprint != member.contract_fingerprint
+    {
+        return Err(invalid(
+            "publication relation version or fingerprint differs from its declaration",
+        ));
+    }
+    let contract = super::contract::DeclaredCheck::new(registry, relation.id)?;
+    let location = url::Url::parse(&member.table_uri).map_err(external)?;
+    let view = super::provider::open_declared_view(
+        location,
+        member.delta_version,
+        &contract,
+        Arc::clone(&state),
+    )
+    .await?;
+    let view = match member.selection.selected().map_err(external)? {
+        publications::RuntimePublicationsFieldMembersItemSelectionSelected::Full => view,
+        publications::RuntimePublicationsFieldMembersItemSelectionSelected::Revision(selection) => {
+            let column = relation
+                .column(&selection.column)
+                .ok_or_else(|| invalid("revision selection column is undeclared"))?;
+            if column.extension() != Some(pse_schema::model::ExtensionUse::SemanticId) {
+                return Err(invalid(
+                    "revision selection column is not a semantic identity",
+                ));
+            }
+            let value =
+                ScalarValue::FixedSizeBinary(16, Some(selection.revision_id.as_bytes().to_vec()));
+            let plan = LogicalPlanBuilder::from(view.logical_plan().clone())
+                .filter(
+                    datafusion::logical_expr::Expr::Column(datafusion::common::Column::from_name(
+                        &selection.column,
+                    ))
+                    .eq(lit(value)),
+                )?
+                .build()?;
+            ViewTable::new(plan, None)
+        }
+    };
+    crate::cache_service::resident::selected(Arc::new(view), member, &state)
 }
 
 pub(super) async fn verify_inputs(

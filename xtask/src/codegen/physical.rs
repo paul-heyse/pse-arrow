@@ -87,6 +87,10 @@ struct Sources {
     _spill: tempfile::TempDir,
 }
 impl Sources {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "complete target fixture construction and its independent assertions are kept in execution order"
+    )]
     async fn load(root: &Path, packages: &[String], declaration: &Registry) -> Result<Self> {
         let registry = Arc::new(pse_schema::catalog::assemble()?);
         let spill = tempfile::tempdir()?;
@@ -101,6 +105,7 @@ impl Sources {
                 target_partitions: one,
             },
             execution: ExecutionSettings::default(),
+            cache: pse_runtime::CacheBudget::for_memory(32usize << 30),
             hashing_may_use_pool: false,
         })?;
         let cancel = CancellationToken::new();
@@ -173,7 +178,6 @@ impl Sources {
             &session,
             session.registry(),
             pse_rules::invariants::InvariantScope::Model,
-            None,
             &cancel,
         )
         .await?;

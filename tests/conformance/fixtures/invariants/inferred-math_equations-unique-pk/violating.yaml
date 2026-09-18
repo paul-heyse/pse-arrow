@@ -3,7 +3,8 @@
   "rows": {
     "inferred.math_equations": [
       {
-        "body_node_id": "[\"u64\",1]",
+        "body_node_id": "[\"i64\",1]",
+        "constraint": "[\"struct\",[[\"text\",\"definition\"],[\"struct\",[[\"i64\",1]]],[\"null\",null]]]",
         "convexity": "[\"enum\",\"affine\"]",
         "default_active": "[\"bool\",true]",
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
@@ -14,19 +15,17 @@
         "group_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
         "law_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "lower_node_id": "[\"u64\",1]",
         "monotonicity": "[\"enum\",\"increasing\"]",
-        "ordinal": "[\"u64\",1]",
+        "ordinal": "[\"i64\",1]",
         "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "parent_indexed_equation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "qualified_name": "[\"text\",\"value-1\"]",
         "residual_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "role": "[\"enum\",\"HARD_FEASIBILITY\"]",
-        "sense": "[\"enum\",\"eq\"]",
-        "upper_node_id": "[\"u64\",1]"
+        "role": "[\"enum\",\"HARD_FEASIBILITY\"]"
       },
       {
-        "body_node_id": "[\"u64\",1]",
+        "body_node_id": "[\"i64\",1]",
+        "constraint": "[\"struct\",[[\"text\",\"definition\"],[\"struct\",[[\"i64\",1]]],[\"null\",null]]]",
         "convexity": "[\"enum\",\"affine\"]",
         "default_active": "[\"bool\",true]",
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
@@ -37,16 +36,13 @@
         "group_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
         "law_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "lower_node_id": "[\"u64\",1]",
         "monotonicity": "[\"enum\",\"increasing\"]",
-        "ordinal": "[\"u64\",1]",
+        "ordinal": "[\"i64\",1]",
         "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "parent_indexed_equation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "qualified_name": "[\"text\",\"value-1\"]",
         "residual_quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "role": "[\"enum\",\"HARD_FEASIBILITY\"]",
-        "sense": "[\"enum\",\"eq\"]",
-        "upper_node_id": "[\"u64\",1]"
+        "role": "[\"enum\",\"HARD_FEASIBILITY\"]"
       }
     ]
   },

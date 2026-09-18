@@ -1,0 +1,22 @@
+{
+  "invariant": "reference.schema_enum_types:unique:pk",
+  "rows": {
+    "reference.schema_enum_types": [
+      {
+        "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_source": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
+      },
+      {
+        "enum_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_source": "[\"text\",\"value-1\"]",
+        "name": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

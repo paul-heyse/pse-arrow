@@ -147,7 +147,7 @@ pub(super) fn assertions(
     registry: &Registry,
 ) -> Result<LogicalPlan, RuleError> {
     let head = registry
-        .relation(rule.head.relation())
+        .relation(rule.head.as_str())
         .ok_or_else(|| internal("assertion head absent"))?;
     let spec = registry
         .relation(
@@ -200,15 +200,19 @@ pub(super) fn union_assertions(
 pub(crate) fn union_all(
     plans: impl IntoIterator<Item = LogicalPlan>,
 ) -> Result<LogicalPlanBuilder, RuleError> {
-    let mut plans = plans.into_iter();
+    let mut plans = plans.into_iter().peekable();
     let first = plans
         .next()
         .ok_or_else(|| internal("native union needs a declared empty input"))?;
-    plans
-        .try_fold(LogicalPlanBuilder::from(first), |builder, plan| {
-            builder.union(plan)
-        })
-        .map_err(engine)
+    if plans.peek().is_none() {
+        return Ok(LogicalPlanBuilder::from(first));
+    }
+    let inputs = std::iter::once(first).chain(plans).map(Arc::new).collect();
+    // The binary builder has the same loose-type contract, but folding it builds
+    // a deep tree that repeatedly clones/coerces all preceding support branches.
+    let union =
+        datafusion_expr::logical_plan::Union::try_new_with_loose_types(inputs).map_err(engine)?;
+    Ok(LogicalPlanBuilder::from(LogicalPlan::Union(union)))
 }
 
 pub(crate) fn difference(
@@ -378,4 +382,57 @@ pub(super) fn ordered(plan: LogicalPlan, spec: &RelationSpec) -> Result<LogicalP
         )
         .and_then(LogicalPlanBuilder::build)
         .map_err(engine)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use datafusion::arrow::array::{Array, Int64Array};
+
+    #[tokio::test]
+    async fn wide_native_union_preserves_nulls_duplicates_and_type_coercion() {
+        let inputs = (0..64)
+            .map(|index| {
+                let value = if index % 4 == 0 {
+                    ScalarValue::Int32(None)
+                } else {
+                    ScalarValue::Int64(Some(index % 4))
+                };
+                LogicalPlanBuilder::empty(true)
+                    .project([lit(value).alias("value")])
+                    .and_then(LogicalPlanBuilder::build)
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let plan = union_all(inputs).unwrap().build().unwrap();
+        let LogicalPlan::Union(union) = &plan else {
+            panic!("multiple branches require a native Union");
+        };
+        assert_eq!(union.inputs.len(), 64);
+        let context = datafusion::prelude::SessionContext::new();
+        let batches = context
+            .execute_logical_plan(plan)
+            .await
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+        let mut counts = [0; 4];
+        for batch in batches {
+            let values = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            for row in 0..values.len() {
+                let index = if values.is_null(row) {
+                    0
+                } else {
+                    usize::try_from(values.value(row)).unwrap()
+                };
+                counts[index] += 1;
+            }
+        }
+        assert_eq!(counts, [16; 4]);
+    }
 }

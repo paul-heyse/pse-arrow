@@ -13,12 +13,12 @@
 //! - [`enums`] — the model's vocabularies and the declaration form of a `pse.enum`.
 //! - [`invariant`] — the commit contract, declared.
 //! - [`migration`] — schema migrations.
-//! - [`pass`] — pass contracts and their ports.
-//! - [`rule`], [`rule_expr`] — inference as a typed relational plan.
+//! - [`algorithm`] — finite algorithm contracts, typed arguments and results.
+//! - [`rule`] — native inference queries and domain policies.
 //! - [`cell`] — the registry's own row model.
-//! - [`manifest`] — the `pse.manifest.v2` envelope.
 //! - [`document`] — authoring document shapes.
 
+pub mod algorithm;
 pub mod cell;
 mod cell_codec;
 pub mod collection;
@@ -29,21 +29,19 @@ pub mod extension;
 pub mod field;
 pub mod integer_range;
 pub mod invariant;
-pub mod manifest;
 pub mod migration;
-pub mod pass;
-pub mod pass_status;
 pub mod provider;
 pub mod reference;
 pub mod relation;
 pub mod rule;
-pub mod rule_expr;
-pub(crate) mod rule_validation;
 pub mod tagged_alternative;
 
 pub use field::ROW_KEY_ENCODING;
 
-pub use crate::model::cell::{Cell, RuleLiteralKind};
+pub use crate::model::algorithm::{
+    AlgorithmDecl, AlgorithmSpec, ArgumentSpec, Determinism, ResultSpec,
+};
+pub use crate::model::cell::Cell;
 pub use crate::model::document::{
     DocumentKind, DocumentSection, DocumentSpec, DslSyntax, ExpressionOwnerKind, SourceColumn,
 };
@@ -55,20 +53,14 @@ pub use crate::model::extension::ExtensionUse;
 pub use crate::model::extension::{EXTENSION_TYPES, ExtensionMetadataShape, ExtensionTypeSpec};
 pub use crate::model::field::{FieldTypeRow, render_data_type};
 pub use crate::model::invariant::{InvariantDecl, InvariantSpec};
-pub use crate::model::manifest::{ManifestField, ManifestRustBinding, ManifestSpec, ManifestType};
 pub use crate::model::migration::{MigrationSpec, MigrationStep};
-pub use crate::model::pass::{Determinism, InputPort, OutputPort, PassDecl, PassSpec, PortSource};
-pub use crate::model::pass_status::PassStatus;
 pub use crate::model::relation::{
     ForeignKey, QuantityContract, RelationDecl, RelationKey, RelationSpec,
 };
 pub use crate::model::rule::{
-    AggregateEmptyPolicy, AggregateNullPolicy, ConflictPolicy, DependencyMode, DepthBound,
-    EmptyListPolicy, NON_DERIVABLE_NAMESPACES, NegationPolicy, NullEquality, NullListPolicy,
-    RuleAggregate, RuleAggregateFn, RuleDecl, RuleDependency, RuleHead, RuleHeadKind, RulePlan,
-    RulePlanOp, RuleSpec,
+    ConflictPolicy, DependencyMode, NON_DERIVABLE_NAMESPACES, NegationPolicy, RuleDecl,
+    RuleDependency, RuleInput, RuleQuery, RuleSpec,
 };
-pub use crate::model::rule_expr::{CmpOp, RuleExpr, RuleExprOp};
 pub use expression_path::ExpressionPathSegmentKind;
 
 pub use collection::{CollectionContract, CollectionOrder};

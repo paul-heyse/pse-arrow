@@ -1,0 +1,23 @@
+{
+  "invariant": "reference.algorithm_results:unique:pk",
+  "rows": {
+    "reference.algorithm_results": [
+      {
+        "algorithm_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "port": "[\"text\",\"value-1\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      },
+      {
+        "algorithm_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "port": "[\"text\",\"value-1\"]",
+        "relation_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

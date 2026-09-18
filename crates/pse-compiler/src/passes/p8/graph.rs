@@ -4,7 +4,7 @@
 //! Consume the current indexed graph and transform the roots used by this pass.
 use super::{expansion::invalid, outputs::Output};
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     mathir_relations::{RelationSource, SourceFamily},
     passes::{
         native_construction::{append, c, error, join, prefix, project},
@@ -21,11 +21,22 @@ use datafusion::{
 use pse_catalog::session::{SnapshotSession, output::declare_relation_projection, scalar};
 use pse_mathir::{NodeId, relations::LoadedMath};
 use pse_relations::columnar::FieldCheckedBatch;
-use pse_schema::model::{Namespace, PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, Namespace, RelationKey};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) type Batches = BTreeMap<RelationKey, FieldCheckedBatch>;
-pub(super) fn load(inputs: &Batches, ctx: &PassContext<'_>) -> Result<LoadedMath, CompilerError> {
+/// These rows are rebuilt from the remapped mathematical values. Other relations
+/// receive additions and retain the actual completed input rows.
+pub(super) fn rebuilds_graph(key: RelationKey) -> bool {
+    key.namespace == Namespace::Inferred
+        && (key.name.starts_with("math_") || key.name == "kernel_bindings")
+        && !matches!(key.name, "math_dae_links" | "math_implicit_systems")
+}
+
+pub(super) fn load(
+    inputs: &Batches,
+    ctx: &AlgorithmContext<'_>,
+) -> Result<LoadedMath, CompilerError> {
     let mut graph = inputs.clone();
     for name in [
         "math_dae_links",
@@ -59,6 +70,11 @@ pub(super) fn load(inputs: &Batches, ctx: &PassContext<'_>) -> Result<LoadedMath
     )?)
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "inputs keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn inputs(
     batches: &Batches,
     loaded: &LoadedMath,
@@ -66,8 +82,8 @@ pub(super) async fn inputs(
     arguments: &mut AlgorithmInputs,
     sources: &Sources,
     session: &SnapshotSession,
-    ctx: &PassContext<'_>,
-    pass: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    pass: &AlgorithmSpec,
 ) -> Result<(), CompilerError> {
     arguments.reserve(
         loaded
@@ -89,9 +105,7 @@ pub(super) async fn inputs(
             .registry
             .relation(&port.relation)
             .ok_or_else(|| invalid("law output declaration absent"))?;
-        let graph = spec.key.namespace == Namespace::Inferred
-            && (spec.key.name.starts_with("math_") || spec.key.name == "kernel_bindings")
-            && !matches!(spec.key.name, "math_dae_links" | "math_implicit_systems");
+        let graph = rebuilds_graph(spec.key);
         // Only graph nodes and their roots change in this construction. Other
         // completed relations keep their existing owners and source derivations.
         if !graph && root_field(&spec.key).is_none() {
@@ -184,7 +198,7 @@ pub(super) async fn inputs(
                     }
                     for (field, map) in [
                         ("indexed_equation_id", &mut output.equations),
-                        ("kernel_binding_id", &mut output.kernels),
+                        ("binding_id", &mut output.kernels),
                     ] {
                         if let Some(id) = identity(&values, field, row)? {
                             map.entry(id).or_default().insert(source.clone());

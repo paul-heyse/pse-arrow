@@ -4,14 +4,14 @@
 //! Selected method roots reuse the same checked configuration and native products.
 use super::{Configuration, invalid};
 use crate::{
-    CompilerError, InputBundle, PassContext,
+    AlgorithmContext, AlgorithmInputs, CompilerError,
     passes::native_outputs::{Sources, materialize},
 };
 use pse_catalog::session::SnapshotSession;
 use pse_ids::SemanticId;
 use pse_relations::generated::{authored, normalized};
 use pse_rules::strata::native_input::NativeInput;
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Clone, Debug)]
@@ -25,11 +25,11 @@ pub(crate) struct SelectedRoot {
 /// Construct selected contexts once and retain each output's actual source mapping.
 /// Neither output equality nor a second execution establishes producer correspondence.
 pub(crate) async fn configure_selected(
-    inputs: &InputBundle,
+    inputs: &AlgorithmInputs,
     roots: &[SelectedRoot],
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {
     let registry = session.registry();
     let cancel = ctx.cancel;

@@ -144,7 +144,6 @@ fn storage_type(value: &DataType) -> Result<DataType, SchemaError> {
     Ok(match value {
         T::UInt8 => T::Int16,
         T::UInt16 => T::Int32,
-        T::UInt32 => T::Int64,
         T::UInt64 => T::Decimal128(20, 0),
         T::FixedSizeBinary(_) | T::LargeBinary | T::BinaryView => T::Binary,
         T::LargeUtf8 | T::Utf8View => T::Utf8,
@@ -230,6 +229,10 @@ fn storage_type(value: &DataType) -> Result<DataType, SchemaError> {
         {
             value.clone()
         }
+        // Preserve raw ticks for units/zones outside Delta's native timestamp
+        // contract. Scaling to microseconds would overflow valid Arrow values;
+        // the execution descriptor restores the original unit and timezone.
+        T::UInt32 | T::Timestamp(_, _) => T::Int64,
         T::Decimal128(precision, scale)
             if *precision <= 38 && u8::try_from(*scale).is_ok_and(|scale| scale <= *precision) =>
         {

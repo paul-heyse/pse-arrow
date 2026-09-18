@@ -24,7 +24,10 @@ fn member() -> Field {
         .with_metadata(HashMap::from([("test.reference".into(), "true".into())]))
 }
 async fn values(array: ArrayRef) -> Vec<i64> {
-    let field = Field::new("nested", array.data_type().clone(), true);
+    values_named("nested", array).await
+}
+async fn values_named(name: &str, array: ArrayRef) -> Vec<i64> {
+    let field = Field::new(name, array.data_type().clone(), true);
     let context = SessionContext::new();
     let input = context
         .read_batch(
@@ -58,6 +61,28 @@ async fn values(array: ArrayRef) -> Vec<i64> {
             .to_vec()
     })
     .collect()
+}
+
+#[tokio::test]
+async fn nested_value_columns_do_not_collide_with_leaf_projection_aliases() {
+    for name in ["value", "__pse_nested_value_0", "__pse_nested_value_1"] {
+        let child = StructArray::new(
+            vec![Arc::new(member().with_name("value"))].into(),
+            vec![Arc::new(Int64Array::from(vec![7, 9, 7]))],
+            None,
+        );
+        let parent = StructArray::new(
+            vec![Arc::new(Field::new(
+                "quantity",
+                child.data_type().clone(),
+                true,
+            ))]
+            .into(),
+            vec![Arc::new(child)],
+            Some(NullBuffer::from(vec![true, false, true])),
+        );
+        assert_eq!(values_named(name, Arc::new(parent)).await, [7, 7]);
+    }
 }
 
 #[tokio::test]

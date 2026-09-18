@@ -8,13 +8,15 @@
     reason = "independent cold-writer assertions"
 )]
 
+#[path = "support/native_execution.rs"]
+mod native_execution;
+
 use datafusion::{
     arrow::{
         array::{ArrayRef, Int64Array, RecordBatch, StructArray},
         datatypes::{DataType, SchemaRef},
     },
     execution::{context::SessionContext, session_state::SessionStateBuilder},
-    physical_plan::collect,
 };
 use deltalake::{
     DeltaTableBuilder,
@@ -107,7 +109,7 @@ async fn cold_delta_check_rejects_partial_composite_keys() {
     let root = tempfile::tempdir().unwrap();
     let uri = url::Url::from_directory_path(root.path()).unwrap();
     {
-        let registry = registry();
+        let registry = Arc::new(registry());
         let contract =
             DeclaredCheck::new(&registry, registry.relation("authored.source").unwrap().id)
                 .unwrap();
@@ -131,12 +133,9 @@ async fn cold_delta_check_rejects_partial_composite_keys() {
         )
         .unwrap();
         let state = context.state();
-        collect(
-            state.create_physical_plan(&write).await.unwrap(),
-            state.task_ctx(),
-        )
-        .await
-        .unwrap();
+        native_execution::run(&state, Arc::clone(&registry), &write)
+            .await
+            .unwrap();
     }
     let cold = context().state();
     for (key, valid) in [

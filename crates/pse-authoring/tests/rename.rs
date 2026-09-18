@@ -1,56 +1,26 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Full rename preserves actual reference identities and rejects incomplete or changed inputs.
+//! Source renames preserve identities, lexical binding and Arrow ownership.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
     reason = "fixture assertions"
 )]
-
-use arrow_array::RecordBatch;
 use pse_authoring::{
-    AuthoringError, ParseBudget,
-    change_set::{AuthoredReader, ChangeSet, apply_owned},
+    ParseBudget,
     document::{
-        DocumentBundle, DocumentEdit, OwnedDocumentSet, amend_rename_sources_owned,
-        load_bundles_owned, load_package_texts, rename_owned,
+        DocumentBundle, DocumentEdit, OwnedDocumentSet, load_bundles_owned, load_package_texts,
+        rename_documents,
     },
 };
 use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, FixedBudget, SemanticId};
-use std::sync::Arc;
+use pse_relations::generated::authored;
+use std::{collections::BTreeMap, sync::Arc};
 mod support;
-use pse_relations::generated::{authored, enums::ChangeOpKind};
-use std::collections::BTreeMap;
-
-struct Base {
-    revision: SemanticId,
-    rows: BTreeMap<SemanticId, RecordBatch>,
-    documents: BTreeMap<SemanticId, String>,
-}
-impl AuthoredReader for Base {
-    fn revision_id(&self) -> SemanticId {
-        self.revision
-    }
-    fn relations(&self) -> Result<BTreeMap<SemanticId, RecordBatch>, AuthoringError> {
-        Ok(self.rows.clone())
-    }
-    fn source_documents(&self) -> Result<BTreeMap<SemanticId, String>, AuthoringError> {
-        Ok(self.documents.clone())
-    }
-}
 fn id(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
-}
-fn header(base: SemanticId) -> authored::change_sets::Row {
-    authored::change_sets::Row {
-        change_set_id: id(20),
-        base_revision_id: base,
-        author: "fixture".to_owned(),
-        message: "rename".to_owned(),
-        created_at: 0,
-    }
 }
 fn bundle() -> DocumentBundle {
     let package = format!(
@@ -87,52 +57,29 @@ fn bundle() -> DocumentBundle {
     .unwrap()
 }
 struct Fixture {
-    base: Base,
     sources: OwnedDocumentSet,
     session: SnapshotSession,
     budget: Arc<FixedBudget>,
     cancel: CancellationToken,
 }
-async fn fixture() -> Fixture {
-    let registry_owner = support::registry();
-    let registry = registry_owner.as_ref();
+fn fixture() -> Fixture {
+    let registry = support::registry();
     let budget = FixedBudget::new(512 << 20);
-    let session = support::session(Arc::clone(&registry_owner), Arc::clone(&budget));
+    let session = support::session(Arc::clone(&registry), Arc::clone(&budget));
     let cancel = CancellationToken::new();
-    let sources = load_bundles_owned(&[bundle()], registry, budget.as_ref(), &cancel).unwrap();
-    let empty = Base {
-        revision: id(10),
-        rows: BTreeMap::new(),
-        documents: BTreeMap::new(),
-    };
-    let candidate =
-        pse_authoring::p1::construct(&sources, &empty, header(empty.revision), &session, &cancel)
-            .await
-            .unwrap();
-    let base = Base {
-        revision: id(11),
-        rows: candidate.relations.clone(),
-        documents: sources
-            .bundles()
-            .iter()
-            .flat_map(|bundle| &bundle.documents)
-            .map(|document| (document.id, document.text.clone()))
-            .collect(),
-    };
+    let sources = load_bundles_owned(&[bundle()], &registry, budget.as_ref(), &cancel).unwrap();
     Fixture {
-        base,
         sources,
         session,
         budget,
         cancel,
     }
 }
-async fn renamed(fixture: &Fixture) -> pse_authoring::change_set::OwnedChangeSet {
-    rename_owned(
+async fn renamed(fixture: &Fixture) -> OwnedDocumentSet {
+    rename_documents(
         &fixture.sources,
-        &fixture.base,
-        header(fixture.base.revision),
         id(3),
+        "x",
         "temperature",
         &fixture.session,
         &fixture.cancel,
@@ -140,119 +87,107 @@ async fn renamed(fixture: &Fixture) -> pse_authoring::change_set::OwnedChangeSet
     .await
     .unwrap()
 }
-fn next_model_edit(changes: &ChangeSet) -> DocumentEdit {
-    let source = changes
-        .document_edits()
+fn text(sources: &OwnedDocumentSet, path: &str) -> String {
+    sources
+        .bundles()
         .iter()
-        .find(|edit| edit.path == "cases/design.yaml")
-        .unwrap();
-    DocumentEdit {
-        document_id: source.document_id,
-        path: source.path.clone(),
-        before: source.after.clone(),
-        after: source
-            .after
-            .replace(&id(8).to_string(), &id(30).to_string()),
-    }
+        .flat_map(|b| &b.documents)
+        .find(|d| d.path == path)
+        .unwrap()
+        .text
+        .clone()
 }
 #[tokio::test]
 async fn complete_rename_preserves_bound_targets_and_lexical_shadowing() {
-    let fixture = fixture().await;
-    let changes = renamed(&fixture).await;
-    assert_eq!(
-        changes
-            .ops
-            .iter()
-            .filter(|operation| operation.op == ChangeOpKind::Rename)
-            .count(),
-        1
-    );
-    assert_eq!(changes.document_edits().len(), 2);
-    let candidate = apply_owned(&fixture.base, &changes, &fixture.session, &fixture.cancel)
+    let fixture = fixture();
+    let updated = renamed(&fixture).await;
+    let before = pse_authoring::p1::project(&fixture.sources, &fixture.session, &fixture.cancel)
+        .await
+        .unwrap();
+    let after = pse_authoring::p1::project(&updated, &fixture.session, &fixture.cancel)
         .await
         .unwrap();
     let relation = authored::case_spec_targets::RELATION_ID;
-    assert_eq!(fixture.base.rows[&relation], candidate.relations[&relation]);
-    let template = changes
-        .document_edits()
-        .iter()
-        .find(|edit| edit.path == "templates/model.yaml")
-        .unwrap();
-    assert!(template.after.contains("temperature"));
-    assert!(template.after.contains("where x = 3"));
-    assert!(
-        changes
-            .document_edits()
-            .iter()
-            .find(|edit| edit.path == "cases/design.yaml")
-            .unwrap()
-            .after
-            .contains("H.temperature")
-    );
-    assert!(
-        fixture
-            .base
-            .documents
-            .values()
-            .any(|text| text.contains("target: H.x"))
-    );
+    assert_eq!(before[&relation].batch(), after[&relation].batch());
+    let template = text(&updated, "templates/model.yaml");
+    assert!(template.contains("temperature"));
+    assert!(template.contains("where x = 3"));
+    assert!(text(&updated, "cases/design.yaml").contains("H.temperature"));
+    assert!(text(&fixture.sources, "cases/design.yaml").contains("target: H.x"));
 }
 #[tokio::test]
-async fn additional_case_revision_edit_preserves_identity_and_refuses_stale_or_rebound_sources() {
-    let fixture = fixture().await;
-    let changes = renamed(&fixture).await;
-    let edit = next_model_edit(&changes);
-    let amended = amend_rename_sources_owned(
-        &changes,
-        &fixture.sources,
-        &fixture.base,
-        std::slice::from_ref(&edit),
-        &fixture.session,
-        &fixture.cancel,
-    )
-    .await
-    .unwrap();
-    let candidate = apply_owned(&fixture.base, &amended, &fixture.session, &fixture.cancel)
+async fn source_edits_compose_with_rename_and_require_exact_before_images() {
+    let fixture = fixture();
+    let updated = renamed(&fixture).await;
+    let source = updated
+        .bundles()
+        .iter()
+        .flat_map(|b| &b.documents)
+        .find(|d| d.path == "cases/design.yaml")
+        .unwrap();
+    let edit = DocumentEdit {
+        document_id: source.id,
+        path: source.path.clone(),
+        before: source.text.clone(),
+        after: source.text.replace(&id(8).to_string(), &id(30).to_string()),
+    };
+    let amended = updated
+        .edit(
+            std::slice::from_ref(&edit),
+            fixture.session.registry(),
+            ParseBudget::default(),
+            fixture.budget.as_ref(),
+            &fixture.cancel,
+        )
+        .unwrap();
+    let projected = pse_authoring::p1::project(&amended, &fixture.session, &fixture.cancel)
         .await
         .unwrap();
-    let registry = fixture.session.registry();
-    let spec = registry.relation("authored.cases").unwrap();
-    let checked = pse_relations::columnar::FieldCheckedBatch::admit(
-        registry,
-        spec,
-        candidate.relations[&spec.id].clone(),
-    )
-    .unwrap();
-    assert_eq!(
-        authored::cases::View::from_checked(&checked)
-            .unwrap()
-            .row(0)
-            .unwrap()
-            .model_revision_id,
-        id(30)
-    );
+    let cases =
+        authored::cases::View::from_checked(&projected[&authored::cases::RELATION_ID]).unwrap();
+    assert_eq!(cases.row(0).unwrap().model_revision_id, id(30));
     let mut stale = edit.clone();
     stale.before.push(' ');
     assert!(
-        amend_rename_sources_owned(
-            &changes,
-            &fixture.sources,
-            &fixture.base,
-            &[stale],
+        updated
+            .edit(
+                &[stale],
+                fixture.session.registry(),
+                ParseBudget::default(),
+                fixture.budget.as_ref(),
+                &fixture.cancel
+            )
+            .is_err()
+    );
+    assert!(
+        updated
+            .edit(
+                &[edit.clone(), edit],
+                fixture.session.registry(),
+                ParseBudget::default(),
+                fixture.budget.as_ref(),
+                &fixture.cancel
+            )
+            .is_err()
+    );
+    assert!(
+        rename_documents(
+            &updated,
+            id(3),
+            "x",
+            "other",
             &fixture.session,
             &fixture.cancel
         )
         .await
         .is_err()
     );
-    let mut rebound = edit;
-    rebound.after = rebound.after.replace("H.temperature", "H.equation");
     assert!(
-        amend_rename_sources_owned(
-            &changes,
-            &fixture.sources,
-            &fixture.base,
-            &[rebound],
+        rename_documents(
+            &updated,
+            id(3),
+            "temperature",
+            "equation",
             &fixture.session,
             &fixture.cancel
         )
@@ -261,35 +196,41 @@ async fn additional_case_revision_edit_preserves_identity_and_refuses_stale_or_r
     );
 }
 #[tokio::test]
-async fn copied_envelope_cannot_mint_private_source_completion() {
-    let fixture = fixture().await;
-    let changes = renamed(&fixture).await;
-    let copied = ChangeSet::from_staged(
-        changes.header.clone(),
-        changes.ops.clone(),
-        changes.staged.clone(),
-        fixture.session.registry(),
-    );
-    if let Ok(copied) = copied {
-        assert!(copied.documents().is_none());
-        assert!(
-            apply_owned(&fixture.base, &copied, &fixture.session, &fixture.cancel)
-                .await
-                .is_err()
-        );
-    }
-    let mut stale = Base {
-        revision: fixture.base.revision,
-        rows: fixture.base.rows.clone(),
-        documents: fixture.base.documents.clone(),
+async fn named_policy_rejects_explicit_document_identities_and_rename_obeys_cancellation() {
+    let fixture = fixture();
+    let source = &fixture.sources.bundles()[0]
+        .documents
+        .iter()
+        .find(|d| d.path == "package.toml")
+        .unwrap();
+    let edit = DocumentEdit {
+        document_id: source.id,
+        path: source.path.clone(),
+        before: source.text.clone(),
+        after: source
+            .text
+            .replace("id_policy='explicit'", "id_policy='named'"),
     };
-    stale.documents.values_mut().next().unwrap().push(' ');
+    // The target parser enforces named identities when admitting the edit;
+    // changing only the policy cannot produce a valid named document bundle.
     assert!(
-        rename_owned(
+        fixture
+            .sources
+            .edit(
+                &[edit],
+                fixture.session.registry(),
+                ParseBudget::default(),
+                fixture.budget.as_ref(),
+                &fixture.cancel
+            )
+            .is_err()
+    );
+    fixture.cancel.cancel();
+    assert!(
+        rename_documents(
             &fixture.sources,
-            &stale,
-            header(stale.revision),
             id(3),
+            "x",
             "temperature",
             &fixture.session,
             &fixture.cancel
@@ -299,33 +240,22 @@ async fn copied_envelope_cannot_mint_private_source_completion() {
     );
 }
 #[tokio::test]
-async fn detached_source_columns_keep_their_reservations_until_last_owner_drop() {
-    let fixture = fixture().await;
+async fn detached_source_columns_keep_reservations_until_last_owner_drop() {
+    let fixture = fixture();
     let baseline = fixture.budget.reserved();
-    let changes = renamed(&fixture).await;
-    let shared = changes.clone();
-    let envelope = (*changes).clone();
+    let updated = renamed(&fixture).await;
+    let shared = updated.clone();
     let retained = fixture.budget.reserved();
     assert!(retained > baseline);
-    drop(changes);
+    drop(updated);
     assert_eq!(fixture.budget.reserved(), retained);
-    drop(shared);
-    assert_eq!(
-        fixture.budget.reserved(),
-        retained,
-        "the candidate's envelope clone retains staging and source metadata allocations"
-    );
     let detached = Arc::clone(
-        envelope.documents().unwrap().bundles()[0].batches[&authored::entities::RELATION_ID]
+        shared.bundles()[0].batches[&authored::entities::RELATION_ID]
             .batch()
             .column(0),
     );
-    drop(envelope);
-    assert!(fixture.budget.reserved() > baseline);
-    assert!(fixture.budget.reserved() < retained);
+    drop(shared);
     let budget = Arc::clone(&fixture.budget);
-    // Session-owned native execution observations may outlive the change set. Drop
-    // that independent owner before measuring the final detached buffer's release.
     drop(fixture);
     assert!(budget.reserved() > 0);
     drop(detached);

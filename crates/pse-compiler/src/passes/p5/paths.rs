@@ -7,7 +7,7 @@ use super::super::p4::{
     predicates::inventory::{Inventory, Support, unique},
 };
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     passes::{
         native_outputs::{OutputRows, Sources},
         native_rows::Keyed,
@@ -18,9 +18,13 @@ use pse_relations::generated::{enums::PathTargetKind, inferred as i};
 use pse_templates::paths::{PathInventory, ResolvedMember};
 use std::collections::BTreeSet;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "emit keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn emit(
     inventory: &mut Inventory<'_>,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
     sources: &Sources,
     work: &mut dyn Reservation,
     output: &mut OutputRows<'_>,
@@ -77,15 +81,12 @@ pub(super) async fn emit(
             })
             .collect::<Result<Vec<_>, CompilerError>>()?;
         for requester in &instances {
-            if source
-                .row
-                .owner_instance_id
-                .is_some_and(|id| id != requester.row.instance_id)
-                || source
-                    .row
-                    .owner_template_id
-                    .is_some_and(|id| id != requester.row.template_id)
-            {
+            use pse_relations::generated::normalized::expression_sources::NormalizedExpressionSourcesFieldOwnerSelected as Owner;
+            let matches = match source.row.owner.selected()? {
+                Owner::Instance(value) => value.instance_id == requester.row.instance_id,
+                Owner::Template(value) => value.template_id == requester.row.template_id,
+            };
+            if !matches {
                 continue;
             }
             let targets = pse_templates::paths::enumerate(
@@ -246,7 +247,7 @@ fn ancestry_support(
     instances: &[Keyed<i::instances::Row>],
     mut owner: SemanticId,
     root: SemanticId,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
     work: &mut dyn Reservation,
     support: &mut Support,
 ) -> Result<(), CompilerError> {

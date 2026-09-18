@@ -12,10 +12,25 @@ use std::sync::{
     atomic::{AtomicU64, Ordering},
 };
 
+/// A table and its established semantic facts have one owner in the native schema.
+#[derive(Clone, Debug)]
+enum TableEntry {
+    Native(Arc<dyn TableProvider>),
+    Bound(Arc<super::binding::TableBinding>),
+}
+impl TableEntry {
+    fn provider(&self) -> &Arc<dyn TableProvider> {
+        match self {
+            Self::Native(provider) => provider,
+            Self::Bound(binding) => &binding.provider,
+        }
+    }
+}
+
 /// Native table registration in an attempt's private namespace generation.
 #[derive(Debug)]
 pub struct SnapshotSchema {
-    tables: RwLock<BTreeMap<String, Arc<dyn TableProvider>>>,
+    tables: RwLock<BTreeMap<String, TableEntry>>,
     generation: Arc<AtomicU64>,
 }
 impl SnapshotSchema {
@@ -24,9 +39,51 @@ impl SnapshotSchema {
         generation: Arc<AtomicU64>,
     ) -> Self {
         Self {
-            tables: RwLock::new(tables),
+            tables: RwLock::new(
+                tables
+                    .into_iter()
+                    .map(|(name, table)| (name, TableEntry::Native(table)))
+                    .collect(),
+            ),
             generation,
         }
+    }
+    pub(crate) fn fork(&self, generation: Arc<AtomicU64>) -> Self {
+        Self {
+            tables: RwLock::new(
+                self.tables
+                    .read()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone(),
+            ),
+            generation,
+        }
+    }
+    pub(crate) fn binding(&self, name: &str) -> Option<Arc<super::binding::TableBinding>> {
+        match self
+            .tables
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(name)
+        {
+            Some(TableEntry::Bound(binding)) => Some(Arc::clone(binding)),
+            _ => None,
+        }
+    }
+    pub(crate) fn bind(&self, binding: super::binding::TableBinding) {
+        self.tables
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(
+                binding.reference.table().to_owned(),
+                TableEntry::Bound(Arc::new(binding)),
+            );
+    }
+    pub(crate) fn retain(&self, mut keep: impl FnMut(&str) -> bool) {
+        self.tables
+            .write()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .retain(|name, _| keep(name));
     }
 }
 impl SchemaProvider for SnapshotSchema {
@@ -48,7 +105,7 @@ impl SchemaProvider for SnapshotSchema {
                 .read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .get(name)
-                .map(|table| table.table_type()))
+                .map(|table| table.provider().table_type()))
         })
     }
     fn table_names(&self) -> Vec<String> {
@@ -80,7 +137,7 @@ impl SchemaProvider for SnapshotSchema {
                 .read()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .get(name)
-                .cloned())
+                .map(|table| Arc::clone(table.provider())))
         })
     }
     fn register_table(
@@ -97,7 +154,7 @@ impl SchemaProvider for SnapshotSchema {
                 "Table already exists: {name}"
             )));
         }
-        tables.insert(name, table);
+        tables.insert(name, TableEntry::Native(table));
         self.generation.fetch_add(1, Ordering::AcqRel);
         Ok(None)
     }
@@ -110,6 +167,6 @@ impl SchemaProvider for SnapshotSchema {
         if previous.is_some() {
             self.generation.fetch_add(1, Ordering::AcqRel);
         }
-        Ok(previous)
+        Ok(previous.map(|entry| Arc::clone(entry.provider())))
     }
 }

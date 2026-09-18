@@ -3,15 +3,9 @@
   "rows": {
     "normalized.equation_nodes": [
       {
-        "else_equation": "[\"u64\",1]",
-        "equation_id": "[\"u64\",1]",
-        "guard_predicate": "[\"u64\",1]",
-        "kind": "[\"enum\",\"relation\"]",
-        "left_expr": "[\"u64\",1]",
-        "right_expr": "[\"u64\",1]",
-        "sense": "[\"enum\",\"eq\"]",
+        "equation_id": "[\"i64\",1]",
         "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "then_equation": "[\"u64\",1]"
+        "value": "[\"struct\",[[\"text\",\"conditional\"],[\"null\",null],[\"struct\",[[\"i64\",1],[\"i64\",1],[\"i64\",1]]]]]"
       }
     ],
     "normalized.expression_sources": [
@@ -19,10 +13,8 @@
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "family": "[\"enum\",\"template\"]",
         "field_path": "[\"text\",\"value-1\"]",
-        "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "owner_kind": "[\"enum\",\"template\"]",
-        "owner_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "root_id": "[\"u64\",1]",
+        "owner": "[\"struct\",[[\"text\",\"instance\"],[\"null\",null],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]]]]",
+        "root_id": "[\"i64\",1]",
         "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_key": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]",
         "source_relation_id": "[\"id\",\"01010101010101010101010101010101\"]",

@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
+
 use pse_schema::Registry;
 
 /// Explicit domain declarations, without a mathematical graph or producer fixture.

@@ -6,6 +6,7 @@ use super::super::plans::{
     Plans, append, c, error, explode, filter, invalid, join, prefix, project, union,
 };
 use crate::{CompilerError, passes::native_outputs::Sources};
+use datafusion::functions_nested::expr_fn::array_element;
 use datafusion::{
     catalog::cte_worktable::CteWorkTable,
     common::ScalarValue,
@@ -15,7 +16,6 @@ use datafusion::{
     functions_nested::expr_fn::array_length,
     logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder, col, lit},
 };
-use pse_catalog::session::scalar::array_element;
 use pse_catalog::session::{
     SnapshotSession,
     output::{checked_literal, same_field_case},
@@ -27,13 +27,13 @@ use pse_relations::{
     generated::{authored, normalized},
 };
 use pse_rules::strata::native_input::NativeInput;
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 
 pub(in crate::passes::p3) async fn emit(
     inputs: &BTreeMap<RelationKey, FieldCheckedBatch>,
     sources: &Sources,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {
@@ -187,6 +187,10 @@ async fn validate_references(
     project(seeds, fields)
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "opaque keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 async fn opaque(plans: &mut Plans<'_>) -> Result<LogicalPlan, CompilerError> {
     let requirements = plans.scan("authored.template_property_requirements", "requirement")?;
     let expressions = plans.scan("normalized.expression_sources", "guard")?;
@@ -310,6 +314,10 @@ async fn opaque(plans: &mut Plans<'_>) -> Result<LogicalPlan, CompilerError> {
 }
 
 /// Every axis is checked before expansion, including an empty member inventory.
+#[expect(
+    clippy::too_many_lines,
+    reason = "checked_axes keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 async fn checked_axes(
     plans: &mut Plans<'_>,
     requirements: LogicalPlan,
@@ -457,7 +465,7 @@ mod tests {
         let mut plans = Plans::new(
             &inputs,
             &sources,
-            registry.pass("P3@1").unwrap(),
+            registry.algorithm("P3@1").unwrap(),
             &session,
             &cancel,
         )

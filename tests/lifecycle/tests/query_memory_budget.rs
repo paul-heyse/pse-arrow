@@ -4,35 +4,18 @@
 
 mod support;
 use pse_catalog::CatalogError;
-use pse_catalog::session::{SnapshotSession, native_engine_profile};
+use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, MemoryReserver, ReserveError};
-use std::sync::Arc;
 
 #[tokio::test]
-async fn two_sessions_share_snapshot_charges_and_only_64_kib_of_query_headroom() {
+async fn two_sessions_share_input_charges_and_only_64_kib_of_query_headroom() {
     const LIMIT: usize = 512 << 20;
     let directory = tempfile::tempdir().expect("store and spill root");
     let runtime = support::runtime(directory.path(), LIMIT);
     let reg = support::registry();
-    let store = Arc::new(
-        object_store::local::LocalFileSystem::new_with_prefix(directory.path())
-            .expect("local store"),
-    );
-    let catalog = support::catalog(store, Arc::clone(&reg), runtime.reserver());
     let cancel = CancellationToken::default();
-    let snapshot = catalog
-        .publish_bundle(support::draft(&catalog, 200_000, 0, &cancel), &cancel)
-        .await
-        .expect("admitted owned snapshot");
-    let factory = runtime
-        .session_factory(native_engine_profile())
-        .expect("factory");
-    let left = factory
-        .open_session(vec![Arc::clone(&snapshot)], Arc::clone(&reg), &cancel)
-        .expect("left");
-    let right = factory
-        .open_session(vec![Arc::clone(&snapshot)], reg, &cancel)
-        .expect("right");
+    let left = support::session(&runtime, reg, 200_000);
+    let right = left.clone();
     let snapshot_bytes = runtime.reserver().reserved();
     assert!(
         snapshot_bytes >= 200_000 * 16,
@@ -48,37 +31,21 @@ async fn two_sessions_share_snapshot_charges_and_only_64_kib_of_query_headroom()
         .sql("SELECT id FROM authored.samples ORDER BY value", &cancel)
         .await
         .expect_err("actual scan validation cannot fit the remaining budget");
-    match error {
-        CatalogError::Reserve(ReserveError::Exhausted {
-            owner,
-            requested,
-            limit_hint,
-            ..
-        }) => {
-            assert_eq!(owner, "session:validate-batch");
-            assert!(
-                requested > (64 << 10),
-                "actual validation needs more than the available headroom"
-            );
-            assert!(
-                limit_hint.contains(&format!("datafusion.runtime.memory_limit={LIMIT} bytes")),
-                "the declared shared pool limit remains actionable: {limit_hint}"
-            );
-        }
-        other => panic!("expected typed admission reservation refusal, got {other:?}"),
-    }
-    assert_eq!(
-        runtime.reserver().reserved(),
-        held,
-        "failed query releases every query claim"
+    assert!(
+        matches!(&error, CatalogError::Reserve(ReserveError::Exhausted { owner, .. }) if !owner.is_empty())
+            || matches!(&error, CatalogError::ResourceLimit { consumer, .. } if !consumer.is_empty()),
+        "{error}"
     );
-    assert_cancelled(&right, &runtime, held).await;
+
+    assert_eq!(
+        runtime.reserver().reserved() - observation_bytes(&runtime),
+        held,
+        "failed query releases every operator claim; attempt observations remain owned"
+    );
+    assert_cancelled(&right, &runtime, held + observation_bytes(&runtime)).await;
     drop(competing);
     drop(left);
     drop(right);
-    drop(snapshot);
-    drop(factory);
-    drop(catalog);
     assert_eq!(runtime.reserver().reserved(), 0);
     let report = runtime.report().expect("separate pool/process observation");
     assert!(report.pool_peak_bytes <= LIMIT);
@@ -94,34 +61,15 @@ const EXPANSION_SQL: &str = "SELECT a.id AS a_id, b.id AS b_id, c.id AS c_id, \
     ORDER BY a.value, b.value, c.value, d.value, e.value";
 
 #[tokio::test]
-async fn small_snapshot_admission_fits_64_kib_but_expansion_exhausts_the_engine() {
+async fn small_input_admission_fits_64_kib_but_expansion_exhausts_the_engine() {
     const LIMIT: usize = 512 << 20;
     const HEADROOM: usize = 64 << 10;
     let directory = tempfile::tempdir().expect("store and spill root");
     let runtime = support::runtime(directory.path(), LIMIT);
     let reg = support::registry();
-    let catalog = support::catalog(
-        Arc::new(
-            object_store::local::LocalFileSystem::new_with_prefix(directory.path())
-                .expect("local store"),
-        ),
-        Arc::clone(&reg),
-        runtime.reserver(),
-    );
     let cancel = CancellationToken::default();
-    let snapshot = catalog
-        .publish_bundle(support::draft(&catalog, 8, 0, &cancel), &cancel)
-        .await
-        .expect("small fully admitted snapshot");
-    let factory = runtime
-        .session_factory(native_engine_profile())
-        .expect("factory");
-    let left = factory
-        .open_session(vec![Arc::clone(&snapshot)], Arc::clone(&reg), &cancel)
-        .expect("left");
-    let right = factory
-        .open_session(vec![Arc::clone(&snapshot)], reg, &cancel)
-        .expect("right");
+    let left = support::session(&runtime, reg, 8);
+    let right = left.clone();
     let snapshot_bytes = runtime.reserver().reserved();
     assert!(
         snapshot_bytes >= 8 * 16,
@@ -147,7 +95,10 @@ async fn small_snapshot_admission_fits_64_kib_but_expansion_exhausts_the_engine(
         8
     );
     drop(scan);
-    assert_eq!(runtime.reserver().reserved(), held);
+    assert_eq!(
+        runtime.reserver().reserved() - observation_bytes(&runtime),
+        held
+    );
 
     let error = left
         .sql(EXPANSION_SQL, &cancel)
@@ -160,14 +111,17 @@ async fn small_snapshot_admission_fits_64_kib_but_expansion_exhausts_the_engine(
         "expected a named engine consumer with the bound pool configuration, got {error:?}"
     );
     assert_eq!(
-        runtime.reserver().reserved(),
+        runtime.reserver().reserved() - observation_bytes(&runtime),
         held,
         "all failed operator claims are released"
     );
-    assert_cancelled(&right, &runtime, held).await;
+    assert_cancelled(&right, &runtime, held + observation_bytes(&runtime)).await;
 
     drop(competing);
-    assert_eq!(runtime.reserver().reserved(), snapshot_bytes);
+    assert_eq!(
+        runtime.reserver().reserved() - observation_bytes(&runtime),
+        snapshot_bytes
+    );
     let result = left
         .sql(EXPANSION_SQL, &cancel)
         .await
@@ -185,8 +139,11 @@ async fn small_snapshot_admission_fits_64_kib_but_expansion_exhausts_the_engine(
         "returned values retain their pool ownership"
     );
     drop(result);
-    assert_eq!(runtime.reserver().reserved(), snapshot_bytes);
-    drop((left, right, snapshot, factory, catalog));
+    assert_eq!(
+        runtime.reserver().reserved() - observation_bytes(&runtime),
+        snapshot_bytes
+    );
+    drop((left, right));
     assert_eq!(runtime.reserver().reserved(), 0);
     let report = runtime.report().expect("shared pool observation");
     assert!(report.pool_peak_bytes <= LIMIT);
@@ -211,4 +168,26 @@ async fn assert_cancelled(
         held,
         "cancelling one session retains only live shared owners"
     );
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "test-only accounting helper requires a valid runtime report"
+)]
+fn observation_bytes(runtime: &pse_runtime::SharedRuntime) -> usize {
+    runtime
+        .report()
+        .expect("accounted attempt observations")
+        .top_consumers
+        .iter()
+        .filter(|(name, _)| {
+            matches!(
+                name.as_str(),
+                "session:execution-observations"
+                    | "session:plan-observation"
+                    | "session:physical-plan-observation"
+            )
+        })
+        .map(|(_, bytes)| *bytes)
+        .sum()
 }

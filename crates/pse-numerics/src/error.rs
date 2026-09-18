@@ -6,6 +6,10 @@
 /// Typed numerical failure; unsupported derivatives never become finite differences.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum NumericsError {
+    /// Generated numerical value contract could not be established.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Relation(#[from] pse_relations::RelationError),
     /// The caller's cancellation or allocation contract refused the operation.
     #[error(transparent)]
     #[diagnostic(transparent)]

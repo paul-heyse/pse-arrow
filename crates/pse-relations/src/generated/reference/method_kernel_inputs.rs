@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    84u8, 34u8, 220u8, 171u8, 71u8, 214u8, 90u8, 208u8, 242u8, 246u8, 190u8, 36u8, 75u8,
-    96u8, 63u8, 229u8, 102u8, 241u8, 83u8, 207u8, 8u8, 58u8, 210u8, 146u8, 233u8, 0u8,
-    15u8, 99u8, 64u8, 191u8, 163u8, 24u8,
+    125u8, 74u8, 158u8, 198u8, 155u8, 153u8, 167u8, 123u8, 190u8, 167u8, 26u8, 172u8,
+    68u8, 46u8, 98u8, 153u8, 61u8, 17u8, 200u8, 224u8, 72u8, 174u8, 126u8, 177u8, 213u8,
+    53u8, 36u8, 85u8, 249u8, 41u8, 19u8, 58u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -32,7 +32,7 @@ pub struct ReferenceMethodKernelInputsRow {
     ///input_name
     pub r#input_name: String,
     ///dependency_ordinal
-    pub r#dependency_ordinal: u16,
+    pub r#dependency_ordinal: i64,
 }
 impl crate::typed::CellCodec for ReferenceMethodKernelInputsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -71,7 +71,7 @@ impl crate::typed::CellCodec for ReferenceMethodKernelInputsRow {
                         stringify!(ReferenceMethodKernelInputsRow),
                     ))?,
             )?,
-            r#dependency_ordinal: <u16 as crate::typed::CellCodec>::from_cell(
+            r#dependency_ordinal: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -116,7 +116,7 @@ impl crate::columnar::ArrowValue for ReferenceMethodKernelInputsRow {
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <u16 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -135,7 +135,7 @@ impl crate::columnar::ArrowValue for ReferenceMethodKernelInputsRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#dependency_ordinal: <u16 as crate::columnar::ArrowValue>::read(
+            r#dependency_ordinal: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -168,7 +168,7 @@ impl ReferenceMethodKernelInputsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"bbe5e6b25c26b27887a92ff57708caf0\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_kernel_inputs\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"method_id\"],[\"text\",\"input_name\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.method_specs\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.method_specs.method_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"3c35b312695b9c4cc0877c9eacfce7cb\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_specs\"],[\"u64\",2]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"input_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"input_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"dependency_ordinal\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"dependency_ordinal\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"dependency_ordinal\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Exact kernel input name to declared method dependency ordinal; complete ordered signature admission is required.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"bbe5e6b25c26b27887a92ff57708caf0\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"bbe5e6b25c26b27887a92ff57708caf0\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_kernel_inputs\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"method_id\"],[\"text\",\"input_name\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.method_specs\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.method_specs.method_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"3c35b312695b9c4cc0877c9eacfce7cb\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_specs\"],[\"u64\",2]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"input_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"input_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"input_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"dependency_ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"dependency_ordinal\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]]]]]],[\"struct\",[[\"text\",\"dependency_ordinal\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Exact kernel input name to declared method dependency ordinal; complete ordered signature admission is required.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"bbe5e6b25c26b27887a92ff57708caf0\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -244,7 +244,7 @@ impl crate::columnar::RelationRow for ReferenceMethodKernelInputsRow {
         ReferenceMethodKernelInputsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        30_768_usize + size_of::<Self::Builder>()
+        33_664_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         56usize
@@ -297,7 +297,7 @@ pub struct ReferenceMethodKernelInputsView<'a> {
     batch: &'a crate::RecordBatch,
     method_id_column: &'a arrow_array::FixedSizeBinaryArray,
     input_name_column: &'a arrow_array::StringArray,
-    dependency_ordinal_column: &'a arrow_array::UInt16Array,
+    dependency_ordinal_column: &'a arrow_array::Int64Array,
 }
 impl<'a> ReferenceMethodKernelInputsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -342,7 +342,7 @@ impl<'a> ReferenceMethodKernelInputsView<'a> {
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
             dependency_ordinal_column: crate::columnar::array::<
-                arrow_array::UInt16Array,
+                arrow_array::Int64Array,
             >(batch.column(2usize).as_ref())?,
         })
     }
@@ -387,7 +387,7 @@ impl<'a> ReferenceMethodKernelInputsView<'a> {
         "dependency_ordinal",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn dependency_ordinal_column(&self) -> &'a arrow_array::UInt16Array {
+    pub const fn dependency_ordinal_column(&self) -> &'a arrow_array::Int64Array {
         self.dependency_ordinal_column
     }
     #[doc = concat!(
@@ -488,6 +488,16 @@ impl ReferenceMethodKernelInputsBuilder {
         &mut self,
         row: ReferenceMethodKernelInputsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=65_535_i64).contains(&(row.r#dependency_ordinal).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "dependency_ordinal",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

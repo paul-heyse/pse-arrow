@@ -11,8 +11,6 @@ pub mod r#case_objectives;
 ///Generated relation contract.
 pub mod r#case_policies;
 ///Generated relation contract.
-pub mod r#case_revisions;
-///Generated relation contract.
 pub mod r#case_set_samples;
 ///Generated relation contract.
 pub mod r#case_sets;
@@ -23,10 +21,6 @@ pub mod r#case_specs;
 ///Generated relation contract.
 pub mod r#cases;
 ///Generated relation contract.
-pub mod r#change_ops;
-///Generated relation contract.
-pub mod r#change_sets;
-///Generated relation contract.
 pub mod r#connections;
 ///Generated relation contract.
 pub mod r#continuous_domains;
@@ -36,6 +30,8 @@ pub mod r#datasets;
 pub mod r#default_scaling;
 ///Generated relation contract.
 pub mod r#discretization_policies;
+///Generated relation contract.
+pub mod r#document_edits;
 ///Generated relation contract.
 pub mod r#documents;
 ///Generated relation contract.
@@ -58,8 +54,6 @@ pub mod r#instances;
 pub mod r#material_systems;
 ///Generated relation contract.
 pub mod r#method_selections;
-///Generated relation contract.
-pub mod r#model_revisions;
 ///Generated relation contract.
 pub mod r#observation_targets;
 ///Generated relation contract.
@@ -84,6 +78,8 @@ pub mod r#reaction_methods;
 pub mod r#reaction_packages;
 ///Generated relation contract.
 pub mod r#reactions;
+///Generated relation contract.
+pub mod r#rename_requests;
 ///Generated relation contract.
 pub mod r#scenarios;
 ///Generated relation contract.

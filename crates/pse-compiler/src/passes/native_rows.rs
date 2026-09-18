@@ -21,6 +21,27 @@ use pse_schema::{Registry, model::RelationSpec};
 
 use crate::CompilerError;
 
+/// Transfer a complete generated value across equivalent declared field shapes at
+/// an explicit algorithm boundary. Its already-reserved algorithm workspace owns
+/// the temporary Arrow value; no dynamic Cell model is constructed.
+pub(crate) fn transfer_value<
+    S: pse_relations::columnar::ArrowValue,
+    T: pse_relations::columnar::ArrowValue,
+>(
+    value: &S,
+    registry: &Registry,
+    relation: &str,
+    column: &str,
+) -> Result<T, CompilerError> {
+    let field = registry
+        .relation(relation)
+        .and_then(|relation| relation.column(column))
+        .ok_or_else(|| invalid("algorithm value target declaration is absent"))?;
+    let field = pse_schema::arrow::field_for(registry, field)?;
+    let values = value.to_array(field.data_type())?;
+    Ok(T::read(values.as_ref(), 0)?)
+}
+
 /// Accounts for decoded algorithm arguments. Queries and their predecessor plans
 /// are released when their owned values cross this explicit algorithm boundary.
 #[derive(Debug)]

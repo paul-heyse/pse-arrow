@@ -4,13 +4,10 @@
     "compiled.method_realizations": [
       {
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "kernel_binding_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "kernel_output_ordinal": "[\"u64\",1]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "output_kind": "[\"enum\",\"template_symbol\"]",
         "output_symbol_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "template_instance_id": "[\"id\",\"01010101010101010101010101010101\"]"
+        "realization": "[\"struct\",[[\"text\",\"kernel_output\"],[\"null\",null],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"i64\",1]]]]]",
+        "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]
   },

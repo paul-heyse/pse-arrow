@@ -29,6 +29,7 @@ use std::sync::Arc;
 pub struct WritableTable {
     table: DeltaTable,
     scan: Arc<dyn TableProvider>,
+    lease: Option<Arc<super::lease::ReadLease>>,
     commit: CommitProperties,
     contract: Option<super::contract::DeclaredCheck>,
 }
@@ -47,10 +48,16 @@ impl WritableTable {
                 "editable Delta table must be loaded".into(),
             ));
         }
-        let scan = Arc::new(table.table_provider().with_session(state).build().await?);
+        let lease =
+            super::lease::read(table.table_url(), &pse_ids::CancellationToken::new()).await?;
+        let scan = super::leased::retain(
+            Arc::new(table.table_provider().with_session(state).build().await?),
+            lease.clone(),
+        );
         Ok(Self {
             table,
             scan,
+            lease,
             commit,
             contract: None,
         })
@@ -91,13 +98,16 @@ impl WritableTable {
             Some(contract) => contract.bind(state)?,
             None => state.clone(),
         };
-        Ok(Arc::new(execution::MutationExec::new(
-            self.table.clone(),
-            Arc::new(state),
-            self.commit.clone().with_max_retries(0),
-            command,
-            children,
-        )))
+        Ok(super::leased::retain_execution(
+            Arc::new(execution::MutationExec::new(
+                self.table.clone(),
+                Arc::new(state),
+                self.commit.clone().with_max_retries(0),
+                command,
+                children,
+            )),
+            self.lease.clone(),
+        ))
     }
 }
 #[async_trait::async_trait]
@@ -110,6 +120,12 @@ impl TableProvider for WritableTable {
     }
     fn statistics(&self) -> Option<Statistics> {
         self.scan.statistics()
+    }
+    fn constraints(&self) -> Option<&datafusion::common::Constraints> {
+        self.scan.constraints()
+    }
+    fn get_column_default(&self, column: &str) -> Option<&Expr> {
+        self.scan.get_column_default(column)
     }
     fn supports_filters_pushdown(
         &self,

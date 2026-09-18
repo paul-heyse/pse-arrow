@@ -24,7 +24,7 @@ pub(super) async fn load(
     inputs: &Batches,
     session: &SnapshotSession,
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<IndexCompanions, AuthoringError> {
     let registry = session.registry();
     let mut result = BTreeMap::new();
@@ -70,7 +70,8 @@ pub(super) async fn load(
         let plan = companion_join(&bound, source, companion)?;
         let mut values = BTreeMap::new();
         for batch in
-            crate::change_set::plans::execute_recorded(&bound, plan, cancel, completed).await?
+            crate::native_relations::plans::execute_recorded(&bound, plan, cancel, completed)
+                .await?
         {
             let keys = batch
                 .column(0)
@@ -119,7 +120,7 @@ fn string_list(array: &ListArray, row: usize) -> Result<Vec<String>, AuthoringEr
     let values = array.value(row);
     let values =
         datafusion::arrow::compute::cast(&values, &datafusion::arrow::datatypes::DataType::Utf8)
-            .map_err(|error| crate::change_set::plans::engine(error.into()))?;
+            .map_err(|error| crate::native_relations::plans::engine(error.into()))?;
     let values = values
         .as_any()
         .downcast_ref::<StringArray>()
@@ -156,7 +157,7 @@ fn companion_join(
     let source_plan = LogicalPlanBuilder::from(bound.scan_role("index_source")?)
         .project(projection)
         .and_then(|plan| plan.alias("source"))
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     let mut projection = companion
         .columns
         .iter()
@@ -167,7 +168,7 @@ fn companion_join(
         .project(projection)
         .and_then(|plan| plan.alias("companion"))
         .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     let mut conditions = source
         .primary_key
         .iter()
@@ -186,6 +187,6 @@ fn companion_join(
             ])
         })
         .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     Ok(plan)
 }

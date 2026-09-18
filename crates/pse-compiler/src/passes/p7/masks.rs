@@ -16,6 +16,10 @@ use pse_templates::{GroupBinding, InstantiationEnvironment, PredicateMask};
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "bind_masks keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn bind_masks(
         &mut self,
         instance: &inferred::instances::Row,
@@ -40,7 +44,7 @@ impl Realizer<'_> {
             let mut domains = Vec::new();
             let mut coordinates = Vec::new();
             for (position, row) in rows.into_iter().enumerate() {
-                if usize::from(row.position) != position {
+                if usize::try_from(row.position).ok() != Some(position) {
                     return Err(invalid(
                         "predicate axes are not a complete ordered coordinate map",
                     ));

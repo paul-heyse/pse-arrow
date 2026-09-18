@@ -82,9 +82,7 @@ fn declare_reference_method_specs(builder: &mut RegistryBuilder) {
                     ("required", T::native(arrow_schema::DataType::Boolean)),
                 ])),
             ),
-            column("realization", T::enumeration("MethodRealization")),
-            column("template_id", T::id()).optional(),
-            column("kernel_id", T::id()).optional(),
+            column("realization", method_realization()),
             column(
                 "validity",
                 T::list(structure(vec![
@@ -244,15 +242,12 @@ fn declare_inferred_method_resolutions(builder: &mut RegistryBuilder) {
         builder,
         N::Inferred,
         "method_resolutions",
-        2,
+        3,
         S::Derived,
         &["requirement_id"],
         vec![
             column("requirement_id", T::id()),
-            column("method_id", T::id()).optional(),
-            column("realization", T::enumeration("MethodRealization")).optional(),
-            column("template_id", T::id()).optional(),
-            column("status", T::enumeration("ResolutionStatus")),
+            column("outcome", resolution_outcome()),
             crate::model::FieldContract::provenance(
                 "derivation_id",
                 T::id(),
@@ -261,6 +256,25 @@ fn declare_inferred_method_resolutions(builder: &mut RegistryBuilder) {
         ],
         "blueprint §6.5 property: method_resolutions.",
     );
+}
+
+/// A resolution names one authoritative method or a complete unresolved outcome.
+pub(super) fn resolution_outcome() -> T {
+    T::structure(vec![
+        T::enumeration("ResolutionStatus").with_name("kind"),
+        T::structure(vec![
+            T::id()
+                .with_name("method_id")
+                .with_fk("reference.method_specs", "method_id"),
+        ])
+        .with_name("resolved")
+        .optional(),
+    ])
+    .with_alternative(
+        &crate::model::TaggedAlternative::new("kind", [("resolved".into(), "resolved".into())])
+            .with_unit("unresolved")
+            .with_unit("ambiguous"),
+    )
 }
 
 fn declare_property_category_vocabulary(builder: &mut RegistryBuilder) {
@@ -317,4 +331,24 @@ fn declare_resolution_status_vocabulary(builder: &mut RegistryBuilder) {
         "ResolutionStatus",
         ["resolved", "unresolved", "ambiguous"],
     );
+}
+
+/// The selected producer carries exactly the reference required by its route.
+fn method_realization() -> T {
+    T::structure(vec![
+        T::enumeration("MethodRealization").with_name("kind"),
+        T::structure(vec![T::id().with_name("template_id")])
+            .with_name("equation_template")
+            .optional(),
+        T::structure(vec![T::id().with_name("kernel_id")])
+            .with_name("kernel")
+            .optional(),
+    ])
+    .with_alternative(&crate::model::TaggedAlternative::new(
+        "kind",
+        [
+            ("equation_template".into(), "equation_template".into()),
+            ("kernel".into(), "kernel".into()),
+        ],
+    ))
 }

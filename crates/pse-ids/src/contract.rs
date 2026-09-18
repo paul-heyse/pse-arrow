@@ -30,10 +30,6 @@ const METADATA_PREFIX_PSE: &str = "pse.";
 /// … and Arrow's canonical extension namespace (blueprint §4.4).
 const METADATA_PREFIX_EXTENSION: &str = "ARROW:extension:";
 
-/// Metadata keys that identify the artifact rather than the contract, and are therefore
-/// excluded from the hash frame and from contract comparison (blueprint §5.3 step 3).
-const VOLATILE_METADATA_KEYS: [&str; 2] = ["pse.snapshot_id", "pse.producer_pass_id"];
-
 /// The canonical UTC timezone spelling; the registry writes exactly one.
 const UTC: &str = "UTC";
 
@@ -227,7 +223,6 @@ fn describe_metadata(metadata: &BTreeMap<&str, &str>) -> String {
 fn contract_metadata(metadata: &std::collections::HashMap<String, String>) -> BTreeMap<&str, &str> {
     metadata
         .iter()
-        .filter(|(key, _)| !VOLATILE_METADATA_KEYS.contains(&key.as_str()))
         .map(|(key, value)| (key.as_str(), value.as_str()))
         .collect()
 }
@@ -507,9 +502,8 @@ impl CanonicalContract {
 
     /// Checks a batch's schema against the contract before anything is hashed.
     ///
-    /// Names, types and nullability must match exactly. Metadata must match except for
-    /// `pse.snapshot_id` and `pse.producer_pass_id`, which name the artifact rather than
-    /// the contract and are excluded from the hash frame for the same reason (§5.3 step 3).
+    /// Names, types, nullability and metadata must match exactly. Publication
+    /// identity belongs to the selected Delta control relation, never schema stamps.
     ///
     /// # Errors
     ///
@@ -963,7 +957,7 @@ mod tests {
     }
 
     #[test]
-    fn a_matching_batch_schema_is_accepted_and_the_volatile_keys_are_ignored() {
+    fn matching_schema_is_accepted_and_extra_contextual_keys_are_refused() {
         let declared = Schema::new(vec![key_field()]).with_metadata(HashMap::from([(
             "pse.relation".to_owned(),
             "authored.entities".to_owned(),
@@ -987,7 +981,7 @@ mod tests {
             ("pse.snapshot_id".to_owned(), "blake3:00".to_owned()),
             ("pse.producer_pass_id".to_owned(), "P1".to_owned()),
         ]));
-        assert!(contract.check_batch_schema(&stamped).is_ok());
+        assert!(contract.check_batch_schema(&stamped).is_err());
 
         let altered = declared.with_metadata(HashMap::from([(
             "pse.relation".to_owned(),

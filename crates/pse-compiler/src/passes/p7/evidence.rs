@@ -11,6 +11,10 @@ use pse_schema::model::RelationKey;
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "context keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn context(
         &mut self,
         instance: SemanticId,

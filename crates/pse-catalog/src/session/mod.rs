@@ -21,21 +21,26 @@
 pub mod admission;
 mod candidate;
 pub mod capture;
+mod checks;
 mod commands;
 mod computed;
 pub mod config;
+pub mod contract;
 pub mod execution;
 mod factory;
-mod facts;
+pub(crate) mod facts;
 mod functions;
+mod input;
 mod inspection;
+pub use input::RelationPlan;
+mod freshness;
 mod materialized;
 pub mod mutation;
 mod native;
 mod observation;
-pub mod operation;
 pub mod output;
 mod physical_fields;
+pub(crate) mod physical_input;
 pub mod planner;
 pub mod policy;
 mod preparation;
@@ -43,12 +48,18 @@ pub(crate) mod query_schema;
 pub mod resolution;
 mod resources;
 mod roles;
+pub mod round;
 mod schema_transform;
+mod semantic_extent;
 mod trace;
-pub use preparation::{CompletedComputation, OwnedComputationStream, PreparedComputation};
+pub use preparation::{
+    CompletedComputation, OwnedComputationStream, PreparedComputation, ReusableComputation,
+};
 pub mod plan_codec;
 pub use observation::PlanObservation;
-pub mod aggregate;
+mod aggregate;
+pub mod cache;
+mod field_transfer;
 pub mod profile;
 pub mod registry;
 pub mod scalar;
@@ -59,8 +70,7 @@ pub use factory::SessionFactory;
 pub use facts::RelationFacts;
 pub use profile::{EngineProfile, EngineRules, native_engine_profile};
 pub use snapshot_session::{
-    SessionSemantics, SnapshotSession, build_candidate_session,
-    build_candidate_session_with_cancel, build_session,
+    SessionSemantics, SnapshotSession, build_candidate_session, build_candidate_session_with_cancel,
 };
 
 use std::num::NonZeroUsize;

@@ -1,0 +1,24 @@
+{
+  "invariant": "runtime.maintenance_outcomes:unique:pk",
+  "rows": {
+    "runtime.maintenance_outcomes": [
+      {
+        "deleted_files": "[\"list\",[]]",
+        "deleted_logs": "[\"i64\",1]",
+        "delta_version": "[\"i64\",1]",
+        "table_uri": "[\"text\",\"value-1\"]"
+      },
+      {
+        "deleted_files": "[\"list\",[]]",
+        "deleted_logs": "[\"i64\",1]",
+        "delta_version": "[\"i64\",1]",
+        "table_uri": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"text\",\"value-1\"]"
+    ]
+  ]
+}

@@ -130,7 +130,8 @@ fn derivatives(
             &OpRequest::Derivative {
                 domain_unit: unit,
                 domain_kind: facts.kind,
-                order: link.derivative_order,
+                order: u8::try_from(link.derivative_order)
+                    .map_err(|_| invalid("derivative order exceeds u8"))?,
             },
             &[Operand {
                 quantity_type: state,

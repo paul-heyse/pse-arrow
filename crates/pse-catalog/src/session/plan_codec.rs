@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Noncanonical diagnostic plans resolving only actual retained snapshot providers.
+//! Noncanonical diagnostic plans resolving only actual selected native providers.
 
 use std::collections::BTreeMap;
 use std::fmt::Write;
@@ -20,14 +20,16 @@ use datafusion_proto::bytes::{
     logical_plan_from_bytes_with_extension_codec, logical_plan_to_bytes_with_extension_codec,
 };
 use datafusion_proto::logical_plan::LogicalExtensionCodec;
-use pse_ids::{CancellationToken, ContentHash, ReservationLease, SemanticId};
+use pse_ids::{CancellationToken, ReservationLease};
 use serde::{Deserialize, Serialize};
 
 use super::{SnapshotSession, admission, snapshot_session::engine};
-use crate::{CatalogError, provider::table::RelationTable, snapshot::ManifestRef};
+use crate::CatalogError;
+use crate::provider::binding::TableBinding;
+use pse_relations::generated::runtime::publications;
 
 /// Platform diagnostic codec version, independent of semantic snapshot identity.
-pub const PLAN_CODEC_VERSION: &str = "pse.plan.v1";
+pub const PLAN_CODEC_VERSION: &str = "pse.plan.v2";
 const MAX_PLAN_BYTES: usize = 16 << 20;
 const MAX_PLAN_NODES: usize = 4096;
 
@@ -46,8 +48,8 @@ impl DecodedPlan {
 }
 
 #[derive(Debug)]
-struct SnapshotCodec {
-    tables: BTreeMap<TableReference, Arc<dyn TableProvider>>,
+struct SelectedCodec {
+    tables: BTreeMap<TableReference, Arc<TableBinding>>,
     functions: Arc<super::functions::Functions>,
 }
 #[derive(Serialize, Deserialize)]
@@ -55,10 +57,7 @@ struct SnapshotCodec {
 struct Binding {
     codec_version: String,
     engine_version: String,
-    manifest: ManifestRef,
-    relation_id: SemanticId,
-    schema_version: u32,
-    logical_hash: ContentHash,
+    member: publications::RuntimePublicationsFieldMembersItem,
 }
 
 impl SnapshotSession {
@@ -77,7 +76,6 @@ impl SnapshotSession {
         let extent = plan_extent(plan).map_err(engine)?;
         let mut reservation = self.reserver.open("session:encode-plan");
         reservation.try_grow(control_extent(extent).map_err(engine)?)?;
-        self.function_bindings.admit_plan(plan).map_err(engine)?;
         admission::admit_plan(
             plan,
             &self.registry,
@@ -86,8 +84,42 @@ impl SnapshotSession {
             cancel,
         )
         .map_err(engine)?;
-        let bytes =
-            logical_plan_to_bytes_with_extension_codec(plan, &self.codec()).map_err(engine)?;
+        let codec = self.codec();
+        let encoded = plan
+            .clone()
+            .transform_down_with_subqueries(|mut plan| {
+                if let LogicalPlan::TableScan(scan) = &mut plan {
+                    let provider = datafusion::datasource::source_as_provider(&scan.source)?;
+                    let binding = codec
+                        .tables
+                        .get(&scan.table_name)
+                        .ok_or_else(|| invalid("source has no selected native descriptor"))?;
+                    if binding.selection.is_none() || !Arc::ptr_eq(&provider, &binding.provider) {
+                        return Err(invalid(
+                            "source differs from its exact selected native binding",
+                        ));
+                    }
+                    scan.source =
+                        datafusion::datasource::provider_as_source(Arc::new(DescriptorSource {
+                            binding: Arc::clone(binding),
+                        }));
+                    return Ok(datafusion::common::tree_node::Transformed::new(
+                        plan,
+                        true,
+                        TreeNodeRecursion::Jump,
+                    ));
+                }
+                Ok(datafusion::common::tree_node::Transformed::no(plan))
+            })
+            .map_err(engine)?
+            .data;
+        // Exact selected providers are encoded as descriptors. Their private
+        // decode expressions remain owned by that admitted provider, rather than
+        // becoming independently serialized name-based function references.
+        self.function_bindings
+            .admit_plan(&encoded)
+            .map_err(engine)?;
+        let bytes = logical_plan_to_bytes_with_extension_codec(&encoded, &codec).map_err(engine)?;
         check_extent(bytes.len()).map_err(engine)?;
         let mut output = bytes.to_vec();
         drop(bytes);
@@ -120,6 +152,25 @@ impl SnapshotSession {
             &self.codec(),
         )
         .map_err(engine)?;
+        let plan = plan
+            .transform_down_with_subqueries(|mut node| {
+                if let LogicalPlan::TableScan(scan) = &mut node {
+                    let provider = datafusion::datasource::source_as_provider(&scan.source)?;
+                    if let Some(descriptor) = provider.downcast_ref::<DescriptorSource>() {
+                        scan.source = datafusion::datasource::provider_as_source(Arc::clone(
+                            &descriptor.binding.provider,
+                        ));
+                        return Ok(datafusion::common::tree_node::Transformed::new(
+                            node,
+                            true,
+                            TreeNodeRecursion::Jump,
+                        ));
+                    }
+                }
+                Ok(datafusion::common::tree_node::Transformed::no(node))
+            })
+            .map_err(engine)?
+            .data;
         plan_extent(&plan).map_err(engine)?;
         self.function_bindings.admit_plan(&plan).map_err(engine)?;
         admission::admit_plan(
@@ -150,19 +201,19 @@ impl SnapshotSession {
         self.execute_plan(plan.plan.clone(), cancel).await
     }
 
-    fn codec(&self) -> SnapshotCodec {
-        SnapshotCodec {
+    fn codec(&self) -> SelectedCodec {
+        SelectedCodec {
             functions: Arc::clone(&self.function_bindings),
             tables: self
                 .bindings
                 .iter()
-                .map(|(_, binding)| (binding.reference.clone(), Arc::clone(&binding.provider)))
+                .map(|(_, binding)| (binding.reference.clone(), binding))
                 .collect(),
         }
     }
 }
 
-impl LogicalExtensionCodec for SnapshotCodec {
+impl LogicalExtensionCodec for SelectedCodec {
     fn try_encode_udf(
         &self,
         node: &datafusion::logical_expr::ScalarUDF,
@@ -215,32 +266,27 @@ impl LogicalExtensionCodec for SnapshotCodec {
     ) -> Result<Arc<dyn TableProvider>> {
         let binding: Binding =
             serde_json::from_slice(buf).map_err(|error| invalid(&error.to_string()))?;
-        let provider = self
+        let table = self
             .tables
             .get(table_ref)
-            .ok_or_else(|| invalid("table reference is outside the pinned inventory"))?;
-        let table = provider
-            .as_ref()
-            .downcast_ref::<RelationTable>()
-            .ok_or_else(|| invalid("unpublished candidates cannot supply durable plan bindings"))?;
-        let actual = binding_for(table);
+            .ok_or_else(|| invalid("table reference is outside the selected native inventory"))?;
+        let actual = binding_for(table)?;
         if binding.codec_version != actual.codec_version
             || binding.engine_version != actual.engine_version
-            || binding.manifest != actual.manifest
-            || binding.relation_id != actual.relation_id
-            || binding.schema_version != actual.schema_version
-            || binding.logical_hash != actual.logical_hash
+            || binding.member != actual.member
         {
             return Err(invalid(
-                "serialized binding differs from the actual admitted provider",
+                "serialized descriptor differs from the actual selected native member",
             ));
         }
-        if schema.as_ref() != provider.schema().as_ref() {
-            return Err(invalid(
-                "serialized fields or metadata differ from the actual provider",
-            ));
+        if schema.as_ref() != table.provider.schema().as_ref() {
+            return Err(invalid("serialized fields differ from selected member"));
         }
-        Ok(Arc::clone(provider))
+        // Keep the selected source opaque while DataFusion builds the decoded
+        // scan; its generic scan builder otherwise expands a native ViewTable.
+        Ok(Arc::new(DescriptorSource {
+            binding: Arc::clone(table),
+        }))
     }
     fn try_encode_table_provider(
         &self,
@@ -248,33 +294,56 @@ impl LogicalExtensionCodec for SnapshotCodec {
         node: Arc<dyn TableProvider>,
         buf: &mut Vec<u8>,
     ) -> Result<()> {
-        if self
+        let source = node
+            .downcast_ref::<DescriptorSource>()
+            .ok_or_else(|| invalid("source has no selected descriptor"))?;
+        let actual = self
             .tables
             .get(table_ref)
-            .is_none_or(|actual| !Arc::ptr_eq(actual, &node))
-        {
-            return Err(invalid(
-                "plan source is not the exact retained named provider",
-            ));
+            .ok_or_else(|| invalid("source name is outside selected inventory"))?;
+        if !Arc::ptr_eq(actual, &source.binding) {
+            return Err(invalid("descriptor source owner differs"));
         }
-        let table = node
-            .as_ref()
-            .downcast_ref::<RelationTable>()
-            .ok_or_else(|| invalid("unpublished candidates cannot supply durable plan bindings"))?;
-        serde_json::to_writer(buf, &binding_for(table)).map_err(|error| invalid(&error.to_string()))
+        serde_json::to_writer(buf, &binding_for(actual)?)
+            .map_err(|error| invalid(&error.to_string()))
+    }
+}
+fn binding_for(table: &TableBinding) -> Result<Binding> {
+    Ok(Binding {
+        codec_version: PLAN_CODEC_VERSION.to_owned(),
+        engine_version: datafusion::DATAFUSION_VERSION.to_owned(),
+        member: table.selection.clone().ok_or_else(|| {
+            invalid("unpublished computations cannot claim durable provider descriptors")
+        })?,
+    })
+}
+/// Codec-only view of an actual selected source. The descriptor carries no row
+/// payload, native Delta implementation detail, or producing compiler graph.
+#[derive(Debug)]
+struct DescriptorSource {
+    binding: Arc<TableBinding>,
+}
+#[async_trait::async_trait]
+impl TableProvider for DescriptorSource {
+    fn schema(&self) -> SchemaRef {
+        self.binding.provider.schema()
+    }
+    fn table_type(&self) -> datafusion::logical_expr::TableType {
+        self.binding.provider.table_type()
+    }
+    async fn scan(
+        &self,
+        _: &dyn datafusion::catalog::Session,
+        _: Option<&Vec<usize>>,
+        _: &[datafusion::logical_expr::Expr],
+        _: Option<usize>,
+    ) -> Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>> {
+        Err(invalid(
+            "encoding-only descriptor source must be rebound before execution",
+        ))
     }
 }
 
-fn binding_for(table: &RelationTable) -> Binding {
-    Binding {
-        codec_version: PLAN_CODEC_VERSION.to_owned(),
-        engine_version: datafusion::DATAFUSION_VERSION.to_owned(),
-        manifest: table.snapshot().manifest_ref(),
-        relation_id: table.relation().contract().canonical.relation_id,
-        schema_version: table.relation().contract().canonical.schema_version.0,
-        logical_hash: table.relation().member().logical_hash.content_hash(),
-    }
-}
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(format!("plan codec: {reason}"))
 }
@@ -319,7 +388,7 @@ fn plan_extent(plan: &LogicalPlan) -> Result<usize> {
                 .filter(|n| *n <= MAX_PLAN_BYTES)
                 .ok_or_else(|| invalid("diagnostic field extent exceeds control envelope"))?;
         }
-        for expression in node.expressions() {
+        node.apply_expressions(|expression| {
             expression.apply(|expression| {
                 if let datafusion::logical_expr::Expr::Literal(value, _) = expression {
                     size.0 = size
@@ -332,7 +401,8 @@ fn plan_extent(plan: &LogicalPlan) -> Result<usize> {
                 }
                 Ok(TreeNodeRecursion::Continue)
             })?;
-        }
+            Ok(TreeNodeRecursion::Continue)
+        })?;
         Ok(TreeNodeRecursion::Continue)
     })?;
     Ok(size.0)

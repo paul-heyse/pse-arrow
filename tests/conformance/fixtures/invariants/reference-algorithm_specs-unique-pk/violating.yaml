@@ -1,0 +1,32 @@
+{
+  "invariant": "reference.algorithm_specs:unique:pk",
+  "rows": {
+    "reference.algorithm_specs": [
+      {
+        "algorithm_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "determinism": "[\"enum\",\"deterministic\"]",
+        "diagnostics": "[\"list\",[]]",
+        "effects": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "postconditions": "[\"list\",[]]",
+        "preconditions": "[\"list\",[]]",
+        "version": "[\"text\",\"value-1\"]"
+      },
+      {
+        "algorithm_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "determinism": "[\"enum\",\"deterministic\"]",
+        "diagnostics": "[\"list\",[]]",
+        "effects": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "postconditions": "[\"list\",[]]",
+        "preconditions": "[\"list\",[]]",
+        "version": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

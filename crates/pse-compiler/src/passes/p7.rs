@@ -22,8 +22,8 @@ mod roots;
 mod transfers;
 
 use super::native_outputs::{OutputRows, Sources};
-use crate::{CompilerError, InputBundle, PassContext};
-use pse_catalog::computation::ProducedStage;
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, MemoryReserver, Reservation, SemanticId};
 use pse_mathir::{ExprGraph, NodeId, index::DomainFacts, relations::vec_sink::KernelBinding};
@@ -35,7 +35,7 @@ use pse_relations::{
 };
 use pse_schema::{
     Registry,
-    model::{PassSpec, RelationKey},
+    model::{AlgorithmSpec, RelationKey},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -61,7 +61,7 @@ type SymbolKey = (SemanticId, SemanticId, Vec<SemanticId>);
 /// P7 binds generic declarations under each actual selected instance context.
 #[derive(Debug)]
 pub struct P7 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 impl P7 {
     /// Bind the exact declared P7 implementation specification.
@@ -70,21 +70,21 @@ impl P7 {
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         Ok(Self {
             spec: registry
-                .pass("P7@1")
+                .algorithm("P7@1")
                 .ok_or_else(|| invalid("P7 specification absent"))?
                 .clone(),
         })
     }
 }
-impl crate::Pass for P7 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P7 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             inputs.validate(&self.spec, ctx.registry)?;
             let rows = inputs.checked_rows(ctx.registry)?;
@@ -103,10 +103,10 @@ impl crate::Pass for P7 {
                         .rows
                         .get(&spec.key)
                         .ok_or_else(|| invalid("P7 output inventory incomplete"))?;
-                    Ok((port.port.to_owned(), batch.clone()))
+                    Ok((port.port.clone(), batch.clone()))
                 })
                 .collect::<Result<_, CompilerError>>()?;
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: Vec::new(),
                 derivations: output.derivations,
@@ -126,8 +126,8 @@ pub(crate) struct SelectedRealization<'a> {
 pub(crate) fn realize<'a>(
     inputs: &'a Inputs,
     sources: &'a Sources,
-    ctx: &'a PassContext<'a>,
-    spec: &'a PassSpec,
+    ctx: &'a AlgorithmContext<'a>,
+    spec: &'a AlgorithmSpec,
     session: &'a SnapshotSession,
     selected: Option<SelectedRealization<'a>>,
 ) -> pse_catalog::BoxFut<'a, Result<RealizationOutput, CompilerError>> {
@@ -163,8 +163,8 @@ pub(crate) fn realize<'a>(
 async fn prepare<'a>(
     inputs: &'a Inputs,
     sources: &Sources,
-    ctx: &'a PassContext<'a>,
-    spec: &'a PassSpec,
+    ctx: &'a AlgorithmContext<'a>,
+    spec: &'a AlgorithmSpec,
     session: &'a SnapshotSession,
     selected: Option<&BTreeSet<SemanticId>>,
 ) -> Result<Realizer<'a>, CompilerError> {
@@ -173,7 +173,11 @@ async fn prepare<'a>(
     let reserver = ctx.reserver;
     let physical_inventory = ctx.physical()?;
     cancel.checkpoint()?;
-    if !registry.passes().iter().any(|declared| declared == spec) {
+    if !registry
+        .algorithms()
+        .iter()
+        .any(|declared| declared == spec)
+    {
         return Err(invalid(
             "realization requires the complete exact registered producer declaration",
         ));
@@ -296,7 +300,7 @@ struct Realizer<'a> {
     pass: SemanticId,
     sources: Sources,
     session: SnapshotSession,
-    spec: &'a PassSpec,
+    spec: &'a AlgorithmSpec,
     active_support: BTreeSet<Support>,
     symbol_support: BTreeMap<SemanticId, BTreeSet<Support>>,
     node_support: BTreeMap<NodeId, BTreeSet<Support>>,

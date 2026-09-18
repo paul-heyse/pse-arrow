@@ -18,6 +18,7 @@ impl SharedRuntime {
             self.budget().threads,
             profile,
         )?
+        .with_cache_service(self.caches().clone())
         .with_query_planner(pse_compiler::query_planner()))
     }
 }

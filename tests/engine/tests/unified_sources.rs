@@ -11,15 +11,12 @@
 use datafusion::{
     common::ResolvedTableReference,
     execution::{context::SessionContext, session_state::SessionStateBuilder},
-    physical_plan::collect,
+    logical_expr::LogicalPlanBuilder,
 };
 use pse_authoring::{ParseBudget, document::load_package_texts_owned};
 use pse_catalog::{
-    delta::{
-        provider::table_builder,
-        publication::{Publication, PublicationRoot},
-        publication_plan::{self, MemberWrite},
-    },
+    artifact::{ArtifactPlan, PublicationTarget, RelationOutput},
+    delta::publication::{Publication, PublicationRoot},
     session::planner::UnifiedPlanner,
 };
 use pse_ids::{CancellationToken, FixedBudget, SemanticId};
@@ -57,13 +54,17 @@ fn header() -> publications::Row {
         publication_id: id(2),
         parent_publication_id: None,
         attempt_id: id(3),
-        kind: PublicationKind::Source,
+        kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
     }
 }
 
 #[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "complete target fixture construction and its independent assertions are kept in execution order"
+)]
 async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     let registry = pse_schema::shared_registry().unwrap();
     let sources = texts();
@@ -79,36 +80,59 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     .unwrap();
     let expected = loaded.bundle().batches.clone();
     let context = native_context();
-    let state = context.state();
+    let factory = pse_catalog::session::SessionFactory::from_builder(
+        context.runtime_env(),
+        budget.clone(),
+        "source-publication",
+        SessionStateBuilder::new_from_existing(context.state()),
+    );
+    let session = factory
+        .candidate_checked(
+            BTreeMap::from([(
+                documents::RELATION_KEY,
+                expected[&documents::RELATION_ID].clone(),
+            )]),
+            Arc::clone(&registry),
+            &cancel,
+        )
+        .unwrap();
     let root = tempfile::tempdir().unwrap();
-    let source_input = context
-        .read_batch(expected[&documents::RELATION_ID].batch().clone())
-        .unwrap()
-        .into_unoptimized_plan();
-    let mut members = vec![];
+    let source_input = LogicalPlanBuilder::scan(
+        "source_documents",
+        session.table_source(&documents::RELATION_KEY).unwrap(),
+        None,
+    )
+    .unwrap()
+    .build()
+    .unwrap();
+    let mut outputs = BTreeMap::new();
+    let mut destinations = BTreeMap::new();
     for id in expected.keys() {
         let spec = registry.relation_by_id(*id).unwrap();
         let location = format!("file://{}/{id}/", root.path().display())
             .parse()
             .unwrap();
-        members.push(MemberWrite {
-            reference: ResolvedTableReference {
-                catalog: "source".into(),
-                schema: spec.key.namespace.as_str().into(),
-                table: spec.key.name.into(),
+        let reference = ResolvedTableReference {
+            catalog: "source".into(),
+            schema: spec.key.namespace.as_str().into(),
+            table: spec.key.name.into(),
+        };
+        destinations.insert(reference.clone(), location);
+        outputs.insert(
+            reference,
+            RelationOutput {
+                relation_id: *id,
+                plan: pse_authoring::native::relation_plan(
+                    source_input.clone(),
+                    *id,
+                    &registry,
+                    ParseBudget::default(),
+                    budget.clone(),
+                    cancel.clone(),
+                )
+                .unwrap(),
             },
-            relation_id: *id,
-            table: table_builder(location, &state).unwrap().build().unwrap(),
-            input: pse_authoring::native::relation_plan(
-                source_input.clone(),
-                *id,
-                &registry,
-                ParseBudget::default(),
-                budget.clone(),
-                cancel.clone(),
-            )
-            .unwrap(),
-        });
+        );
     }
     let selection = PublicationRoot {
         location: format!("file://{}/control/", root.path().display())
@@ -116,41 +140,57 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
             .unwrap(),
         version: 1,
     };
-    let plan = publication_plan::plan(
-        selection.location.clone(),
+    let plan = ArtifactPlan::new(session, outputs, &cancel).unwrap();
+    plan.prepare_publication(
+        PublicationTarget {
+            reference: ResolvedTableReference {
+                catalog: "source".into(),
+                schema: "runtime".into(),
+                table: "publications".into(),
+            },
+            location: selection.location.clone(),
+        },
         header(),
-        members,
-        Arc::clone(&registry),
+        destinations,
+        vec![],
+        &cancel,
     )
-    .unwrap();
-    collect(
-        state.create_physical_plan(&plan).await.unwrap(),
-        state.task_ctx(),
-    )
+    .unwrap()
+    .execute(&cancel)
     .await
     .unwrap();
-    drop((plan, state, context, loaded));
+    drop((plan, factory, context, loaded));
 
     let cold = native_context();
-    let publication = Publication::open(selection, &registry, Arc::new(cold.state()))
+    let factory = pse_catalog::session::SessionFactory::from_builder(
+        cold.runtime_env(),
+        budget.clone(),
+        "cold-source",
+        SessionStateBuilder::new_from_existing(cold.state()),
+    );
+    let publication = Publication::open(selection, Arc::clone(&registry), &factory, &cancel)
         .await
         .unwrap();
-    let reopened = SessionContext::new_with_state(publication.session_state().await.unwrap());
-    let stream = publication
-        .relation_stream(&ResolvedTableReference {
-            catalog: "source".into(),
-            schema: "authored".into(),
-            table: "documents".into(),
-        })
+    let reopened = publication.session().clone();
+    let mut stream = publication
+        .relation_stream(
+            &ResolvedTableReference {
+                catalog: "source".into(),
+                schema: "authored".into(),
+                table: "documents".into(),
+            },
+            &cancel,
+        )
         .await
         .unwrap();
     let facts = capture_source_facts(&publication, &registry, &cancel).await;
     let selected = facts.selection().unwrap().clone();
     drop(publication);
     verify_native_support(facts, selected, Arc::clone(&registry), &cancel).await;
-    let batches = datafusion::physical_plan::common::collect(stream)
-        .await
-        .unwrap();
+    let mut batches = Vec::new();
+    while let Some(batch) = stream.next_batch(&cancel).await.unwrap() {
+        batches.push(batch.into_batch());
+    }
     let mut recovered = BTreeMap::new();
     for batch in batches {
         let view = documents::View::try_from_batch(&batch).unwrap();
@@ -174,12 +214,12 @@ async fn exact_source_text_reopens_and_reparses_from_delta_alone() {
     assert!(!root.path().join("documents").exists());
     assert_eq!(
         reopened
-            .sql("SELECT name FROM source.authored.species")
+            .sql("SELECT name FROM source.authored.species", &cancel)
             .await
             .unwrap()
-            .count()
-            .await
-            .unwrap(),
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
         1
     );
 }
@@ -214,7 +254,10 @@ async fn capture_source_facts(
         .await
         .unwrap();
     assert_eq!(
-        queried.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+        queried
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
         2
     );
     let reference = ResolvedTableReference {
@@ -250,7 +293,7 @@ async fn capture_source_facts(
     let facts = session.capture_relation(&reference, cancel).await.unwrap();
     assert_eq!(
         facts.selection().unwrap(),
-        publication.member(&reference).unwrap()
+        &publication.member(&reference).unwrap()
     );
     facts
 }

@@ -107,12 +107,20 @@ async fn mixed_wildcards_expand_complete_actual_member_tuples() {
     let path = parse("H.flow[*, 'water']", SourceSpan::head(id(12))).unwrap();
     let rows = resolve(&path, &context, id(13)).await.unwrap();
     assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0].index, Some(vec![id(8), id(10)]));
-    assert_eq!(rows[1].index, Some(vec![id(9), id(10)]));
-    assert!(
-        rows.iter()
-            .all(|row| !row.wildcard && row.symbol_decl_id == Some(id(4)))
+    assert_eq!(
+        rows[0].member.symbol.as_ref().unwrap().index,
+        Some(vec![id(8), id(10)])
     );
+    assert_eq!(
+        rows[1].member.symbol.as_ref().unwrap().index,
+        Some(vec![id(9), id(10)])
+    );
+    assert!(rows.iter().all(|row| {
+        row.member
+            .symbol
+            .as_ref()
+            .is_some_and(|symbol| symbol.symbol_decl_id == id(4))
+    }));
     let all = parse("H.flow", SourceSpan::head(id(12))).unwrap();
     assert_eq!(resolve(&all, &context, id(13)).await.unwrap().len(), 4);
 }

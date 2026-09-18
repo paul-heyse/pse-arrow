@@ -1,24 +1,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Native catalogs, scoped schemas and actual provider bindings (blueprint §5.4).
-//!
-//! One binding inventory supplies lookup, metadata and semantic preparation. Native
-//! registration changes only an attempt's private namespace. Catalog/schema scopes
-//! include operation inputs, outputs and external sources as well as domain relations.
-//! Immutable admitted relation providers retain their established contracts; mutable
-//! implementations expose their own native support under composed effect policy.
-//! Exact filter pushdown must preserve values and multiplicities, including columns
-//! referenced only by pushed predicates. Lookup never executes a producer.
+//! Native provider hierarchy and immutable semantic bindings.
 
-pub(crate) mod batches;
 pub(crate) mod binding;
 pub mod catalog;
 pub mod list;
-pub mod pushdown;
 pub mod schema;
-pub mod statistics;
-pub mod table;
 
 /// A boxed, `Send` future with an explicit lifetime: the hand-desugared form of an
 /// `async fn` in a trait implementation.

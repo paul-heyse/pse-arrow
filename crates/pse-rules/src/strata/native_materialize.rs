@@ -76,6 +76,7 @@ impl State {
                 registry,
                 &current,
                 None,
+                cancel,
             )?;
             provenance.push(
                 self.execute_relation(plan, target, &current, registry, cancel)
@@ -239,8 +240,9 @@ pub(super) fn derivation_rows(
     registry: &Registry,
     session: &SnapshotSession,
     pass: Option<pse_ids::SemanticId>,
+    cancel: &CancellationToken,
 ) -> Result<LogicalPlan, RuleError> {
-    let members = derivation_members(support, session)?;
+    let members = derivation_members(support, session, cancel)?;
     let heads = LogicalPlanBuilder::from(heads)
         .alias("__heads")
         .and_then(LogicalPlanBuilder::build)
@@ -314,8 +316,6 @@ pub(super) fn derivation_rows(
                     pass.map(|id| id.as_bytes().to_vec()),
                 )),
                 supporting,
-                lit(ScalarValue::FixedSizeBinary(32, None)),
-                lit(ScalarValue::FixedSizeBinary(32, None)),
             ],
             registry,
         )?);
@@ -326,6 +326,7 @@ pub(super) fn derivation_rows(
 fn derivation_members(
     support: LogicalPlan,
     session: &SnapshotSession,
+    cancel: &CancellationToken,
 ) -> Result<LogicalPlan, RuleError> {
     let support = LogicalPlanBuilder::from(support)
         .filter(col("input_key").is_not_null())
@@ -345,7 +346,7 @@ fn derivation_members(
         .aggregate(
             vec![col("assertion_id")],
             vec![
-                array_agg(scalar::named_fields(vec![
+                array_agg(datafusion::functions::core::expr_fn::named_struct(vec![
                     lit("relation_id"),
                     col("input_relation_id"),
                     lit("row_key"),
@@ -367,5 +368,9 @@ fn derivation_members(
         .alias("__members")
         .and_then(LogicalPlanBuilder::build)
         .map_err(engine)?;
-    Ok(members)
+    // Derive nested named_struct/array_agg fields from their actual sources
+    // before the list field UDF checks the declared support element contract.
+    session
+        .derive_plan_fields(members, cancel)
+        .map_err(Into::into)
 }

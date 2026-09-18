@@ -21,7 +21,7 @@
     ],
     "normalized.template_derivatives": [
       {
-        "order": "[\"u64\",1]",
+        "order": "[\"i64\",1]",
         "symbol_decl_id": "[\"id\",\"02020202020202020202020202020202\"]"
       }
     ]

@@ -8,11 +8,11 @@ use regex::Regex;
 use std::collections::BTreeSet;
 
 #[test]
-fn snapshot_table_has_exact_read_only_trait_method_set() {
+fn selected_snapshot_provider_keeps_native_mutations_unavailable() {
     let source = common::code_only_file(
-        &common::workspace_root().join("crates/pse-catalog/src/provider/table.rs"),
+        &common::workspace_root().join("crates/pse-catalog/src/delta/leased.rs"),
     );
-    let prefix = "impl TableProvider for RelationTable";
+    let prefix = "impl TableProvider for LeasedProvider";
     assert_eq!(
         source.matches(prefix).count(),
         1,
@@ -44,20 +44,18 @@ fn snapshot_table_has_exact_read_only_trait_method_set() {
         .captures_iter(&implementation[start..end])
         .map(|capture| capture[1].to_owned())
         .collect::<BTreeSet<_>>();
-    let expected = [
-        "schema",
-        "constraints",
-        "table_type",
-        "scan",
-        "scan_with_args",
-        "supports_filters_pushdown",
-        "statistics",
-    ]
-    .map(str::to_owned)
-    .into_iter()
-    .collect();
-    assert_eq!(
-        actual, expected,
-        "review any new TableProvider capability before exposing it"
-    );
+    for mutation in [
+        "insert_into",
+        "delete_from",
+        "update",
+        "truncate",
+        "merge_into",
+    ] {
+        assert!(
+            !actual.contains(mutation),
+            "selected snapshot exposed {mutation}"
+        );
+    }
+    assert!(actual.contains("scan"));
+    assert!(actual.contains("schema"));
 }

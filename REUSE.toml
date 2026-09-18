@@ -9,6 +9,15 @@ SPDX-PackageSupplier = "Paul Heyse <paul@heyse.io>"
 SPDX-PackageDownloadLocation = "https://github.com/paul-heyse/pse-arrow"
 
 [[annotations]]
+path = ["vendor/delta-rs/**", "tooling/delta-native-seams.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Delta Lake contributors",
+  "2026 Paul Heyse (native integration additions)",
+]
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = [
   "**/*.md",
   "**/*.lock",

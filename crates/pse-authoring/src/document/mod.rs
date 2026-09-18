@@ -26,7 +26,7 @@ pub use owned::{
 
 pub use edit::{DocumentEdit, apply_edits, assign_ids};
 
-pub use rename::{amend_rename_sources_owned, rename_owned};
+pub use rename::rename_documents;
 
 mod owned_reparse;
 pub use owned_reparse::{load_bundles_owned, workspace_extent};

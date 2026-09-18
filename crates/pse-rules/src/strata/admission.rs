@@ -8,9 +8,7 @@ use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, SemanticId};
 use pse_schema::{
     Registry,
-    model::{
-        ConflictPolicy, DependencyMode, NegationPolicy, RelationKey, RuleHead, RulePlan, RuleSpec,
-    },
+    model::{ConflictPolicy, DependencyMode, NegationPolicy, RelationKey, RuleSpec},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -44,9 +42,7 @@ pub(super) fn validate(
                 "rule differs from its actual registry declaration",
             ));
         }
-        let RuleHead::Relation(head) = &rule.head else {
-            return Err(internal("invariant violations use their own executor"));
-        };
+        let head = &rule.head;
         let target = registry
             .relation(head)
             .ok_or_else(|| internal("head is undeclared"))?;
@@ -97,11 +93,8 @@ fn validate_rule_inputs(
     registry: &Registry,
     cancel: &CancellationToken,
 ) -> Result<(), RuleError> {
-    let deps = rule.plan.dependencies();
-    let ports = deps
-        .iter()
-        .map(|(_, port, _)| *port)
-        .collect::<BTreeSet<_>>();
+    let deps = &rule.inputs;
+    let ports = deps.iter().map(|input| input.port).collect::<BTreeSet<_>>();
     if ports
         .iter()
         .copied()
@@ -111,7 +104,10 @@ fn validate_rule_inputs(
             "rule input-port inventory differs from declared scans",
         ));
     }
-    for (name, port, mode) in deps {
+    for dependency in deps {
+        let name = dependency.relation.as_str();
+        let port = dependency.port;
+        let mode = dependency.mode;
         let bound = input
             .ports
             .get(port)
@@ -133,7 +129,7 @@ fn validate_rule_inputs(
             }
             RuleInputLocation::Native(input) => input.validate(source.key, session, cancel)?,
             RuleInputLocation::Workspace => {
-                if !rules.iter().any(|writer| writer.head.relation() == name) {
+                if !rules.iter().any(|writer| writer.head.as_str() == name) {
                     return Err(internal(
                         "workspace input has no declared producer in this program",
                     ));
@@ -143,16 +139,14 @@ fn validate_rule_inputs(
         if mode == DependencyMode::Negate && rule.negation != NegationPolicy::Stratified {
             return Err(internal("negation is not declared stratified"));
         }
-        for writer in rules.iter().filter(|writer| writer.head.relation() == name) {
+        for writer in rules.iter().filter(|writer| writer.head.as_str() == name) {
             if writer.stratum > rule.stratum
                 || (mode == DependencyMode::Negate && writer.stratum >= rule.stratum)
             {
                 return Err(internal("rule reads an unsettled stratum"));
             }
             if writer.stratum == rule.stratum
-                && (writer.conflict_policy == ConflictPolicy::Undecided
-                    || !rule.monotonic
-                    || !monotone(&rule.plan, name))
+                && (writer.conflict_policy == ConflictPolicy::Undecided || !rule.monotonic)
             {
                 return Err(internal(
                     "same-stratum consumer is non-monotone or reads an undecided-policy head",
@@ -166,26 +160,6 @@ fn validate_rule_inputs(
         }
     }
     Ok(())
-}
-
-fn monotone(plan: &RulePlan, relation: &str) -> bool {
-    match plan {
-        RulePlan::Aggregate { input, .. } => !input
-            .dependencies()
-            .iter()
-            .any(|(name, _, _)| *name == relation),
-        RulePlan::AntiJoin { left, right, .. } => {
-            !right
-                .dependencies()
-                .iter()
-                .any(|(name, _, _)| *name == relation)
-                && monotone(left, relation)
-        }
-        other => other
-            .children()
-            .into_iter()
-            .all(|child| monotone(child, relation)),
-    }
 }
 
 pub(super) fn validate_immutable(

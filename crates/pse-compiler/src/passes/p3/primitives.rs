@@ -14,12 +14,12 @@ use datafusion::logical_expr::LogicalPlanBuilder;
 use pse_catalog::session::SnapshotSession;
 use pse_ids::CancellationToken;
 use pse_rules::strata::native_input::{NativeInput, NativeWitness};
-use pse_schema::model::{Namespace, PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, Namespace, RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 
 pub(super) async fn emit(
     sources: &Sources,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {

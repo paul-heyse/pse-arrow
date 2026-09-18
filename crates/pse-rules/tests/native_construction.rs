@@ -12,7 +12,7 @@ use pse_rules::strata::{
     LocatedRuleInput, RuleInputLocation,
     native_input::{NativeInput, NativeWitness},
 };
-use pse_schema::model::{Cell, FieldContract, RuleDecl, RuleExpr, RuleHead, RulePlan};
+use pse_schema::model::{Cell, FieldContract, RuleDecl};
 use std::{collections::BTreeMap, sync::Arc};
 
 fn fixture() -> Fixture {
@@ -50,14 +50,9 @@ fn fixture() -> Fixture {
             "native_consumer",
             "1",
             0,
-            RuleHead::Relation("inferred.selected".to_owned()),
-            RulePlan::Project {
-                input: Box::new(RulePlan::Scan {
-                    relation: "inferred.native_source".to_owned(),
-                    port: "native",
-                }),
-                columns: vec![("id".into(), RuleExpr::col("id"))],
-            },
+            "inferred.selected",
+            "SELECT id FROM inferred.native_source",
+            vec![fixture::read("inferred.native_source", "native")],
         )
         .assertions("provenance.selected_assertions"),
     );
@@ -334,6 +329,68 @@ async fn native_construction_refuses_false_witnesses_and_conflicting_complete_ke
             .is_err()
         );
     }
+}
+
+#[tokio::test]
+async fn witness_conditions_are_evaluated_once_beside_their_actual_output_rows() {
+    use datafusion::arrow::{array::StringArray, datatypes::DataType};
+    use datafusion_expr::{ColumnarValue, Volatility, create_udf};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let fixture = fixture();
+    let key = fixture
+        .registry
+        .relation("inferred.native_source")
+        .unwrap()
+        .key;
+    let rows_seen = Arc::new(AtomicUsize::new(0));
+    let observed = Arc::clone(&rows_seen);
+    let function = create_udf(
+        "observed_witness_key",
+        vec![DataType::UInt32],
+        DataType::UInt32,
+        Volatility::Volatile,
+        Arc::new(move |values| {
+            let rows = match &values[0] {
+                ColumnarValue::Array(values) => values.len(),
+                ColumnarValue::Scalar(_) => 1,
+            };
+            observed.fetch_add(rows, Ordering::SeqCst);
+            Ok(values[0].clone())
+        }),
+    );
+    let mut conditional = witness(&fixture, Some(vec!["source:key".into()]));
+    conditional.when = Some(function.call(vec![col("id")]).eq(lit(1_u32)));
+    let native = NativeInput::build(
+        source(&fixture, false, false),
+        key,
+        SemanticId::NIL,
+        vec![
+            ("id".into(), "id".into()),
+            ("value".into(), "value".into()),
+            ("derivation_id".into(), "ignored_placeholder".into()),
+        ],
+        vec![conditional, witness(&fixture, None)],
+        &fixture.session,
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(rows_seen.load(Ordering::SeqCst), 2);
+    assert_eq!(native.batch().num_rows(), 2);
+    let kinds = native
+        .support_mapping()
+        .batch()
+        .column_by_name("support_kind")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    assert_eq!(
+        kinds.iter().filter(|kind| *kind == Some("facts")).count(),
+        1
+    );
+    assert!(kinds.iter().any(|kind| kind == Some("absence")));
 }
 
 #[tokio::test]

@@ -4,9 +4,8 @@
 //! Relational invariants: the commit contract, declared
 //! (blueprint §4.1 `reference.schema_invariants`, §22.2).
 //!
-//! An invariant is a rule, not a message. `rule` names a declared [`crate::model::RuleSpec`]
-//! whose head is the violating keys, so P2 runs the same relational plan the registry
-//! declared rather than a Rust loop that agrees with it by inspection.
+//! Native SQL returns violating keys against explicitly selected providers. Domain
+//! identity and severity are independent of the inference rule implementation.
 
 use pse_ids::SemanticId;
 
@@ -23,8 +22,12 @@ pub struct InvariantSpec {
     pub relation: String,
     /// What kind of statement it makes.
     pub kind: InvariantKind,
-    /// The declared rule whose head is the violating keys, as `<name>@<version>`.
-    pub rule: String,
+    /// Native DataFusion SQL returning the offending keys.
+    pub query: String,
+    /// Exact semantic relation inputs required by the query.
+    pub inputs: Vec<String>,
+    /// Ordered columns identifying each offending row in the constrained relation.
+    pub key_columns: Vec<&'static str>,
     /// Whether a violation stops a commit.
     pub severity: Severity,
     /// What the invariant means and why it holds.
@@ -47,8 +50,12 @@ pub struct InvariantDecl {
     pub relation: String,
     /// See [`InvariantSpec::kind`].
     pub kind: InvariantKind,
-    /// See [`InvariantSpec::rule`].
-    pub rule: String,
+    /// See [`InvariantSpec::query`].
+    pub query: String,
+    /// See [`InvariantSpec::inputs`].
+    pub inputs: Vec<String>,
+    /// See [`InvariantSpec::key_columns`].
+    pub key_columns: Vec<&'static str>,
     /// See [`InvariantSpec::severity`].
     pub severity: Severity,
     /// See [`InvariantSpec::doc`].
@@ -61,14 +68,18 @@ impl InvariantDecl {
         relation: impl Into<String>,
         name: impl Into<String>,
         kind: InvariantKind,
-        rule: impl Into<String>,
+        query: impl Into<String>,
+        inputs: Vec<String>,
+        key_columns: Vec<&'static str>,
         doc: &'static str,
     ) -> Self {
         Self {
             name: name.into(),
             relation: relation.into(),
             kind,
-            rule: rule.into(),
+            query: query.into(),
+            inputs,
+            key_columns,
             severity: Severity::Error,
             doc,
         }

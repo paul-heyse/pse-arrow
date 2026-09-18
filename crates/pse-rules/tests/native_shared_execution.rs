@@ -8,20 +8,10 @@ mod fixture;
 mod row_key;
 
 use fixture::{Fixture, builder, declare, head, id, input};
-use pse_schema::model::{
-    Cell, ConflictPolicy, FieldContract, NullEquality, RuleDecl, RuleExpr as E, RuleHead,
-    RulePlan as P,
-};
+use pse_schema::model::{Cell, ConflictPolicy, FieldContract, RuleDecl, RuleInput};
 use std::collections::BTreeSet;
 
-fn scan(port: &'static str) -> P {
-    P::Scan {
-        relation: "authored.input".into(),
-        port,
-    }
-}
-
-fn program(plan: P) -> pse_schema::RegistryBuilder {
+fn program(sql: &str, inputs: Vec<RuleInput>) -> pse_schema::RegistryBuilder {
     let mut registry = builder();
     input(
         &mut registry,
@@ -53,45 +43,36 @@ fn program(plan: P) -> pse_schema::RegistryBuilder {
     );
     declare(
         &mut registry,
-        RuleDecl::new(
-            "shared",
-            "1",
-            0,
-            RuleHead::Relation("inferred.facts".into()),
-            plan,
-        )
-        .assertions("provenance.fact_assertions")
-        .stratified_negation()
-        .conflicts(ConflictPolicy::Undecided),
+        RuleDecl::new("shared", "1", 0, "inferred.facts", sql, inputs)
+            .assertions("provenance.fact_assertions")
+            .stratified_negation()
+            .conflicts(ConflictPolicy::Undecided),
     );
     registry
 }
 
 #[tokio::test]
 async fn joined_fanout_keeps_qualified_columns_and_every_actual_witness() {
-    let joined = P::EquiJoin {
-        left: Box::new(scan("left")),
-        right: Box::new(scan("right")),
-        keys: vec![("left.group".into(), "right.group".into())],
-        null_equality: NullEquality::NullEqualsNothing,
-    };
-    let plan = P::Union(
-        ["left", "right"]
-            .into_iter()
-            .map(|port| P::Project {
-                input: Box::new(joined.clone()),
-                columns: vec![
-                    ("id".into(), E::col(format!("{port}.id"))),
-                    ("value".into(), E::col(format!("{port}.value"))),
-                ],
-            })
-            .collect(),
-    );
+    let plan = r#"SELECT "left".id, "left".value FROM authored.input AS "left"
+        JOIN authored.input AS "right" ON "left"."group" = "right"."group"
+        UNION ALL
+        SELECT "right".id, "right".value FROM authored.input AS "left"
+        JOIN authored.input AS "right" ON "left"."group" = "right"."group""#;
     let rows = vec![
         vec![Cell::U64(10), Cell::U64(1), Cell::U64(7), Cell::F64(0.0)],
         vec![Cell::U64(20), Cell::U64(2), Cell::U64(7), Cell::F64(-0.0)],
     ];
-    let fixture = Fixture::new(program(plan), rows.clone(), 2);
+    let fixture = Fixture::new(
+        program(
+            plan,
+            vec![
+                fixture::read("authored.input", "left"),
+                fixture::read("authored.input", "right"),
+            ],
+        ),
+        rows.clone(),
+        2,
+    );
     let result = fixture.run(4).await.unwrap();
     let facts = fixture.rows(&result, "inferred.facts");
     assert_eq!(facts.len(), 2);
@@ -156,28 +137,20 @@ async fn joined_fanout_keeps_qualified_columns_and_every_actual_witness() {
         result
             .plans
             .iter()
-            .any(|plan| plan.explain_pgjson().contains("__pse_shared_column_"))
+            .any(|plan| plan.explain_pgjson().contains("Join"))
     );
 }
 
 #[tokio::test]
 async fn shared_literal_plans_do_not_equate_opposite_signed_zero() {
-    let literal = |value| P::Project {
-        input: Box::new(scan("source")),
-        columns: vec![
-            ("id".into(), E::col("id")),
-            ("value".into(), E::Lit(Cell::F64(value))),
-        ],
-    };
-    let positive = literal(0.0);
-    let negative = literal(-0.0);
     let fixture = Fixture::new(
-        program(P::Union(vec![
-            positive.clone(),
-            negative.clone(),
-            positive,
-            negative,
-        ])),
+        program(
+            "SELECT id, CAST('0.0' AS DOUBLE) AS value FROM authored.input
+            UNION ALL SELECT id, CAST('-0.0' AS DOUBLE) AS value FROM authored.input
+            UNION ALL SELECT id, CAST('0.0' AS DOUBLE) AS value FROM authored.input
+            UNION ALL SELECT id, CAST('-0.0' AS DOUBLE) AS value FROM authored.input",
+            vec![fixture::read("authored.input", "source")],
+        ),
         vec![vec![
             Cell::U64(10),
             Cell::U64(1),
@@ -208,23 +181,19 @@ async fn shared_literal_plans_do_not_equate_opposite_signed_zero() {
 
 #[tokio::test]
 async fn empty_shared_lookup_keeps_its_exact_negative_scope() {
-    let empty = P::Filter {
-        input: Box::new(scan("blocked")),
-        predicate: E::Lit(Cell::Bool(false)),
-    };
-    let plan = P::Project {
-        input: Box::new(P::AntiJoin {
-            left: Box::new(scan("actual")),
-            right: Box::new(P::Union(vec![empty.clone(), empty])),
-            keys: vec![("actual.id".into(), "id".into())],
-        }),
-        columns: vec![
-            ("id".into(), E::col("actual.id")),
-            ("value".into(), E::col("actual.value")),
-        ],
-    };
+    let plan = "SELECT actual.id, actual.value FROM authored.input AS actual
+        LEFT ANTI JOIN (
+            SELECT id FROM authored.input AS blocked WHERE false
+            UNION ALL SELECT id FROM authored.input AS blocked WHERE false
+        ) AS absent ON actual.id = absent.id";
     let fixture = Fixture::new(
-        program(plan),
+        program(
+            plan,
+            vec![
+                fixture::read("authored.input", "actual"),
+                fixture::negate("authored.input", "blocked"),
+            ],
+        ),
         vec![vec![
             Cell::U64(10),
             Cell::U64(1),

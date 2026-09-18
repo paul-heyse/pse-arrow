@@ -28,19 +28,15 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("document_id", T::id()).with_fk("authored.documents", "document_id"),
             column("field_path", T::native(arrow_schema::DataType::Utf8)),
-            column("ordinal", T::native(arrow_schema::DataType::UInt32)),
+            column("ordinal", T::nonnegative(i64::MAX)),
             column("source_relation_id", T::id())
                 .with_fk("reference.schema_relations", "relation_id"),
-            column(
-                "source_row_ordinal",
-                T::native(arrow_schema::DataType::UInt64),
-            ),
             column("owner_kind", T::enumeration("ExpressionOwnerKind")),
             column("owner_id", T::id()),
             column("lookup_name", T::native(arrow_schema::DataType::Utf8)).optional(),
             column("source_span", T::extended(ExtensionUse::SourceSpan)),
         ],
-        "Transient parser field roots (lookup_name absent), named path segments and qualified prefixes. Source row ordinals refer to the retained generated document batch; native source-key projection binds the complete declared key. Lexical interpretation remains in the source AST.",
+        "Parser field roots (lookup_name absent), named path segments and qualified prefixes. Field paths and source spans locate syntax; native source-key projection binds the complete declared key of the retained source row. Lexical interpretation remains in the source AST.",
     );
     relation(
         builder,
@@ -51,8 +47,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("document_id", T::id()),
             column("field_path", T::native(arrow_schema::DataType::Utf8)),
-            column("ordinal", T::native(arrow_schema::DataType::UInt32)),
-            column("match_ordinal", T::native(arrow_schema::DataType::UInt32)),
+            column("ordinal", T::nonnegative(i64::MAX)),
+            column("match_ordinal", T::nonnegative(i64::MAX)),
             column("source_key", T::row_key()),
             column("kind", T::enumeration("SourceBindingKind")),
             column("owner_template_id", T::id()).optional(),

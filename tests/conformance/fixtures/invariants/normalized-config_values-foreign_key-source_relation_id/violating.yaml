@@ -16,6 +16,7 @@
       {
         "authority": "[\"enum\",\"authored\"]",
         "checks": "[\"list\",[]]",
+        "delta_properties": "[\"list\",[]]",
         "derivation_granularity": "[\"enum\",\"row\"]",
         "doc": "[\"text\",\"value-1\"]",
         "name": "[\"text\",\"value-1\"]",

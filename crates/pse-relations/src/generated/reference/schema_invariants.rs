@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    121u8, 139u8, 48u8, 104u8, 125u8, 100u8, 183u8, 190u8, 33u8, 207u8, 66u8, 175u8,
-    168u8, 185u8, 185u8, 223u8, 88u8, 243u8, 107u8, 111u8, 42u8, 33u8, 31u8, 155u8,
-    119u8, 81u8, 138u8, 87u8, 7u8, 21u8, 226u8, 98u8,
+    253u8, 220u8, 18u8, 157u8, 231u8, 112u8, 67u8, 9u8, 53u8, 5u8, 217u8, 180u8, 227u8,
+    243u8, 125u8, 236u8, 82u8, 43u8, 12u8, 64u8, 167u8, 74u8, 3u8, 22u8, 92u8, 111u8,
+    127u8, 150u8, 43u8, 101u8, 240u8, 178u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -33,8 +33,12 @@ pub struct ReferenceSchemaInvariantsRow {
     pub r#relation_id: pse_ids::SemanticId,
     ///What kind of statement it makes.
     pub r#kind: crate::generated::enums::InvariantKind,
-    ///The typed rule plan that returns the violating keys (blueprint §6.11).
-    pub r#rule_id: pse_ids::SemanticId,
+    ///Native SQL returning offending keys.
+    pub r#query: String,
+    ///Explicitly selected semantic input relations.
+    pub r#inputs: Vec<String>,
+    ///Ordered offending key columns.
+    pub r#key_columns: Vec<String>,
     ///Whether a violation stops a commit.
     pub r#severity: crate::generated::enums::Severity,
     ///What the invariant means.
@@ -47,7 +51,9 @@ impl crate::typed::CellCodec for ReferenceSchemaInvariantsRow {
                 crate::typed::CellCodec::into_cell(self.r#invariant_id),
                 crate::typed::CellCodec::into_cell(self.r#relation_id),
                 crate::typed::CellCodec::into_cell(self.r#kind),
-                crate::typed::CellCodec::into_cell(self.r#rule_id),
+                crate::typed::CellCodec::into_cell(self.r#query),
+                crate::typed::CellCodec::into_cell(self.r#inputs),
+                crate::typed::CellCodec::into_cell(self.r#key_columns),
                 crate::typed::CellCodec::into_cell(self.r#severity),
                 crate::typed::CellCodec::into_cell(self.r#doc),
             ],
@@ -57,7 +63,7 @@ impl crate::typed::CellCodec for ReferenceSchemaInvariantsRow {
         let pse_schema::model::Cell::Struct(values) = cell else {
             return Err(crate::typed::mismatch(stringify!(ReferenceSchemaInvariantsRow)));
         };
-        if values.len() != 6usize {
+        if values.len() != 8usize {
             return Err(crate::typed::mismatch(stringify!(ReferenceSchemaInvariantsRow)));
         }
         let mut values = values.into_iter();
@@ -83,7 +89,25 @@ impl crate::typed::CellCodec for ReferenceSchemaInvariantsRow {
                         stringify!(ReferenceSchemaInvariantsRow),
                     ))?,
             )?,
-            r#rule_id: <pse_ids::SemanticId as crate::typed::CellCodec>::from_cell(
+            r#query: <String as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(ReferenceSchemaInvariantsRow),
+                    ))?,
+            )?,
+            r#inputs: <Vec<
+                String,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(ReferenceSchemaInvariantsRow),
+                    ))?,
+            )?,
+            r#key_columns: <Vec<
+                String,
+            > as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -125,12 +149,17 @@ impl crate::columnar::ArrowValue for ReferenceSchemaInvariantsRow {
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#kind, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#rule_id, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#query, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#key_columns,
+            children[5usize].as_mut(),
+        )?;
         crate::columnar::ArrowValue::append(
             &self.r#severity,
-            children[4usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#doc, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#doc, children[7usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -150,13 +179,17 @@ impl crate::columnar::ArrowValue for ReferenceSchemaInvariantsRow {
         <crate::generated::enums::InvariantKind as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[3usize].as_mut(),
-        )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
+        <Vec<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <crate::generated::enums::Severity as crate::columnar::ArrowValue>::append_null(
-            children[4usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
-        <String as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -179,16 +212,28 @@ impl crate::columnar::ArrowValue for ReferenceSchemaInvariantsRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#rule_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#query: <String as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#severity: <crate::generated::enums::Severity as crate::columnar::ArrowValue>::read(
+            r#inputs: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#doc: <String as crate::columnar::ArrowValue>::read(
+            r#key_columns: <Vec<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#severity: <crate::generated::enums::Severity as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#doc: <String as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -207,7 +252,9 @@ impl ReferenceSchemaInvariantsRow {
             crate::typed::CellCodec::into_cell(self.r#invariant_id),
             crate::typed::CellCodec::into_cell(self.r#relation_id),
             crate::typed::CellCodec::into_cell(self.r#kind),
-            crate::typed::CellCodec::into_cell(self.r#rule_id),
+            crate::typed::CellCodec::into_cell(self.r#query),
+            crate::typed::CellCodec::into_cell(self.r#inputs),
+            crate::typed::CellCodec::into_cell(self.r#key_columns),
             crate::typed::CellCodec::into_cell(self.r#severity),
             crate::typed::CellCodec::into_cell(self.r#doc),
         ]
@@ -223,7 +270,7 @@ impl ReferenceSchemaInvariantsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"edb7fd111f24922895be7fbd7b56e705\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_invariants\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"stable\"],[\"list\",[[\"text\",\"invariant_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"invariant_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"`named_id(REGISTRY_PACKAGE_ID, \\\"invariant:<relation>:<name>\\\")` (ADR-0050).\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"invariant_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The relation the invariant constrains.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What kind of statement it makes.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"InvariantKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"80e4e358bba831dd407d1dc97f93d513\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"80e4e358bba831dd407d1dc97f93d513\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:InvariantKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:InvariantKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"80e4e358bba831dd407d1dc97f93d513\\\"}\"],[\"struct\",[[\"id\",\"80e4e358bba831dd407d1dc97f93d513\"],[\"text\",\"InvariantKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"unique\"],[\"null\",null],[\"bool\",false],[\"text\",\"The named columns are unique.\"]]],[\"struct\",[[\"text\",\"foreign_key\"],[\"null\",null],[\"bool\",false],[\"text\",\"Every value resolves in its target.\"]]],[\"struct\",[[\"text\",\"check\"],[\"null\",null],[\"bool\",false],[\"text\",\"A row-local predicate holds.\"]]],[\"struct\",[[\"text\",\"cardinality\"],[\"null\",null],[\"bool\",false],[\"text\",\"A group has a declared size.\"]]],[\"struct\",[[\"text\",\"domain\"],[\"null\",null],[\"bool\",false],[\"text\",\"A value lies in a declared domain.\"]]],[\"struct\",[[\"text\",\"closure\"],[\"null\",null],[\"bool\",false],[\"text\",\"A set is closed under a relation.\"]]],[\"struct\",[[\"text\",\"acyclic\"],[\"null\",null],[\"bool\",false],[\"text\",\"A declared edge relation has no cycle.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The typed rule plan that returns the violating keys (blueprint §6.11).\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"severity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Whether a violation stops a commit.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Severity\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"severity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"892c708e0312e960737a64ef9dd52f93\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"892c708e0312e960737a64ef9dd52f93\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Severity\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Severity\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"892c708e0312e960737a64ef9dd52f93\\\"}\"],[\"struct\",[[\"id\",\"892c708e0312e960737a64ef9dd52f93\"],[\"text\",\"Severity\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"error\"],[\"null\",null],[\"bool\",false],[\"text\",\"The change set is rejected.\"]]],[\"struct\",[[\"text\",\"warning\"],[\"null\",null],[\"bool\",false],[\"text\",\"Reported; the commit proceeds.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the invariant means.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"The commit contract: every invariant P2 must find satisfied (blueprint §22.2).\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"edb7fd111f24922895be7fbd7b56e705\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"edb7fd111f24922895be7fbd7b56e705\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"schema_invariants\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"stable\"],[\"list\",[[\"text\",\"invariant_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"invariant_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"`named_id(REGISTRY_PACKAGE_ID, \\\"invariant:<relation>:<name>\\\")` (ADR-0050).\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"invariant_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"The relation the invariant constrains.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"relation_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What kind of statement it makes.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"InvariantKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"80e4e358bba831dd407d1dc97f93d513\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"80e4e358bba831dd407d1dc97f93d513\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:InvariantKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:InvariantKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"80e4e358bba831dd407d1dc97f93d513\\\"}\"],[\"struct\",[[\"id\",\"80e4e358bba831dd407d1dc97f93d513\"],[\"text\",\"InvariantKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"unique\"],[\"null\",null],[\"bool\",false],[\"text\",\"The named columns are unique.\"]]],[\"struct\",[[\"text\",\"foreign_key\"],[\"null\",null],[\"bool\",false],[\"text\",\"Every value resolves in its target.\"]]],[\"struct\",[[\"text\",\"check\"],[\"null\",null],[\"bool\",false],[\"text\",\"A row-local predicate holds.\"]]],[\"struct\",[[\"text\",\"cardinality\"],[\"null\",null],[\"bool\",false],[\"text\",\"A group has a declared size.\"]]],[\"struct\",[[\"text\",\"domain\"],[\"null\",null],[\"bool\",false],[\"text\",\"A value lies in a declared domain.\"]]],[\"struct\",[[\"text\",\"closure\"],[\"null\",null],[\"bool\",false],[\"text\",\"A set is closed under a relation.\"]]],[\"struct\",[[\"text\",\"acyclic\"],[\"null\",null],[\"bool\",false],[\"text\",\"A declared edge relation has no cycle.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"query\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Native SQL returning offending keys.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"query\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"inputs\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Explicitly selected semantic input relations.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.collection\"],[\"text\",\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"]]]]]]],[\"struct\",[[\"text\",\"inputs\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.collection\"],[\"text\",\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"List\\\":{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.collection\\\":\\\"{\\\\\\\"maximum\\\\\\\":null,\\\\\\\"minimum\\\\\\\":0,\\\\\\\"order\\\\\\\":\\\\\\\"sequence\\\\\\\",\\\\\\\"unique\\\\\\\":false}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"item\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"item\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"key_columns\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Ordered offending key columns.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.collection\"],[\"text\",\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"]]]]]]],[\"struct\",[[\"text\",\"key_columns\"],[\"text\",\"{\\\"List\\\":{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.collection\"],[\"text\",\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"List\\\":{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.collection\\\":\\\"{\\\\\\\"maximum\\\\\\\":null,\\\\\\\"minimum\\\\\\\":0,\\\\\\\"order\\\\\\\":\\\\\\\"sequence\\\\\\\",\\\\\\\"unique\\\\\\\":false}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"item\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"item\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"severity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Whether a violation stops a commit.\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"Severity\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"severity\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"892c708e0312e960737a64ef9dd52f93\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"892c708e0312e960737a64ef9dd52f93\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:Severity\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:Severity\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"892c708e0312e960737a64ef9dd52f93\\\"}\"],[\"struct\",[[\"id\",\"892c708e0312e960737a64ef9dd52f93\"],[\"text\",\"Severity\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"error\"],[\"null\",null],[\"bool\",false],[\"text\",\"The change set is rejected.\"]]],[\"struct\",[[\"text\",\"warning\"],[\"null\",null],[\"bool\",false],[\"text\",\"Reported; the commit proceeds.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"What the invariant means.\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"text\",\"doc\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"label\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"The commit contract: every invariant P2 must find satisfied (blueprint §22.2).\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"edb7fd111f24922895be7fbd7b56e705\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -299,10 +346,10 @@ impl crate::columnar::RelationRow for ReferenceSchemaInvariantsRow {
         ReferenceSchemaInvariantsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        76_096_usize + size_of::<Self::Builder>()
+        107_168_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        120usize
+        160usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -320,7 +367,31 @@ impl crate::columnar::RelationRow for ReferenceSchemaInvariantsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(16usize)?,
+            crate::columnar::allocation_add(8, (self.r#query).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#inputs)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).len())?,
+                    ),
+                )?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            (self.r#key_columns)
+                .iter()
+                .try_fold(
+                    8usize,
+                    |bytes, item| crate::columnar::allocation_add(
+                        bytes,
+                        crate::columnar::allocation_add(8, (item).len())?,
+                    ),
+                )?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -340,7 +411,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "invariant_id",
@@ -358,18 +429,28 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "rule_id",
+        name: "query",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "severity",
+        name: "inputs",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "doc",
+        name: "key_columns",
         position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "severity",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "doc",
+        position: 7usize,
     },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
@@ -380,7 +461,9 @@ pub struct ReferenceSchemaInvariantsView<'a> {
     invariant_id_column: &'a arrow_array::FixedSizeBinaryArray,
     relation_id_column: &'a arrow_array::FixedSizeBinaryArray,
     kind_column: &'a arrow_array::StringArray,
-    rule_id_column: &'a arrow_array::FixedSizeBinaryArray,
+    query_column: &'a arrow_array::StringArray,
+    inputs_column: &'a arrow_array::ListArray,
+    key_columns_column: &'a arrow_array::ListArray,
     severity_column: &'a arrow_array::StringArray,
     doc_column: &'a arrow_array::StringArray,
 }
@@ -429,15 +512,21 @@ impl<'a> ReferenceSchemaInvariantsView<'a> {
             kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
-            rule_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
+            query_column: crate::columnar::array::<
+                arrow_array::StringArray,
             >(batch.column(3usize).as_ref())?,
+            inputs_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(4usize).as_ref())?,
+            key_columns_column: crate::columnar::array::<
+                arrow_array::ListArray,
+            >(batch.column(5usize).as_ref())?,
             severity_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             doc_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -490,15 +579,39 @@ impl<'a> ReferenceSchemaInvariantsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "rule_id",
+        "query",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn rule_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.rule_id_column
+    pub const fn query_column(&self) -> &'a arrow_array::StringArray {
+        self.query_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "rule_id", "`.")]
-    pub fn rule_id_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "query", "`.")]
+    pub fn query_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "inputs",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn inputs_column(&self) -> &'a arrow_array::ListArray {
+        self.inputs_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "inputs", "`.")]
+    pub fn inputs_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "key_columns",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn key_columns_column(&self) -> &'a arrow_array::ListArray {
+        self.key_columns_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "key_columns", "`.")]
+    pub fn key_columns_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -510,7 +623,7 @@ impl<'a> ReferenceSchemaInvariantsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "severity", "`.")]
     pub fn severity_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -522,7 +635,7 @@ impl<'a> ReferenceSchemaInvariantsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "doc", "`.")]
     pub fn doc_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -545,7 +658,12 @@ impl<'a> ReferenceSchemaInvariantsView<'a> {
                 index,
             )?,
             r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
-            r#rule_id: crate::columnar::ArrowValue::read(self.rule_id_column, index)?,
+            r#query: crate::columnar::ArrowValue::read(self.query_column, index)?,
+            r#inputs: crate::columnar::ArrowValue::read(self.inputs_column, index)?,
+            r#key_columns: crate::columnar::ArrowValue::read(
+                self.key_columns_column,
+                index,
+            )?,
             r#severity: crate::columnar::ArrowValue::read(self.severity_column, index)?,
             r#doc: crate::columnar::ArrowValue::read(self.doc_column, index)?,
         })
@@ -630,16 +748,24 @@ impl ReferenceSchemaInvariantsBuilder {
                     columns[2usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#rule_id,
+                    &row.r#query,
                     columns[3usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#severity,
+                    &row.r#inputs,
                     columns[4usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#doc,
+                    &row.r#key_columns,
                     columns[5usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#severity,
+                    columns[6usize].as_mut(),
+                )?;
+                crate::columnar::ArrowValue::append(
+                    &row.r#doc,
+                    columns[7usize].as_mut(),
                 )?;
                 Ok(())
             })

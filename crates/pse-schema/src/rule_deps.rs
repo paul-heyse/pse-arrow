@@ -13,7 +13,7 @@
 //! Assembly resolves exact rule and relation identities. The row projection identifies
 //! each dependency derivation from those identities, its port and its mode.
 
-use crate::model::{DependencyMode, RuleDependency, RuleHead, RuleSpec};
+use crate::model::{DependencyMode, RuleDependency, RuleSpec};
 use crate::{Registry, SchemaError};
 
 /// The dependency facts of `rules`, sorted.
@@ -23,7 +23,10 @@ pub(crate) fn derive(
 ) -> Result<Vec<RuleDependency>, SchemaError> {
     let mut out: Vec<RuleDependency> = Vec::new();
     for rule in rules {
-        for (relation, port, mode) in rule.plan.dependencies() {
+        for input in &rule.inputs {
+            let relation = input.relation.as_str();
+            let port = input.port;
+            let mode = input.mode;
             let relation_id = registry
                 .relation(relation)
                 .ok_or_else(|| SchemaError::UnknownReference {
@@ -40,7 +43,8 @@ pub(crate) fn derive(
                 stratum: rule.stratum,
             });
         }
-        if let RuleHead::Relation(relation) = &rule.head {
+        {
+            let relation = &rule.head;
             let relation_id = registry
                 .relation(relation)
                 .ok_or_else(|| SchemaError::UnknownReference {

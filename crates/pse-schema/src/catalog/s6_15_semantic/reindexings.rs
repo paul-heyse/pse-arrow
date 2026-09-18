@@ -15,7 +15,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("source_group_id", T::id()).with_fk("compiled.symbol_groups", "group_id"),
             column("instance_id", T::id()),
             column("source_id", T::id()).with_fk("normalized.expression_sources", "source_id"),
-            column("source_node_id", T::native(arrow_schema::DataType::UInt64)),
+            column("source_node_id", T::nonnegative(i64::MAX)),
             column("bound_indices", T::list(T::id())),
             column(
                 "fixed_indices",

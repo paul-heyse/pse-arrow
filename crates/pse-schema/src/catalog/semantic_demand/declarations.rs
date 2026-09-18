@@ -3,7 +3,6 @@
 
 //! Identity framing is separate from relational validity and applicability.
 use super::{N, RegistryBuilder, S, T, assertion, column, index, provenance, relation};
-
 pub(super) fn declare(builder: &mut RegistryBuilder) {
     framing(builder);
     requests(builder);
@@ -69,7 +68,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
 }
 #[expect(
     clippy::too_many_lines,
-    reason = "Keep the declarative relation and native rule family together for schema review"
+    reason = "one declarative catalog family keeps its native rules and field declarations together"
 )]
 fn framing(builder: &mut RegistryBuilder) {
     relation(
@@ -81,10 +80,7 @@ fn framing(builder: &mut RegistryBuilder) {
         vec![
             column("requirement_id", T::id()),
             column("method_id", T::id()),
-            column(
-                "dependency_ordinal",
-                T::native(arrow_schema::DataType::UInt16),
-            ),
+            column("dependency_ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("symbol_decl_id", T::id()),
             column("product_id", T::id()),
             column("index", index()),
@@ -145,7 +141,7 @@ fn framing(builder: &mut RegistryBuilder) {
         &["requirement_id", "position"],
         vec![
             column("requirement_id", T::id()),
-            column("position", T::native(arrow_schema::DataType::UInt16)),
+            column("position", T::nonnegative(i64::from(u16::MAX))),
             column("domain_id", T::id()),
             column("member_id", T::id()),
             column("kind", T::enumeration("DomainKind")),
@@ -199,10 +195,7 @@ fn framing(builder: &mut RegistryBuilder) {
         vec![
             column("requirement_id", T::id()),
             column("method_id", T::id()),
-            column(
-                "dependency_ordinal",
-                T::native(arrow_schema::DataType::UInt16),
-            ),
+            column("dependency_ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("target_requirement_id", T::id()),
             provenance(),
         ],
@@ -279,7 +272,7 @@ fn selection(builder: &mut RegistryBuilder) {
             column("requirement_id", T::id()),
             column("selection_id", T::id()),
             column("method_id", T::id()),
-            column("rank", T::native(arrow_schema::DataType::UInt16)),
+            column("rank", T::nonnegative(i64::from(u16::MAX))),
             provenance(),
         ],
         "All greatest-rank actual applicable selections; equal-ranked distinct methods remain ambiguous.",
@@ -296,7 +289,6 @@ fn selection(builder: &mut RegistryBuilder) {
     resolution.doc = "Complete static resolution before recursive demand; missing and ambiguous winners remain explicit.";
     builder.declare_relation(resolution);
 }
-
 fn requests(builder: &mut RegistryBuilder) {
     relation(
         builder,
@@ -332,7 +324,6 @@ fn requests(builder: &mut RegistryBuilder) {
         "Exact source demand occurrences with actual scope/member and guarded tuple correspondence.",
     );
 }
-
 fn reads(builder: &mut RegistryBuilder) {
     relation(
         builder,
@@ -375,14 +366,10 @@ fn reads(builder: &mut RegistryBuilder) {
         column("symbol_decl_id", T::id()).optional(),
         column("index", index()),
         column("guard_source_id", T::id()).optional(),
-        column("guard_node_id", T::native(arrow_schema::DataType::UInt64)).optional(),
+        column("guard_node_id", T::nonnegative(i64::MAX)).optional(),
         column("guard_index", index()),
         column("outer_guard_source_id", T::id()).optional(),
-        column(
-            "outer_guard_node_id",
-            T::native(arrow_schema::DataType::UInt64),
-        )
-        .optional(),
+        column("outer_guard_node_id", T::nonnegative(i64::MAX)).optional(),
         provenance(),
     ];
     relation(

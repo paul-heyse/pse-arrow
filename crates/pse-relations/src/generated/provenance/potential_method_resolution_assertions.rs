@@ -15,10 +15,295 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    173u8, 178u8, 86u8, 88u8, 238u8, 59u8, 217u8, 204u8, 201u8, 15u8, 111u8, 214u8, 83u8,
-    232u8, 199u8, 67u8, 89u8, 155u8, 42u8, 248u8, 41u8, 222u8, 206u8, 144u8, 142u8,
-    200u8, 222u8, 29u8, 159u8, 3u8, 199u8, 231u8,
+    18u8, 98u8, 11u8, 222u8, 75u8, 148u8, 134u8, 187u8, 203u8, 238u8, 182u8, 88u8, 137u8,
+    188u8, 69u8, 218u8, 42u8, 177u8, 131u8, 54u8, 32u8, 32u8, 153u8, 68u8, 188u8, 255u8,
+    133u8, 28u8, 185u8, 57u8, 149u8, 169u8,
 ]);
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved {
+    ///method_id
+    pub r#method_id: pse_ids::SemanticId,
+}
+impl crate::typed::CellCodec
+for ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![crate::typed::CellCodec::into_cell(self.r#method_id)],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(
+                        ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved
+                    ),
+                ),
+            );
+        };
+        if values.len() != 1usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(
+                        ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved
+                    ),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#method_id: <pse_ids::SemanticId as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(
+                            ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved
+                        ),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#method_id,
+            children[0usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#method_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ProvenancePotentialMethodResolutionAssertionsFieldOutcome {
+    ///kind
+    pub r#kind: crate::generated::enums::ResolutionStatus,
+    ///resolved
+    pub r#resolved: Option<
+        ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved,
+    >,
+}
+impl crate::typed::CellCodec
+for ProvenancePotentialMethodResolutionAssertionsFieldOutcome {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#resolved),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(ProvenancePotentialMethodResolutionAssertionsFieldOutcome),
+                ),
+            );
+        };
+        if values.len() != 2usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(ProvenancePotentialMethodResolutionAssertionsFieldOutcome),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#kind: <crate::generated::enums::ResolutionStatus as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(
+                            ProvenancePotentialMethodResolutionAssertionsFieldOutcome
+                        ),
+                    ))?,
+            )?,
+            r#resolved: <Option<
+                ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(
+                            ProvenancePotentialMethodResolutionAssertionsFieldOutcome
+                        ),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue
+for ProvenancePotentialMethodResolutionAssertionsFieldOutcome {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#resolved,
+            children[1usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#resolved: <Option<
+                ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// The declared selected payload, borrowed without a second row representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ProvenancePotentialMethodResolutionAssertionsFieldOutcomeSelected<'a> {
+    ///ambiguous
+    Ambiguous,
+    ///resolved
+    Resolved(&'a ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved),
+    ///unresolved
+    Unresolved,
+}
+impl ProvenancePotentialMethodResolutionAssertionsFieldOutcome {
+    #[doc = concat!("Construct the ", "ambiguous", " arm with every other arm absent.")]
+    pub fn from_ambiguous() -> Self {
+        Self {
+            r#kind: crate::generated::enums::ResolutionStatus::Ambiguous,
+            r#resolved: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "resolved", " arm with every other arm absent.")]
+    pub fn from_resolved(
+        value: ProvenancePotentialMethodResolutionAssertionsFieldOutcomeResolved,
+    ) -> Self {
+        Self {
+            r#kind: crate::generated::enums::ResolutionStatus::Resolved,
+            r#resolved: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "unresolved", " arm with every other arm absent.")]
+    pub fn from_unresolved() -> Self {
+        Self {
+            r#kind: crate::generated::enums::ResolutionStatus::Unresolved,
+            r#resolved: None,
+        }
+    }
+    /// Select exactly the declared payload.
+    /// # Errors
+    /// Unknown tag, missing selected arm or any overlapping arm.
+    pub fn selected(
+        &self,
+    ) -> Result<
+        ProvenancePotentialMethodResolutionAssertionsFieldOutcomeSelected<'_>,
+        crate::RelationError,
+    > {
+        match (self.r#kind.as_str(), self.r#resolved.as_ref()) {
+            ("ambiguous", None) => {
+                Ok(
+                    ProvenancePotentialMethodResolutionAssertionsFieldOutcomeSelected::Ambiguous,
+                )
+            }
+            ("resolved", Some(value)) => {
+                Ok(
+                    ProvenancePotentialMethodResolutionAssertionsFieldOutcomeSelected::Resolved(
+                        value,
+                    ),
+                )
+            }
+            ("unresolved", None) => {
+                Ok(
+                    ProvenancePotentialMethodResolutionAssertionsFieldOutcomeSelected::Unresolved,
+                )
+            }
+            _ => {
+                Err(
+                    crate::typed::mismatch(
+                        "tagged value requires exactly its selected arm",
+                    ),
+                )
+            }
+        }
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -35,14 +320,8 @@ pub struct ProvenancePotentialMethodResolutionAssertionsRow {
     pub r#truth: crate::generated::enums::TruthValue,
     ///requirement_id
     pub r#requirement_id: pse_ids::SemanticId,
-    ///method_id
-    pub r#method_id: Option<pse_ids::SemanticId>,
-    ///realization
-    pub r#realization: Option<crate::generated::enums::MethodRealization>,
-    ///template_id
-    pub r#template_id: Option<pse_ids::SemanticId>,
-    ///status
-    pub r#status: crate::generated::enums::ResolutionStatus,
+    ///outcome
+    pub r#outcome: ProvenancePotentialMethodResolutionAssertionsFieldOutcome,
 }
 impl crate::typed::CellCodec for ProvenancePotentialMethodResolutionAssertionsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -52,10 +331,7 @@ impl crate::typed::CellCodec for ProvenancePotentialMethodResolutionAssertionsRo
                 crate::typed::CellCodec::into_cell(self.r#rule_id),
                 crate::typed::CellCodec::into_cell(self.r#truth),
                 crate::typed::CellCodec::into_cell(self.r#requirement_id),
-                crate::typed::CellCodec::into_cell(self.r#method_id),
-                crate::typed::CellCodec::into_cell(self.r#realization),
-                crate::typed::CellCodec::into_cell(self.r#template_id),
-                crate::typed::CellCodec::into_cell(self.r#status),
+                crate::typed::CellCodec::into_cell(self.r#outcome),
             ],
         )
     }
@@ -67,7 +343,7 @@ impl crate::typed::CellCodec for ProvenancePotentialMethodResolutionAssertionsRo
                 ),
             );
         };
-        if values.len() != 8usize {
+        if values.len() != 5usize {
             return Err(
                 crate::typed::mismatch(
                     stringify!(ProvenancePotentialMethodResolutionAssertionsRow),
@@ -104,34 +380,7 @@ impl crate::typed::CellCodec for ProvenancePotentialMethodResolutionAssertionsRo
                         stringify!(ProvenancePotentialMethodResolutionAssertionsRow),
                     ))?,
             )?,
-            r#method_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(ProvenancePotentialMethodResolutionAssertionsRow),
-                    ))?,
-            )?,
-            r#realization: <Option<
-                crate::generated::enums::MethodRealization,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(ProvenancePotentialMethodResolutionAssertionsRow),
-                    ))?,
-            )?,
-            r#template_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(ProvenancePotentialMethodResolutionAssertionsRow),
-                    ))?,
-            )?,
-            r#status: <crate::generated::enums::ResolutionStatus as crate::typed::CellCodec>::from_cell(
+            r#outcome: <ProvenancePotentialMethodResolutionAssertionsFieldOutcome as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -160,19 +409,7 @@ impl crate::columnar::ArrowValue for ProvenancePotentialMethodResolutionAssertio
             &self.r#requirement_id,
             children[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#method_id,
-            children[4usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#realization,
-            children[5usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#template_id,
-            children[6usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(&self.r#status, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[4usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -195,17 +432,8 @@ impl crate::columnar::ArrowValue for ProvenancePotentialMethodResolutionAssertio
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
-        <Option<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
-        <Option<
-            crate::generated::enums::MethodRealization,
-        > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <Option<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::append_null(
-            children[7usize].as_mut(),
+        <ProvenancePotentialMethodResolutionAssertionsFieldOutcome as crate::columnar::ArrowValue>::append_null(
+            children[4usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -233,26 +461,8 @@ impl crate::columnar::ArrowValue for ProvenancePotentialMethodResolutionAssertio
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#method_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
+            r#outcome: <ProvenancePotentialMethodResolutionAssertionsFieldOutcome as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
-                index,
-            )?,
-            r#realization: <Option<
-                crate::generated::enums::MethodRealization,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(5usize).as_ref(),
-                index,
-            )?,
-            r#template_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(6usize).as_ref(),
-                index,
-            )?,
-            r#status: <crate::generated::enums::ResolutionStatus as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
                 index,
             )?,
         })
@@ -272,10 +482,7 @@ impl ProvenancePotentialMethodResolutionAssertionsRow {
             crate::typed::CellCodec::into_cell(self.r#rule_id),
             crate::typed::CellCodec::into_cell(self.r#truth),
             crate::typed::CellCodec::into_cell(self.r#requirement_id),
-            crate::typed::CellCodec::into_cell(self.r#method_id),
-            crate::typed::CellCodec::into_cell(self.r#realization),
-            crate::typed::CellCodec::into_cell(self.r#template_id),
-            crate::typed::CellCodec::into_cell(self.r#status),
+            crate::typed::CellCodec::into_cell(self.r#outcome),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -289,7 +496,7 @@ impl ProvenancePotentialMethodResolutionAssertionsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"09f565251769c43cc8dafe16e4255690\"],[\"struct\",[[\"text\",\"provenance\"],[\"text\",\"potential_method_resolution_assertions\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"rule\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"assertion_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"assertion_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Finite assertion identity\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"assertion_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Versioned producer rule\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"truth\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Candidate truth\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"TruthValue\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"truth\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b16e739b90409336d719d0f028aecd0f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"b16e739b90409336d719d0f028aecd0f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:TruthValue\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:TruthValue\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b16e739b90409336d719d0f028aecd0f\\\"}\"],[\"struct\",[[\"id\",\"b16e739b90409336d719d0f028aecd0f\"],[\"text\",\"TruthValue\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"true\"],[\"null\",null],[\"bool\",false],[\"text\",\"Decided true; the row goes to the head relation.\"]]],[\"struct\",[[\"text\",\"false\"],[\"null\",null],[\"bool\",false],[\"text\",\"Decided false.\"]]],[\"struct\",[[\"text\",\"unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"The predicate could not decide.\"]]],[\"struct\",[[\"text\",\"conflict\"],[\"null\",null],[\"bool\",false],[\"text\",\"Two rules asserted incompatible values for one key.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"requirement_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"realization\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"realization\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"MethodRealization\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"realization\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"752d525a25de5719790eec0014f36139\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"752d525a25de5719790eec0014f36139\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:MethodRealization\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:MethodRealization\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"752d525a25de5719790eec0014f36139\\\"}\"],[\"struct\",[[\"id\",\"752d525a25de5719790eec0014f36139\"],[\"text\",\"MethodRealization\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"equation_template\"],[\"null\",null],[\"bool\",false],[\"text\",\"equation_template\"]]],[\"struct\",[[\"text\",\"kernel\"],[\"null\",null],[\"bool\",false],[\"text\",\"kernel\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"status\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"status\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ResolutionStatus\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"status\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"1de629f3b81d393338f05dfbd613a79a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ResolutionStatus\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ResolutionStatus\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"],[\"struct\",[[\"id\",\"1de629f3b81d393338f05dfbd613a79a\"],[\"text\",\"ResolutionStatus\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"resolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"resolved\"]]],[\"struct\",[[\"text\",\"unresolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"unresolved\"]]],[\"struct\",[[\"text\",\"ambiguous\"],[\"null\",null],[\"bool\",false],[\"text\",\"ambiguous\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Mechanically projected P6 rule assertions.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"09f565251769c43cc8dafe16e4255690\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"provenance\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"09f565251769c43cc8dafe16e4255690\"],[\"struct\",[[\"text\",\"provenance\"],[\"text\",\"potential_method_resolution_assertions\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"rule\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"assertion_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"assertion_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Finite assertion identity\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"assertion_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Versioned producer rule\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"text\",\"rule_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"reference\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"truth\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"Candidate truth\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"TruthValue\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"truth\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b16e739b90409336d719d0f028aecd0f\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"b16e739b90409336d719d0f028aecd0f\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:TruthValue\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:TruthValue\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"b16e739b90409336d719d0f028aecd0f\\\"}\"],[\"struct\",[[\"id\",\"b16e739b90409336d719d0f028aecd0f\"],[\"text\",\"TruthValue\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"true\"],[\"null\",null],[\"bool\",false],[\"text\",\"Decided true; the row goes to the head relation.\"]]],[\"struct\",[[\"text\",\"false\"],[\"null\",null],[\"bool\",false],[\"text\",\"Decided false.\"]]],[\"struct\",[[\"text\",\"unknown\"],[\"null\",null],[\"bool\",false],[\"text\",\"The predicate could not decide.\"]]],[\"struct\",[[\"text\",\"conflict\"],[\"null\",null],[\"bool\",false],[\"text\",\"Two rules asserted incompatible values for one key.\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"requirement_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"requirement_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"outcome\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"ResolutionStatus\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"resolved\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"outcome\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"ambiguous\\\":null,\\\"resolved\\\":\\\"resolved\\\",\\\"unresolved\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"text\",\"outcome\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"1de629f3b81d393338f05dfbd613a79a\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:ResolutionStatus\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.fk\\\":\\\"reference.method_specs.method_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":{\\\\\\\"FixedSizeBinary\\\\\\\":16},\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.extension\\\\\\\":\\\\\\\"pse.semantic_id\\\\\\\",\\\\\\\"pse.domain.fk.column\\\\\\\":\\\\\\\"method_id\\\\\\\",\\\\\\\"pse.domain.fk.relation\\\\\\\":\\\\\\\"reference.method_specs\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"method_id\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"resolved\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"ResolutionStatus\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"resolved\\\",\\\"nullable\\\":true}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.tagged_alternative\\\":\\\"{\\\\\\\"arms\\\\\\\":{\\\\\\\"ambiguous\\\\\\\":null,\\\\\\\"resolved\\\\\\\":\\\\\\\"resolved\\\\\\\",\\\\\\\"unresolved\\\\\\\":null},\\\\\\\"discriminator\\\\\\\":\\\\\\\"kind\\\\\\\"}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"ambiguous\\\":null,\\\"resolved\\\":\\\"resolved\\\",\\\"unresolved\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ResolutionStatus\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"1de629f3b81d393338f05dfbd613a79a\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ResolutionStatus\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ResolutionStatus\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"1de629f3b81d393338f05dfbd613a79a\\\"}\"],[\"struct\",[[\"id\",\"1de629f3b81d393338f05dfbd613a79a\"],[\"text\",\"ResolutionStatus\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"resolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"resolved\"]]],[\"struct\",[[\"text\",\"unresolved\"],[\"null\",null],[\"bool\",false],[\"text\",\"unresolved\"]]],[\"struct\",[[\"text\",\"ambiguous\"],[\"null\",null],[\"bool\",false],[\"text\",\"ambiguous\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"resolved\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"resolved\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.fk\\\":\\\"reference.method_specs.method_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"method_id\\\",\\\"pse.domain.fk.relation\\\":\\\"reference.method_specs\\\"},\\\"name\\\":\\\"method_id\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"method_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"reference.method_specs\"]]]]]]],[\"struct\",[[\"text\",\"method_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"reference.method_specs.method_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"3c35b312695b9c4cc0877c9eacfce7cb\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_specs\"],[\"u64\",2]]]]]]]]]]],[\"null\",null]]]]]]],[\"null\",null]]]]],[\"text\",\"Mechanically projected P6 rule assertions.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"09f565251769c43cc8dafe16e4255690\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"provenance\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -368,10 +575,10 @@ impl crate::columnar::RelationRow for ProvenancePotentialMethodResolutionAsserti
         ProvenancePotentialMethodResolutionAssertionsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        102_104_usize + size_of::<Self::Builder>()
+        121_784_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        168usize
+        144usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -393,40 +600,35 @@ impl crate::columnar::RelationRow for ProvenancePotentialMethodResolutionAsserti
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if (self.r#method_id).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(16usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#outcome).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#outcome).r#resolved).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
             }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#realization).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).as_str().len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#template_id).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(16usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            crate::columnar::allocation_add(8, (self.r#status).as_str().len())?,
         )?;
         Ok(bytes)
     }
@@ -438,7 +640,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "assertion_id",
@@ -461,23 +663,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "method_id",
+        name: "outcome",
         position: 4usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "realization",
-        position: 5usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "template_id",
-        position: 6usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "status",
-        position: 7usize,
     },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
@@ -489,10 +676,7 @@ pub struct ProvenancePotentialMethodResolutionAssertionsView<'a> {
     rule_id_column: &'a arrow_array::FixedSizeBinaryArray,
     truth_column: &'a arrow_array::StringArray,
     requirement_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    method_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    realization_column: &'a arrow_array::StringArray,
-    template_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    status_column: &'a arrow_array::StringArray,
+    outcome_column: &'a arrow_array::StructArray,
 }
 impl<'a> ProvenancePotentialMethodResolutionAssertionsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -542,18 +726,9 @@ impl<'a> ProvenancePotentialMethodResolutionAssertionsView<'a> {
             requirement_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(3usize).as_ref())?,
-            method_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
+            outcome_column: crate::columnar::array::<
+                arrow_array::StructArray,
             >(batch.column(4usize).as_ref())?,
-            realization_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(5usize).as_ref())?,
-            template_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
-            >(batch.column(6usize).as_ref())?,
-            status_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(7usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -618,51 +793,15 @@ impl<'a> ProvenancePotentialMethodResolutionAssertionsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "method_id",
+        "outcome",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn method_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.method_id_column
+    pub const fn outcome_column(&self) -> &'a arrow_array::StructArray {
+        self.outcome_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "method_id", "`.")]
-    pub fn method_id_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "outcome", "`.")]
+    pub fn outcome_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[4usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "realization",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn realization_column(&self) -> &'a arrow_array::StringArray {
-        self.realization_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "realization", "`.")]
-    pub fn realization_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "template_id",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn template_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.template_id_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "template_id", "`.")]
-    pub fn template_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "status",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn status_column(&self) -> &'a arrow_array::StringArray {
-        self.status_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "status", "`.")]
-    pub fn status_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -686,19 +825,7 @@ impl<'a> ProvenancePotentialMethodResolutionAssertionsView<'a> {
                 self.requirement_id_column,
                 index,
             )?,
-            r#method_id: crate::columnar::ArrowValue::read(
-                self.method_id_column,
-                index,
-            )?,
-            r#realization: crate::columnar::ArrowValue::read(
-                self.realization_column,
-                index,
-            )?,
-            r#template_id: crate::columnar::ArrowValue::read(
-                self.template_id_column,
-                index,
-            )?,
-            r#status: crate::columnar::ArrowValue::read(self.status_column, index)?,
+            r#outcome: crate::columnar::ArrowValue::read(self.outcome_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
@@ -768,6 +895,16 @@ impl ProvenancePotentialMethodResolutionAssertionsBuilder {
         &mut self,
         row: ProvenancePotentialMethodResolutionAssertionsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if (row.r#outcome).selected().is_err() {
+            return Err(
+                crate::columnar::value_error(
+                    "outcome",
+                    row_index,
+                    "tagged value requires exactly its selected arm",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -788,20 +925,8 @@ impl ProvenancePotentialMethodResolutionAssertionsBuilder {
                     columns[3usize].as_mut(),
                 )?;
                 crate::columnar::ArrowValue::append(
-                    &row.r#method_id,
+                    &row.r#outcome,
                     columns[4usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#realization,
-                    columns[5usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#template_id,
-                    columns[6usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#status,
-                    columns[7usize].as_mut(),
                 )?;
                 Ok(())
             })

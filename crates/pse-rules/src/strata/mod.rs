@@ -128,6 +128,17 @@ async fn iterate(
             .iter()
             .filter(|rule| rule.stratum == stratum)
             .collect::<Vec<_>>();
+        let started = std::time::Instant::now();
+        let mut program = Box::pin(rounds::Program::prepare(
+            &active, bindings, &state, execution, registry, cancel,
+        ))
+        .await?;
+        tracing::info!(
+            stratum,
+            rules = active.len(),
+            elapsed_seconds = started.elapsed().as_secs_f64(),
+            "finite rule stratum prepared"
+        );
         let mut settled = false;
         for ordinal in 1..=limits.max_rounds.get() {
             cancel
@@ -135,18 +146,9 @@ async fn iterate(
                 .map_err(pse_catalog::CatalogError::from)?;
             let started = std::time::Instant::now();
             tracing::info!(stratum, round = ordinal, "finite rule round started");
-            let workspace = state.workspace(execution, cancel)?;
-            let changed = rounds::Round {
-                active: &active,
-                bindings,
-                session: &workspace,
-                registry,
-                cancel,
-                ordinal,
-                max_rounds: limits.max_rounds.get(),
-            }
-            .execute(&mut state)
-            .await?;
+            let changed = program
+                .execute(&mut state, registry, cancel, ordinal)
+                .await?;
             tracing::info!(
                 stratum,
                 round = ordinal,

@@ -41,7 +41,7 @@ pub async fn resolve(
     let spec = registry
         .relation_by_id(authored::packages::RELATION_ID)
         .ok_or_else(|| contract("package declaration missing"))?;
-    crate::change_set::stage::unique(&bound, "package_dependency_headers", spec, cancel).await?;
+    crate::native_relations::unique(&bound, "package_dependency_headers", spec, cancel).await?;
     let edges = dependency_edges(bound.scan_role("package_dependency_headers")?)?;
     let duplicate = LogicalPlanBuilder::from(edges.clone())
         .aggregate(
@@ -50,12 +50,12 @@ pub async fn resolve(
         )
         .and_then(|plan| plan.filter(col("__count").gt(lit(1_i64))))
         .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     refuse_rows(&bound, duplicate, "duplicate package dependency", cancel).await?;
     let targets = LogicalPlanBuilder::from(bound.scan_role("package_dependency_headers")?)
         .project(vec![col("package_id"), col("version")])
         .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     let missing = LogicalPlanBuilder::from(edges.clone())
         .join(
             targets.clone(),
@@ -67,7 +67,7 @@ pub async fn resolve(
             None,
         )
         .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     refuse_rows(&bound, missing, "package dependency target absent", cancel).await?;
     let mismatch = LogicalPlanBuilder::from(edges)
         .join(
@@ -81,7 +81,7 @@ pub async fn resolve(
         )
         .and_then(|plan| plan.filter(col("required_version").not_eq(col("version"))))
         .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     refuse_rows(
         &bound,
         mismatch,
@@ -122,8 +122,8 @@ async fn refuse_rows(
     let plan = datafusion::logical_expr::LogicalPlanBuilder::from(plan)
         .limit(0, Some(1))
         .and_then(datafusion::logical_expr::LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
-    if crate::change_set::plans::execute(session, plan, cancel)
+        .map_err(crate::native_relations::plans::engine)?;
+    if crate::native_relations::plans::execute(session, plan, cancel)
         .await?
         .iter()
         .any(|batch| batch.num_rows() != 0)
@@ -205,6 +205,6 @@ fn dependency_edges(
             ])
         })
         .and_then(LogicalPlanBuilder::build)
-        .map_err(crate::change_set::plans::engine)?;
+        .map_err(crate::native_relations::plans::engine)?;
     Ok(edges)
 }

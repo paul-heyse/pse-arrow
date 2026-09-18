@@ -4,7 +4,7 @@
 //! Typed law arguments and native keys from the same retained completion.
 use super::expansion::invalid;
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     passes::{
         native_outputs::{SourceKey, Sources},
         native_rows::{AlgorithmInputs, keyed_rows, scan},
@@ -45,10 +45,14 @@ pub(super) struct Inventory {
     pub element_projection_contracts: Vec<Located<reference::element_projection_contracts::Row>>,
 }
 impl Inventory {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "load keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) async fn load(
         session: &SnapshotSession,
         sources: &Sources,
-        ctx: &PassContext<'_>,
+        ctx: &AlgorithmContext<'_>,
     ) -> Result<(Self, AlgorithmInputs), CompilerError> {
         let mut arguments = AlgorithmInputs::new(ctx.reserver, "P8:typed-law-arguments");
         let inventory = Self {
@@ -201,7 +205,7 @@ async fn load<T: RelationRow>(
     arguments: &mut AlgorithmInputs,
     session: &SnapshotSession,
     sources: &Sources,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
 ) -> Result<Vec<Located<T>>, CompilerError> {
     let spec = T::relation(ctx.registry)?;
     let (port, _) = sources.get(&spec.key).ok_or_else(|| {

@@ -4,21 +4,6 @@
 
 Member names are canonical string values; declaration order is presentation only.
 
-## `AggregateEmptyPolicy`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `zero` | `` | false |
-| `empty_list` | `` | false |
-| `error` | `` | false |
-
-## `AggregateNullPolicy`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `reject` | `` | false |
-| `skip_missing` | `` | false |
-
 ## `AliasKind`
 
 | Member | IDAES name | Deprecated |
@@ -198,14 +183,14 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `scenario` | `` | false |
 | `sweep_sample` | `` | false |
 
-## `ChangeOpKind`
+## `ChangeKind`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `insert` | `` | false |
-| `update` | `` | false |
 | `delete` | `` | false |
-| `rename` | `` | false |
+| `update_preimage` | `` | false |
+| `update_postimage` | `` | false |
 
 ## `ColumnRole`
 
@@ -341,6 +326,13 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `inverseMaximum` | `inverseMaximum` | false |
 | `inverseMinimum` | `inverseMinimum` | false |
 
+## `ContributionSign`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `positive` | `` | false |
+| `negative` | `` | false |
+
 ## `ContributionSubjectKind`
 
 | Member | IDAES name | Deprecated |
@@ -470,14 +462,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `negate` | `` | false |
 | `write` | `` | false |
 
-## `DepthBound`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `fixed_point` | `` | false |
-| `seed_rows` | `` | false |
-| `bounded` | `` | false |
-
 ## `DerivationGranularity`
 
 | Member | IDAES name | Deprecated |
@@ -601,12 +585,6 @@ IDAES compatibility source: `idaes.core.base.control_volume1d`.
 |---|---|---|
 | `molar_count` | `` | false |
 | `mass_count_over_mw` | `` | false |
-
-## `EmptyListPolicy`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `no_members` | `` | false |
 
 ## `EnergyBalanceType`
 
@@ -865,13 +843,6 @@ IDAES compatibility source: `idaes.core.base.control_volume_base`.
 | `disabled` | `` | false |
 | `explicit` | `` | false |
 
-## `GatherState`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `resolved` | `` | false |
-| `pending` | `` | false |
-
 ## `GeneratorKind`
 
 | Member | IDAES name | Deprecated |
@@ -1000,6 +971,13 @@ IDAES compatibility source: `idaes.core.initialization.initializer_base`.
 | `PrecheckFailed` | `PrecheckFailed` | false |
 | `Error` | `Error` | false |
 
+## `InputConsumptionKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `whole` | `` | false |
+| `columns` | `` | false |
+
 ## `InvariantKind`
 
 | Member | IDAES name | Deprecated |
@@ -1055,6 +1033,13 @@ IDAES compatibility source: `idaes.core.initialization.initializer_base`.
 | `domain_failure` | `` | false |
 | `implementation_failure` | `` | false |
 
+## `KernelParameterBindingKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `symbol` | `` | false |
+| `literal` | `` | false |
+
 ## `LawExpansion`
 
 | Member | IDAES name | Deprecated |
@@ -1104,6 +1089,63 @@ IDAES compatibility source: `idaes.core.base.process_base`.
 | `molar` | `molar` | false |
 | `mass` | `mass` | false |
 | `other` | `other` | false |
+
+## `MathDomainKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `actual` | `` | false |
+| `template` | `` | false |
+
+## `MathGuardKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `math` | `` | false |
+| `predicate` | `` | false |
+
+## `MathPayloadKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `none` | `` | false |
+| `symbol` | `` | false |
+| `float` | `` | false |
+| `integer` | `` | false |
+| `affine` | `` | false |
+| `weighted_mean` | `` | false |
+| `reduction` | `` | false |
+| `gather` | `` | false |
+| `pending_gather` | `` | false |
+| `pending_path` | `` | false |
+| `broadcast` | `` | false |
+| `derivative` | `` | false |
+| `integral` | `` | false |
+| `smooth` | `` | false |
+| `pending_smooth` | `` | false |
+| `conditional` | `` | false |
+| `kernel_call` | `` | false |
+| `implicit_ref` | `` | false |
+| `unit_convert` | `` | false |
+| `pending_unit_convert` | `` | false |
+| `piecewise_linear` | `` | false |
+
+## `MathReferenceKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `symbol` | `` | false |
+| `template` | `` | false |
+| `domain` | `` | false |
+| `index` | `` | false |
+
+## `MathTemplateMemberKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `parameter` | `` | false |
+| `feature` | `` | false |
+| `port` | `` | false |
 
 ## `MemberSelectionKind`
 
@@ -1234,6 +1276,34 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `runtime` | `` | false |
 | `provenance` | `` | false |
 
+## `NativeDependencyEvidenceKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `absent` | `` | false |
+| `present` | `` | false |
+| `text` | `` | false |
+| `identity` | `` | false |
+| `identified_text` | `` | false |
+| `fingerprint` | `` | false |
+| `selection` | `` | false |
+| `projection` | `` | false |
+
+## `NativeDependencyKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `operation` | `` | false |
+| `input` | `` | false |
+| `contract` | `` | false |
+| `function` | `` | false |
+| `rule` | `` | false |
+| `setting` | `` | false |
+| `policy` | `` | false |
+| `provider` | `` | false |
+| `scope` | `` | false |
+| `observation` | `` | false |
+
 ## `NegationPolicy`
 
 | Member | IDAES name | Deprecated |
@@ -1254,32 +1324,6 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `evaluation_error` | `` | false |
-
-## `NormalizedReferenceKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `symbol` | `` | false |
-| `parameter` | `` | false |
-| `feature` | `` | false |
-| `port` | `` | false |
-| `domain` | `` | false |
-| `index` | `` | false |
-| `path` | `` | false |
-
-## `NullEquality`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `null_equals_nothing` | `` | false |
-| `null_equals_null` | `` | false |
-
-## `NullListPolicy`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `reject` | `` | false |
-| `no_members` | `` | false |
 
 ## `ObjectiveSense`
 
@@ -1396,23 +1440,13 @@ IDAES compatibility source: `idaes.models.unit_models.mixer`.
 | `included` | `` | false |
 | `excluded` | `` | false |
 
-## `ParticipationReason`
+## `ParticipationExclusionReason`
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
-| `matched` | `` | false |
 | `family_mismatch` | `` | false |
 | `subject_mismatch` | `` | false |
 | `internal_transfer` | `` | false |
-
-## `PassStatus`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `ok` | `` | false |
-| `failed` | `` | false |
-| `cancelled` | `` | false |
-| `reused` | `` | false |
 
 ## `PathTargetKind`
 
@@ -1434,6 +1468,13 @@ IDAES compatibility source: `idaes.core.base.phases`.
 | `vaporPhase` | `vaporPhase` | false |
 | `solidPhase` | `solidPhase` | false |
 | `aqueousPhase` | `aqueousPhase` | false |
+
+## `PhysicalCoordinateKind`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `fixed` | `` | false |
+| `axis` | `` | false |
 
 ## `PortKind`
 
@@ -1489,6 +1530,7 @@ IDAES compatibility source: `idaes.core.base.phases`.
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `relations` | `` | false |
 | `source` | `` | false |
 | `model` | `` | false |
 | `case` | `` | false |
@@ -1642,6 +1684,15 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `unresolved` | `` | false |
 | `ambiguous` | `` | false |
 
+## `RetentionReason`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `publication` | `` | false |
+| `output` | `` | false |
+| `attempt` | `` | false |
+| `changes` | `` | false |
+
 ## `RewriteMode`
 
 | Member | IDAES name | Deprecated |
@@ -1656,72 +1707,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `inequality` | `` | false |
 | `objective` | `` | false |
 
-## `RuleAggregate`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `count` | `` | false |
-| `sum` | `` | false |
-| `min` | `` | false |
-| `max` | `` | false |
-| `collect_ordered` | `` | false |
-
-## `RuleCmpOp`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `eq` | `` | false |
-| `not_eq` | `` | false |
-| `lt` | `` | false |
-| `lt_eq` | `` | false |
-| `gt` | `` | false |
-| `gt_eq` | `` | false |
-
-## `RuleExprOp`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `col` | `` | false |
-| `lit` | `` | false |
-| `call` | `` | false |
-| `and` | `` | false |
-| `or` | `` | false |
-| `not` | `` | false |
-| `cmp` | `` | false |
-| `is_null` | `` | false |
-| `is_not_null` | `` | false |
-| `is_distinct_from` | `` | false |
-| `is_not_distinct_from` | `` | false |
-| `in_list` | `` | false |
-| `field` | `` | false |
-| `list_len` | `` | false |
-| `is_true` | `` | false |
-| `is_false` | `` | false |
-| `is_unknown` | `` | false |
-
-## `RuleHeadKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `relation` | `` | false |
-| `violations` | `` | false |
-
-## `RuleLiteralKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `null` | `` | false |
-| `bool` | `` | false |
-| `i64` | `` | false |
-| `u64` | `` | false |
-| `f64` | `` | false |
-| `text` | `` | false |
-| `id` | `` | false |
-| `hash` | `` | false |
-| `enum` | `` | false |
-| `list` | `` | false |
-| `struct` | `` | false |
-
 ## `RuleOutcomeReason`
 
 | Member | IDAES name | Deprecated |
@@ -1730,23 +1715,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `predicate_false` | `` | false |
 | `predicate_unknown` | `` | false |
 | `value_conflict` | `` | false |
-
-## `RulePlanOp`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `scan` | `` | false |
-| `filter` | `` | false |
-| `assert` | `` | false |
-| `project` | `` | false |
-| `equi_join` | `` | false |
-| `anti_join` | `` | false |
-| `union` | `` | false |
-| `distinct` | `` | false |
-| `aggregate` | `` | false |
-| `unnest` | `` | false |
-| `recursive` | `` | false |
-| `recursive_ref` | `` | false |
 
 ## `RuleSupportKind`
 
@@ -1840,13 +1808,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `error` | `` | false |
 | `warning` | `` | false |
 
-## `SmoothingEpsilonState`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `coordinate` | `` | false |
-| `pending_unit` | `` | false |
-
 ## `SnapshotClass`
 
 | Member | IDAES name | Deprecated |
@@ -1865,6 +1826,15 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `DAE_INTEGRATE` | `` | false |
 | `MINLP` | `` | false |
 | `GDP` | `` | false |
+
+## `SolverTermination`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `success` | `` | false |
+| `stopped` | `` | false |
+| `cancelled` | `` | false |
+| `evaluation_failure` | `` | false |
 
 ## `SolverVariableType`
 
@@ -2077,13 +2047,6 @@ IDAES compatibility source: `idaes.models.costing.SSLW`.
 | `false` | `` | false |
 | `unknown` | `` | false |
 | `conflict` | `` | false |
-
-## `UnitConversionState`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `resolved` | `` | false |
-| `pending` | `` | false |
 
 ## `ValueSource`
 

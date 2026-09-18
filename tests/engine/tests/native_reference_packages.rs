@@ -7,7 +7,7 @@ mod native_pipeline;
 
 #[tokio::test]
 async fn shipped_reference_packages_commit_and_normalize() {
-    let mut fixture = native_pipeline::Fixture::new();
+    let fixture = native_pipeline::Fixture::new();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -31,19 +31,18 @@ async fn shipped_reference_packages_commit_and_normalize() {
     })
     .into_iter()
     .collect();
-    let committed = fixture.commit(documents).await;
+    let committed = fixture.source(documents);
     let report = fixture
-        .run(committed, "P3")
+        .evaluate(committed, "P3")
         .await
         .unwrap_or_else(|error| panic!("shipped normalization failed: {error}"));
-    let output = &report.stages.last().unwrap().snapshot;
-    let sources = output.relation("normalized", "expression_sources").unwrap();
-    let sources = pse_relations::generated::normalized::expression_sources::View::from_checked(
-        sources.checked(),
-    )
-    .unwrap()
-    .rows()
-    .unwrap();
+    let output = &report;
+    let sources = native_pipeline::relation(output, "normalized", "expression_sources").unwrap();
+    let sources =
+        pse_relations::generated::normalized::expression_sources::View::from_checked(sources)
+            .unwrap()
+            .rows()
+            .unwrap();
     assert!(sources.iter().any(|source| source.source_relation_id
         == pse_relations::generated::authored::template_equations::RELATION_ID));
     assert!(

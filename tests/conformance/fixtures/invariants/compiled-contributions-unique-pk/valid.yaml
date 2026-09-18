@@ -7,19 +7,15 @@
         "contribution_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "contribution_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "expression_root": "[\"u64\",1]",
+        "expression_root": "[\"i64\",1]",
         "law_family": "[\"enum\",\"material\"]",
         "orientation": "[\"enum\",\"into_scope\"]",
         "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "phase_axis": "[\"u64\",1]",
-        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "product_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "scope_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "source_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject_axis": "[\"u64\",1]",
-        "subject_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject_kind": "[\"enum\",\"total\"]",
+        "subject": "[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"struct\",[[\"text\",\"axis\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]]],[\"null\",null]]]",
         "transfer_connection_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]

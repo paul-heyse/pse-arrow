@@ -5,7 +5,7 @@
       {
         "is_default": "[\"bool\",true]",
         "property_specific": "[\"bool\",true]",
-        "rank": "[\"u64\",1]",
+        "rank": "[\"i64\",1]",
         "scope_kind": "[\"enum\",\"package\"]"
       }
     ]

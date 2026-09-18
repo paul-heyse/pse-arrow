@@ -4,7 +4,7 @@
 //! Actual provision and parameter correspondences, retaining complete typed row support.
 use super::{Inputs, invalid, parameters::Bindings, selections::Selection};
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     passes::{
         native_outputs::{self, OutputRows, SourceKey, Sources},
         native_rows::{AlgorithmInputs, Located, located_input, workspace},
@@ -15,13 +15,9 @@ use pse_ids::{IndexTuple, SemanticId};
 use pse_quantity::{QuantityTypeId, UnitId};
 use pse_relations::{
     RecordBatch,
-    generated::{
-        compiled,
-        enums::{AliasKind, MethodOutputKind},
-        inferred, normalized, reference,
-    },
+    generated::{compiled, enums::AliasKind, inferred, normalized, reference},
 };
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::collections::{BTreeMap, BTreeSet};
 
 type Support = BTreeSet<SourceKey>;
@@ -29,8 +25,8 @@ pub(super) async fn bind_parameters(
     inputs: &mut Inputs,
     sources: &mut Sources,
     bindings: Bindings,
-    ctx: &PassContext<'_>,
-    pass: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
 ) -> Result<(), CompilerError> {
     let mut output = OutputRows::new(ctx.registry, ctx.reserver, ctx.cancel)?;
@@ -41,13 +37,17 @@ pub(super) async fn bind_parameters(
     materialize(output, inputs, sources, ctx, pass, session).await?;
     Ok(())
 }
+#[expect(
+    clippy::too_many_lines,
+    reason = "bind_methods keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn bind_methods(
     inputs: &mut Inputs,
     sources: &mut Sources,
     selection: &Selection,
     session: &SnapshotSession,
-    ctx: &PassContext<'_>,
-    pass: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    pass: &AlgorithmSpec,
 ) -> Result<(), CompilerError> {
     let mut arguments = AlgorithmInputs::new(ctx.reserver, "P9:method-output-arguments");
     let declarations: Vec<Located<normalized::template_symbols::Row>> =
@@ -73,13 +73,19 @@ pub(super) async fn bind_methods(
             .methods
             .get(&request.instance)
             .ok_or_else(|| invalid("selected method instance missing"))?;
-        if method.specification.template_id.is_none() {
+        let reference::method_specs::ReferenceMethodSpecsFieldRealizationSelected::EquationTemplate(
+            producer,
+        ) = method.specification.realization.selected()?
+        else {
             continue;
-        }
+        };
+        let reference::method_provisions::ReferenceMethodProvisionsFieldOutputSelected::TemplateSymbol(provision) = request.provision.output.selected()? else {
+            return Err(invalid("template method requires a template symbol provision"));
+        };
         let declaration = unique(
             declarations.iter().filter(|row| {
-                Some(row.symbol_decl_id) == request.provision.symbol_decl_id
-                    && Some(row.template_id) == method.specification.template_id
+                row.symbol_decl_id == provision.symbol_decl_id
+                    && row.template_id == producer.template_id
             }),
             "selected output symbol declaration",
         )?;
@@ -179,11 +185,12 @@ pub(super) async fn bind_methods(
             compiled::method_realizations::Row {
                 requirement_id: request.requirement.requirement_id,
                 method_id: method.specification.method_id,
-                template_instance_id: Some(request.instance),
-                kernel_binding_id: None,
-                output_kind: MethodOutputKind::TemplateSymbol,
-                output_symbol_id: Some(output_symbol),
-                kernel_output_ordinal: None,
+                output_symbol_id: output_symbol,
+                realization: compiled::method_realizations::CompiledMethodRealizationsFieldRealization::from_template_symbol(
+                    compiled::method_realizations::CompiledMethodRealizationsFieldRealizationTemplateSymbol {
+                        template_instance_id: request.instance,
+                    }
+                ),
                 derivation_id: SemanticId::NIL,
             },
             &support,
@@ -196,7 +203,7 @@ pub(super) async fn bind_methods(
 pub(super) fn without_relations(
     batches: Vec<RecordBatch>,
     replaced: &BTreeSet<RelationKey>,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
 ) -> Result<Vec<RecordBatch>, CompilerError> {
     use datafusion::arrow::{
         array::{Array, BooleanArray, FixedSizeBinaryArray},
@@ -249,8 +256,8 @@ pub(super) fn without_relations(
 pub(super) async fn provisions(
     selection: &Selection,
     inputs: &Inputs,
-    pass: &PassSpec,
-    ctx: &PassContext<'_>,
+    pass: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
     output: &mut super::super::p7::RealizationOutput,
     session: &SnapshotSession,
 ) -> Result<(), CompilerError> {
@@ -281,9 +288,7 @@ pub(super) async fn provisions(
                 .filter(|row| row.requirement_id == request.requirement.requirement_id),
             "realized method output",
         )?;
-        let target = binding
-            .output_symbol_id
-            .ok_or_else(|| invalid("selected method has no actual output symbol"))?;
+        let target = binding.output_symbol_id;
         let target_symbol = unique(
             symbols.iter().filter(|row| row.symbol_id == target),
             "actual method symbol",
@@ -353,8 +358,8 @@ pub(super) async fn provisions(
 async fn append_aliases(
     rows: Vec<(compiled::symbol_references::Row, Support)>,
     inputs: &Inputs,
-    pass: &PassSpec,
-    ctx: &PassContext<'_>,
+    pass: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
     output: &mut super::super::p7::RealizationOutput,
     session: &SnapshotSession,
 ) -> Result<(), CompilerError> {
@@ -423,8 +428,8 @@ async fn materialize(
     columns: OutputRows<'_>,
     inputs: &mut Inputs,
     sources: &mut Sources,
-    ctx: &PassContext<'_>,
-    pass: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
 ) -> Result<Vec<RecordBatch>, CompilerError> {
     let mut evidence = Vec::new();

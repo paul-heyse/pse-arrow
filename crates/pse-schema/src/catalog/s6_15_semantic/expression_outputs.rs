@@ -13,8 +13,8 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("owner_id", T::id()),
             column("role", T::enumeration("ExpressionRootRole")),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
-            column("position", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
+            column("position", T::nonnegative(i64::from(u16::MAX))),
             column("bound_index_id", T::id()),
             column("domain_id", T::id()).with_fk("normalized.domains", "domain_id"),
         ],
@@ -31,15 +31,12 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("instance_id", T::id()),
             column("equation_decl_id", T::id()),
             column("source_id", T::id()),
-            column(
-                "equation_node_id",
-                T::native(arrow_schema::DataType::UInt64),
-            ),
+            column("equation_node_id", T::nonnegative(i64::MAX)),
             column(
                 "branch_guards",
                 T::list(T::structure(vec![
                     T::id().with_name("source_id").with_nullable(false),
-                    T::native(arrow_schema::DataType::UInt64)
+                    T::nonnegative(i64::MAX)
                         .with_name("predicate_id")
                         .with_nullable(false),
                     T::native(arrow_schema::DataType::Boolean)

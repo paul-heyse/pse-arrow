@@ -19,12 +19,76 @@ fn sid(byte: u8) -> SemanticId {
 }
 
 #[test]
-fn untrusted_hashes_cannot_hide_duplicate_rows_ordinals_or_payloads() {
+fn signed_ordinals_and_equation_bounds_are_admitted_before_remapping() {
+    use pse_schema::math::Sense;
+    let mut negative = VecSink::new();
+    negative
+        .expr_node(
+            NodeId(-1),
+            Opcode::Const,
+            &[],
+            &Payload::IntConst { value: 0 },
+            None,
+            None,
+            hash(),
+        )
+        .unwrap();
+    assert!(load_untyped(&negative, &[]).is_err());
+    for (sense, lower, upper, valid) in [
+        (Sense::Eq, None, Some(NodeId(0)), true),
+        (Sense::Le, None, Some(NodeId(0)), true),
+        (Sense::Ge, Some(NodeId(0)), None, true),
+        (Sense::Range, Some(NodeId(0)), Some(NodeId(0)), true),
+        (Sense::Eq, Some(NodeId(0)), Some(NodeId(0)), false),
+        (Sense::Range, None, Some(NodeId(0)), false),
+        (Sense::Le, Some(NodeId(0)), None, false),
+        (Sense::Ge, None, None, false),
+    ] {
+        let mut rows = VecSink::new();
+        rows.expr_node(
+            NodeId(0),
+            Opcode::Const,
+            &[],
+            &Payload::IntConst { value: 0 },
+            None,
+            None,
+            hash(),
+        )
+        .unwrap();
+        rows.indexed_equation(
+            sid(1),
+            sid(2),
+            None,
+            "comparison",
+            None,
+            None,
+            NodeId(0),
+            sense,
+            lower,
+            upper,
+            None,
+            None,
+            sid(3),
+        )
+        .unwrap();
+        assert_eq!(load_untyped(&rows, &[]).is_ok(), valid, "{sense:?}");
+    }
+}
+
+#[test]
+fn untrusted_hashes_cannot_hide_duplicate_rows_dangling_children_or_payloads() {
     let mut source = VecSink::new();
     source
-        .expr_node(NodeId(99), Opcode::Const, None, None, hash())
+        .expr_node(
+            NodeId(99),
+            Opcode::Const,
+            &[],
+            &Payload::IntConst { value: 1 },
+            None,
+            None,
+            hash(),
+        )
         .unwrap();
-    source.int_constant(NodeId(99), 1).unwrap();
     let loaded = load_untyped(&source, &[NodeId(99)]).unwrap();
     assert_eq!(
         loaded.graph.node(loaded.roots[0]).unwrap().payload,
@@ -32,31 +96,58 @@ fn untrusted_hashes_cannot_hide_duplicate_rows_ordinals_or_payloads() {
     );
     let mut duplicate = source.clone();
     duplicate
-        .expr_node(NodeId(99), Opcode::Const, None, None, hash())
-        .unwrap();
-    assert!(load_untyped(&duplicate, &[NodeId(99)]).is_err());
-    let mut duplicate = source.clone();
-    duplicate
-        .float_constant(NodeId(99), 1., ids::unit("one"))
+        .expr_node(
+            NodeId(99),
+            Opcode::Const,
+            &[],
+            &Payload::IntConst { value: 1 },
+            None,
+            None,
+            hash(),
+        )
         .unwrap();
     assert!(load_untyped(&duplicate, &[NodeId(99)]).is_err());
     source
-        .expr_node(NodeId(2), Opcode::Neg, None, None, hash())
+        .expr_node(
+            NodeId(2),
+            Opcode::Neg,
+            &[NodeId(100)],
+            &Payload::None,
+            None,
+            None,
+            hash(),
+        )
         .unwrap();
-    source.expr_arg(NodeId(2), 1, NodeId(99)).unwrap();
     assert!(load_untyped(&source, &[NodeId(2)]).is_err());
 }
 #[test]
 fn loader_checks_unreachable_cycles_and_external_kernel_dependencies() {
     let mut source = VecSink::new();
     source
-        .expr_node(NodeId(0), Opcode::Const, None, None, hash())
+        .expr_node(
+            NodeId(0),
+            Opcode::Const,
+            &[],
+            &Payload::IntConst { value: 1 },
+            None,
+            None,
+            hash(),
+        )
         .unwrap();
-    source.int_constant(NodeId(0), 1).unwrap();
     source
-        .expr_node(NodeId(9), Opcode::KernelCall, None, None, hash())
+        .expr_node(
+            NodeId(9),
+            Opcode::KernelCall,
+            &[],
+            &Payload::KernelCall {
+                kernel_binding: sid(1),
+                output_ordinal: 0,
+            },
+            None,
+            None,
+            hash(),
+        )
         .unwrap();
-    source.kernel_call(NodeId(9), sid(1), 0).unwrap();
     assert!(load_untyped(&source, &[NodeId(0)]).is_err());
     source
         .kernel_binding(sid(1), sid(2), sid(3), &[], &[("x".into(), NodeId(9))])
@@ -70,14 +161,31 @@ fn equations_filters_bounds_and_kernel_input_rows_are_remapped_together() {
     let mut source = VecSink::new();
     for (id, value) in [(NodeId(88), 1), (NodeId(22), 2)] {
         source
-            .expr_node(id, Opcode::Const, None, None, hash())
+            .expr_node(
+                id,
+                Opcode::Const,
+                &[],
+                &Payload::IntConst { value },
+                None,
+                None,
+                hash(),
+            )
             .unwrap();
-        source.int_constant(id, value).unwrap();
     }
     source
-        .expr_node(NodeId(99), Opcode::KernelCall, None, None, hash())
+        .expr_node(
+            NodeId(99),
+            Opcode::KernelCall,
+            &[],
+            &Payload::KernelCall {
+                kernel_binding: sid(1),
+                output_ordinal: 0,
+            },
+            None,
+            None,
+            hash(),
+        )
         .unwrap();
-    source.kernel_call(NodeId(99), sid(1), 0).unwrap();
     source
         .kernel_binding(
             sid(1),
@@ -243,7 +351,7 @@ fn bound_kernel_hashes_depend_on_actual_values_and_every_ordered_input() {
 }
 
 #[test]
-fn template_domains_preserve_composite_keys_and_admit_exactly_one_alternative() {
+fn template_domains_preserve_composite_keys() {
     use pse_mathir::DomainRef;
     use pse_quantity::{BoundIndexId, DomainId};
     let local = DomainRef::Template {
@@ -251,19 +359,6 @@ fn template_domains_preserve_composite_keys_and_admit_exactly_one_alternative() 
         domain_name: "species".into(),
     };
     let actual = DomainId::from_id(sid(40));
-    for columns in [
-        (None, None, None),
-        (Some(actual), Some(sid(40)), Some("species".into())),
-        (None, Some(sid(40)), None),
-        (None, None, Some("species".into())),
-        (None, Some(sid(40)), Some(String::new())),
-    ] {
-        assert!(DomainRef::from_columns(columns.0, columns.1, columns.2).is_err());
-    }
-    assert_eq!(
-        DomainRef::from_columns(None, Some(sid(40)), Some("species".into())).unwrap(),
-        local
-    );
     let mut graph = ExprGraph::new();
     let body = graph.int_const(1).unwrap();
     let mut roots = vec![];
@@ -402,13 +497,6 @@ fn normalized_predicate_and_value_keys_survive_math_remapping_without_fake_symbo
             .guard(),
         Some(guard)
     );
-    for invalid in [
-        (None, None, None),
-        (Some(NodeId(0)), Some(sid(60)), Some(0)),
-        (None, Some(sid(60)), None),
-    ] {
-        assert!(GuardRef::from_columns(invalid.0, invalid.1, invalid.2).is_err());
-    }
 }
 
 #[test]

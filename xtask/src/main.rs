@@ -27,6 +27,8 @@ use clap::{Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use serde::Deserialize;
 
+#[cfg(feature = "package-fixtures")]
+mod architecture_acceptance;
 mod codegen;
 #[cfg(feature = "package-fixtures")]
 mod engineering_inspection;
@@ -55,11 +57,14 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    /// Qualify fresh source-to-solve, Delta publication and cold Rust/Python inspection.
+    /// Qualify existing native functions, Delta lifecycle, cold readers and target architecture.
     #[cfg(feature = "package-fixtures")]
-    SimulatorAcceptance {
-        /// New directory for current-run simulator evidence.
+    ArchitectureAcceptance {
+        /// New directory for final architecture command logs and measurements.
         output: PathBuf,
+        /// Continue at a named gate; earlier receipts must be assessed separately.
+        #[arg(long)]
+        start_at: Option<String>,
     },
     /// Compile fresh engineering sources, reopen P10 in Rust and inspect it in Python.
     #[cfg(feature = "package-fixtures")]
@@ -148,8 +153,8 @@ fn main() -> Result<()> {
     let root = workspace_root()?;
     match cli.command {
         #[cfg(feature = "package-fixtures")]
-        Cmd::SimulatorAcceptance { output } => {
-            engineering_inspection::simulator_acceptance(&root, &output)
+        Cmd::ArchitectureAcceptance { output, start_at } => {
+            architecture_acceptance::run(&root, &output, start_at.as_deref())
         }
         #[cfg(feature = "package-fixtures")]
         Cmd::EngineeringInspection { output, case } => {

@@ -114,9 +114,7 @@ fn metadata(
     out: &mut Vec<(String, String, String)>,
 ) {
     for (key, value) in metadata {
-        if !matches!(key.as_str(), "pse.snapshot_id" | "pse.producer_pass_id") {
-            out.push((path.as_str().to_owned(), key.clone(), value.clone()));
-        }
+        out.push((path.as_str().to_owned(), key.clone(), value.clone()));
     }
 }
 fn field_metadata(path: &FieldPath, field: &Field, out: &mut Vec<(String, String, String)>) {

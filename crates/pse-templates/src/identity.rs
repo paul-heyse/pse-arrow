@@ -17,7 +17,7 @@ pub fn domain_product_id(domains: &[SemanticId]) -> SemanticId {
 
 /// Identity of a projection of one actual group on ordered fixed axis members.
 /// The caller validates sorted unique axis positions and actual member correspondence.
-pub fn projected_group_id(group: SemanticId, fixed: &[(u16, SemanticId)]) -> SemanticId {
+pub fn projected_group_id(group: SemanticId, fixed: &[(i64, SemanticId)]) -> SemanticId {
     let mut name = String::from("pse:group-projection:v1:");
     for (axis, member) in fixed {
         name.push_str(&axis.to_string());
@@ -37,7 +37,7 @@ pub fn symbol_group_id(instance: SemanticId, declaration: SemanticId) -> Semanti
 }
 
 /// Actual cross-child group for one source-relative path occurrence.
-pub fn group_collection_id(instance: SemanticId, source: SemanticId, path: u64) -> SemanticId {
+pub fn group_collection_id(instance: SemanticId, source: SemanticId, path: i64) -> SemanticId {
     pse_ids::named_id(
         instance,
         &format!("pse:group-collection:v1:{}:{path}", source.to_hex()),
@@ -50,7 +50,7 @@ pub fn bound_index_id(instance: SemanticId, source: SemanticId) -> SemanticId {
 }
 
 /// Outer declared axis shared across exact source fields of the same declaration.
-pub fn free_index_id(instance: SemanticId, declaration: SemanticId, position: u16) -> SemanticId {
+pub fn free_index_id(instance: SemanticId, declaration: SemanticId, position: i64) -> SemanticId {
     pse_ids::named_id(
         instance,
         &format!("pse:free-index:v1:{}:{position}", declaration.to_hex()),
@@ -61,7 +61,7 @@ pub fn free_index_id(instance: SemanticId, declaration: SemanticId, position: u1
 pub fn reindexed_group_id(
     instance: SemanticId,
     source: SemanticId,
-    node: u64,
+    node: i64,
     fixed: &std::collections::BTreeMap<SemanticId, SemanticId>,
 ) -> SemanticId {
     let mut name = format!("pse:group-reindex:v1:{}:{node}:", source.to_hex());

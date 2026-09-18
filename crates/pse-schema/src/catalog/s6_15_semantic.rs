@@ -5,6 +5,7 @@
 
 mod algorithm_occurrences;
 mod configuration;
+pub(super) mod conservation_values;
 mod elements;
 mod expression_outputs;
 mod kernel_methods;
@@ -36,6 +37,7 @@ pub fn declare(builder: &mut RegistryBuilder) {
     material_constraints::declare(builder);
     methods::declare(builder);
     support::declare(builder);
+    conservation_values::declare(builder);
     realization::declare(builder);
     law_contracts::declare(builder);
     projected_groups::declare(builder);

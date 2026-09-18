@@ -3,18 +3,18 @@
   "rows": {
     "provenance.node_rewrites": [
       {
-        "input_node_id": "[\"u64\",1]",
-        "output_node_id": "[\"u64\",1]"
+        "input_node_id": "[\"i64\",1]",
+        "output_node_id": "[\"i64\",1]"
       },
       {
-        "input_node_id": "[\"u64\",1]",
-        "output_node_id": "[\"u64\",1]"
+        "input_node_id": "[\"i64\",1]",
+        "output_node_id": "[\"i64\",1]"
       }
     ]
   },
   "expected_keys": [
     [
-      "[\"u64\",1]"
+      "[\"i64\",1]"
     ]
   ]
 }

@@ -11,7 +11,7 @@ mod values;
 
 use arrow_array::{Array, RecordBatch};
 use arrow_schema::{Field, Schema};
-use pse_ids::{ContentHash, SemanticId};
+use pse_ids::ContentHash;
 use pse_schema::Registry;
 use pse_schema::model::RelationSpec;
 
@@ -79,29 +79,16 @@ pub fn validate_schema(
             ));
         }
     }
-    for (key, value) in schema.metadata() {
+    for key in schema.metadata().keys() {
         if expected.metadata().contains_key(key) {
             continue;
         }
-        if matches!(key.as_str(), "pse.snapshot_id" | "pse.producer_pass_id") {
-            let invalid = if key == "pse.snapshot_id" {
-                ContentHash::parse_prefixed(value).map_or(true, |hash| hash.to_prefixed() != *value)
-            } else {
-                SemanticId::parse_hex(value).map_or(true, |id| id.to_hex() != *value)
-            };
-            if invalid {
-                errors.push(mismatch(
-                    &spec.key.to_string(),
-                    format!("contextual identity {key} is malformed"),
-                ));
-            }
-        } else {
-            errors.push(RelationError::UnknownMetadata {
-                field: String::new(),
-                key: key.clone(),
-            });
-        }
+        errors.push(RelationError::UnknownMetadata {
+            field: String::new(),
+            key: key.clone(),
+        });
     }
+
     if schema.fields().len() != expected.fields().len() {
         errors.push(mismatch(
             &spec.key.to_string(),

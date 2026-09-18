@@ -48,7 +48,8 @@ pub(super) fn relation_version(
     }
     let mut declaration = RelationDecl::new(namespace, name, version, authority, class, doc)
         .pk(keys)
-        .columns(columns);
+        .columns(columns)
+        .checks(super::row_checks::for_relation(namespace, name));
     if authority == Authority::Derived {
         declaration = declaration.granularity(DerivationGranularity::Row);
     }

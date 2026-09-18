@@ -7,7 +7,7 @@ use std::fmt::Write as _;
 
 use std::collections::BTreeMap;
 
-use crate::model::{EXTENSION_TYPES, FieldContract, PortSource, QuantityContract};
+use crate::model::{EXTENSION_TYPES, FieldContract, QuantityContract};
 use crate::{Registry, SchemaError};
 
 use super::{GeneratedTree, Language};
@@ -100,7 +100,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             format!("# {namespace} relations\n\n{source}"),
         );
     }
-    index.push_str("- [Enumerations](enums.md)\n- [Extension types](extension_types.md)\n- [Executable pass contracts](passes.md)\n- [Rules and invariants](rules.md)\n");
+    index.push_str("- [Enumerations](enums.md)\n- [Extension types](extension_types.md)\n- [Native algorithm signatures](algorithms.md)\n- [Rules and invariants](rules.md)\n");
     emit(&mut tree, "README", index);
     emit(&mut tree, "enums", enums(reg));
     let extensions = EXTENSION_TYPES
@@ -120,7 +120,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         "extension_types",
         format!("# Extension types\n\n{extensions}"),
     );
-    emit(&mut tree, "passes", passes(reg));
+    emit(&mut tree, "algorithms", algorithms(reg));
     emit(&mut tree, "rules", rules(reg));
     tree.files.insert(
         "docs/generated/schema/authoring.schema.json".into(),
@@ -153,20 +153,11 @@ fn enums(reg: &Registry) -> String {
     source
 }
 
-fn passes(reg: &Registry) -> String {
+fn algorithms(reg: &Registry) -> String {
     let mut source = String::from(
-        "# Executable pass contracts\n\nThis is the registered executable surface. The later-pass design inventory remains in blueprint §14.1 (ADR-0056).\n\n```mermaid\ngraph TD\n",
+        "# Native algorithm signatures\n\nArguments bind actual native logical children. Dependencies and execution belong to DataFusion plans.\n\n",
     );
-    for pass in reg.passes() {
-        let _ = writeln!(source, "  {}[{}]", pass.name, pass.name);
-        for input in &pass.inputs {
-            if let PortSource::Derived { pass: producer, .. } = input.source {
-                let _ = writeln!(source, "  {producer} --> {}", pass.name);
-            }
-        }
-    }
-    source.push_str("```\n\n");
-    for pass in reg.passes() {
+    for pass in reg.algorithms() {
         let _ = writeln!(
             source,
             "## {}\n\nVersion: `{}`. Determinism: `{}`. Native effects: {:?}.\n\n| Direction | Port | Relation |\n|---|---|---|",
@@ -208,12 +199,18 @@ fn rules(reg: &Registry) -> String {
         }
         source.push('\n');
     }
-    source.push_str("## Invariants\n\n| Relation | Invariant | Rule |\n|---|---|---|\n");
+    source.push_str("## Invariants\n\n| Relation | Invariant | Native SQL |\n|---|---|---|\n");
     for invariant in reg.invariants() {
         let _ = writeln!(
             source,
             "| `{}` | `{}` | `{}` |",
-            invariant.relation, invariant.name, invariant.rule
+            invariant.relation,
+            invariant.name,
+            invariant
+                .query
+                .replace('\n', " ")
+                .replace('|', "&#124;")
+                .replace('`', "&#96;")
         );
     }
     source

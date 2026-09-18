@@ -11,6 +11,10 @@ use super::{
 use datafusion::logical_expr::ExprSchemable;
 use datafusion::{functions::core::expr_fn::get_field, functions_nested::expr_fn::make_array};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "build keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn build(
     plans: &mut Plans<'_>,
     indices: &indices::Indices,
@@ -210,6 +214,10 @@ fn columns(
     ])
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "expand keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 async fn expand(
     plans: &mut Plans<'_>,
     base: LogicalPlan,
@@ -248,32 +256,11 @@ async fn expand(
             [array_element(col("index_map"), col("map_position") + lit(1_i64)).alias("axis_map")],
         )?;
         let step = plans.session.derive_plan_fields(step, plans.cancel)?;
-        let tag = get_field(col("axis_map"), "kind");
-        let position = get_field(col("axis_map"), "source_axis");
-        let member = get_field(col("axis_map"), "member_id");
+        let coordinate = get_field(col("axis_map"), "source");
+        let tag = get_field(coordinate.clone(), "kind");
+        let position = get_field(get_field(coordinate.clone(), "source_axis"), "position");
+        let member = get_field(get_field(coordinate, "fixed_member"), "member_id");
         let kind = get_field(col("axis_map"), "domain_kind");
-        let valid = tag
-            .clone()
-            .eq(lit("source_axis"))
-            .and(position.clone().is_not_null())
-            .and(member.clone().is_null())
-            .or(tag
-                .clone()
-                .eq(lit("fixed_member"))
-                .and(position.clone().is_null())
-                .and(member.clone().is_not_null()))
-            .or(tag
-                .clone()
-                .eq(lit("bound_domain"))
-                .and(position.clone().is_null())
-                .and(member.clone().is_null()));
-        plans
-            .require(
-                &step,
-                valid,
-                "dependency axis map has missing or extraneous payload",
-            )
-            .await?;
         if !symbol {
             plans
                 .require(

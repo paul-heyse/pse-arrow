@@ -41,7 +41,7 @@ pub enum TemplateError {
         /// Normalized predicate source.
         source_id: SemanticId,
         /// Source-local predicate ordinal.
-        predicate: u64,
+        predicate: i64,
     },
     /// Existing structural/lexical mathematical admission.
     #[error(transparent)]

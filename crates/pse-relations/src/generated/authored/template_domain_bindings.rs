@@ -15,10 +15,421 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    105u8, 70u8, 238u8, 75u8, 178u8, 188u8, 70u8, 160u8, 16u8, 240u8, 110u8, 61u8, 44u8,
-    127u8, 46u8, 58u8, 189u8, 26u8, 157u8, 251u8, 175u8, 210u8, 150u8, 33u8, 227u8,
-    222u8, 245u8, 21u8, 204u8, 139u8, 173u8, 110u8,
+    47u8, 40u8, 93u8, 81u8, 52u8, 155u8, 144u8, 118u8, 217u8, 140u8, 212u8, 185u8, 238u8,
+    128u8, 134u8, 4u8, 94u8, 159u8, 116u8, 241u8, 249u8, 141u8, 148u8, 170u8, 38u8,
+    183u8, 188u8, 213u8, 250u8, 238u8, 175u8, 79u8,
 ]);
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredTemplateDomainBindingsFieldSourceDomain {
+    ///domain_id
+    pub r#domain_id: pse_ids::SemanticId,
+}
+impl crate::typed::CellCodec for AuthoredTemplateDomainBindingsFieldSourceDomain {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![crate::typed::CellCodec::into_cell(self.r#domain_id)],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(AuthoredTemplateDomainBindingsFieldSourceDomain),
+                ),
+            );
+        };
+        if values.len() != 1usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(AuthoredTemplateDomainBindingsFieldSourceDomain),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#domain_id: <pse_ids::SemanticId as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(AuthoredTemplateDomainBindingsFieldSourceDomain),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredTemplateDomainBindingsFieldSourceDomain {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(
+            &self.r#domain_id,
+            children[0usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#domain_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredTemplateDomainBindingsFieldSourceParameter {
+    ///name
+    pub r#name: String,
+}
+impl crate::typed::CellCodec for AuthoredTemplateDomainBindingsFieldSourceParameter {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![crate::typed::CellCodec::into_cell(self.r#name)],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(AuthoredTemplateDomainBindingsFieldSourceParameter),
+                ),
+            );
+        };
+        if values.len() != 1usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(AuthoredTemplateDomainBindingsFieldSourceParameter),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#name: <String as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(AuthoredTemplateDomainBindingsFieldSourceParameter),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredTemplateDomainBindingsFieldSourceParameter {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct AuthoredTemplateDomainBindingsFieldSource {
+    ///kind
+    pub r#kind: crate::generated::enums::DomainBindingSource,
+    ///domain
+    pub r#domain: Option<AuthoredTemplateDomainBindingsFieldSourceDomain>,
+    ///parameter
+    pub r#parameter: Option<AuthoredTemplateDomainBindingsFieldSourceParameter>,
+}
+impl crate::typed::CellCodec for AuthoredTemplateDomainBindingsFieldSource {
+    fn into_cell(self) -> pse_schema::model::Cell {
+        pse_schema::model::Cell::Struct(
+            vec![
+                crate::typed::CellCodec::into_cell(self.r#kind),
+                crate::typed::CellCodec::into_cell(self.r#domain),
+                crate::typed::CellCodec::into_cell(self.r#parameter),
+            ],
+        )
+    }
+    fn from_cell(cell: pse_schema::model::Cell) -> Result<Self, crate::RelationError> {
+        let pse_schema::model::Cell::Struct(values) = cell else {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(AuthoredTemplateDomainBindingsFieldSource),
+                ),
+            );
+        };
+        if values.len() != 3usize {
+            return Err(
+                crate::typed::mismatch(
+                    stringify!(AuthoredTemplateDomainBindingsFieldSource),
+                ),
+            );
+        }
+        let mut values = values.into_iter();
+        Ok(Self {
+            r#kind: <crate::generated::enums::DomainBindingSource as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(AuthoredTemplateDomainBindingsFieldSource),
+                    ))?,
+            )?,
+            r#domain: <Option<
+                AuthoredTemplateDomainBindingsFieldSourceDomain,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(AuthoredTemplateDomainBindingsFieldSource),
+                    ))?,
+            )?,
+            r#parameter: <Option<
+                AuthoredTemplateDomainBindingsFieldSourceParameter,
+            > as crate::typed::CellCodec>::from_cell(
+                values
+                    .next()
+                    .ok_or_else(|| crate::typed::mismatch(
+                        stringify!(AuthoredTemplateDomainBindingsFieldSource),
+                    ))?,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for AuthoredTemplateDomainBindingsFieldSource {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#kind, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#parameter,
+            children[2usize].as_mut(),
+        )?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <crate::generated::enums::DomainBindingSource as crate::columnar::ArrowValue>::append_null(
+            children[0usize].as_mut(),
+        )?;
+        <Option<
+            AuthoredTemplateDomainBindingsFieldSourceDomain,
+        > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            AuthoredTemplateDomainBindingsFieldSourceParameter,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#kind: <crate::generated::enums::DomainBindingSource as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <Option<
+                AuthoredTemplateDomainBindingsFieldSourceDomain,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#parameter: <Option<
+                AuthoredTemplateDomainBindingsFieldSourceParameter,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+/// The declared selected payload, borrowed without a second row representation.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AuthoredTemplateDomainBindingsFieldSourceSelected<'a> {
+    ///domain
+    Domain(&'a AuthoredTemplateDomainBindingsFieldSourceDomain),
+    ///element
+    Element,
+    ///parameter
+    Parameter(&'a AuthoredTemplateDomainBindingsFieldSourceParameter),
+    ///phase
+    Phase,
+    ///phase_species
+    PhaseSpecies,
+    ///species
+    Species,
+}
+impl AuthoredTemplateDomainBindingsFieldSource {
+    #[doc = concat!("Construct the ", "domain", " arm with every other arm absent.")]
+    pub fn from_domain(value: AuthoredTemplateDomainBindingsFieldSourceDomain) -> Self {
+        Self {
+            r#kind: crate::generated::enums::DomainBindingSource::Domain,
+            r#domain: Some(value),
+            r#parameter: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "element", " arm with every other arm absent.")]
+    pub fn from_element() -> Self {
+        Self {
+            r#kind: crate::generated::enums::DomainBindingSource::Element,
+            r#domain: None,
+            r#parameter: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "parameter", " arm with every other arm absent.")]
+    pub fn from_parameter(
+        value: AuthoredTemplateDomainBindingsFieldSourceParameter,
+    ) -> Self {
+        Self {
+            r#kind: crate::generated::enums::DomainBindingSource::Parameter,
+            r#domain: None,
+            r#parameter: Some(value),
+        }
+    }
+    #[doc = concat!("Construct the ", "phase", " arm with every other arm absent.")]
+    pub fn from_phase() -> Self {
+        Self {
+            r#kind: crate::generated::enums::DomainBindingSource::Phase,
+            r#domain: None,
+            r#parameter: None,
+        }
+    }
+    #[doc = concat!(
+        "Construct the ",
+        "phase_species",
+        " arm with every other arm absent.",
+    )]
+    pub fn from_phase_species() -> Self {
+        Self {
+            r#kind: crate::generated::enums::DomainBindingSource::PhaseSpecies,
+            r#domain: None,
+            r#parameter: None,
+        }
+    }
+    #[doc = concat!("Construct the ", "species", " arm with every other arm absent.")]
+    pub fn from_species() -> Self {
+        Self {
+            r#kind: crate::generated::enums::DomainBindingSource::Species,
+            r#domain: None,
+            r#parameter: None,
+        }
+    }
+    /// Select exactly the declared payload.
+    /// # Errors
+    /// Unknown tag, missing selected arm or any overlapping arm.
+    pub fn selected(
+        &self,
+    ) -> Result<
+        AuthoredTemplateDomainBindingsFieldSourceSelected<'_>,
+        crate::RelationError,
+    > {
+        match (self.r#kind.as_str(), self.r#domain.as_ref(), self.r#parameter.as_ref()) {
+            ("domain", Some(value), None) => {
+                Ok(AuthoredTemplateDomainBindingsFieldSourceSelected::Domain(value))
+            }
+            ("element", None, None) => {
+                Ok(AuthoredTemplateDomainBindingsFieldSourceSelected::Element)
+            }
+            ("parameter", None, Some(value)) => {
+                Ok(AuthoredTemplateDomainBindingsFieldSourceSelected::Parameter(value))
+            }
+            ("phase", None, None) => {
+                Ok(AuthoredTemplateDomainBindingsFieldSourceSelected::Phase)
+            }
+            ("phase_species", None, None) => {
+                Ok(AuthoredTemplateDomainBindingsFieldSourceSelected::PhaseSpecies)
+            }
+            ("species", None, None) => {
+                Ok(AuthoredTemplateDomainBindingsFieldSourceSelected::Species)
+            }
+            _ => {
+                Err(
+                    crate::typed::mismatch(
+                        "tagged value requires exactly its selected arm",
+                    ),
+                )
+            }
+        }
+    }
+}
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -32,11 +443,7 @@ pub struct AuthoredTemplateDomainBindingsRow {
     ///name
     pub r#name: String,
     ///source
-    pub r#source: crate::generated::enums::DomainBindingSource,
-    ///domain_id
-    pub r#domain_id: Option<pse_ids::SemanticId>,
-    ///parameter_name
-    pub r#parameter_name: Option<String>,
+    pub r#source: AuthoredTemplateDomainBindingsFieldSource,
 }
 impl crate::typed::CellCodec for AuthoredTemplateDomainBindingsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -45,8 +452,6 @@ impl crate::typed::CellCodec for AuthoredTemplateDomainBindingsRow {
                 crate::typed::CellCodec::into_cell(self.r#template_id),
                 crate::typed::CellCodec::into_cell(self.r#name),
                 crate::typed::CellCodec::into_cell(self.r#source),
-                crate::typed::CellCodec::into_cell(self.r#domain_id),
-                crate::typed::CellCodec::into_cell(self.r#parameter_name),
             ],
         )
     }
@@ -56,7 +461,7 @@ impl crate::typed::CellCodec for AuthoredTemplateDomainBindingsRow {
                 crate::typed::mismatch(stringify!(AuthoredTemplateDomainBindingsRow)),
             );
         };
-        if values.len() != 5usize {
+        if values.len() != 3usize {
             return Err(
                 crate::typed::mismatch(stringify!(AuthoredTemplateDomainBindingsRow)),
             );
@@ -77,25 +482,7 @@ impl crate::typed::CellCodec for AuthoredTemplateDomainBindingsRow {
                         stringify!(AuthoredTemplateDomainBindingsRow),
                     ))?,
             )?,
-            r#source: <crate::generated::enums::DomainBindingSource as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(AuthoredTemplateDomainBindingsRow),
-                    ))?,
-            )?,
-            r#domain_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::typed::CellCodec>::from_cell(
-                values
-                    .next()
-                    .ok_or_else(|| crate::typed::mismatch(
-                        stringify!(AuthoredTemplateDomainBindingsRow),
-                    ))?,
-            )?,
-            r#parameter_name: <Option<
-                String,
-            > as crate::typed::CellCodec>::from_cell(
+            r#source: <AuthoredTemplateDomainBindingsFieldSource as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -120,14 +507,6 @@ impl crate::columnar::ArrowValue for AuthoredTemplateDomainBindingsRow {
         )?;
         crate::columnar::ArrowValue::append(&self.r#name, children[1usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#source, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(
-            &self.r#domain_id,
-            children[3usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#parameter_name,
-            children[4usize].as_mut(),
-        )?;
         output.append(true);
         Ok(())
     }
@@ -142,15 +521,9 @@ impl crate::columnar::ArrowValue for AuthoredTemplateDomainBindingsRow {
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <crate::generated::enums::DomainBindingSource as crate::columnar::ArrowValue>::append_null(
+        <AuthoredTemplateDomainBindingsFieldSource as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <Option<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <Option<
-            String,
-        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -169,20 +542,8 @@ impl crate::columnar::ArrowValue for AuthoredTemplateDomainBindingsRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#source: <crate::generated::enums::DomainBindingSource as crate::columnar::ArrowValue>::read(
+            r#source: <AuthoredTemplateDomainBindingsFieldSource as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-            r#domain_id: <Option<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
-                index,
-            )?,
-            r#parameter_name: <Option<
-                String,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
                 index,
             )?,
         })
@@ -201,8 +562,6 @@ impl AuthoredTemplateDomainBindingsRow {
             crate::typed::CellCodec::into_cell(self.r#template_id),
             crate::typed::CellCodec::into_cell(self.r#name),
             crate::typed::CellCodec::into_cell(self.r#source),
-            crate::typed::CellCodec::into_cell(self.r#domain_id),
-            crate::typed::CellCodec::into_cell(self.r#parameter_name),
         ]
     }
     /// Decode a row after its enclosing batch has been admitted.
@@ -216,7 +575,7 @@ impl AuthoredTemplateDomainBindingsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"b600b17ad308894bc5ae84c3f0e0c202\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"template_domain_bindings\"],[\"u64\",1]]],[\"text\",\"authored\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"template_id\"],[\"text\",\"name\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.templates\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.templates.template_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"d94c00712b3f1ad196beb2f9e2045e87\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"templates\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"source\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"source\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DomainBindingSource\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"source\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0ff58e7af021c204f849ad0a9af3228c\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"0ff58e7af021c204f849ad0a9af3228c\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DomainBindingSource\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DomainBindingSource\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0ff58e7af021c204f849ad0a9af3228c\\\"}\"],[\"struct\",[[\"id\",\"0ff58e7af021c204f849ad0a9af3228c\"],[\"text\",\"DomainBindingSource\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"domain\"],[\"null\",null],[\"bool\",false],[\"text\",\"domain\"]]],[\"struct\",[[\"text\",\"parameter\"],[\"null\",null],[\"bool\",false],[\"text\",\"parameter\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"phase_species\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase_species\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"element\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"domain_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"domain_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"domain_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.domains\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"domain_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.domains.domain_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"0677497cd6d0fb097017a1e382cb0082\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"domains\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"parameter_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"parameter_name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"parameter_name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Finite domain source, with only its tagged payload present (blueprint §6.15.1).\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"b600b17ad308894bc5ae84c3f0e0c202\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"b600b17ad308894bc5ae84c3f0e0c202\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"template_domain_bindings\"],[\"u64\",1]]],[\"text\",\"authored\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"template_id\"],[\"text\",\"name\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.templates\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.templates.template_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"d94c00712b3f1ad196beb2f9e2045e87\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"templates\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"source\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"DomainBindingSource\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"domain_id\\\",\\\"pse.domain.fk.relation\\\":\\\"authored.domains\\\"},\\\"name\\\":\\\"domain_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"domain\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"name\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"parameter\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"source\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"domain\\\":\\\"domain\\\",\\\"element\\\":null,\\\"parameter\\\":\\\"parameter\\\",\\\"phase\\\":null,\\\"phase_species\\\":null,\\\"species\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"text\",\"source\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1,\\\\\\\"enum_id\\\\\\\":\\\\\\\"0ff58e7af021c204f849ad0a9af3228c\\\\\\\"}\\\",\\\"ARROW:extension:name\\\":\\\"pse.enum\\\",\\\"pse.semantic.enum\\\":\\\"0ff58e7af021c204f849ad0a9af3228c\\\",\\\"pse.semantic.logical_type\\\":\\\"enum:DomainBindingSource\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.fk\\\":\\\"authored.domains.domain_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"domain_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":{\\\\\\\"FixedSizeBinary\\\\\\\":16},\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{\\\\\\\"pse.domain.extension\\\\\\\":\\\\\\\"pse.semantic_id\\\\\\\",\\\\\\\"pse.domain.fk.column\\\\\\\":\\\\\\\"domain_id\\\\\\\",\\\\\\\"pse.domain.fk.relation\\\\\\\":\\\\\\\"authored.domains\\\\\\\"},\\\\\\\"name\\\\\\\":\\\\\\\"domain_id\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"domain\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"name\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"{\\\\\\\"Struct\\\\\\\":[{\\\\\\\"data_type\\\\\\\":\\\\\\\"Utf8\\\\\\\",\\\\\\\"dict_id\\\\\\\":0,\\\\\\\"dict_is_ordered\\\\\\\":false,\\\\\\\"metadata\\\\\\\":{},\\\\\\\"name\\\\\\\":\\\\\\\"name\\\\\\\",\\\\\\\"nullable\\\\\\\":false}]}\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"parameter\\\",\\\"nullable\\\":true}]}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.enum\\\",\\\"pse.domain.parameter\\\":\\\"DomainBindingSource\\\"},\\\"name\\\":\\\"kind\\\",\\\"nullable\\\":false},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"domain_id\\\",\\\"pse.domain.fk.relation\\\":\\\"authored.domains\\\"},\\\"name\\\":\\\"domain_id\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"domain\\\",\\\"nullable\\\":true},{\\\"data_type\\\":{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"name\\\",\\\"nullable\\\":false}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"parameter\\\",\\\"nullable\\\":true}]},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.tagged_alternative\\\":\\\"{\\\\\\\"arms\\\\\\\":{\\\\\\\"domain\\\\\\\":\\\\\\\"domain\\\\\\\",\\\\\\\"element\\\\\\\":null,\\\\\\\"parameter\\\\\\\":\\\\\\\"parameter\\\\\\\",\\\\\\\"phase\\\\\\\":null,\\\\\\\"phase_species\\\\\\\":null,\\\\\\\"species\\\\\\\":null},\\\\\\\"discriminator\\\\\\\":\\\\\\\"kind\\\\\\\"}\\\"},\\\"name\\\":\\\"item\\\",\\\"nullable\\\":false}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.tagged_alternative\"],[\"text\",\"{\\\"arms\\\":{\\\"domain\\\":\\\"domain\\\",\\\"element\\\":null,\\\"parameter\\\":\\\"parameter\\\",\\\"phase\\\":null,\\\"phase_species\\\":null,\\\"species\\\":null},\\\"discriminator\\\":\\\"kind\\\"}\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DomainBindingSource\"]]]]]]],[\"struct\",[[\"text\",\"kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0ff58e7af021c204f849ad0a9af3228c\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"0ff58e7af021c204f849ad0a9af3228c\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DomainBindingSource\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DomainBindingSource\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"0ff58e7af021c204f849ad0a9af3228c\\\"}\"],[\"struct\",[[\"id\",\"0ff58e7af021c204f849ad0a9af3228c\"],[\"text\",\"DomainBindingSource\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"domain\"],[\"null\",null],[\"bool\",false],[\"text\",\"domain\"]]],[\"struct\",[[\"text\",\"parameter\"],[\"null\",null],[\"bool\",false],[\"text\",\"parameter\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"phase_species\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase_species\"]]],[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"bool\",false],[\"text\",\"element\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"domain\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"domain_id\\\",\\\"pse.domain.fk.relation\\\":\\\"authored.domains\\\"},\\\"name\\\":\\\"domain_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"domain\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"ARROW:extension:metadata\\\":\\\"{\\\\\\\"v\\\\\\\":1}\\\",\\\"ARROW:extension:name\\\":\\\"pse.semantic_id\\\",\\\"pse.semantic.fk\\\":\\\"authored.domains.domain_id\\\",\\\"pse.semantic.logical_type\\\":\\\"semantic_id\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"domain_id\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":{\\\"FixedSizeBinary\\\":16},\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.domain.extension\\\":\\\"pse.semantic_id\\\",\\\"pse.domain.fk.column\\\":\\\"domain_id\\\",\\\"pse.domain.fk.relation\\\":\\\"authored.domains\\\"},\\\"name\\\":\\\"domain_id\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"domain_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"domain_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.domains\"]]]]]]],[\"struct\",[[\"text\",\"domain_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.domains.domain_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"0677497cd6d0fb097017a1e382cb0082\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"domains\"],[\"u64\",1]]]]]]]]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"parameter\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"name\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[]]]],[\"struct\",[[\"text\",\"parameter\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{\\\"pse.semantic.logical_type\\\":\\\"text\\\",\\\"pse.semantic.role\\\":\\\"payload\\\"},\\\"name\\\":\\\"name\\\",\\\"nullable\\\":false}]}\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"{\\\"Struct\\\":[{\\\"data_type\\\":\\\"Utf8\\\",\\\"dict_id\\\":0,\\\"dict_is_ordered\\\":false,\\\"metadata\\\":{},\\\"name\\\":\\\"name\\\",\\\"nullable\\\":false}]}\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[]]]],[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]]]],[\"null\",null]]]]]]],[\"null\",null]]]]],[\"text\",\"Finite domain source, with only its tagged payload present (blueprint §6.15.1).\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"b600b17ad308894bc5ae84c3f0e0c202\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"authored\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -292,10 +651,10 @@ impl crate::columnar::RelationRow for AuthoredTemplateDomainBindingsRow {
         AuthoredTemplateDomainBindingsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        59_568_usize + size_of::<Self::Builder>()
+        116_704_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        96usize
+        120usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -309,28 +668,52 @@ impl crate::columnar::RelationRow for AuthoredTemplateDomainBindingsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#source).as_str().len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if (self.r#domain_id).is_some() {
-                crate::columnar::allocation_add(
-                    1,
-                    Ok::<usize, crate::RelationError>(16usize)?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#parameter_name).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
+            {
+                let mut bytes = 1usize;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    crate::columnar::allocation_add(
+                        8,
+                        ((self.r#source).r#kind).as_str().len(),
+                    )?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if ((self.r#source).r#domain).is_some() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    Ok::<usize, crate::RelationError>(16usize)?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                bytes = crate::columnar::allocation_add(
+                    bytes,
+                    if let Some(value) = ((self.r#source).r#parameter).as_ref() {
+                        crate::columnar::allocation_add(
+                            1,
+                            {
+                                let mut bytes = 1usize;
+                                bytes = crate::columnar::allocation_add(
+                                    bytes,
+                                    crate::columnar::allocation_add(8, ((value).r#name).len())?,
+                                )?;
+                                Ok::<usize, crate::RelationError>(bytes)
+                            }?,
+                        )
+                    } else {
+                        Ok::<usize, crate::RelationError>(1)
+                    }?,
+                )?;
+                Ok::<usize, crate::RelationError>(bytes)
             }?,
         )?;
         Ok(bytes)
@@ -343,7 +726,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "template_id",
@@ -359,16 +742,6 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
         name: "source",
         position: 2usize,
     },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "domain_id",
-        position: 3usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "parameter_name",
-        position: 4usize,
-    },
 ];
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -377,9 +750,7 @@ pub struct AuthoredTemplateDomainBindingsView<'a> {
     batch: &'a crate::RecordBatch,
     template_id_column: &'a arrow_array::FixedSizeBinaryArray,
     name_column: &'a arrow_array::StringArray,
-    source_column: &'a arrow_array::StringArray,
-    domain_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    parameter_name_column: &'a arrow_array::StringArray,
+    source_column: &'a arrow_array::StructArray,
 }
 impl<'a> AuthoredTemplateDomainBindingsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -424,14 +795,8 @@ impl<'a> AuthoredTemplateDomainBindingsView<'a> {
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
             source_column: crate::columnar::array::<
-                arrow_array::StringArray,
+                arrow_array::StructArray,
             >(batch.column(2usize).as_ref())?,
-            domain_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
-            >(batch.column(3usize).as_ref())?,
-            parameter_name_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(4usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -475,36 +840,12 @@ impl<'a> AuthoredTemplateDomainBindingsView<'a> {
         "source",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn source_column(&self) -> &'a arrow_array::StringArray {
+    pub const fn source_column(&self) -> &'a arrow_array::StructArray {
         self.source_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "source", "`.")]
     pub fn source_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[2usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "domain_id",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn domain_id_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
-        self.domain_id_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "domain_id", "`.")]
-    pub fn domain_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "parameter_name",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn parameter_name_column(&self) -> &'a arrow_array::StringArray {
-        self.parameter_name_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "parameter_name", "`.")]
-    pub fn parameter_name_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -524,14 +865,6 @@ impl<'a> AuthoredTemplateDomainBindingsView<'a> {
             )?,
             r#name: crate::columnar::ArrowValue::read(self.name_column, index)?,
             r#source: crate::columnar::ArrowValue::read(self.source_column, index)?,
-            r#domain_id: crate::columnar::ArrowValue::read(
-                self.domain_id_column,
-                index,
-            )?,
-            r#parameter_name: crate::columnar::ArrowValue::read(
-                self.parameter_name_column,
-                index,
-            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
@@ -598,6 +931,16 @@ impl AuthoredTemplateDomainBindingsBuilder {
         &mut self,
         row: AuthoredTemplateDomainBindingsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if (row.r#source).selected().is_err() {
+            return Err(
+                crate::columnar::value_error(
+                    "source",
+                    row_index,
+                    "tagged value requires exactly its selected arm",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;
@@ -612,14 +955,6 @@ impl AuthoredTemplateDomainBindingsBuilder {
                 crate::columnar::ArrowValue::append(
                     &row.r#source,
                     columns[2usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#domain_id,
-                    columns[3usize].as_mut(),
-                )?;
-                crate::columnar::ArrowValue::append(
-                    &row.r#parameter_name,
-                    columns[4usize].as_mut(),
                 )?;
                 Ok(())
             })

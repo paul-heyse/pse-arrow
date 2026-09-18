@@ -21,6 +21,14 @@ kmol/m3. Benzene heat capacity is valid over 278.68–353.24 K and toluene over
 logarithmic authored form excludes the upper critical endpoint. The demonstration
 state bounds use the common interval 298.15–350 K.
 
+Perry's tabulated benzene heat capacities at those endpoints are 132.51 and
+150.40 J/(mol K); the formula test uses their printed 0.01-unit resolution.
+At 298.15 K the same correlation gives 136.489623029725 J/(mol K), whereas
+[NIST's Grolier et al. measurement](https://webbook.nist.gov/cgi/cbook.cgi?ID=C71432&Mask=32)
+is 135.69: a +0.799623029725 J/(mol K) residual (about 0.5893%). The
+demonstration preserves the published Perry fit; it does not claim that fit
+reproduces this separate measurement within 0.2 J/(mol K).
+
 The vapor benzene/toluene data are **derived cubic interpolation examples**, not
 published RPP4 coefficients. We fit `A+B*T+C*T^2+D*T^3` to four NIST heat-capacity
 anchors with exact rational Gaussian elimination, then round each resulting

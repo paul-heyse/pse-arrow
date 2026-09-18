@@ -5,67 +5,15 @@
 
 mod native;
 mod owned;
-pub use owned::{amend_rename_sources_owned, rename_owned};
+pub use owned::rename_documents;
 
 use super::{DocumentBundle, DocumentEdit, binding, load::contract, value::Value};
-use crate::{AuthoringError, SourceSpan, change_set::ChangeSet};
+use crate::{AuthoringError, SourceSpan};
 use pse_ids::SemanticId;
-use pse_relations::generated::{authored, enums::ChangeOpKind};
-use pse_schema::{
-    Registry,
-    model::{Cell, ExtensionUse, FieldContract},
-};
+use pse_relations::generated::authored;
+use pse_schema::model::{ExtensionUse, FieldContract};
 use std::collections::BTreeMap;
 
-fn compose_edits(
-    originals: &[DocumentBundle],
-    previous: &[DocumentBundle],
-    current: &[DocumentEdit],
-    additional: &[DocumentEdit],
-) -> Result<Vec<DocumentEdit>, AuthoringError> {
-    let mut edits = current
-        .iter()
-        .cloned()
-        .map(|edit| (edit.document_id, edit))
-        .collect::<BTreeMap<_, _>>();
-    let mut seen = std::collections::BTreeSet::new();
-    for edit in additional {
-        if !seen.insert(edit.document_id) {
-            return Err(contract(None, "duplicate additional source edit"));
-        }
-        let document = previous
-            .iter()
-            .flat_map(|bundle| &bundle.documents)
-            .find(|document| document.id == edit.document_id)
-            .ok_or_else(|| {
-                contract(
-                    None,
-                    "additional source edit is outside the rename inventory",
-                )
-            })?;
-        if document.path != edit.path || document.text != edit.before {
-            return Err(contract(
-                None,
-                "additional edit does not match exact renamed source bytes",
-            ));
-        }
-        let original = originals
-            .iter()
-            .flat_map(|bundle| &bundle.documents)
-            .find(|document| document.id == edit.document_id)
-            .ok_or_else(|| contract(None, "original source document absent"))?;
-        edits.insert(
-            edit.document_id,
-            DocumentEdit {
-                document_id: edit.document_id,
-                path: edit.path.clone(),
-                before: original.text.clone(),
-                after: edit.after.clone(),
-            },
-        );
-    }
-    Ok(edits.into_values().collect())
-}
 fn valid_name(name: &str) -> Result<(), AuthoringError> {
     let expression =
         crate::dsl::parse_expr(name).map_err(|error| contract(None, &error.to_string()))?;
@@ -147,7 +95,7 @@ struct TargetResolution<'a> {
     batches: &'a super::Batches,
     session: &'a pse_catalog::session::SnapshotSession,
     work: &'a mut dyn pse_ids::Reservation,
-    completed: &'a mut crate::change_set::plans::Completions,
+    completed: &'a mut crate::native_relations::plans::Completions,
     cancel: &'a pse_ids::CancellationToken,
 }
 
@@ -251,7 +199,26 @@ fn rewrite_target(
             .parent_entity_id
             .and_then(|id| entities.iter().find(|entity| entity.entity_id == id));
     }
-    if (target.symbol_decl_id == Some(id) || target.equation_decl_id == Some(id))
+    let declaration = target
+        .member
+        .symbol
+        .as_ref()
+        .map(|value| value.symbol_decl_id)
+        .or_else(|| {
+            target
+                .member
+                .group
+                .as_ref()
+                .map(|value| value.symbol_decl_id)
+        })
+        .or_else(|| {
+            target
+                .member
+                .equation
+                .as_ref()
+                .map(|value| value.equation_decl_id)
+        });
+    if declaration == Some(id)
         && let Some(last) = path.names.last_mut()
     {
         name.clone_into(last);
@@ -352,40 +319,4 @@ fn preserve_expression_bindings(
         }
     }
     Ok(())
-}
-fn mark_rename(
-    changes: &mut ChangeSet,
-    id: SemanticId,
-    registry: &Registry,
-) -> Result<(), AuthoringError> {
-    let spec = registry
-        .relation("authored.entities")
-        .ok_or_else(|| contract(None, "missing entity relation"))?;
-    let data = changes.data_mut();
-    for operation in &mut data.ops {
-        if operation.relation_id != spec.id || operation.op != ChangeOpKind::Update {
-            continue;
-        }
-        let staged = data
-            .staged
-            .get(&operation.row_key.staged_port)
-            .ok_or_else(|| contract(None, "missing entity preimage"))?;
-        let rows = pse_relations::cells::cells_from_batch(registry, spec, &staged.batch)
-            .map_err(|error| contract(None, &error.to_string()))?;
-        if rows
-            .get(
-                usize::try_from(operation.row_key.staged_ordinal)
-                    .map_err(|_| contract(None, "rename ordinal overflow"))?,
-            )
-            .and_then(|row| row.first())
-            == Some(&Cell::Id(id))
-        {
-            operation.op = ChangeOpKind::Rename;
-            return Ok(());
-        }
-    }
-    Err(contract(
-        None,
-        "rename did not produce the expected entity operation",
-    ))
 }

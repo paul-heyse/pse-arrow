@@ -5,26 +5,16 @@
       {
         "contribution_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "indexed_by": "[\"list\",[]]",
-        "phase_axis": "[\"u64\",1]",
-        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject_axis": "[\"u64\",1]",
-        "subject_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject_kind": "[\"enum\",\"total\"]",
-        "transfer_member_ordinal": "[\"u64\",1]",
-        "transfer_port_name": "[\"text\",\"value-1\"]"
+        "subject": "[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"struct\",[[\"text\",\"axis\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]]],[\"null\",null]]]",
+        "transfer": "[\"struct\",[[\"text\",\"value-1\"],[\"i64\",1]]]"
       },
       {
         "contribution_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "indexed_by": "[\"list\",[]]",
-        "phase_axis": "[\"u64\",1]",
-        "phase_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject_axis": "[\"u64\",1]",
-        "subject_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "subject_kind": "[\"enum\",\"total\"]",
-        "transfer_member_ordinal": "[\"u64\",1]",
-        "transfer_port_name": "[\"text\",\"value-1\"]"
+        "subject": "[\"struct\",[[\"text\",\"element\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"struct\",[[\"text\",\"axis\"],[\"null\",null],[\"struct\",[[\"i64\",1]]]]]]],[\"null\",null]]]",
+        "transfer": "[\"struct\",[[\"text\",\"value-1\"],[\"i64\",1]]]"
       }
     ]
   },

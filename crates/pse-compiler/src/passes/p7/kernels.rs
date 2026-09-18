@@ -13,8 +13,8 @@ use pse_quantity::{QuantityTypeId, UnitId};
 use pse_relations::generated::{
     compiled,
     enums::{
-        BoundKind, ExpressionRootRole, MethodOutputKind, SolverVariableType, SymbolRole,
-        VariableLifecycle, VariableSemanticRole,
+        BoundKind, ExpressionRootRole, SolverVariableType, SymbolRole, VariableLifecycle,
+        VariableSemanticRole,
     },
     extension_values::Bound,
     reference,
@@ -28,12 +28,16 @@ pub(crate) struct KernelMethod {
     pub state_scope: SemanticId,
     pub state: SemanticId,
     pub index: Vec<SemanticId>,
-    pub output_ordinal: u16,
+    pub output_ordinal: i64,
     pub inputs: Vec<(String, SemanticId)>,
     pub parameters: Vec<ParameterBinding>,
     pub support: std::collections::BTreeSet<crate::passes::native_outputs::SourceKey>,
 }
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "kernel_methods keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn kernel_methods(&mut self, methods: &[KernelMethod]) -> Result<(), CompilerError> {
         for method in methods {
             self.cancel.checkpoint()?;
@@ -52,7 +56,10 @@ impl Realizer<'_> {
             let output = method
                 .descriptor
                 .outputs
-                .get(usize::from(method.output_ordinal))
+                .get(
+                    usize::try_from(method.output_ordinal)
+                        .map_err(|_| invalid("negative kernel output ordinal"))?,
+                )
                 .ok_or_else(|| invalid("kernel output ordinal absent"))?;
             let quantity = self
                 .physical
@@ -94,6 +101,10 @@ impl Realizer<'_> {
                         .key,
                 )?;
                 let mut node = self.graph.symbol(*symbol)?;
+                self.node_support
+                    .entry(node)
+                    .or_default()
+                    .extend(self.active_support.iter().copied());
                 if actual.unit_id != port.natural_unit_id {
                     node = self.graph.insert(
                         Opcode::UnitConvert,
@@ -138,11 +149,16 @@ impl Realizer<'_> {
                 Opcode::KernelCall,
                 Payload::KernelCall {
                     kernel_binding: binding,
-                    output_ordinal: method.output_ordinal,
+                    output_ordinal: u16::try_from(method.output_ordinal)
+                        .map_err(|_| invalid("kernel output exceeds declared width"))?,
                 },
                 &[],
                 Some(method.state),
             )?;
+            self.node_support
+                .entry(root)
+                .or_default()
+                .extend(self.active_support.iter().copied());
             if output.natural_unit_id != quantity.canonical_unit.as_id() {
                 let conversion = pse_quantity::convert_spec_for_type(
                     self.physical
@@ -238,11 +254,13 @@ impl Realizer<'_> {
                 compiled::method_realizations::Row {
                     requirement_id: method.requirement,
                     method_id: method.method,
-                    template_instance_id: None,
-                    kernel_binding_id: Some(binding),
-                    output_kind: MethodOutputKind::KernelOutput,
-                    output_symbol_id: Some(symbol),
-                    kernel_output_ordinal: Some(method.output_ordinal),
+                    output_symbol_id: symbol,
+                    realization: compiled::method_realizations::CompiledMethodRealizationsFieldRealization::from_kernel_output(
+                        compiled::method_realizations::CompiledMethodRealizationsFieldRealizationKernelOutput {
+                            kernel_binding_id: binding,
+                            output_ordinal: method.output_ordinal,
+                        }
+                    ),
                     derivation_id: Self::derivation(
                         method.state,
                         method.requirement,

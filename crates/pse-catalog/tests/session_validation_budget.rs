@@ -126,7 +126,7 @@ fn candidate_nested_decode_is_refused_before_allocation_with_a_tiny_budget() {
 #[test]
 fn repeated_plan_admission_reuses_immutable_input_without_value_scratch() {
     let (registry, batch) = input();
-    let extent = pse_catalog::store::membership::validation_extent(&batch).expect("extent");
+    let extent = pse_ids::validation_extent(&batch).expect("extent");
     let budget = FixedBudget::new(extent * 2);
     let reserver: Arc<dyn MemoryReserver> = budget.clone();
     let session = build(
@@ -158,9 +158,24 @@ fn repeated_plan_admission_reuses_immutable_input_without_value_scratch() {
         assert_eq!(budget.reserved(), retained);
     }
     let mut pressure = budget.open("test:other-live-consumer");
+    // Admission charges its native plan/control memo, but must not decode the
+    // half-megabyte immutable value again. Zero headroom must refuse honestly.
     pressure
         .try_grow(budget.limit_bytes() - retained)
         .expect("other consumer");
+    let errors = pse_catalog::failure::classify(
+        admit_plan(
+            &plan,
+            &registry,
+            &[Arc::clone(&table)],
+            budget.as_ref(),
+            &cancel,
+        )
+        .expect_err("zero plan-control headroom"),
+        PlanOrigin::RuleCompiler,
+    );
+    assert_eq!(code(&errors[0]), "runtime::resource_limit");
+    pressure.shrink(8 << 10);
     let baseline = budget.reserved();
     admit_plan(
         &plan,

@@ -10,6 +10,7 @@ extend-exclude = [
   "*.zst",
   "target/",
   "external/",
+  "vendor/",
   "build/",
   "docs/book/",
   "docs/generated/",

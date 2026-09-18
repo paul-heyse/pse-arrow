@@ -17,9 +17,12 @@
       ],
       "requires": [],
       "parameter_kinds": [],
-      "realization": "equation_template",
-      "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec"
+        }
+      },
       "validity": [],
       "doc": "Exactly one selected actual phase; finite nonempty species domain. Molar basis, positive absolute temperature and pressure. No flash or multiphase equations are provided by this stock method."
     },
@@ -38,9 +41,12 @@
       ],
       "requires": [],
       "parameter_kinds": [],
-      "realization": "equation_template",
-      "template_id": "88ad610582c04b999ec786ac9f3aebba",
-      "kernel_id": null,
+      "realization": {
+        "kind": "equation_template",
+        "equation_template": {
+          "template_id": "88ad610582c04b999ec786ac9f3aebba"
+        }
+      },
       "validity": [],
       "doc": "Exactly one selected actual phase; finite nonempty species domain. Molar basis, positive absolute temperature and pressure. No flash or multiphase equations are provided by this stock method."
     }
@@ -49,142 +55,178 @@
     {
       "method_id": "bb3ea14061b24335a0c78a25c67e67b6",
       "property_kind_id": "89070176d7cf4d06a3f13dd52d387c7b",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "75d55d1c66da4e97bd17de4480d959d5",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
       "natural_unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
-      "indexed_by": []
+      "indexed_by": [],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "75d55d1c66da4e97bd17de4480d959d5"
+        }
+      }
     },
     {
       "method_id": "bb3ea14061b24335a0c78a25c67e67b6",
       "property_kind_id": "c2bf2e6734b248d0ad6df781f3c4f585",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "989f9115f04f4d8d8c30f2cd464df2c7",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
       "natural_unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b",
-      "indexed_by": []
+      "indexed_by": [],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "989f9115f04f4d8d8c30f2cd464df2c7"
+        }
+      }
     },
     {
       "method_id": "bb3ea14061b24335a0c78a25c67e67b6",
       "property_kind_id": "b5780146d4234883988f5c8377f71509",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "e276e55b57424870bb1d75a14bdf7732",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
       "natural_unit_id": "462e80f8128a7586583e9470658e1e0e",
       "indexed_by": [
         "phase",
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "e276e55b57424870bb1d75a14bdf7732"
+        }
+      }
     },
     {
       "method_id": "bb3ea14061b24335a0c78a25c67e67b6",
       "property_kind_id": "00f88dbf377744f1a0ff14f3259b0c3e",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "b4c8758f5c254cf3a8994e8344ececd1",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
       "natural_unit_id": "34207cdbb6fab2ee10002e057595c758",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "b4c8758f5c254cf3a8994e8344ececd1"
+        }
+      }
     },
     {
       "method_id": "bb3ea14061b24335a0c78a25c67e67b6",
       "property_kind_id": "a5fb4030f81a4254a7943ca15cd238b2",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "d5e553a6bce245abbc7938bfa276b94a",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "b26a38c3b42d436f968ea917f0f7aa5c",
       "natural_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
       "indexed_by": [
         "phase",
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "d5e553a6bce245abbc7938bfa276b94a"
+        }
+      }
     },
     {
       "method_id": "bb3ea14061b24335a0c78a25c67e67b6",
       "property_kind_id": "7097bb52e7ed423781c9d8b0e1672d7e",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "a1fb2934723f4f2b8f16e1a56835f44a",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "d3adb51a039f458d81ec17192afe8596",
       "natural_unit_id": "2c780c134b34424c8d9767669932f479",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "a1fb2934723f4f2b8f16e1a56835f44a"
+        }
+      }
     },
     {
       "method_id": "c207b61b96124774b194cd76024f772f",
       "property_kind_id": "89070176d7cf4d06a3f13dd52d387c7b",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "eb889bdb424c416d9e889da639a36879",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
       "natural_unit_id": "92e0dd5b939210176bdc7dfc2e191d14",
-      "indexed_by": []
+      "indexed_by": [],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "eb889bdb424c416d9e889da639a36879"
+        }
+      }
     },
     {
       "method_id": "c207b61b96124774b194cd76024f772f",
       "property_kind_id": "c2bf2e6734b248d0ad6df781f3c4f585",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "81ad47e3c3fd46ed89459602827b74a7",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "a0fa145fd8b2ecec448c39666960debc",
       "natural_unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b",
-      "indexed_by": []
+      "indexed_by": [],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "81ad47e3c3fd46ed89459602827b74a7"
+        }
+      }
     },
     {
       "method_id": "c207b61b96124774b194cd76024f772f",
       "property_kind_id": "b5780146d4234883988f5c8377f71509",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "6ddfb8d6c7884dfc95de73174324d84b",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
       "natural_unit_id": "462e80f8128a7586583e9470658e1e0e",
       "indexed_by": [
         "phase",
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "6ddfb8d6c7884dfc95de73174324d84b"
+        }
+      }
     },
     {
       "method_id": "c207b61b96124774b194cd76024f772f",
       "property_kind_id": "00f88dbf377744f1a0ff14f3259b0c3e",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "306e5b5ed4554bbcaad57c1b779530b6",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
       "natural_unit_id": "34207cdbb6fab2ee10002e057595c758",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "306e5b5ed4554bbcaad57c1b779530b6"
+        }
+      }
     },
     {
       "method_id": "c207b61b96124774b194cd76024f772f",
       "property_kind_id": "a5fb4030f81a4254a7943ca15cd238b2",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "067d0ea622b04629a735bacafc5f62ec",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "b26a38c3b42d436f968ea917f0f7aa5c",
       "natural_unit_id": "ce1522e8ed1ba5b892b92dca5df11cf4",
       "indexed_by": [
         "phase",
         "species"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "067d0ea622b04629a735bacafc5f62ec"
+        }
+      }
     },
     {
       "method_id": "c207b61b96124774b194cd76024f772f",
       "property_kind_id": "7097bb52e7ed423781c9d8b0e1672d7e",
-      "output_kind": "template_symbol",
-      "symbol_decl_id": "c4bdc566063c46d59d55c516821f6791",
-      "kernel_output_ordinal": null,
       "quantity_type_id": "d3adb51a039f458d81ec17192afe8596",
       "natural_unit_id": "2c780c134b34424c8d9767669932f479",
       "indexed_by": [
         "phase"
-      ]
+      ],
+      "output": {
+        "kind": "template_symbol",
+        "template_symbol": {
+          "symbol_decl_id": "c4bdc566063c46d59d55c516821f6791"
+        }
+      }
     }
   ]
 }

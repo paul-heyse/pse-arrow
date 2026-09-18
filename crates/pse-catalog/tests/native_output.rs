@@ -280,6 +280,25 @@ async fn native_codecs_preserve_exact_values_and_output_schema_inside_the_plan()
         .await
         .unwrap();
     let before = budget.reserved();
+    let ordered_ids = complete
+        .batches()
+        .iter()
+        .flat_map(|batch| {
+            batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap()
+                .values()
+                .iter()
+                .copied()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        ordered_ids,
+        [2, u64::MAX],
+        "execution admission preserves the requested native order"
+    );
     for batch in complete.batches() {
         let checked = pse_relations::columnar::FieldCheckedBatch::admit_owned_projection(
             &registry,

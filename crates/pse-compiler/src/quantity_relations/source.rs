@@ -8,7 +8,7 @@ mod plans;
 pub(crate) mod preconditions;
 
 use super::invalid;
-use crate::{CompilerError, InputBundle, PassContext};
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use datafusion::logical_expr::{LogicalPlan, LogicalPlanBuilder, col};
 use pse_catalog::session::{
     CompletedComputation, SnapshotSession, output::declare_relation_output,
@@ -78,13 +78,17 @@ impl RelationSymbolSource {
     /// Bind admitted input owners to the same immutable engine, then execute
     /// native joins/order/recursive carrier selection. Quantity operations and
     /// occurrence typing remain the leaf algorithms' responsibility.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "load keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(crate) async fn load(
-        ctx: &PassContext<'_>,
-        inputs: &InputBundle,
+        ctx: &AlgorithmContext<'_>,
+        inputs: &AlgorithmInputs,
     ) -> Result<Self, CompilerError> {
         let spec = ctx
             .registry
-            .pass("P10@1")
+            .algorithm("P10@1")
             .ok_or_else(|| invalid("physical source requires declared P10"))?;
         inputs.validate(spec, ctx.registry)?;
         let session = ctx

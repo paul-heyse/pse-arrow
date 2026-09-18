@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Deterministic concrete data construction; expected keys never evaluate `RulePlan`.
-#[path = "generate/alternatives.rs"]
-mod alternatives;
+//! Deterministic concrete data construction; expected keys are independent of the invariant queries.
 #[path = "generate/inference.rs"]
 mod inference;
 #[path = "generate/semantic.rs"]
@@ -20,12 +18,10 @@ pub(super) type Rows = BTreeMap<String, Vec<Row>>;
 
 pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, Fixture) {
     let spec = registry.relation(&invariant.relation).unwrap();
-    let rule = registry.rule(&invariant.rule).unwrap();
-    let mut valid: Rows = rule
-        .plan
-        .dependencies()
-        .into_iter()
-        .map(|(relation, _, _)| (relation.to_owned(), vec![]))
+    let mut valid: Rows = invariant
+        .inputs
+        .iter()
+        .map(|relation| (relation.clone(), vec![]))
         .collect();
     let subject = row(registry, spec, 1);
     valid.insert(invariant.relation.clone(), vec![subject.clone()]);
@@ -61,10 +57,8 @@ pub(crate) fn pair(registry: &Registry, invariant: &InvariantSpec) -> (Fixture, 
             1
         })
         .map(|row| {
-            let pse_schema::model::RuleHead::Violations { key_columns, .. } = &rule.head else {
-                panic!("invariant fixture requires an explicit violating-key projection")
-            };
-            key_columns
+            invariant
+                .key_columns
                 .iter()
                 .map(|column| row[*column].literal_spec())
                 .collect()

@@ -6,21 +6,6 @@
 from enum import StrEnum
 
 
-class AggregateEmptyPolicy(StrEnum):
-    """The declared AggregateEmptyPolicy enumeration."""
-
-    ZERO = "zero"
-    EMPTY_LIST = "empty_list"
-    ERROR = "error"
-
-
-class AggregateNullPolicy(StrEnum):
-    """The declared AggregateNullPolicy enumeration."""
-
-    REJECT = "reject"
-    SKIP_MISSING = "skip_missing"
-
-
 class AliasKind(StrEnum):
     """The declared AliasKind enumeration."""
 
@@ -196,13 +181,13 @@ class CaseKind(StrEnum):
     SWEEP_SAMPLE = "sweep_sample"
 
 
-class ChangeOpKind(StrEnum):
-    """The declared ChangeOpKind enumeration."""
+class ChangeKind(StrEnum):
+    """The declared ChangeKind enumeration."""
 
     INSERT = "insert"
-    UPDATE = "update"
     DELETE = "delete"
-    RENAME = "rename"
+    UPDATE_PREIMAGE = "update_preimage"
+    UPDATE_POSTIMAGE = "update_postimage"
 
 
 class ColumnRole(StrEnum):
@@ -327,6 +312,13 @@ class ConstraintScalingScheme(StrEnum):
     INVERSEMINIMUM = "inverseMinimum"
 
 
+class ContributionSign(StrEnum):
+    """The declared ContributionSign enumeration."""
+
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+
+
 class ContributionSubjectKind(StrEnum):
     """The declared ContributionSubjectKind enumeration."""
 
@@ -442,14 +434,6 @@ class DependencyMode(StrEnum):
     READ = "read"
     NEGATE = "negate"
     WRITE = "write"
-
-
-class DepthBound(StrEnum):
-    """The declared DepthBound enumeration."""
-
-    FIXED_POINT = "fixed_point"
-    SEED_ROWS = "seed_rows"
-    BOUNDED = "bounded"
 
 
 class DerivationGranularity(StrEnum):
@@ -570,12 +554,6 @@ class ElementProjectionFormula(StrEnum):
 
     MOLAR_COUNT = "molar_count"
     MASS_COUNT_OVER_MW = "mass_count_over_mw"
-
-
-class EmptyListPolicy(StrEnum):
-    """The declared EmptyListPolicy enumeration."""
-
-    NO_MEMBERS = "no_members"
 
 
 class EnergyBalanceType(StrEnum):
@@ -823,13 +801,6 @@ class FmaPolicy(StrEnum):
     EXPLICIT = "explicit"
 
 
-class GatherState(StrEnum):
-    """The declared GatherState enumeration."""
-
-    RESOLVED = "resolved"
-    PENDING = "pending"
-
-
 class GeneratorKind(StrEnum):
     """The declared GeneratorKind enumeration."""
 
@@ -942,6 +913,13 @@ class InitializationStatus(StrEnum):
     ERROR = "Error"
 
 
+class InputConsumptionKind(StrEnum):
+    """The declared InputConsumptionKind enumeration."""
+
+    WHOLE = "whole"
+    COLUMNS = "columns"
+
+
 class InvariantKind(StrEnum):
     """The declared InvariantKind enumeration."""
 
@@ -997,6 +975,13 @@ class KernelOutcome(StrEnum):
     IMPLEMENTATION_FAILURE = "implementation_failure"
 
 
+class KernelParameterBindingKind(StrEnum):
+    """The declared KernelParameterBindingKind enumeration."""
+
+    SYMBOL = "symbol"
+    LITERAL = "literal"
+
+
 class LawExpansion(StrEnum):
     """The declared LawExpansion enumeration."""
 
@@ -1041,6 +1026,63 @@ class MaterialFlowBasis(StrEnum):
     MOLAR = "molar"
     MASS = "mass"
     OTHER = "other"
+
+
+class MathDomainKind(StrEnum):
+    """The declared MathDomainKind enumeration."""
+
+    ACTUAL = "actual"
+    TEMPLATE = "template"
+
+
+class MathGuardKind(StrEnum):
+    """The declared MathGuardKind enumeration."""
+
+    MATH = "math"
+    PREDICATE = "predicate"
+
+
+class MathPayloadKind(StrEnum):
+    """The declared MathPayloadKind enumeration."""
+
+    NONE = "none"
+    SYMBOL = "symbol"
+    FLOAT = "float"
+    INTEGER = "integer"
+    AFFINE = "affine"
+    WEIGHTED_MEAN = "weighted_mean"
+    REDUCTION = "reduction"
+    GATHER = "gather"
+    PENDING_GATHER = "pending_gather"
+    PENDING_PATH = "pending_path"
+    BROADCAST = "broadcast"
+    DERIVATIVE = "derivative"
+    INTEGRAL = "integral"
+    SMOOTH = "smooth"
+    PENDING_SMOOTH = "pending_smooth"
+    CONDITIONAL = "conditional"
+    KERNEL_CALL = "kernel_call"
+    IMPLICIT_REF = "implicit_ref"
+    UNIT_CONVERT = "unit_convert"
+    PENDING_UNIT_CONVERT = "pending_unit_convert"
+    PIECEWISE_LINEAR = "piecewise_linear"
+
+
+class MathReferenceKind(StrEnum):
+    """The declared MathReferenceKind enumeration."""
+
+    SYMBOL = "symbol"
+    TEMPLATE = "template"
+    DOMAIN = "domain"
+    INDEX = "index"
+
+
+class MathTemplateMemberKind(StrEnum):
+    """The declared MathTemplateMemberKind enumeration."""
+
+    PARAMETER = "parameter"
+    FEATURE = "feature"
+    PORT = "port"
 
 
 class MemberSelectionKind(StrEnum):
@@ -1166,6 +1208,34 @@ class Namespace(StrEnum):
     PROVENANCE = "provenance"
 
 
+class NativeDependencyEvidenceKind(StrEnum):
+    """The declared NativeDependencyEvidenceKind enumeration."""
+
+    ABSENT = "absent"
+    PRESENT = "present"
+    TEXT = "text"
+    IDENTITY = "identity"
+    IDENTIFIED_TEXT = "identified_text"
+    FINGERPRINT = "fingerprint"
+    SELECTION = "selection"
+    PROJECTION = "projection"
+
+
+class NativeDependencyKind(StrEnum):
+    """The declared NativeDependencyKind enumeration."""
+
+    OPERATION = "operation"
+    INPUT = "input"
+    CONTRACT = "contract"
+    FUNCTION = "function"
+    RULE = "rule"
+    SETTING = "setting"
+    POLICY = "policy"
+    PROVIDER = "provider"
+    SCOPE = "scope"
+    OBSERVATION = "observation"
+
+
 class NegationPolicy(StrEnum):
     """The declared NegationPolicy enumeration."""
 
@@ -1185,32 +1255,6 @@ class NonfinitePolicy(StrEnum):
     """The declared NonfinitePolicy enumeration."""
 
     EVALUATION_ERROR = "evaluation_error"
-
-
-class NormalizedReferenceKind(StrEnum):
-    """The declared NormalizedReferenceKind enumeration."""
-
-    SYMBOL = "symbol"
-    PARAMETER = "parameter"
-    FEATURE = "feature"
-    PORT = "port"
-    DOMAIN = "domain"
-    INDEX = "index"
-    PATH = "path"
-
-
-class NullEquality(StrEnum):
-    """The declared NullEquality enumeration."""
-
-    NULL_EQUALS_NOTHING = "null_equals_nothing"
-    NULL_EQUALS_NULL = "null_equals_null"
-
-
-class NullListPolicy(StrEnum):
-    """The declared NullListPolicy enumeration."""
-
-    REJECT = "reject"
-    NO_MEMBERS = "no_members"
 
 
 class ObjectiveSense(StrEnum):
@@ -1328,22 +1372,12 @@ class ParticipationDecision(StrEnum):
     EXCLUDED = "excluded"
 
 
-class ParticipationReason(StrEnum):
-    """The declared ParticipationReason enumeration."""
+class ParticipationExclusionReason(StrEnum):
+    """The declared ParticipationExclusionReason enumeration."""
 
-    MATCHED = "matched"
     FAMILY_MISMATCH = "family_mismatch"
     SUBJECT_MISMATCH = "subject_mismatch"
     INTERNAL_TRANSFER = "internal_transfer"
-
-
-class PassStatus(StrEnum):
-    """The declared PassStatus enumeration."""
-
-    OK = "ok"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-    REUSED = "reused"
 
 
 class PathTargetKind(StrEnum):
@@ -1363,6 +1397,13 @@ class PhaseType(StrEnum):
     VAPORPHASE = "vaporPhase"
     SOLIDPHASE = "solidPhase"
     AQUEOUSPHASE = "aqueousPhase"
+
+
+class PhysicalCoordinateKind(StrEnum):
+    """The declared PhysicalCoordinateKind enumeration."""
+
+    FIXED = "fixed"
+    AXIS = "axis"
 
 
 class PortKind(StrEnum):
@@ -1418,6 +1459,7 @@ class PropertyCategory(StrEnum):
 class PublicationKind(StrEnum):
     """The declared PublicationKind enumeration."""
 
+    RELATIONS = "relations"
     SOURCE = "source"
     MODEL = "model"
     CASE = "case"
@@ -1566,6 +1608,15 @@ class ResolutionStatus(StrEnum):
     AMBIGUOUS = "ambiguous"
 
 
+class RetentionReason(StrEnum):
+    """The declared RetentionReason enumeration."""
+
+    PUBLICATION = "publication"
+    OUTPUT = "output"
+    ATTEMPT = "attempt"
+    CHANGES = "changes"
+
+
 class RewriteMode(StrEnum):
     """The declared RewriteMode enumeration."""
 
@@ -1580,72 +1631,6 @@ class RowKind(StrEnum):
     OBJECTIVE = "objective"
 
 
-class RuleAggregate(StrEnum):
-    """The declared RuleAggregate enumeration."""
-
-    COUNT = "count"
-    SUM = "sum"
-    MIN = "min"
-    MAX = "max"
-    COLLECT_ORDERED = "collect_ordered"
-
-
-class RuleCmpOp(StrEnum):
-    """The declared RuleCmpOp enumeration."""
-
-    EQ = "eq"
-    NOT_EQ = "not_eq"
-    LT = "lt"
-    LT_EQ = "lt_eq"
-    GT = "gt"
-    GT_EQ = "gt_eq"
-
-
-class RuleExprOp(StrEnum):
-    """The declared RuleExprOp enumeration."""
-
-    COL = "col"
-    LIT = "lit"
-    CALL = "call"
-    AND = "and"
-    OR = "or"
-    NOT = "not"
-    CMP = "cmp"
-    IS_NULL = "is_null"
-    IS_NOT_NULL = "is_not_null"
-    IS_DISTINCT_FROM = "is_distinct_from"
-    IS_NOT_DISTINCT_FROM = "is_not_distinct_from"
-    IN_LIST = "in_list"
-    FIELD = "field"
-    LIST_LEN = "list_len"
-    IS_TRUE = "is_true"
-    IS_FALSE = "is_false"
-    IS_UNKNOWN = "is_unknown"
-
-
-class RuleHeadKind(StrEnum):
-    """The declared RuleHeadKind enumeration."""
-
-    RELATION = "relation"
-    VIOLATIONS = "violations"
-
-
-class RuleLiteralKind(StrEnum):
-    """The declared RuleLiteralKind enumeration."""
-
-    NULL = "null"
-    BOOL = "bool"
-    I64 = "i64"
-    U64 = "u64"
-    F64 = "f64"
-    TEXT = "text"
-    ID = "id"
-    HASH = "hash"
-    ENUM = "enum"
-    LIST = "list"
-    STRUCT = "struct"
-
-
 class RuleOutcomeReason(StrEnum):
     """The declared RuleOutcomeReason enumeration."""
 
@@ -1653,23 +1638,6 @@ class RuleOutcomeReason(StrEnum):
     PREDICATE_FALSE = "predicate_false"
     PREDICATE_UNKNOWN = "predicate_unknown"
     VALUE_CONFLICT = "value_conflict"
-
-
-class RulePlanOp(StrEnum):
-    """The declared RulePlanOp enumeration."""
-
-    SCAN = "scan"
-    FILTER = "filter"
-    ASSERT = "assert"
-    PROJECT = "project"
-    EQUI_JOIN = "equi_join"
-    ANTI_JOIN = "anti_join"
-    UNION = "union"
-    DISTINCT = "distinct"
-    AGGREGATE = "aggregate"
-    UNNEST = "unnest"
-    RECURSIVE = "recursive"
-    RECURSIVE_REF = "recursive_ref"
 
 
 class RuleSupportKind(StrEnum):
@@ -1764,13 +1732,6 @@ class Severity(StrEnum):
     WARNING = "warning"
 
 
-class SmoothingEpsilonState(StrEnum):
-    """The declared SmoothingEpsilonState enumeration."""
-
-    COORDINATE = "coordinate"
-    PENDING_UNIT = "pending_unit"
-
-
 class SnapshotClass(StrEnum):
     """The declared SnapshotClass enumeration."""
 
@@ -1788,6 +1749,15 @@ class SolvePlanClass(StrEnum):
     DAE_INTEGRATE = "DAE_INTEGRATE"
     MINLP = "MINLP"
     GDP = "GDP"
+
+
+class SolverTermination(StrEnum):
+    """The declared SolverTermination enumeration."""
+
+    SUCCESS = "success"
+    STOPPED = "stopped"
+    CANCELLED = "cancelled"
+    EVALUATION_FAILURE = "evaluation_failure"
 
 
 class SolverVariableType(StrEnum):
@@ -1990,13 +1960,6 @@ class TruthValue(StrEnum):
     FALSE = "false"
     UNKNOWN = "unknown"
     CONFLICT = "conflict"
-
-
-class UnitConversionState(StrEnum):
-    """The declared UnitConversionState enumeration."""
-
-    RESOLVED = "resolved"
-    PENDING = "pending"
 
 
 class ValueSource(StrEnum):

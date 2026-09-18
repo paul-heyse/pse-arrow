@@ -5,9 +5,13 @@
 //! Completion establishes execution and field construction, never producer semantics
 //! by a digest, a callback replay, or an arbitrary result-wrapper constructor.
 
+mod projection;
 mod provenance;
 mod union;
 mod witness;
+
+#[cfg(test)]
+mod tests;
 
 use super::{LocatedRuleInput, relational};
 use crate::{
@@ -83,7 +87,7 @@ impl NativeInput {
         output: RelationKey,
         pass_id: SemanticId,
         columns: Vec<(String, String)>,
-        witnesses: Vec<NativeWitness>,
+        mut witnesses: Vec<NativeWitness>,
         session: &SnapshotSession,
         cancel: &CancellationToken,
     ) -> Result<Arc<Self>, RuleError> {
@@ -109,6 +113,7 @@ impl NativeInput {
         for witness in &witnesses {
             witness.validate(session, cancel)?;
         }
+        let plan = projection::inputs(plan, target, &columns, &mut witnesses)?;
         let complete = session
             .prepare_rule_plan(plan, cancel)?
             .execute(cancel)
@@ -133,20 +138,15 @@ impl NativeInput {
             .map_err(engine)?
             .build()
             .map_err(engine)?;
-        let projected = declare_relation_output(projected, registry, target).map_err(engine)?;
-        let duplicates = witness::duplicate_keys(projected.clone(), target)?;
-        require_empty(
-            duplicates,
+        let checked = materialize_with_constraint(
+            projected,
+            target,
             &owner,
             cancel,
+            |values| witness::duplicate_keys(values, target),
             "native construction has conflicting rows for one declared key",
         )
         .await?;
-        let complete = owner
-            .prepare_rule_plan(projected, cancel)?
-            .execute(cancel)
-            .await?;
-        let checked = complete.checked_relation(registry, target, cancel)?;
         let support = witness::mapping(raw, target, &columns, &witnesses, &owner, cancel).await?;
         let derivations =
             provenance::materialize(&checked, &support, output, pass_id, &owner, cancel).await?;
@@ -285,12 +285,50 @@ fn receipt_extent(
     Ok(bytes)
 }
 
+/// Check the actual completed values through an immutable native provider. Checking
+/// the producer and then running it again duplicates planning and can observe a
+/// different execution. No checked result escapes until its relational check passes.
+async fn materialize_with_constraint(
+    plan: LogicalPlan,
+    target: &RelationSpec,
+    session: &SnapshotSession,
+    cancel: &CancellationToken,
+    violations: impl FnOnce(LogicalPlan) -> Result<LogicalPlan, RuleError>,
+    reason: &str,
+) -> Result<FieldCheckedBatch, RuleError> {
+    let plan = declare_relation_output(plan, session.registry(), target).map_err(engine)?;
+    let complete = session
+        .prepare_rule_plan(plan, cancel)?
+        .execute(cancel)
+        .await?;
+    let checked = complete.into_checked_relation(session.registry(), target, cancel)?;
+    let mut role = format!("__native_completed:{}", target.id);
+    while session.input_roles().any(|(name, _)| name == role) {
+        role.push('_');
+    }
+    let owner = session
+        .with_checked_role_inputs(BTreeMap::from([(role.clone(), checked.clone())]), cancel)?;
+    require_empty(violations(owner.scan_role(&role)?)?, &owner, cancel, reason).await?;
+    Ok(checked)
+}
+
 async fn require_empty(
     plan: LogicalPlan,
     session: &SnapshotSession,
     cancel: &CancellationToken,
     reason: &str,
 ) -> Result<(), RuleError> {
+    // This contract observes existence only. Express that through native projection
+    // and limit so column pruning can discard unrelated payload work and metadata;
+    // every predicate/join key still participates in the zero-violation decision.
+    let plan = LogicalPlan::Projection(
+        datafusion_expr::Projection::try_new(vec![datafusion_expr::lit(true)], Arc::new(plan))
+            .map_err(engine)?,
+    );
+    let plan = LogicalPlanBuilder::from(plan)
+        .limit(0, Some(1))
+        .and_then(LogicalPlanBuilder::build)
+        .map_err(engine)?;
     let result = session
         .prepare_rule_plan(plan, cancel)?
         .execute(cancel)

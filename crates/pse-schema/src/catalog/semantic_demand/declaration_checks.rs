@@ -1,72 +1,37 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Method summaries must agree with their complete typed provision and dependency contracts.
-use super::{E, P, RegistryBuilder, anti, eq, filter, literal, project, scan};
-use crate::model::{EmptyListPolicy, InvariantKind, NullListPolicy};
-
+//! Complete provision and dependency contracts determine native inventory projections.
+use super::RegistryBuilder;
+use crate::model::InvariantKind;
 pub(super) fn declare(builder: &mut RegistryBuilder) {
-    for (field, relation, target, kind) in [
+    for (field, relation, target, predicate) in [
         (
             "provides",
             "reference.method_provisions",
             "property_kind_id",
-            None,
+            "TRUE",
         ),
         (
             "requires",
             "reference.method_dependencies",
             "target_id",
-            Some("property"),
+            "target_kind = 'property'",
         ),
     ] {
-        let listed = P::Unnest {
-            input: Box::new(scan("reference.method_specs", "methods")),
-            column: (field).into(),
-            value_name: ("listed_property").into(),
-            null_list: NullListPolicy::Reject,
-            empty_list: EmptyListPolicy::NoMembers,
-        };
-        let actual = scan(relation, "actual");
-        let actual = if let Some(kind) = kind {
-            filter(actual, eq(E::col("target_kind"), literal(kind)))
-        } else {
-            actual
-        };
-        let actual = project(
-            actual,
-            vec![
-                ("actual_method", E::col("method_id")),
-                ("actual_property", E::col(target)),
-            ],
-        );
-        let absent = anti(
-            listed.clone(),
-            actual.clone(),
-            vec![
-                ("methods.method_id", "actual_method"),
-                ("listed_property", "actual_property"),
-            ],
-        );
-        let extra = anti(
-            actual,
-            listed,
-            vec![
-                ("actual_method", "methods.method_id"),
-                ("actual_property", "listed_property"),
-            ],
-        );
-        let mismatch = P::Union(vec![
-            project(absent, vec![("method_id", E::col("methods.method_id"))]),
-            project(extra, vec![("method_id", E::col("actual_method"))]),
-        ]);
         super::super::inv::declare(
             builder,
             "reference.method_specs",
             &format!("{field}_matches_complete_contract"),
             InvariantKind::Check,
             &["method_id"],
-            mismatch,
+            format!(
+                "WITH listed AS (SELECT method_id, unnest({field}) AS property_id FROM reference.method_specs),
+                actual AS (SELECT method_id, {target} AS property_id FROM {relation} WHERE {predicate})
+                SELECT l.method_id FROM listed l WHERE NOT EXISTS (SELECT 1 FROM actual a WHERE a.method_id = l.method_id AND a.property_id = l.property_id)
+                UNION SELECT a.method_id FROM actual a WHERE NOT EXISTS (SELECT 1 FROM listed l WHERE a.method_id = l.method_id AND a.property_id = l.property_id)",
+            ),
+            &["reference.method_specs", relation],
             "Method property inventories are exact set projections of the complete provision/dependency rows; matching IDs alone do not establish that projection.",
         );
     }

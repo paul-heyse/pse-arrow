@@ -424,7 +424,7 @@ fn declare_normalized_property_demand_seeds(builder: &mut RegistryBuilder) {
             column("scope_id", T::id()).with_fk("authored.scopes", "scope_id"),
             column("property_kind_id", T::id()),
             column("index", T::extended(crate::model::ExtensionUse::IndexTuple)).optional(),
-            column("guard_node_id", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("guard_node_id", T::nonnegative(i64::MAX)).optional(),
             crate::model::FieldContract::provenance(
                 "derivation_id",
                 T::id(),
@@ -434,7 +434,7 @@ fn declare_normalized_property_demand_seeds(builder: &mut RegistryBuilder) {
             column("source_symbol_decl_id", T::id())
                 .optional()
                 .with_fk("authored.template_symbols", "symbol_decl_id"),
-            column("read_node_id", T::native(arrow_schema::DataType::UInt64)).optional(),
+            column("read_node_id", T::nonnegative(i64::MAX)).optional(),
         ],
         "Each source-bound demand retains its exact normalized read node and guard; opaque explicit demands have no read node.",
     );

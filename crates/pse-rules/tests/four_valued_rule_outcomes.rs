@@ -8,8 +8,7 @@ mod fixture;
 mod row_key;
 use fixture::{Fixture, builder, declare, head, id, input};
 use pse_schema::model::{
-    Cell, ConflictPolicy, FieldContract, FieldContract as T, RuleDecl, RuleExpr as E, RuleHead,
-    RulePlan as P,
+    Cell, ConflictPolicy, FieldContract, FieldContract as T, RuleDecl, RuleQuery,
 };
 
 fn program(policy: ConflictPolicy, second: bool, classify: bool) -> pse_schema::RegistryBuilder {
@@ -46,55 +45,36 @@ fn program(policy: ConflictPolicy, second: bool, classify: bool) -> pse_schema::
             ),
         ],
     );
-    let rule = RuleDecl::new(
-        "predicate",
-        "1",
-        0,
-        RuleHead::Relation("inferred.facts".to_owned()),
-        P::Project {
-            input: Box::new(predicate(classify)),
-            columns: vec![
-                ("id".into(), E::col("id")),
-                ("value".into(), E::col("value")),
-            ],
-        },
-    )
-    .assertions("provenance.fact_assertions")
-    .conflicts(policy);
-    declare(&mut builder, rule);
-    if second {
-        declare(
-            &mut builder,
-            RuleDecl::new(
-                "competitor",
-                "1",
-                0,
-                RuleHead::Relation("inferred.facts".to_owned()),
-                P::Project {
-                    input: Box::new(predicate(classify)),
-                    columns: vec![
-                        ("id".into(), E::col("id")),
-                        ("value".into(), E::Lit(Cell::F64(-0.0))),
-                    ],
-                },
-            )
-            .assertions("provenance.fact_assertions")
-            .conflicts(policy),
-        );
+    for (name, value) in [
+        ("predicate", "value"),
+        ("competitor", "CAST('-0.0' AS DOUBLE)"),
+    ]
+    .into_iter()
+    .take(if second { 2 } else { 1 })
+    {
+        let mut rule = RuleDecl::new(
+            name,
+            "1",
+            0,
+            "inferred.facts",
+            format!("SELECT id, {value} AS value FROM authored.input WHERE flag IS TRUE"),
+            vec![fixture::read("authored.input", "source")],
+        )
+        .assertions("provenance.fact_assertions")
+        .conflicts(policy);
+        if classify {
+            for (truth, predicate) in [("false", "flag IS FALSE"), ("unknown", "flag IS NULL")] {
+                rule.queries.push(RuleQuery {
+                    truth,
+                    sql: format!(
+                        "SELECT id, {value} AS value FROM authored.input WHERE {predicate}"
+                    ),
+                });
+            }
+        }
+        declare(&mut builder, rule);
     }
     builder
-}
-fn predicate(classify: bool) -> P {
-    let input = Box::new(P::Scan {
-        relation: "authored.input".to_owned(),
-        port: "source",
-    });
-    let predicate = E::col("flag");
-    if classify {
-        P::Assert { input, predicate }
-    } else {
-        P::Filter { input, predicate }
-    }
 }
 
 #[tokio::test]
@@ -235,11 +215,9 @@ fn undecided_same_stratum_consumers_and_mixed_conflict_policies_are_rejected() {
             "consumer",
             "1",
             0,
-            RuleHead::Relation("inferred.consumer".to_owned()),
-            P::Scan {
-                relation: "inferred.facts".to_owned(),
-                port: "facts",
-            },
+            "inferred.consumer",
+            "SELECT id, value FROM inferred.facts",
+            vec![fixture::read("inferred.facts", "facts")],
         )
         .assertions("provenance.consumer_assertions"),
     );
@@ -251,17 +229,9 @@ fn undecided_same_stratum_consumers_and_mixed_conflict_policies_are_rejected() {
             "mixed",
             "1",
             0,
-            RuleHead::Relation("inferred.facts".to_owned()),
-            P::Project {
-                input: Box::new(P::Scan {
-                    relation: "authored.input".to_owned(),
-                    port: "source",
-                }),
-                columns: vec![
-                    ("id".into(), E::col("id")),
-                    ("value".into(), E::col("value")),
-                ],
-            },
+            "inferred.facts",
+            "SELECT id, value FROM authored.input",
+            vec![fixture::read("authored.input", "source")],
         )
         .assertions("provenance.fact_assertions"),
     );
@@ -318,17 +288,9 @@ async fn lower_stratum_absence_records_complete_binding_without_invented_missing
             "select",
             "1",
             0,
-            RuleHead::Relation("inferred.selected".to_owned()),
-            P::Project {
-                input: Box::new(P::Filter {
-                    input: Box::new(P::Scan {
-                        relation: "authored.input".to_owned(),
-                        port: "source",
-                    }),
-                    predicate: E::col("flag"),
-                }),
-                columns: vec![("id".into(), E::col("id"))],
-            },
+            "inferred.selected",
+            "SELECT id FROM authored.input WHERE flag",
+            vec![fixture::read("authored.input", "source")],
         )
         .assertions("provenance.selected_assertions"),
     );
@@ -338,24 +300,9 @@ async fn lower_stratum_absence_records_complete_binding_without_invented_missing
             "exclude",
             "1",
             1,
-            RuleHead::Relation("inferred.excluded".to_owned()),
-            P::Project {
-                input: Box::new(P::AntiJoin {
-                    left: Box::new(P::Scan {
-                        relation: "authored.input".to_owned(),
-                        port: "source",
-                    }),
-                    right: Box::new(P::Scan {
-                        relation: "inferred.selected".to_owned(),
-                        port: "selected",
-                    }),
-                    keys: (vec![("source.id", "selected.id")])
-                        .into_iter()
-                        .map(|(left, right)| (left.into(), right.into()))
-                        .collect(),
-                }),
-                columns: vec![("id".into(), E::col("source.id"))],
-            },
+            "inferred.excluded",
+            "SELECT source.id FROM authored.input AS source LEFT ANTI JOIN inferred.selected AS selected ON source.id = selected.id",
+            vec![fixture::read("authored.input", "source"), fixture::negate("inferred.selected", "selected")],
         )
         .assertions("provenance.excluded_assertions")
         .stratified_negation(),
@@ -404,24 +351,9 @@ fn same_stratum_negation_is_rejected() {
             "negative_recursion",
             "1",
             0,
-            RuleHead::Relation("inferred.facts".to_owned()),
-            P::Project {
-                input: Box::new(P::AntiJoin {
-                    left: Box::new(P::Scan {
-                        relation: "authored.input".to_owned(),
-                        port: "source",
-                    }),
-                    right: Box::new(P::Scan {
-                        relation: "inferred.facts".to_owned(),
-                        port: "facts",
-                    }),
-                    keys: (vec![("source.id", "facts.id")])
-                        .into_iter()
-                        .map(|(left, right)| (left.into(), right.into()))
-                        .collect(),
-                }),
-                columns: vec![("id".into(), E::col("source.id"))],
-            },
+            "inferred.facts",
+            "SELECT source.id FROM authored.input AS source LEFT ANTI JOIN inferred.facts AS facts ON source.id = facts.id",
+            vec![fixture::read("authored.input", "source"), fixture::negate("inferred.facts", "facts")],
         )
         .assertions("provenance.fact_assertions")
         .stratified_negation(),
@@ -429,12 +361,10 @@ fn same_stratum_negation_is_rejected() {
     assert!(builder.build().is_err());
 }
 
-#[test]
-fn aggregate_feedback_cannot_invent_an_unbounded_numeric_domain() {
-    use pse_schema::model::{
-        AggregateEmptyPolicy, AggregateNullPolicy, RuleAggregate, RuleAggregateFn,
-    };
+#[tokio::test]
+async fn aggregate_feedback_cannot_invent_an_unbounded_numeric_domain() {
     let mut builder = builder();
+    input(&mut builder, vec![id("id")], &["id"]);
     head(
         &mut builder,
         "counts",
@@ -452,26 +382,14 @@ fn aggregate_feedback_cannot_invent_an_unbounded_numeric_domain() {
             "count_feedback",
             "1",
             0,
-            RuleHead::Relation("inferred.counts".to_owned()),
-            P::Aggregate {
-                input: Box::new(P::Scan {
-                    relation: "inferred.counts".to_owned(),
-                    port: "counts",
-                }),
-                group: vec![],
-                aggregates: vec![RuleAggregate {
-                    function: RuleAggregateFn::Count,
-                    input: None,
-                    output_name: ("id").into(),
-                    order_by: vec![],
-                    null_policy: AggregateNullPolicy::Reject,
-                    empty_policy: AggregateEmptyPolicy::Zero,
-                }],
-            },
+            "inferred.counts",
+            "SELECT count(*) AS id FROM inferred.counts",
+            vec![fixture::read("inferred.counts", "counts")],
         )
         .assertions("provenance.count_assertions"),
     );
-    assert!(builder.build().is_err());
+    let fixture = Fixture::new(builder, vec![], 1);
+    assert!(fixture.run(5).await.is_err());
 }
 
 #[tokio::test]
@@ -509,17 +427,9 @@ async fn fact_derivation_links_the_smallest_actual_assertion_and_empty_input_sta
                     name,
                     "1",
                     0,
-                    RuleHead::Relation("inferred.linked".to_owned()),
-                    P::Project {
-                        input: Box::new(P::Scan {
-                            relation: "authored.input".to_owned(),
-                            port: "source",
-                        }),
-                        columns: vec![
-                            ("id".into(), E::col("id")),
-                            ("derivation_id".into(), E::col("origin")),
-                        ],
-                    },
+                    "inferred.linked",
+                    "SELECT id, origin AS derivation_id FROM authored.input",
+                    vec![fixture::read("authored.input", "source")],
                 )
                 .assertions("provenance.linked_assertions"),
             );

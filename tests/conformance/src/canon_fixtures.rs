@@ -18,7 +18,7 @@ use datafusion::arrow::{
     compute::cast,
     datatypes::{DataType, Int32Type},
 };
-use pse_catalog::{EncodingPolicy, RelationContract};
+use pse_ids::CanonicalContract;
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{
@@ -29,7 +29,7 @@ use pse_schema::{
 use std::sync::Arc;
 
 /// A schema-admitted fixture whose null payload and dictionary codes vary independently.
-pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, RelationContract, RecordBatch) {
+pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, CanonicalContract, RecordBatch) {
     let reg = registry();
     let spec = reg.relation("authored.values").expect("relation");
     let rows = vec![
@@ -50,8 +50,7 @@ pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, RelationContract, Reco
         ],
     ];
     let source = pse_relations::cells::batch_from_cells(&reg, spec, &rows).expect("typed rows");
-    let contract =
-        RelationContract::from_spec(&reg, spec, EncodingPolicy::IpcFile).expect("contract");
+    let contract = pse_relations::canonical::contract(&reg, spec).expect("contract");
     let fields = source.schema();
     let mask = Some(NullBuffer::from(vec![true, false, true]));
     let float: ArrayRef = Arc::new(Float64Array::new(
@@ -130,11 +129,11 @@ pub(crate) fn fixture(alternate: bool) -> (Arc<Registry>, RelationContract, Reco
 
 /// Keep complete preimages and sorted batches so tests compare evidence, not hashes alone.
 pub(crate) fn canonical(
-    contract: &RelationContract,
+    contract: &CanonicalContract,
     batches: &[RecordBatch],
 ) -> pse_ids::CanonicalOutput {
     pse_ids::canonicalize(
-        &contract.canonical,
+        contract,
         batches,
         pse_ids::FixedBudget::new(64 << 20).as_ref(),
         pse_ids::CanonicalizeOptions {

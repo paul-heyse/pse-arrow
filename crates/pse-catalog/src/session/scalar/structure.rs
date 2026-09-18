@@ -6,30 +6,16 @@
 
 use datafusion::{
     arrow::datatypes::{DataType, FieldRef},
-    common::{DataFusionError, Result},
-    functions::core::named_struct,
+    common::{DataFusionError, Result, ScalarValue},
     logical_expr::{
-        ColumnarValue, Expr, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl,
-        Signature,
+        ColumnarValue, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature,
+        StructFieldMapping,
     },
 };
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
-static FUNCTION: LazyLock<Arc<ScalarUDF>> = LazyLock::new(|| {
-    Arc::new(ScalarUDF::from(FieldStruct {
-        native: named_struct(),
-    }))
-});
-
-pub(super) fn function() -> Arc<ScalarUDF> {
-    Arc::clone(&FUNCTION)
-}
-
-/// Construct named struct fields from actual typed arguments. The pinned native
-/// constructor validates names and builds arrays; this adapter retains its exact
-/// argument-to-field correspondence in the logical and physical return field.
-pub fn named_fields(arguments: Vec<Expr>) -> Expr {
-    FUNCTION.call(arguments)
+pub(in crate::session) fn function(native: Arc<ScalarUDF>) -> Arc<ScalarUDF> {
+    Arc::new(ScalarUDF::from(FieldStruct { native }))
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -39,7 +25,7 @@ struct FieldStruct {
 
 impl ScalarUDFImpl for FieldStruct {
     fn name(&self) -> &'static str {
-        "pse_named_struct"
+        "named_struct"
     }
     fn signature(&self) -> &Signature {
         self.native.signature()
@@ -75,4 +61,19 @@ impl ScalarUDFImpl for FieldStruct {
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         self.native.invoke_with_args(args)
     }
+    fn struct_field_mapping(
+        &self,
+        literal_args: &[Option<ScalarValue>],
+    ) -> Option<StructFieldMapping> {
+        // Retaining field meaning does not change the native constructor's
+        // argument correspondence or the optimizer's ordering proof.
+        self.native.struct_field_mapping(literal_args)
+    }
+}
+
+pub(in crate::session) fn native(function: &ScalarUDF) -> Option<&Arc<ScalarUDF>> {
+    function
+        .inner()
+        .downcast_ref::<FieldStruct>()
+        .map(|value| &value.native)
 }

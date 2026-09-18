@@ -36,7 +36,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("symbol_decl_id", T::id())
                 .with_fk("authored.template_symbols", "symbol_decl_id"),
-            column("order", T::native(arrow_schema::DataType::UInt8)),
+            column("order", T::nonnegative(i64::from(u8::MAX))),
         ],
         "Explicit positive derivative order; derivative-role reference_to binds the actual base symbol and wrt_domain names the declared continuous axis.",
     );

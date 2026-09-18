@@ -22,14 +22,17 @@ from pse import _native
 
 # The same native import gateway carries the immutable inspection capabilities.
 EngineSettings = _native.EngineSettings
+CacheSettings = _native.CacheSettings
+CacheReport = _native.CacheReport
 InspectionError = _native.InspectionError
-_NativeStore = _native.Store
-_NativeSnapshot = _native.Snapshot
+_NativePublication = _native.Publication
 _NativeTableStream = _native.TableStream
 
 
-def _open_store(path: str, settings: EngineSettings) -> _NativeStore:
-    return _native.open_store(path, settings)
+def _open_publication(
+    location: str, version: int, settings: EngineSettings
+) -> _NativePublication:
+    return _native.open_publication(location, version, settings)
 
 
 class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True):

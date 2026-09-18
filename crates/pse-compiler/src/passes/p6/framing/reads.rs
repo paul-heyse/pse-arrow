@@ -5,9 +5,9 @@
 mod coordinates;
 mod outer_guard;
 use super::{
-    Arc, BTreeMap, BTreeSet, CompilerError, Inputs, JoinType, LogicalPlanBuilder, Outputs,
-    PassContext, Plans, ScalarValue, array_length, c, col, error, filter, invalid, join, lit,
-    project, scalar,
+    AlgorithmContext, Arc, BTreeMap, BTreeSet, CompilerError, Inputs, JoinType, LogicalPlanBuilder,
+    Outputs, Plans, ScalarValue, array_length, c, col, error, filter, invalid, join, lit, project,
+    scalar,
 };
 use crate::passes::{
     native_outputs::{self, OutputRows, SourceRole},
@@ -35,11 +35,11 @@ struct Read {
     seed: SemanticId,
     origin: Origin,
     source: SemanticId,
-    node: Option<u64>,
-    path: Option<u64>,
+    node: Option<i64>,
+    path: Option<i64>,
     index: Option<Vec<SemanticId>>,
     symbol: Option<SemanticId>,
-    guard: Option<(SemanticId, u64)>,
+    guard: Option<(SemanticId, i64)>,
 }
 struct Context<'a> {
     read: &'a Read,
@@ -59,10 +59,14 @@ struct Target {
     support: Support,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "build keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn build(
     plans: &mut Plans<'_>,
     inputs: &Inputs,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
     outputs: &mut Outputs,
 ) -> Result<(), CompilerError> {
     let mut evaluator = IndexEvaluator::new(
@@ -170,15 +174,11 @@ pub(super) async fn build(
                 "opaque requirement",
             )?;
             let template = plans.sid(declaration.row.template_id)?;
-            let plan = LogicalPlanBuilder::from(
-                evaluator
-                    .inventory
-                    .session
-                    .scan_role("normalized.instance_bindings")?,
-            )
-            .filter(col("template_id").eq(template))
-            .and_then(LogicalPlanBuilder::build)
-            .map_err(error)?;
+            let plan =
+                LogicalPlanBuilder::from(evaluator.inventory.scan::<n::instance_bindings::Row>()?)
+                    .filter(col("template_id").eq(template))
+                    .and_then(LogicalPlanBuilder::build)
+                    .map_err(error)?;
             native_rows::keyed_rows(
                 &mut evaluator.inventory.arguments,
                 plan,
@@ -330,14 +330,15 @@ async fn map_targets(
     read: SemanticId,
     support: Support,
     output: &mut OutputRows<'_>,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
 ) -> Result<(), CompilerError> {
     let requirement = plans.scan("inferred.requirement_keys", "candidate")?;
     let mut matched = filter(
         requirement,
-        array_length(c("candidate", "index")).eq(lit(target.axes.len() as u64)),
+        array_length(c("candidate", "index")).eq(lit(i64::try_from(target.axes.len())
+            .map_err(|_| invalid("requirement axis extent overflow"))?)),
     )?;
-    for (position, axis) in target.axes.iter().enumerate() {
+    for (axis, position) in target.axes.iter().zip(0_i64..) {
         let alias = format!("candidate_axis_{position}");
         let axes = plans.scan("inferred.requirement_key_axes", &alias)?;
         let subject = if let Some(subject) = axis.subject {
@@ -354,7 +355,7 @@ async fn map_targets(
             JoinType::Inner,
             [
                 c("candidate", "requirement_id").eq(c(&alias, "requirement_id")),
-                c(&alias, "position").eq(lit(position as u64)),
+                c(&alias, "position").eq(lit(position)),
                 c(&alias, "kind").eq(lit(axis.kind.as_str())),
                 subject,
             ],

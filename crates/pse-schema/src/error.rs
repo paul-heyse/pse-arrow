@@ -74,19 +74,6 @@ pub enum SchemaError {
         relation: String,
     },
 
-    /// The pass port graph does not describe a pipeline (blueprint §14.1).
-    #[error("stage graph: {reason}")]
-    #[diagnostic(
-        code(schema::stage_graph),
-        help(
-            "one producer per output port; a compiler output port never targets `authored` or `reference`"
-        )
-    )]
-    StageGraph {
-        /// What is wrong with the graph.
-        reason: String,
-    },
-
     /// A rule plan keys on a floating-point column (blueprint §14.2 rule 7).
     #[error("rule `{rule}` keys on the `f64` column `{column}`")]
     #[diagnostic(

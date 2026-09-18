@@ -1,0 +1,12 @@
+{
+  "invariant": "reference.artifact_profiles:unique:pk",
+  "rows": {
+    "reference.artifact_profiles": [
+      {
+        "kind": "[\"text\",\"value-1\"]",
+        "required_relations": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

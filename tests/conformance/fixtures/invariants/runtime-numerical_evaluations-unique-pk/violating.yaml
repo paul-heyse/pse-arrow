@@ -1,0 +1,31 @@
+{
+  "invariant": "runtime.numerical_evaluations:unique:pk",
+  "rows": {
+    "runtime.numerical_evaluations": [
+      {
+        "jacobian": "[\"list\",[]]",
+        "jacobian_dimension": "[\"i64\",1]",
+        "program_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "residual_dimension": "[\"i64\",1]",
+        "residuals": "[\"list\",[]]",
+        "scenario_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "variable_dimension": "[\"i64\",1]"
+      },
+      {
+        "jacobian": "[\"list\",[]]",
+        "jacobian_dimension": "[\"i64\",1]",
+        "program_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "residual_dimension": "[\"i64\",1]",
+        "residuals": "[\"list\",[]]",
+        "scenario_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "variable_dimension": "[\"i64\",1]"
+      }
+    ]
+  },
+  "expected_keys": [
+    [
+      "[\"id\",\"01010101010101010101010101010101\"]",
+      "[\"id\",\"01010101010101010101010101010101\"]"
+    ]
+  ]
+}

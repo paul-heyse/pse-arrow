@@ -1,153 +1,86 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Transient solver return tuple; durable runtime facts are selected by normal
-//! native projection/UNNEST and published through the common Delta route.
-use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
-use std::sync::Arc;
+//! Generated solver outcome contract; values follow its exact program ordering.
+use datafusion::arrow::datatypes::SchemaRef;
 
-pub(super) fn schema() -> SchemaRef {
-    let list = DataType::LargeList(Arc::new(Field::new("item", DataType::Float64, true)));
-    Arc::new(Schema::new(vec![
-        Field::new("ipopt_status", DataType::Int32, false),
-        Field::new("cancelled", DataType::Boolean, false),
-        Field::new("objective", DataType::Float64, true),
-        Field::new("values", list.clone(), false),
-        Field::new("constraints", list.clone(), false),
-        Field::new("constraint_duals", list.clone(), false),
-        Field::new("lower_duals", list.clone(), false),
-        Field::new("upper_duals", list, false),
-        Field::new("diagnostic_code", DataType::Utf8, true),
-        Field::new("diagnostic", DataType::Utf8, true),
-        Field::new(
-            "iterations",
-            DataType::LargeList(Arc::new(Field::new(
-                "item",
-                DataType::Struct(iteration_fields()),
-                false,
-            ))),
-            false,
-        ),
-    ]))
-}
-fn iteration_fields() -> datafusion::arrow::datatypes::Fields {
-    vec![
-        Field::new("iteration", DataType::Int32, false),
-        Field::new("restoration", DataType::Boolean, false),
-        Field::new("objective", DataType::Float64, true),
-        Field::new("primal_infeasibility", DataType::Float64, true),
-        Field::new("dual_infeasibility", DataType::Float64, true),
-        Field::new("barrier", DataType::Float64, true),
-        Field::new("step", DataType::Float64, true),
-    ]
-    .into()
+pub(super) fn schema() -> Result<SchemaRef, crate::NativeError> {
+    Ok(pse_relations::generated::runtime::solver_outcomes::schema()?)
 }
 
 #[cfg(feature = "ipopt")]
-pub(super) use linked::pack;
-#[cfg(feature = "ipopt")]
-mod linked {
-    use super::{iteration_fields, schema};
-    use datafusion::arrow::datatypes::{DataType, Field};
-    use datafusion::arrow::{
-        array::{
-            ArrayRef, BooleanArray, Float64Array, Int32Array, LargeListArray, RecordBatch,
-            StringArray, StructArray,
-        },
-        buffer::OffsetBuffer,
+pub(super) fn pack(
+    outcome: crate::driver::Outcome,
+) -> datafusion::common::Result<datafusion::arrow::array::RecordBatch> {
+    use pse_relations::generated::{enums::SolverTermination, runtime::solver_outcomes as rows};
+    let external = |error| datafusion::common::DataFusionError::External(Box::new(error));
+    let termination = if outcome.cancelled {
+        SolverTermination::Cancelled
+    } else if outcome.failure.is_some() {
+        SolverTermination::EvaluationFailure
+    } else if matches!(outcome.status, 0 | 1 | 6) {
+        SolverTermination::Success
+    } else {
+        SolverTermination::Stopped
     };
-    use std::sync::Arc;
-    fn optional(value: f64) -> Option<f64> {
-        value.is_finite().then_some(value)
+    if termination == SolverTermination::Success
+        && (!outcome.objective.is_finite()
+            || outcome
+                .values
+                .iter()
+                .chain(&outcome.constraints)
+                .chain(&outcome.constraint_duals)
+                .chain(&outcome.lower_duals)
+                .chain(&outcome.upper_duals)
+                .any(|v| !v.is_finite()))
+    {
+        return Err(datafusion::common::DataFusionError::Execution(
+            "Ipopt reported success with unavailable numeric values".into(),
+        ));
     }
-    fn list(values: Vec<f64>) -> datafusion::common::Result<ArrayRef> {
-        let len = i64::try_from(values.len()).map_err(|_| {
-            datafusion::common::DataFusionError::Execution("solver result extent".into())
-        })?;
-        Ok(Arc::new(LargeListArray::try_new(
-            Arc::new(Field::new("item", DataType::Float64, true)),
-            OffsetBuffer::new(vec![0, len].into()),
-            Arc::new(Float64Array::from(
-                values.into_iter().map(optional).collect::<Vec<_>>(),
-            )),
-            None,
-        )?))
-    }
-    fn iterations(history: &[crate::driver::Iteration]) -> datafusion::common::Result<ArrayRef> {
-        let iteration_len = i64::try_from(history.len()).map_err(|_| {
-            datafusion::common::DataFusionError::Execution("solver history extent".into())
-        })?;
-        let fields = iteration_fields();
-        let rows = StructArray::try_new(
-            fields.clone(),
-            vec![
-                Arc::new(Int32Array::from(
-                    history.iter().map(|i| i.index).collect::<Vec<_>>(),
-                )),
-                Arc::new(BooleanArray::from(
-                    history.iter().map(|i| i.restoration).collect::<Vec<_>>(),
-                )),
-                Arc::new(Float64Array::from(
-                    history
-                        .iter()
-                        .map(|i| optional(i.objective))
-                        .collect::<Vec<_>>(),
-                )),
-                Arc::new(Float64Array::from(
-                    history
-                        .iter()
-                        .map(|i| optional(i.primal_infeasibility))
-                        .collect::<Vec<_>>(),
-                )),
-                Arc::new(Float64Array::from(
-                    history
-                        .iter()
-                        .map(|i| optional(i.dual_infeasibility))
-                        .collect::<Vec<_>>(),
-                )),
-                Arc::new(Float64Array::from(
-                    history
-                        .iter()
-                        .map(|i| optional(i.barrier))
-                        .collect::<Vec<_>>(),
-                )),
-                Arc::new(Float64Array::from(
-                    history.iter().map(|i| optional(i.step)).collect::<Vec<_>>(),
-                )),
-            ],
-            None,
-        )?;
-        Ok(Arc::new(LargeListArray::try_new(
-            Arc::new(Field::new("item", DataType::Struct(fields), false)),
-            OffsetBuffer::new(vec![0, iteration_len].into()),
-            Arc::new(rows),
-            None,
-        )?))
-    }
-    pub(crate) fn pack(outcome: crate::driver::Outcome) -> datafusion::common::Result<RecordBatch> {
-        let code = outcome
+    let optional = |value: f64| value.is_finite().then_some(value);
+    let diagnostic =
+        outcome
             .failure
             .as_ref()
-            .and_then(miette::Diagnostic::code)
-            .map(|code| code.to_string());
-        let diagnostic = outcome.failure.as_ref().map(ToString::to_string);
-        let batch = RecordBatch::try_new(
-            schema(),
-            vec![
-                Arc::new(Int32Array::from(vec![outcome.status])),
-                Arc::new(BooleanArray::from(vec![outcome.cancelled])),
-                Arc::new(Float64Array::from(vec![optional(outcome.objective)])),
-                list(outcome.values)?,
-                list(outcome.constraints)?,
-                list(outcome.constraint_duals)?,
-                list(outcome.lower_duals)?,
-                list(outcome.upper_duals)?,
-                Arc::new(StringArray::from(vec![code.as_deref()])),
-                Arc::new(StringArray::from(vec![diagnostic.as_deref()])),
-                iterations(&outcome.iterations)?,
-            ],
-        )?;
-        pse_ids::owned_buffer::attach_reservation(batch, outcome.allocation)
-            .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))
-    }
+            .map(|failure| rows::RuntimeSolverOutcomesFieldDiagnostic {
+                code: miette::Diagnostic::code(failure).map(|code| code.to_string()),
+                message: failure.to_string(),
+            });
+    let mut builder = rows::Builder::new().map_err(external)?;
+    builder
+        .push(rows::Row {
+            program_id: outcome.program.program_id,
+            scenario_id: outcome.scenario_id,
+            variable_columns: outcome.program.variable_columns,
+            constraint_dimension: outcome.program.residual_dimension - 1,
+            ipopt_status: i64::from(outcome.status),
+            termination,
+            objective: optional(outcome.objective),
+            values: outcome.values.into_iter().map(optional).collect(),
+            constraints: outcome.constraints.into_iter().map(optional).collect(),
+            constraint_duals: outcome.constraint_duals.into_iter().map(optional).collect(),
+            lower_duals: outcome.lower_duals.into_iter().map(optional).collect(),
+            upper_duals: outcome.upper_duals.into_iter().map(optional).collect(),
+            diagnostic,
+            iterations: outcome
+                .iterations
+                .into_iter()
+                .map(|iteration| rows::RuntimeSolverOutcomesFieldIterationsItem {
+                    iteration: i64::from(iteration.index),
+                    restoration: iteration.restoration,
+                    objective: optional(iteration.objective),
+                    primal_infeasibility: optional(iteration.primal_infeasibility),
+                    dual_infeasibility: optional(iteration.dual_infeasibility),
+                    barrier: optional(iteration.barrier),
+                    step: optional(iteration.step),
+                })
+                .collect(),
+        })
+        .map_err(external)?;
+    pse_ids::owned_buffer::attach_reservation(
+        builder.finish().map_err(external)?.into_batch(),
+        outcome.allocation,
+    )
+    .map_err(|error| datafusion::common::DataFusionError::External(Box::new(error)))
 }

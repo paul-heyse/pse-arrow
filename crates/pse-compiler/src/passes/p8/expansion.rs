@@ -13,7 +13,7 @@ use super::{
     inventory::{Inventory as Inputs, Located},
     outputs::Output,
 };
-use crate::{CompilerError, PassContext, passes::native_outputs::Sources};
+use crate::{AlgorithmContext, CompilerError, passes::native_outputs::Sources};
 use pse_ids::SemanticId;
 use pse_mathir::{
     NodeId,
@@ -25,7 +25,7 @@ use pse_relations::{
     generated::{compiled, inferred},
 };
 use pse_schema::math::Sense;
-use pse_schema::model::PassSpec;
+use pse_schema::model::AlgorithmSpec;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) struct Expanded {
@@ -33,12 +33,16 @@ pub(super) struct Expanded {
     pub(super) derivations: Vec<RecordBatch>,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "expand keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn expand(
     batches: &graph::Batches,
     sources: &Sources,
     session: &pse_catalog::session::SnapshotSession,
-    ctx: &PassContext<'_>,
-    spec: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    spec: &AlgorithmSpec,
 ) -> Result<Expanded, CompilerError> {
     ctx.cancel.checkpoint()?;
     let mut work = ctx.reserver.open("P8:expansion");
@@ -127,7 +131,7 @@ pub(super) async fn expand(
             .iter()
             .enumerate()
             .map(|(position, axis)| {
-                if usize::from(axis.position) != position {
+                if usize::try_from(axis.position).ok() != Some(position) {
                     return Err(invalid("law axes have gaps or duplicate positions"));
                 }
                 axis.support(&mut output.active);
@@ -157,7 +161,7 @@ pub(super) async fn expand(
         let ids = &descriptor.contribution_ids;
         let expected_ids = decisions
             .iter()
-            .filter(|row| row.application_id == application && row.decision.as_str() == "included")
+            .filter(|row| row.application_id == application && row.decision.included.is_some())
             .map(|row| row.contribution_id)
             .collect::<BTreeSet<_>>();
         if ids.iter().copied().collect::<BTreeSet<_>>() != expected_ids
@@ -180,10 +184,16 @@ pub(super) async fn expand(
                 .iter()
                 .find(|row| row.application_id == application && row.contribution_id == id)
                 .ok_or_else(|| invalid("included contribution lacks decision"))?;
-            let sign = decision.sign;
-            if !matches!(sign, -1 | 1) {
-                return Err(invalid("included orientation is not signed unity"));
-            }
+            let sign = match decision
+                .decision
+                .included
+                .as_ref()
+                .ok_or_else(|| invalid("included term has no complete decision"))?
+                .sign
+            {
+                pse_relations::generated::enums::ContributionSign::Positive => 1,
+                pse_relations::generated::enums::ContributionSign::Negative => -1,
+            };
             output.use_row(contribution);
             output.use_row(decision);
             let source_root = *loaded
@@ -323,7 +333,7 @@ pub(super) async fn expand(
             filter: None,
             body: body.body,
             sense: Sense::Eq,
-            lower: Some(zero),
+            lower: None,
             upper: Some(zero),
             free_indices: indices
                 .iter()
@@ -333,7 +343,7 @@ pub(super) async fn expand(
                         bound_index: index.bound_index,
                         domain: index.domain,
                         position: u16::try_from(position)
-                            .map_err(|_| invalid("law axis position exceeds u16"))?,
+                            .map_err(|_| invalid("law axis position exceeds i64"))?,
                     })
                 })
                 .collect::<Result<_, CompilerError>>()?,
@@ -345,15 +355,22 @@ pub(super) async fn expand(
     for decision in decisions {
         output.active.clear();
         output.use_row(decision);
+        let mut outcome: compiled::law_participation::CompiledLawParticipationFieldDecision =
+            super::super::native_rows::transfer_value(
+                &decision.decision,
+                ctx.registry,
+                "compiled.law_participation",
+                "decision",
+            )?;
+        if let Some(included) = outcome.included.as_mut() {
+            included.conversion_id = conversions
+                .get(&(decision.application_id, decision.contribution_id))
+                .map(|id| id.as_id());
+        }
         output.push(compiled::law_participation::Row {
             application_id: decision.application_id,
             contribution_id: decision.contribution_id,
-            decision: decision.decision,
-            reason: decision.reason,
-            sign: decision.sign,
-            conversion_id: conversions
-                .get(&(decision.application_id, decision.contribution_id))
-                .map(|id| id.as_id()),
+            decision: outcome,
             derivation_id: decision.derivation_id,
         })?;
     }

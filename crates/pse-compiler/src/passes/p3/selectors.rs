@@ -14,15 +14,19 @@ use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, SemanticId};
 use pse_relations::generated::{authored, normalized};
 use pse_rules::strata::native_input::NativeInput;
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "emit keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn emit(
     sources: &Sources,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {
@@ -69,7 +73,7 @@ pub(super) async fn emit(
             .ok_or_else(|| invalid("selector parent absent"))?;
         for (position, (child, child_key)) in children.iter().enumerate() {
             let position =
-                u16::try_from(position).map_err(|_| invalid("selector position exceeds UInt16"))?;
+                i64::try_from(position).map_err(|_| invalid("selector position exceeds UInt16"))?;
             output.push(
                 normalized::selector_children::Row {
                     source_term_id: *parent,
@@ -200,7 +204,7 @@ pub(super) async fn emit(
                 } else {
                     pse_ids::named_id(row.term_id, &format!("selector-fold:{position}"))
                 };
-                let position = u16::try_from(position)
+                let position = i64::try_from(position)
                     .map_err(|_| invalid("selector fold position exceeds UInt16"))?;
                 emit(
                     id,

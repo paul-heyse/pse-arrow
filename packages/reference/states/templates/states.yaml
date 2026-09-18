@@ -101,30 +101,38 @@
     {
       "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "7c6cfa99af1e4477a136a4ca9d5562ec",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "88ad610582c04b999ec786ac9f3aebba",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "88ad610582c04b999ec786ac9f3aebba",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     }
   ],
   "template_features": [

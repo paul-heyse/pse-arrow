@@ -102,7 +102,7 @@ async fn named_ports_keep_versions_distinct_and_alias_only_unique_provider_names
         let unique = registry.relation("authored.unique").unwrap();
         let role = source_as_provider(&session.role_source("empty").unwrap()).unwrap();
         assert!(Arc::ptr_eq(
-            session.table_provider(&unique.key).unwrap(),
+            &session.table_provider(&unique.key).unwrap(),
             &role
         ));
         for (role, expected) in [("before", vec![7]), ("after", vec![11]), ("empty", vec![])] {

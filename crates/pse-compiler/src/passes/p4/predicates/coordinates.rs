@@ -7,7 +7,7 @@ use super::{
     inventory::{Inputs, Support},
     scalar::{Evaluation, Value},
 };
-use crate::CompilerError;
+use crate::{CompilerError, mathir_relations::domain::DomainValue};
 use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, MemoryReserver, ReservationLease, SemanticId};
 use pse_mathir::{NodeId, relations::LoadedMath};
@@ -116,9 +116,7 @@ impl<'a> IndexEvaluator<'a> {
         let declaration = &self.inventory.binder(source, binder)?.row;
         self.inventory.domain(
             &owner.row,
-            declaration.domain_id,
-            declaration.template_id,
-            declaration.domain_name.as_deref(),
+            &declaration.domain.domain_ref()?,
             &mut Support::new(),
         )
     }
@@ -222,9 +220,7 @@ impl<'a> IndexEvaluator<'a> {
             let binder = self.inventory.binder(source, *id)?;
             let domain = self.inventory.domain(
                 &owner.row,
-                binder.row.domain_id,
-                binder.row.template_id,
-                binder.row.domain_name.as_deref(),
+                &binder.row.domain.domain_ref()?,
                 &mut support,
             )?;
             let actual = self

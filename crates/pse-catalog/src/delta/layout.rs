@@ -9,20 +9,37 @@ use datafusion::{
     },
     common::{DataFusionError, Result},
     logical_expr::{
-        ColumnarValue, Expr, LogicalPlan, LogicalPlanBuilder, ReturnFieldArgs, ScalarFunctionArgs,
+        ColumnarValue, Expr, LogicalPlan, Projection, ReturnFieldArgs, ScalarFunctionArgs,
         ScalarUDF, ScalarUDFImpl, Signature, Volatility,
     },
 };
 use std::sync::Arc;
 
+mod visibility;
+
+#[cfg(test)]
+mod tests;
+
 /// A typed relation boundary restores schema annotations after native rewrites.
-/// Exact fields (including nested annotations and nullability) must already agree;
-/// this cannot certify an arbitrary projection or retype its values.
+/// Exact names, types and metadata must already agree. A native optimizer may
+/// establish a stronger nonnull result than the nullable relation declaration;
+/// the native identity cast below widens only that outer nullable promise.
+/// This cannot certify an arbitrary projection or retype its values.
 pub(super) fn declared_output(
     input: Arc<dyn datafusion::physical_plan::ExecutionPlan>,
     schema: &SchemaRef,
 ) -> Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>> {
-    if input.schema().fields() != schema.fields() {
+    let actual = input.schema();
+    if actual.fields().len() != schema.fields().len()
+        || actual
+            .fields()
+            .iter()
+            .zip(schema.fields())
+            .any(|(source, target)| {
+                (source.is_nullable() && !target.is_nullable())
+                    || source.as_ref().clone().with_nullable(target.is_nullable()) != **target
+            })
+    {
         return Err(DataFusionError::Plan(
             "physical relation fields differ from the declaration".into(),
         ));
@@ -32,9 +49,19 @@ pub(super) fn declared_output(
         .iter()
         .enumerate()
         .map(|(index, field)| {
-            let expression: Arc<dyn datafusion::physical_expr::PhysicalExpr> = Arc::new(
+            let mut expression: Arc<dyn datafusion::physical_expr::PhysicalExpr> = Arc::new(
                 datafusion::physical_expr::expressions::Column::new(field.name(), index),
             );
+            if field.is_nullable() && !actual.field(index).is_nullable() {
+                // Types are exactly equal, so this is Arrow's identity path:
+                // it cannot replace failed conversions with null values.
+                expression = Arc::new(
+                    datafusion::physical_expr::expressions::TryCastExpr::new_with_target_field(
+                        expression,
+                        Arc::clone(field),
+                    ),
+                );
+            }
             (expression, field.name().to_owned())
         })
         .collect();
@@ -91,6 +118,39 @@ impl DurableLayout {
             .map_err(|e| DataFusionError::External(Box::new(e)))?;
         project(input, &self.storage, &self.execution, "pse_delta_decode")
     }
+    /// Decode stored relation fields while retaining native CDF metadata columns.
+    /// The latter are supplied by Delta, not persisted execution descriptors.
+    pub(super) fn decode_with_native_tail(&self, input: LogicalPlan) -> Result<LogicalPlan> {
+        use datafusion::arrow::datatypes::Schema;
+        let width = self.storage.fields().len();
+        let source = input.schema().as_arrow();
+        if source.fields().len() < width {
+            return Err(DataFusionError::Plan(
+                "CDF lacks the declared relation fields".into(),
+            ));
+        }
+        let prefix =
+            Schema::new_with_metadata(source.fields()[..width].to_vec(), source.metadata().clone());
+        let declared = pse_schema::delta::execution_schema(&prefix)
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
+        pse_schema::field_contract::execution_schema(&declared, &self.execution)
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
+        let tail = &source.fields()[width..];
+        let combined = |schema: &SchemaRef| {
+            Arc::new(Schema::new_with_metadata(
+                schema
+                    .fields()
+                    .iter()
+                    .chain(tail)
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                schema.metadata().clone(),
+            ))
+        };
+        let stored = combined(&self.storage);
+        let execution = combined(&self.execution);
+        project(input, &stored, &execution, "pse_delta_decode")
+    }
     /// Restore a generated durable field after native struct/aggregate expressions
     /// infer conservative nested nullability. Arrow casts check the actual values.
     pub(super) fn storage_expression(&self, index: usize, value: Expr, actual: DataType) -> Expr {
@@ -137,14 +197,10 @@ fn project(
                 .alias(target.name()),
         );
     }
-    let plan = LogicalPlanBuilder::from(input)
-        .project(expressions)?
-        .build()?;
-    let LogicalPlan::Projection(mut projection) = plan else {
-        return Err(DataFusionError::Internal(
-            "durable projection construction changed node kind".into(),
-        ));
-    };
+    // These columns are already resolved from the admitted input fields. Native
+    // Projection validates their types without the SQL builder's whole-graph
+    // USING-name discovery, which would expand shared producer inputs repeatedly.
+    let mut projection = Projection::try_new(expressions, Arc::new(input))?;
     // Record the intended schema metadata. Logical projection rewrites may inherit
     // source metadata again; the Delta physical-input bridge enforces the storage
     // boundary after planning using the native physical projection metadata API.
@@ -193,6 +249,11 @@ impl ScalarUDFImpl for DurableCast {
             ..CastOptions::default()
         };
         let array = cast_with_options(&array, &self.intermediate, &options)?;
+        let array = if self.name == "pse_delta_decode" {
+            visibility::storage(array)?
+        } else {
+            array
+        };
         let converted = cast_with_options(
             &array,
             self.target.data_type(),
@@ -211,8 +272,13 @@ impl ScalarUDFImpl for DurableCast {
             // CastOptions::safe=false rejects integer overflow, but float narrowing
             // may still round. Native Arrow logical array equality checks the inverse
             // conversion recursively, respecting null parent masks and dictionaries.
-            let restored = cast_with_options(&converted, &self.intermediate, &options)?;
-            if array.to_data() != restored.to_data() {
+            // The inverse of a null fixed-size container introduces masked child
+            // slots into variable-size storage. Comparison-only nullable children
+            // allow those placeholders; the returned declaration stays unchanged.
+            let comparison = visibility::comparison_type(&self.intermediate);
+            let original = cast_with_options(&array, &comparison, &options)?;
+            let restored = cast_with_options(&converted, &comparison, &options)?;
+            if original.to_data() != restored.to_data() {
                 return Err(DataFusionError::Execution(format!(
                     "durable field {} cannot be decoded without changing values",
                     self.target.name()

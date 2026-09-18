@@ -12,6 +12,7 @@
 //! Section modules declare the production registry. Cross-section references resolve
 //! together during registry construction.
 
+mod cache;
 mod declarations;
 pub mod documents;
 pub mod enums_platform;
@@ -19,16 +20,16 @@ pub mod expr_family;
 pub mod inv;
 mod invariant_closure;
 mod invariant_domain;
-mod invariant_semantic;
 pub mod invariants;
-pub mod manifest;
+mod math_value;
+mod native_rules;
 mod normalization;
+mod numerical_values;
 mod publication;
+mod row_checks;
 pub mod s14_passes;
 pub mod s14_semantic_passes;
-pub mod s22_change_sets;
 pub mod s4_schema;
-pub mod s5_2_revisions;
 pub mod s6_10_cases;
 pub mod s6_11_numerical;
 pub mod s6_12_derived;
@@ -48,7 +49,7 @@ pub mod s7_operators;
 pub mod semantic_demand;
 pub mod semantic_inference;
 pub mod semantic_laws;
-mod terminal_attempts;
+mod source_commands;
 
 use crate::builder::{Registry, RegistryBuilder};
 use crate::error::SchemaError;
@@ -71,6 +72,7 @@ pub fn assemble() -> Result<Registry, SchemaError> {
 pub fn declare(builder: &mut RegistryBuilder) {
     declare_foundations(builder);
     s14_semantic_passes::declare(builder);
+    publication::declare_profiles(builder);
 }
 
 /// Add only the canonical diagnostic relation and its severity/failure vocabularies.
@@ -81,13 +83,19 @@ pub fn declare_diagnostics(builder: &mut RegistryBuilder) {
     s6_13_runtime::declare_diagnostics(builder);
 }
 
+/// Add the native Delta publication control contract to an explicit registry.
+/// It is the same declaration used by the complete platform catalog.
+pub fn declare_publications(builder: &mut RegistryBuilder) {
+    publication::declare(builder);
+}
+
 /// Full relation/rule authority with only P0–P3 producers, for explicit leaf fixture registries.
 /// Production registries use [`declare`], which adds the real semantic stage contracts.
 pub fn declare_foundations(builder: &mut RegistryBuilder) {
+    cache::declare(builder);
     enums_platform::declare(builder);
     s4_schema::declare(builder);
     s6_1_identity::declare(builder);
-    s5_2_revisions::declare(builder);
     s6_2_physical::declare(builder);
     s6_3_domains::declare(builder);
     s6_4_material::declare(builder);
@@ -102,16 +110,17 @@ pub fn declare_foundations(builder: &mut RegistryBuilder) {
     s6_12_derived::declare(builder);
     s6_13_runtime::declare(builder);
     publication::declare(builder);
+    numerical_values::declare(builder);
     s6_14_idaes_enums::declare(builder);
     s6_15_semantic::declare(builder);
-    s22_change_sets::declare(builder);
+    source_commands::declare(builder);
     normalization::declare(builder);
     expr_family::declare(builder);
     semantic_inference::declare(builder);
     semantic_demand::declare(builder);
     semantic_laws::declare(builder);
+    native_rules::declare(builder);
     documents::declare(builder);
     invariants::declare(builder);
     s14_passes::declare(builder);
-    manifest::declare(builder);
 }

@@ -3,7 +3,7 @@
 """Fixtures for the Python boundary tests (plan §5).
 
 These fixtures encode invariants that no single test owns: current inspection
-stores are produced by Rust, the extension types are registered,
+publications are produced by Rust, the extension types are registered,
 ``import pse`` stays free of the scientific stack, and the built extension
 belongs to this checkout.
 """
@@ -18,7 +18,7 @@ import pyarrow as pa
 import pyarrow.ipc
 import pytest
 
-from pse._build import build_info
+from pse._build import CacheSettings, EngineSettings, build_info
 from pse.contracts.extension_types import EXTENSION_NAMES
 
 #: Modules `pse` itself must not pull in at import (blueprint §21.6, §3.1).
@@ -41,16 +41,19 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.fixture(scope="session")
-def native_inspection_store() -> Path:
-    """Read the fresh store produced before workers start by ``just py-test``."""
-    configured = os.environ.get("PSE_INSPECTION_STORE")
+def native_inspection_publication() -> Path:
+    """Read the fresh publication produced before workers start by ``just py-test``."""
+    configured = os.environ.get("PSE_INSPECTION_PUBLICATION")
     if configured is None:
         pytest.fail(
-            "Run just py-test to build a fresh native inspection store.", pytrace=False
+            "Run just py-test to build a fresh native inspection publication.",
+            pytrace=False,
         )
     store = Path(configured)
-    if not (store / "store-index.json").is_file():
-        pytest.fail(f"Native inspection store is incomplete: {store}", pytrace=False)
+    if not (store / "publication-index.json").is_file():
+        pytest.fail(
+            f"Native inspection publication is incomplete: {store}", pytrace=False
+        )
     return store
 
 
@@ -189,3 +192,23 @@ def _ipc_round_trip(schema: pa.Schema) -> pa.Schema:
         pass
     with pa.ipc.open_stream(sink.getvalue()) as reader:
         return reader.schema
+
+
+@pytest.fixture(scope="session")
+def inspection_settings(tmp_path_factory: pytest.TempPathFactory) -> EngineSettings:
+    """Shared explicit budget for native publication readers in this process."""
+    return EngineSettings(
+        memory_limit_bytes=32 << 30,
+        threads=1,
+        spill_dir=str(tmp_path_factory.mktemp("inspection-spill")),
+        max_spill_bytes=1 << 30,
+        batch_size=7,
+        cache=CacheSettings(
+            working_bytes=16 << 30,
+            metadata_bytes=8 << 20,
+            snapshot_bytes=64 << 20,
+            resident_bytes=256 << 20,
+            inflight_bytes=64 << 20,
+            inspection_bytes=4 << 20,
+        ),
+    )

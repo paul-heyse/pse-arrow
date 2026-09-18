@@ -2,6 +2,57 @@
 
 # reference relations
 
+## `algorithm_arguments`
+
+blueprint §6.11 numerical and rule: algorithm_arguments.
+
+Version: 1. Snapshot class: `model`. Primary key: `algorithm_id, port`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `algorithm_id` | `semantic_id` | false | `key` | — | — |
+| `port` | `Utf8` | false | `key` | — | — |
+| `relation_id` | `semantic_id` | false | `payload` | — | — |
+| `required` | `Boolean` | false | `payload` | — | — |
+| `consumption` | `Struct` | false | `payload` | — | — |
+| `consumption.kind` | `enum:InputConsumptionKind` | false | `payload` | — | — |
+| `consumption.columns` | `Struct` | true | `payload` | — | — |
+| `consumption.columns.names` | `List` | false | `payload` | — | — |
+| `consumption.columns.names.item` | `Utf8` | false | `payload` | — | — |
+
+## `algorithm_results`
+
+blueprint §6.11 numerical and rule: algorithm_results.
+
+Version: 1. Snapshot class: `model`. Primary key: `algorithm_id, port`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `algorithm_id` | `semantic_id` | false | `key` | — | — |
+| `port` | `Utf8` | false | `key` | — | — |
+| `relation_id` | `semantic_id` | false | `payload` | — | — |
+
+## `algorithm_specs`
+
+blueprint §6.11 numerical and rule: algorithm_specs.
+
+Version: 1. Snapshot class: `model`. Primary key: `algorithm_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `algorithm_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `payload` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `preconditions` | `List` | false | `payload` | — | — |
+| `preconditions.item` | `semantic_id` | false | `payload` | — | — |
+| `postconditions` | `List` | false | `payload` | — | — |
+| `postconditions.item` | `semantic_id` | false | `payload` | — | — |
+| `determinism` | `enum:Determinism` | false | `payload` | — | — |
+| `diagnostics` | `List` | false | `payload` | — | — |
+| `diagnostics.item` | `enum:FailureClass` | false | `payload` | — | — |
+| `effects` | `List` | false | `payload` | — | — |
+| `effects.item` | `enum:OperationEffect` | false | `payload` | — | — |
+
 ## `aliases`
 
 Deprecated qualified names of named-policy entities: what a reference package leaves behind instead of a rename (blueprint §5.1).
@@ -14,6 +65,18 @@ Version: 1. Snapshot class: `model`. Primary key: `alias_id`.
 | `entity_id` | `semantic_id` | false | `reference` | `authored.entities.entity_id` | — |
 | `old_qualified_name` | `Utf8` | false | `label` | — | — |
 | `deprecated_in` | `Utf8` | false | `label` | — | — |
+
+## `artifact_profiles`
+
+Declared artifact completeness; every required relation must be selected even when empty.
+
+Version: 1. Snapshot class: `model`. Primary key: `kind`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `kind` | `Utf8` | false | `key` | — | — |
+| `required_relations` | `List` | false | `payload` | — | — |
+| `required_relations.item` | `semantic_id` | false | `payload` | — | — |
 
 ## `bases`
 
@@ -82,7 +145,7 @@ Version: 1. Snapshot class: `model`. Primary key: `ordinal`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `ordinal` | `UInt16` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `name` | `Utf8` | false | `payload` | — | — |
 
 ## `element_projection_contracts`
@@ -220,7 +283,7 @@ Version: 1. Snapshot class: `model`. Primary key: `law_template_id, balance_enum
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `law_template_id` | `semantic_id` | false | `key` | `authored.templates.template_id` | — |
-| `balance_enum_id` | `semantic_id` | false | `key` | `reference.schema_enums.enum_id` | — |
+| `balance_enum_id` | `semantic_id` | false | `key` | `reference.schema_enum_types.enum_id` | — |
 | `balance_member` | `Utf8` | false | `key` | — | — |
 | `family` | `enum:LawFamily` | false | `payload` | — | — |
 | `source_family` | `enum:LawFamily` | false | `payload` | — | — |
@@ -249,16 +312,19 @@ Version: 1. Snapshot class: `model`. Primary key: `method_id, ordinal`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `method_id` | `semantic_id` | false | `key` | `reference.method_specs.method_id` | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
 | `target_kind` | `enum:MethodDependencyTarget` | false | `payload` | — | — |
 | `target_id` | `semantic_id` | false | `payload` | — | — |
 | `scope_map` | `enum:MethodScopeMap` | false | `payload` | — | — |
 | `index_map` | `List` | false | `payload` | — | — |
 | `index_map.item` | `Struct` | false | `payload` | — | — |
-| `index_map.item.kind` | `enum:IndexMapKind` | false | `payload` | — | — |
-| `index_map.item.source_axis` | `UInt16` | true | `payload` | — | — |
-| `index_map.item.member_id` | `semantic_id` | true | `payload` | — | — |
 | `index_map.item.domain_kind` | `enum:DomainKind` | false | `payload` | — | — |
+| `index_map.item.source` | `Struct` | false | `payload` | — | — |
+| `index_map.item.source.kind` | `enum:IndexMapKind` | false | `payload` | — | — |
+| `index_map.item.source.source_axis` | `Struct` | true | `payload` | — | — |
+| `index_map.item.source.source_axis.position` | `Int64` | false | `payload` | — | — |
+| `index_map.item.source.fixed_member` | `Struct` | true | `payload` | — | — |
+| `index_map.item.source.fixed_member.member_id` | `semantic_id` | false | `payload` | — | — |
 
 ## `method_kernel_inputs`
 
@@ -270,7 +336,7 @@ Version: 1. Snapshot class: `model`. Primary key: `method_id, input_name`.
 |---|---|---|---|---|---|
 | `method_id` | `semantic_id` | false | `key` | `reference.method_specs.method_id` | — |
 | `input_name` | `Utf8` | false | `key` | — | — |
-| `dependency_ordinal` | `UInt16` | false | `payload` | — | — |
+| `dependency_ordinal` | `Int64` | false | `payload` | — | — |
 
 ## `method_parameter_axes`
 
@@ -282,7 +348,7 @@ Version: 1. Snapshot class: `model`. Primary key: `method_id, parameter_kind, po
 |---|---|---|---|---|---|
 | `method_id` | `semantic_id` | false | `key` | `reference.method_specs.method_id` | — |
 | `parameter_kind` | `Utf8` | false | `key` | — | — |
-| `position` | `UInt16` | false | `key` | — | — |
+| `position` | `Int64` | false | `key` | — | — |
 | `source_coordinate` | `enum:ParameterSourceCoordinate` | false | `payload` | — | — |
 
 ## `method_parameters`
@@ -312,7 +378,7 @@ Version: 1. Snapshot class: `model`. Primary key: `is_default, property_specific
 | `is_default` | `Boolean` | false | `key` | — | — |
 | `property_specific` | `Boolean` | false | `key` | — | — |
 | `scope_kind` | `enum:ScopeKind` | false | `key` | — | — |
-| `rank` | `UInt16` | false | `payload` | — | — |
+| `rank` | `Int64` | false | `payload` | — | — |
 
 ## `method_provisions`
 
@@ -324,9 +390,12 @@ Version: 1. Snapshot class: `model`. Primary key: `method_id, property_kind_id`.
 |---|---|---|---|---|---|
 | `method_id` | `semantic_id` | false | `key` | `reference.method_specs.method_id` | — |
 | `property_kind_id` | `semantic_id` | false | `key` | `reference.property_kinds.property_kind_id` | — |
-| `output_kind` | `enum:MethodOutputKind` | false | `payload` | — | — |
-| `symbol_decl_id` | `semantic_id` | true | `payload` | — | — |
-| `kernel_output_ordinal` | `UInt16` | true | `payload` | — | — |
+| `output` | `Struct` | false | `payload` | — | — |
+| `output.kind` | `enum:MethodOutputKind` | false | `payload` | — | — |
+| `output.template_symbol` | `Struct` | true | `payload` | — | — |
+| `output.template_symbol.symbol_decl_id` | `semantic_id` | false | `payload` | — | — |
+| `output.kernel_output` | `Struct` | true | `payload` | — | — |
+| `output.kernel_output.ordinal` | `Int64` | false | `payload` | — | — |
 | `quantity_type_id` | `semantic_id` | false | `payload` | `reference.quantity_types.quantity_type_id` | — |
 | `natural_unit_id` | `semantic_id` | false | `payload` | `reference.units.unit_id` | — |
 | `indexed_by` | `List` | false | `payload` | — | — |
@@ -355,9 +424,12 @@ Version: 2. Snapshot class: `model`. Primary key: `method_id`.
 | `parameter_kinds.item.indexed_by` | `List` | false | `payload` | — | — |
 | `parameter_kinds.item.indexed_by.item` | `enum:DomainKind` | false | `payload` | — | — |
 | `parameter_kinds.item.required` | `Boolean` | false | `payload` | — | — |
-| `realization` | `enum:MethodRealization` | false | `payload` | — | — |
-| `template_id` | `semantic_id` | true | `payload` | — | — |
-| `kernel_id` | `semantic_id` | true | `payload` | — | — |
+| `realization` | `Struct` | false | `payload` | — | — |
+| `realization.kind` | `enum:MethodRealization` | false | `payload` | — | — |
+| `realization.equation_template` | `Struct` | true | `payload` | — | — |
+| `realization.equation_template.template_id` | `semantic_id` | false | `payload` | — | — |
+| `realization.kernel` | `Struct` | true | `payload` | — | — |
+| `realization.kernel.kernel_id` | `semantic_id` | false | `payload` | — | — |
 | `validity` | `List` | false | `payload` | — | — |
 | `validity.item` | `Struct` | false | `payload` | — | — |
 | `validity.item.input` | `Utf8` | false | `payload` | — | — |
@@ -405,7 +477,7 @@ Version: 1. Snapshot class: `model`. Primary key: `opcode`.
 |---|---|---|---|---|---|
 | `opcode` | `enum:Opcode` | false | `key` | — | — |
 | `arity` | `enum:Arity` | false | `payload` | — | — |
-| `fixed_arity` | `UInt8` | true | `payload` | — | — |
+| `fixed_arity` | `Int64` | true | `payload` | — | — |
 | `quantity_operation_ids` | `List` | false | `payload` | — | — |
 | `quantity_operation_ids.item` | `semantic_id` | false | `payload` | — | — |
 | `shape_rule` | `Utf8` | false | `payload` | — | — |
@@ -415,7 +487,7 @@ Version: 1. Snapshot class: `model`. Primary key: `opcode`.
 | `failure_classes.item` | `enum:KernelFailure` | false | `payload` | — | — |
 | `domain_restrictions` | `List` | false | `payload` | — | — |
 | `domain_restrictions.item` | `Struct` | false | `payload` | — | — |
-| `domain_restrictions.item.argument` | `UInt16` | false | `payload` | — | — |
+| `domain_restrictions.item.argument` | `Int64` | false | `payload` | — | — |
 | `domain_restrictions.item.relation` | `enum:RelationOp` | false | `payload` | — | — |
 | `domain_restrictions.item.bound` | `Float64` | false | `payload` | — | — |
 | `domain_rule` | `Utf8` | false | `payload` | — | — |
@@ -429,54 +501,6 @@ Version: 1. Snapshot class: `model`. Primary key: `opcode`.
 | `lowering.item` | `enum:BackendBinding` | false | `payload` | — | — |
 | `family` | `enum:OperatorFamily` | false | `payload` | — | — |
 | `foldable` | `Boolean` | false | `payload` | — | — |
-
-## `pass_input_ports`
-
-blueprint §6.11 numerical and rule: pass_input_ports.
-
-Version: 1. Snapshot class: `model`. Primary key: `pass_id, port`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `pass_id` | `semantic_id` | false | `key` | — | — |
-| `port` | `Utf8` | false | `key` | — | — |
-| `relation_id` | `semantic_id` | false | `payload` | — | — |
-| `source_pass_id` | `semantic_id` | true | `payload` | — | — |
-| `source_port` | `Utf8` | true | `payload` | — | — |
-| `required` | `Boolean` | false | `payload` | — | — |
-
-## `pass_output_ports`
-
-blueprint §6.11 numerical and rule: pass_output_ports.
-
-Version: 1. Snapshot class: `model`. Primary key: `pass_id, port`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `pass_id` | `semantic_id` | false | `key` | — | — |
-| `port` | `Utf8` | false | `key` | — | — |
-| `relation_id` | `semantic_id` | false | `payload` | — | — |
-
-## `pass_specs`
-
-blueprint §6.11 numerical and rule: pass_specs.
-
-Version: 1. Snapshot class: `model`. Primary key: `pass_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `pass_id` | `semantic_id` | false | `key` | — | — |
-| `name` | `Utf8` | false | `payload` | — | — |
-| `version` | `Utf8` | false | `payload` | — | — |
-| `preconditions` | `List` | false | `payload` | — | — |
-| `preconditions.item` | `semantic_id` | false | `payload` | — | — |
-| `postconditions` | `List` | false | `payload` | — | — |
-| `postconditions.item` | `semantic_id` | false | `payload` | — | — |
-| `determinism` | `enum:Determinism` | false | `payload` | — | — |
-| `diagnostics` | `List` | false | `payload` | — | — |
-| `diagnostics.item` | `enum:FailureClass` | false | `payload` | — | — |
-| `effects` | `List` | false | `payload` | — | — |
-| `effects.item` | `enum:OperationEffect` | false | `payload` | — | — |
 
 ## `property_kinds`
 
@@ -538,18 +562,18 @@ Version: 1. Snapshot class: `model`. Primary key: `operation_id`.
 | `reference_rule` | `enum:ReferenceRule` | false | `payload` | — | — |
 | `scale_rule` | `enum:QuantityScaleRule` | false | `payload` | — | — |
 | `shape_rule` | `enum:QuantityShapeRule` | false | `payload` | — | — |
-| `basis_source` | `UInt16` | true | `payload` | — | — |
-| `reference_source` | `UInt16` | true | `payload` | — | — |
-| `scale_source` | `UInt16` | true | `payload` | — | — |
-| `shape_source` | `UInt16` | true | `payload` | — | — |
+| `basis_source` | `Int64` | true | `payload` | — | — |
+| `reference_source` | `Int64` | true | `payload` | — | — |
+| `scale_source` | `Int64` | true | `payload` | — | — |
+| `shape_source` | `Int64` | true | `payload` | — | — |
 | `subject_rule` | `enum:SubjectRule` | false | `payload` | — | — |
-| `subject_source` | `UInt16` | true | `payload` | — | — |
+| `subject_source` | `Int64` | true | `payload` | — | — |
 | `result_subject_kind` | `enum:SubjectKind` | true | `payload` | — | — |
 | `result_basis_id` | `semantic_id` | true | `payload` | — | — |
 | `result_reference_state_id` | `semantic_id` | true | `payload` | — | — |
 | `input_conversions` | `List` | false | `payload` | — | — |
 | `input_conversions.item` | `Struct` | false | `payload` | — | — |
-| `input_conversions.item.operand` | `UInt16` | false | `payload` | — | — |
+| `input_conversions.item.operand` | `Int64` | false | `payload` | — | — |
 | `input_conversions.item.conversion_id` | `semantic_id` | false | `payload` | — | — |
 | `precondition_invariant_ids` | `List` | false | `payload` | — | — |
 | `precondition_invariant_ids.item` | `semantic_id` | false | `payload` | — | — |
@@ -565,7 +589,7 @@ Version: 1. Snapshot class: `model`. Primary key: `invariant_id`.
 | `invariant_id` | `semantic_id` | false | `key` | — | — |
 | `kind` | `enum:QuantityPreconditionKind` | false | `payload` | — | — |
 | `operand_positions` | `List` | false | `payload` | — | — |
-| `operand_positions.item` | `UInt16` | false | `payload` | — | — |
+| `operand_positions.item` | `Int64` | false | `payload` | — | — |
 | `required_basis_id` | `semantic_id` | true | `payload` | `reference.bases.basis_id` | — |
 | `required_quantity_type_id` | `semantic_id` | true | `payload` | `reference.quantity_types.quantity_type_id` | — |
 | `match_shape` | `Boolean` | true | `payload` | — | — |
@@ -590,6 +614,12 @@ Version: 1. Snapshot class: `model`. Primary key: `quantity_type_id`.
 | `nominal_magnitude` | `Float64` | true | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
+Native row check `positive_nominal` (must be true):
+
+```sql
+nominal_magnitude IS NULL OR nominal_magnitude > 0
+```
+
 ## `reference_states`
 
 blueprint §6.2 physical type: reference_states.
@@ -606,26 +636,6 @@ Version: 1. Snapshot class: `model`. Primary key: `reference_state_id`.
 | `phase_id` | `semantic_id` | true | `payload` | `authored.phases.phase_id` | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
 
-## `rule_aggregates`
-
-blueprint §6.11 numerical and rule: rule_aggregates.
-
-Version: 1. Snapshot class: `model`. Primary key: `node_id, ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
-| `function` | `enum:RuleAggregate` | false | `payload` | — | — |
-| `input_expr_id` | `semantic_id` | true | `payload` | — | — |
-| `output_name` | `Utf8` | false | `payload` | — | — |
-| `order_by` | `List` | false | `payload` | — | — |
-| `order_by.item` | `Struct` | false | `payload` | — | — |
-| `order_by.item.column` | `Utf8` | false | `payload` | — | — |
-| `order_by.item.ascending` | `Boolean` | false | `payload` | — | — |
-| `null_policy` | `enum:AggregateNullPolicy` | false | `payload` | — | — |
-| `empty_policy` | `enum:AggregateEmptyPolicy` | false | `payload` | — | — |
-
 ## `rule_dependencies`
 
 blueprint §6.11 numerical and rule: rule_dependencies.
@@ -638,111 +648,8 @@ Version: 1. Snapshot class: `model`. Primary key: `rule_id, relation_id, mode, d
 | `relation_id` | `semantic_id` | false | `key` | — | — |
 | `input_port` | `Utf8` | true | `payload` | — | — |
 | `mode` | `enum:DependencyMode` | false | `key` | — | — |
-| `stratum` | `UInt16` | false | `payload` | — | — |
+| `stratum` | `Int64` | false | `payload` | — | — |
 | `derivation_id` | `semantic_id` | false | `key` | — | — |
-
-## `rule_expr_calls`
-
-Native function-call output obligations; actual retained implementations and return fields are checked during planning.
-
-Version: 1. Snapshot class: `model`. Primary key: `expr_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `expr_id` | `semantic_id` | false | `key` | `reference.rule_expr_nodes.expr_id` | — |
-| `function_name` | `Utf8` | false | `payload` | — | — |
-| `result_type` | `Utf8` | false | `payload` | — | — |
-| `result_nullable` | `Boolean` | false | `payload` | — | — |
-
-## `rule_expr_edges`
-
-blueprint §6.11 numerical and rule: rule_expr_edges.
-
-Version: 1. Snapshot class: `model`. Primary key: `parent_expr_id, ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `parent_expr_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt32` | false | `key` | — | — |
-| `child_expr_id` | `semantic_id` | false | `payload` | — | — |
-
-## `rule_expr_nodes`
-
-blueprint §6.11 numerical and rule: rule_expr_nodes.
-
-Version: 1. Snapshot class: `model`. Primary key: `expr_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `expr_id` | `semantic_id` | false | `key` | — | — |
-| `rule_id` | `semantic_id` | false | `payload` | — | — |
-| `op` | `enum:RuleExprOp` | false | `payload` | — | — |
-| `column_name` | `Utf8` | true | `payload` | — | — |
-| `comparison_op` | `enum:RuleCmpOp` | true | `payload` | — | — |
-| `field_name` | `Utf8` | true | `payload` | — | — |
-| `literal_kind` | `enum:RuleLiteralKind` | true | `payload` | — | — |
-| `bool_value` | `Boolean` | true | `payload` | — | — |
-| `i64_value` | `Int64` | true | `payload` | — | — |
-| `u64_value` | `UInt64` | true | `payload` | — | — |
-| `f64_bits` | `UInt64` | true | `payload` | — | — |
-| `text_value` | `Utf8` | true | `payload` | — | — |
-| `id_value` | `semantic_id` | true | `payload` | — | — |
-| `hash_value` | `content_hash` | true | `payload` | — | — |
-
-## `rule_group_keys`
-
-blueprint §6.11 numerical and rule: rule_group_keys.
-
-Version: 1. Snapshot class: `model`. Primary key: `node_id, ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
-| `column` | `Utf8` | false | `payload` | — | — |
-
-## `rule_plan_edges`
-
-blueprint §6.11 numerical and rule: rule_plan_edges.
-
-Version: 1. Snapshot class: `model`. Primary key: `parent_node_id, ordinal`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `parent_node_id` | `semantic_id` | false | `key` | — | — |
-| `ordinal` | `UInt16` | false | `key` | — | — |
-| `child_node_id` | `semantic_id` | false | `payload` | — | — |
-
-## `rule_plan_nodes`
-
-blueprint §6.11 numerical and rule: rule_plan_nodes.
-
-Version: 1. Snapshot class: `model`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `semantic_id` | false | `key` | — | — |
-| `rule_id` | `semantic_id` | false | `payload` | — | — |
-| `op` | `enum:RulePlanOp` | false | `payload` | — | — |
-| `relation_id` | `semantic_id` | true | `payload` | — | — |
-| `input_port` | `Utf8` | true | `payload` | — | — |
-| `join_keys` | `List` | true | `payload` | — | — |
-| `join_keys.item` | `Struct` | false | `payload` | — | — |
-| `join_keys.item.left` | `Utf8` | false | `payload` | — | — |
-| `join_keys.item.right` | `Utf8` | false | `payload` | — | — |
-| `predicate_expr_id` | `semantic_id` | true | `payload` | — | — |
-| `projection` | `List` | true | `payload` | — | — |
-| `projection.item` | `Struct` | false | `payload` | — | — |
-| `projection.item.name` | `Utf8` | false | `payload` | — | — |
-| `projection.item.expr_id` | `semantic_id` | false | `payload` | — | — |
-| `kernel_binding_id` | `semantic_id` | true | `payload` | — | — |
-| `doc` | `Utf8` | false | `payload` | — | — |
-| `null_equality` | `enum:NullEquality` | true | `payload` | — | — |
-| `recursive_name` | `Utf8` | true | `payload` | — | — |
-| `recursive_target_node_id` | `semantic_id` | true | `payload` | — | — |
-| `is_distinct` | `Boolean` | true | `payload` | — | — |
-| `depth_bound` | `enum:DepthBound` | true | `payload` | — | — |
-| `depth_limit` | `UInt32` | true | `payload` | — | — |
 
 ## `rule_specs`
 
@@ -754,30 +661,16 @@ Version: 2. Snapshot class: `model`. Primary key: `rule_id`.
 |---|---|---|---|---|---|
 | `rule_id` | `semantic_id` | false | `key` | — | — |
 | `version` | `Utf8` | false | `payload` | — | — |
-| `stratum` | `UInt16` | false | `payload` | — | — |
+| `stratum` | `Int64` | false | `payload` | — | — |
 | `head_relation_id` | `semantic_id` | false | `payload` | — | — |
 | `assertion_relation_id` | `semantic_id` | true | `payload` | — | — |
-| `root_node_id` | `semantic_id` | false | `payload` | — | — |
+| `queries` | `List` | false | `payload` | — | — |
+| `queries.item` | `Struct` | false | `payload` | — | — |
+| `queries.item.truth` | `Utf8` | false | `payload` | — | — |
+| `queries.item.sql` | `Utf8` | false | `payload` | — | — |
 | `negation` | `enum:NegationPolicy` | false | `payload` | — | — |
 | `monotonic` | `Boolean` | false | `payload` | — | — |
 | `conflict_policy` | `enum:ConflictPolicy` | false | `payload` | — | — |
-| `head_kind` | `enum:RuleHeadKind` | false | `payload` | — | — |
-| `head_key_columns` | `List` | false | `payload` | — | — |
-| `head_key_columns.item` | `Utf8` | false | `payload` | — | — |
-
-## `rule_unnest`
-
-blueprint §6.11 numerical and rule: rule_unnest.
-
-Version: 1. Snapshot class: `model`. Primary key: `node_id`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `node_id` | `semantic_id` | false | `key` | — | — |
-| `column` | `Utf8` | false | `payload` | — | — |
-| `value_name` | `Utf8` | false | `payload` | — | — |
-| `null_list_policy` | `enum:NullListPolicy` | false | `payload` | — | — |
-| `empty_list_policy` | `enum:EmptyListPolicy` | false | `payload` | — | — |
 
 ## `schema_columns`
 
@@ -837,6 +730,18 @@ Version: 1. Snapshot class: `model`. Primary key: `document_name`.
 | `path_glob` | `Utf8` | false | `label` | — | — |
 | `doc` | `Utf8` | false | `label` | — | — |
 
+## `schema_enum_types`
+
+One row per declared enumeration identity.
+
+Version: 1. Snapshot class: `model`. Primary key: `enum_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `enum_id` | `semantic_id` | false | `key` | — | — |
+| `name` | `Utf8` | false | `label` | — | — |
+| `idaes_source` | `Utf8` | true | `label` | — | — |
+
 ## `schema_enums`
 
 One row per enumeration member; the member ordinal is presentation, never identity.
@@ -845,7 +750,7 @@ Version: 1. Snapshot class: `model`. Primary key: `enum_id, member_ordinal`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
-| `enum_id` | `semantic_id` | false | `key` | — | — |
+| `enum_id` | `semantic_id` | false | `key` | `reference.schema_enum_types.enum_id` | — |
 | `member_ordinal` | `Int64` | false | `key` | — | — |
 | `member` | `Utf8` | false | `label` | — | — |
 | `idaes_name` | `Utf8` | true | `label` | — | — |
@@ -863,7 +768,11 @@ Version: 1. Snapshot class: `model`. Primary key: `invariant_id`.
 | `invariant_id` | `semantic_id` | false | `key` | — | — |
 | `relation_id` | `semantic_id` | false | `reference` | — | — |
 | `kind` | `enum:InvariantKind` | false | `label` | — | — |
-| `rule_id` | `semantic_id` | false | `reference` | — | — |
+| `query` | `Utf8` | false | `payload` | — | — |
+| `inputs` | `List` | false | `payload` | — | — |
+| `inputs.item` | `Utf8` | false | `payload` | — | — |
+| `key_columns` | `List` | false | `payload` | — | — |
+| `key_columns.item` | `Utf8` | false | `payload` | — | — |
 | `severity` | `enum:Severity` | false | `label` | — | — |
 | `doc` | `Utf8` | false | `label` | — | — |
 
@@ -918,6 +827,10 @@ Version: 1. Snapshot class: `model`. Primary key: `relation_id`.
 | `checks.item` | `Struct` | false | `payload` | — | — |
 | `checks.item.name` | `Utf8` | false | `payload` | — | — |
 | `checks.item.sql` | `Utf8` | false | `payload` | — | — |
+| `delta_properties` | `List` | false | `payload` | — | — |
+| `delta_properties.item` | `Struct` | false | `payload` | — | — |
+| `delta_properties.item.name` | `Utf8` | false | `payload` | — | — |
+| `delta_properties.item.value` | `Utf8` | false | `payload` | — | — |
 
 ## `unit_sets`
 
@@ -956,3 +869,9 @@ Version: 1. Snapshot class: `model`. Primary key: `unit_id`.
 | `reference_state_id` | `semantic_id` | true | `payload` | `reference.reference_states.reference_state_id` | — |
 | `system` | `Utf8` | false | `payload` | — | — |
 | `doc` | `Utf8` | false | `payload` | — | — |
+
+Native row check `positive_scale` (must be true):
+
+```sql
+scale_to_canonical > 0
+```

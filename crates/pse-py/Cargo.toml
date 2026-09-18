@@ -30,6 +30,8 @@ doctest = false
 bench = false
 
 [dependencies]
+datafusion.workspace = true
+url.workspace = true
 pyo3 = { workspace = true, features = [
   "extension-module",
   "abi3-py311",

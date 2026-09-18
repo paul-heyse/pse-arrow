@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    89u8, 226u8, 140u8, 159u8, 240u8, 39u8, 240u8, 233u8, 135u8, 204u8, 15u8, 99u8,
-    204u8, 106u8, 10u8, 53u8, 26u8, 154u8, 56u8, 242u8, 144u8, 196u8, 221u8, 181u8,
-    236u8, 168u8, 89u8, 12u8, 138u8, 233u8, 235u8, 89u8,
+    136u8, 201u8, 29u8, 177u8, 206u8, 194u8, 227u8, 12u8, 187u8, 39u8, 128u8, 105u8,
+    62u8, 4u8, 45u8, 147u8, 4u8, 36u8, 209u8, 70u8, 34u8, 25u8, 121u8, 185u8, 245u8,
+    25u8, 68u8, 47u8, 13u8, 95u8, 13u8, 117u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -38,9 +38,9 @@ pub struct NormalizedDiscretizationPoliciesRow {
     ///scheme
     pub r#scheme: crate::generated::enums::DiscretizationScheme,
     ///finite_elements
-    pub r#finite_elements: u32,
+    pub r#finite_elements: i64,
     ///collocation_points
-    pub r#collocation_points: Option<u8>,
+    pub r#collocation_points: Option<i64>,
 }
 impl crate::typed::CellCodec for NormalizedDiscretizationPoliciesRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -104,7 +104,7 @@ impl crate::typed::CellCodec for NormalizedDiscretizationPoliciesRow {
                         stringify!(NormalizedDiscretizationPoliciesRow),
                     ))?,
             )?,
-            r#finite_elements: <u32 as crate::typed::CellCodec>::from_cell(
+            r#finite_elements: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -112,7 +112,7 @@ impl crate::typed::CellCodec for NormalizedDiscretizationPoliciesRow {
                     ))?,
             )?,
             r#collocation_points: <Option<
-                u8,
+                i64,
             > as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
@@ -174,9 +174,9 @@ impl crate::columnar::ArrowValue for NormalizedDiscretizationPoliciesRow {
         <crate::generated::enums::DiscretizationScheme as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
-        <u32 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <Option<
-            u8,
+            i64,
         > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -208,12 +208,12 @@ impl crate::columnar::ArrowValue for NormalizedDiscretizationPoliciesRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#finite_elements: <u32 as crate::columnar::ArrowValue>::read(
+            r#finite_elements: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
             r#collocation_points: <Option<
-                u8,
+                i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
@@ -251,7 +251,7 @@ impl NormalizedDiscretizationPoliciesRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"01cf10b6eea87c4df8bb3971feff3e4e\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"discretization_policies\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"policy_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"policy_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"policy_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"policy_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"package_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"package_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"package_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"method\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"method\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DiscretizationMethod\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"method\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"dd4d1ad29b8d97e5fb3da94d4bd8195d\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"dd4d1ad29b8d97e5fb3da94d4bd8195d\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DiscretizationMethod\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DiscretizationMethod\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"dd4d1ad29b8d97e5fb3da94d4bd8195d\\\"}\"],[\"struct\",[[\"id\",\"dd4d1ad29b8d97e5fb3da94d4bd8195d\"],[\"text\",\"DiscretizationMethod\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"finite_difference\"],[\"null\",null],[\"bool\",false],[\"text\",\"finite_difference\"]]],[\"struct\",[[\"text\",\"collocation\"],[\"null\",null],[\"bool\",false],[\"text\",\"collocation\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"scheme\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"scheme\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DiscretizationScheme\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"scheme\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"04e2db2c0f01dc1096f68dc63aecd797\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"04e2db2c0f01dc1096f68dc63aecd797\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DiscretizationScheme\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DiscretizationScheme\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"04e2db2c0f01dc1096f68dc63aecd797\\\"}\"],[\"struct\",[[\"id\",\"04e2db2c0f01dc1096f68dc63aecd797\"],[\"text\",\"DiscretizationScheme\"],[\"text\",\"pyomo.dae\"],[\"list\",[[\"struct\",[[\"text\",\"BACKWARD\"],[\"text\",\"BACKWARD\"],[\"bool\",false],[\"text\",\"Backward finite difference\"]]],[\"struct\",[[\"text\",\"FORWARD\"],[\"text\",\"FORWARD\"],[\"bool\",false],[\"text\",\"Forward finite difference\"]]],[\"struct\",[[\"text\",\"CENTRAL\"],[\"text\",\"CENTRAL\"],[\"bool\",false],[\"text\",\"Central finite difference\"]]],[\"struct\",[[\"text\",\"LAGRANGE_RADAU\"],[\"text\",\"LAGRANGE-RADAU\"],[\"bool\",false],[\"text\",\"Radau collocation\"]]],[\"struct\",[[\"text\",\"LAGRANGE_LEGENDRE\"],[\"text\",\"LAGRANGE-LEGENDRE\"],[\"bool\",false],[\"text\",\"Legendre collocation\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"finite_elements\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"finite_elements\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"finite_elements\"],[\"text\",\"\\\"UInt32\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u32\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"collocation_points\"],[\"text\",\"\\\"UInt8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"collocation_points\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"collocation_points\"],[\"text\",\"\\\"UInt8\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u8\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.11 numerical and rule: discretization_policies.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"01cf10b6eea87c4df8bb3971feff3e4e\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"01cf10b6eea87c4df8bb3971feff3e4e\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"discretization_policies\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"policy_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"policy_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"policy_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"policy_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"package_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"package_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"package_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"name\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"name\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"text\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"method\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"method\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DiscretizationMethod\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"method\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"dd4d1ad29b8d97e5fb3da94d4bd8195d\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"dd4d1ad29b8d97e5fb3da94d4bd8195d\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DiscretizationMethod\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DiscretizationMethod\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"dd4d1ad29b8d97e5fb3da94d4bd8195d\\\"}\"],[\"struct\",[[\"id\",\"dd4d1ad29b8d97e5fb3da94d4bd8195d\"],[\"text\",\"DiscretizationMethod\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"finite_difference\"],[\"null\",null],[\"bool\",false],[\"text\",\"finite_difference\"]]],[\"struct\",[[\"text\",\"collocation\"],[\"null\",null],[\"bool\",false],[\"text\",\"collocation\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"scheme\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"scheme\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"DiscretizationScheme\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"scheme\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"04e2db2c0f01dc1096f68dc63aecd797\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"04e2db2c0f01dc1096f68dc63aecd797\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:DiscretizationScheme\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:DiscretizationScheme\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"04e2db2c0f01dc1096f68dc63aecd797\\\"}\"],[\"struct\",[[\"id\",\"04e2db2c0f01dc1096f68dc63aecd797\"],[\"text\",\"DiscretizationScheme\"],[\"text\",\"pyomo.dae\"],[\"list\",[[\"struct\",[[\"text\",\"BACKWARD\"],[\"text\",\"BACKWARD\"],[\"bool\",false],[\"text\",\"Backward finite difference\"]]],[\"struct\",[[\"text\",\"FORWARD\"],[\"text\",\"FORWARD\"],[\"bool\",false],[\"text\",\"Forward finite difference\"]]],[\"struct\",[[\"text\",\"CENTRAL\"],[\"text\",\"CENTRAL\"],[\"bool\",false],[\"text\",\"Central finite difference\"]]],[\"struct\",[[\"text\",\"LAGRANGE_RADAU\"],[\"text\",\"LAGRANGE-RADAU\"],[\"bool\",false],[\"text\",\"Radau collocation\"]]],[\"struct\",[[\"text\",\"LAGRANGE_LEGENDRE\"],[\"text\",\"LAGRANGE-LEGENDRE\"],[\"bool\",false],[\"text\",\"Legendre collocation\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"finite_elements\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"finite_elements\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]]]]]],[\"struct\",[[\"text\",\"finite_elements\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,4294967295]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"collocation_points\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"collocation_points\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,255]\"]]]]]]],[\"struct\",[[\"text\",\"collocation_points\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,255]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.11 numerical and rule: discretization_policies.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"01cf10b6eea87c4df8bb3971feff3e4e\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -327,7 +327,7 @@ impl crate::columnar::RelationRow for NormalizedDiscretizationPoliciesRow {
         NormalizedDiscretizationPoliciesView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        74_416_usize + size_of::<Self::Builder>()
+        78_520_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         128usize
@@ -426,8 +426,8 @@ pub struct NormalizedDiscretizationPoliciesView<'a> {
     name_column: &'a arrow_array::StringArray,
     method_column: &'a arrow_array::StringArray,
     scheme_column: &'a arrow_array::StringArray,
-    finite_elements_column: &'a arrow_array::UInt32Array,
-    collocation_points_column: &'a arrow_array::UInt8Array,
+    finite_elements_column: &'a arrow_array::Int64Array,
+    collocation_points_column: &'a arrow_array::Int64Array,
 }
 impl<'a> NormalizedDiscretizationPoliciesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -481,10 +481,10 @@ impl<'a> NormalizedDiscretizationPoliciesView<'a> {
                 arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
             finite_elements_column: crate::columnar::array::<
-                arrow_array::UInt32Array,
+                arrow_array::Int64Array,
             >(batch.column(5usize).as_ref())?,
             collocation_points_column: crate::columnar::array::<
-                arrow_array::UInt8Array,
+                arrow_array::Int64Array,
             >(batch.column(6usize).as_ref())?,
         })
     }
@@ -565,7 +565,7 @@ impl<'a> NormalizedDiscretizationPoliciesView<'a> {
         "finite_elements",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn finite_elements_column(&self) -> &'a arrow_array::UInt32Array {
+    pub const fn finite_elements_column(&self) -> &'a arrow_array::Int64Array {
         self.finite_elements_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "finite_elements", "`.")]
@@ -577,7 +577,7 @@ impl<'a> NormalizedDiscretizationPoliciesView<'a> {
         "collocation_points",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn collocation_points_column(&self) -> &'a arrow_array::UInt8Array {
+    pub const fn collocation_points_column(&self) -> &'a arrow_array::Int64Array {
         self.collocation_points_column
     }
     #[doc = concat!(
@@ -685,6 +685,27 @@ impl NormalizedDiscretizationPoliciesBuilder {
         &mut self,
         row: NormalizedDiscretizationPoliciesRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=4_294_967_295_i64).contains(&(row.r#finite_elements).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "finite_elements",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if let Some(value) = (row.r#collocation_points).as_ref()
+            && !((0_i64..=255_i64).contains(&(value).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "collocation_points",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

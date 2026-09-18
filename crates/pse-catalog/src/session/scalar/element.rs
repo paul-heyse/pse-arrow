@@ -5,27 +5,14 @@
 use datafusion::{
     arrow::datatypes::{DataType, Field, FieldRef},
     common::{DataFusionError, Result},
-    functions_nested::extract::array_element_udf,
     logical_expr::{
-        ColumnarValue, Expr, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl,
-        Signature,
+        ColumnarValue, ReturnFieldArgs, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature,
     },
 };
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
-static ELEMENT: LazyLock<Arc<ScalarUDF>> = LazyLock::new(|| {
-    Arc::new(ScalarUDF::from(Element {
-        native: array_element_udf(),
-    }))
-});
-pub(super) fn function() -> Arc<ScalarUDF> {
-    Arc::clone(&ELEMENT)
-}
-
-/// Select an element using DataFusion's one-based/negative-index and null rules.
-/// The result retains the list child's actual field metadata.
-pub fn array_element(array: Expr, index: Expr) -> Expr {
-    ELEMENT.call(vec![array, index])
+pub(in crate::session) fn function(native: Arc<ScalarUDF>) -> Arc<ScalarUDF> {
+    Arc::new(ScalarUDF::from(Element { native }))
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -34,7 +21,7 @@ struct Element {
 }
 impl ScalarUDFImpl for Element {
     fn name(&self) -> &'static str {
-        "pse_array_element"
+        "array_element"
     }
     fn signature(&self) -> &Signature {
         self.native.signature()
@@ -45,7 +32,7 @@ impl ScalarUDFImpl for Element {
     fn return_field_from_args(&self, args: ReturnFieldArgs<'_>) -> Result<FieldRef> {
         let [array, _] = args.arg_fields else {
             return Err(DataFusionError::Plan(
-                "pse_array_element requires an array and index".into(),
+                "array_element requires an array and index".into(),
             ));
         };
         // IndexTuple declares ordered semantic identities in its extension
@@ -58,7 +45,7 @@ impl ScalarUDFImpl for Element {
             let expected = super::index_tuple::output_field(array.is_nullable())?;
             super::super::output::check_field_output(array, &expected)?;
             let mut element = pse_schema::model::FieldContract::payload(
-                "pse_array_element",
+                "array_element",
                 pse_schema::model::FieldContract::id(),
                 "Actual index-tuple member identity.",
             );
@@ -79,7 +66,7 @@ impl ScalarUDFImpl for Element {
             )),
             DataType::Null => Ok(Arc::new(Field::new(self.name(), DataType::Null, true))),
             _ => Err(DataFusionError::Plan(
-                "pse_array_element requires a native List or LargeList".into(),
+                "array_element requires a native List or LargeList".into(),
             )),
         }
     }
@@ -93,4 +80,11 @@ impl ScalarUDFImpl for Element {
             .collect::<Result<_>>()?;
         self.native.inner().invoke_with_args(args)
     }
+}
+
+pub(in crate::session) fn native(function: &ScalarUDF) -> Option<&Arc<ScalarUDF>> {
+    function
+        .inner()
+        .downcast_ref::<Element>()
+        .map(|value| &value.native)
 }

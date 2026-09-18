@@ -4,8 +4,8 @@
 //! Expression graph, operator catalog and contracts, canonicalization and unit inference
 //! (blueprint §3.2, §6.9, §7).
 //!
-//! The math IR is relational: expression graphs are rows in `compiled.math_expr_nodes` and
-//! `compiled.math_expr_args`, never an in-memory AST that escapes the registry (§7.1
+//! The math IR is relational: expression nodes carry their ordered child lists in
+//! `compiled.math_expr_nodes`, never an in-memory AST that escapes the registry (§7.1
 //! constraint 1). The types in this crate are the in-memory shape of exactly those rows,
 //! so that a pass can build and check a graph without an engine, and packet M-5's
 //! `MathRelationSink` can write the same facts out.

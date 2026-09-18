@@ -2009,7 +2009,6 @@ dependencies = [
 [[package]]
 name = "deltalake-core"
 version = "1.0.0"
-source = "git+https://github.com/delta-io/delta-rs?rev=58f07cd62bfbce3649a7e1c87c696288068ae184#58f07cd62bfbce3649a7e1c87c696288068ae184"
 dependencies = [
  "alloc-stdlib 0.2.2",
  "arrow",
@@ -2064,7 +2063,6 @@ dependencies = [
 [[package]]
 name = "deltalake-derive"
 version = "1.0.0"
-source = "git+https://github.com/delta-io/delta-rs?rev=58f07cd62bfbce3649a7e1c87c696288068ae184#58f07cd62bfbce3649a7e1c87c696288068ae184"
 dependencies = [
  "convert_case",
  "itertools 0.14.0",
@@ -4164,8 +4162,22 @@ name = "pse-benches"
 version = "0.0.1"
 dependencies = [
  "arrow",
+ "async-trait",
  "criterion",
+ "datafusion",
+ "deltalake-core",
+ "futures-util",
+ "object_store",
+ "pse-catalog",
  "pse-ids",
+ "pse-relations",
+ "pse-rules",
+ "pse-schema",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
@@ -4203,13 +4215,16 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]
 name = "pse-compiler"
 version = "0.0.1"
 dependencies = [
+ "async-trait",
  "datafusion",
+ "futures-util",
  "miette",
  "petgraph",
  "pse-authoring",
@@ -4349,6 +4364,7 @@ version = "0.0.1"
 dependencies = [
  "arrow-array",
  "arrow-schema",
+ "datafusion",
  "miette",
  "pse-buildinfo",
  "pse-catalog",
@@ -4360,6 +4376,7 @@ dependencies = [
  "pyo3",
  "pyo3-arrow",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -4532,6 +4549,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
@@ -4544,6 +4562,8 @@ dependencies = [
  "regex",
  "semver",
  "serde",
+ "serde_json",
+ "sha2",
  "toml",
 ]
 
@@ -4554,6 +4574,7 @@ dependencies = [
  "arrow",
  "async-trait",
  "datafusion",
+ "deltalake-core",
  "futures-core",
  "insta",
  "object_store",
@@ -4572,6 +4593,7 @@ dependencies = [
  "pse-schema",
  "tempfile",
  "tokio",
+ "url",
 ]
 
 [[package]]
@@ -6509,6 +6531,7 @@ dependencies = [
  "bindgen",
  "cargo_metadata",
  "clap",
+ "datafusion",
  "ignore",
  "miette",
  "pse-authoring",
@@ -6531,6 +6554,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "toml",
+ "url",
 ]
 
 [[package]]

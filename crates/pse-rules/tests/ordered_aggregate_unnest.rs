@@ -5,13 +5,9 @@
 #[path = "support/strata_fixture.rs"]
 mod fixture;
 use fixture::{Fixture, builder, declare, head, id, input};
-use pse_schema::model::{
-    AggregateEmptyPolicy as Empty, AggregateNullPolicy as Null, Cell, EmptyListPolicy,
-    FieldContract, FieldContract as T, NullListPolicy, RuleAggregate, RuleAggregateFn as F,
-    RuleDecl, RuleExpr as E, RuleHead, RulePlan as P,
-};
+use pse_schema::model::{Cell, FieldContract, FieldContract as T, RuleDecl};
 
-fn collect(null: Null, empty: Empty) -> pse_schema::RegistryBuilder {
+fn collect(reject_null: bool, reject_empty: bool) -> pse_schema::RegistryBuilder {
     let mut builder = builder();
     input(
         &mut builder,
@@ -40,38 +36,27 @@ fn collect(null: Null, empty: Empty) -> pse_schema::RegistryBuilder {
             ),
         ],
     );
-    let plan = P::Project {
-        input: Box::new(P::Aggregate {
-            input: Box::new(P::Scan {
-                relation: "authored.input".to_owned(),
-                port: "source",
-            }),
-            group: vec![],
-            aggregates: vec![RuleAggregate {
-                function: F::CollectOrdered,
-                input: Some(E::col("member")),
-                output_name: ("members").into(),
-                order_by: (vec![("ordinal", true)])
-                    .into_iter()
-                    .map(|(name, ascending)| (name.into(), ascending))
-                    .collect(),
-                null_policy: null,
-                empty_policy: empty,
-            }],
-        }),
-        columns: vec![
-            ("id".into(), E::Lit(Cell::U64(1))),
-            ("members".into(), E::col("members")),
-        ],
+    let aggregate = if reject_null {
+        "array_agg(pse_require_nonnull(member) ORDER BY ordinal)"
+    } else {
+        "array_agg(member ORDER BY ordinal) FILTER (WHERE member IS NOT NULL)"
     };
+    let members = if reject_empty {
+        format!("pse_require_nonnull({aggregate})")
+    } else {
+        format!("coalesce({aggregate}, [])")
+    };
+    let plan =
+        format!("SELECT CAST(1 AS INT UNSIGNED) AS id, {members} AS members FROM authored.input");
     declare(
         &mut builder,
         RuleDecl::new(
             "collect",
             "1",
             0,
-            RuleHead::Relation("inferred.collected".to_owned()),
+            "inferred.collected",
             plan,
+            vec![fixture::read("authored.input", "source")],
         )
         .assertions("provenance.collection_assertions"),
     );
@@ -80,7 +65,7 @@ fn collect(null: Null, empty: Empty) -> pse_schema::RegistryBuilder {
 #[tokio::test]
 async fn ordered_aggregate_tracks_actual_members_and_skipped_nulls_under_partitioning() {
     let fixture = Fixture::new(
-        collect(Null::SkipMissing, Empty::EmptyList),
+        collect(false, false),
         vec![
             vec![Cell::U64(3), Cell::U64(30)],
             vec![Cell::U64(1), Cell::U64(10)],
@@ -103,7 +88,7 @@ async fn ordered_aggregate_tracks_actual_members_and_skipped_nulls_under_partiti
 }
 #[tokio::test]
 async fn ordered_aggregate_empty_input_has_explicit_empty_list_and_complete_absence_support() {
-    let fixture = Fixture::new(collect(Null::SkipMissing, Empty::EmptyList), vec![], 1);
+    let fixture = Fixture::new(collect(false, false), vec![], 1);
     let result = fixture.run(5).await.unwrap();
     assert_eq!(
         fixture.rows(&result, "inferred.collected"),
@@ -117,15 +102,15 @@ async fn ordered_aggregate_empty_input_has_explicit_empty_list_and_complete_abse
 #[tokio::test]
 async fn ordered_aggregate_rejects_declared_null_and_empty_errors() {
     let null = Fixture::new(
-        collect(Null::Reject, Empty::EmptyList),
+        collect(true, false),
         vec![vec![Cell::U64(1), Cell::Null]],
         1,
     );
     assert!(null.run(5).await.is_err());
-    let empty = Fixture::new(collect(Null::Reject, Empty::Error), vec![], 1);
+    let empty = Fixture::new(collect(true, true), vec![], 1);
     assert!(empty.run(5).await.is_err());
 }
-fn unnest(null_list: NullListPolicy) -> pse_schema::RegistryBuilder {
+fn unnest(reject_null: bool) -> pse_schema::RegistryBuilder {
     let mut builder = builder();
     input(
         &mut builder,
@@ -147,37 +132,28 @@ fn unnest(null_list: NullListPolicy) -> pse_schema::RegistryBuilder {
         &["id", "member"],
         vec![id("id"), id("member")],
     );
-    let plan = P::Project {
-        input: Box::new(P::Unnest {
-            input: Box::new(P::Scan {
-                relation: "authored.input".to_owned(),
-                port: "source",
-            }),
-            column: ("members").into(),
-            value_name: ("member").into(),
-            null_list,
-            empty_list: EmptyListPolicy::NoMembers,
-        }),
-        columns: vec![
-            ("id".into(), E::col("source.id")),
-            ("member".into(), E::col("member")),
-        ],
+    let members = if reject_null {
+        "pse_require_nonnull(members)"
+    } else {
+        "coalesce(members, [])"
     };
+    let plan = format!("SELECT id, unnest({members}) AS member FROM authored.input");
     declare(
         &mut builder,
         RuleDecl::new(
             "unnest",
             "1",
             0,
-            RuleHead::Relation("inferred.expanded".to_owned()),
+            "inferred.expanded",
             plan,
+            vec![fixture::read("authored.input", "source")],
         )
         .assertions("provenance.expansion_assertions"),
     );
     builder
 }
 
-fn integer_reduction(function: F, empty: Empty) -> pse_schema::RegistryBuilder {
+fn integer_reduction(count: bool, reject_empty: bool) -> pse_schema::RegistryBuilder {
     let mut builder = builder();
     input(
         &mut builder,
@@ -205,35 +181,29 @@ fn integer_reduction(function: F, empty: Empty) -> pse_schema::RegistryBuilder {
             ),
         ],
     );
-    let plan = P::Project {
-        input: Box::new(P::Aggregate {
-            input: Box::new(P::Scan {
-                relation: "authored.input".to_owned(),
-                port: "source",
-            }),
-            group: vec![],
-            aggregates: vec![RuleAggregate {
-                function,
-                input: Some(E::col("value")),
-                output_name: ("value").into(),
-                order_by: vec![],
-                null_policy: Null::Reject,
-                empty_policy: empty,
-            }],
-        }),
-        columns: vec![
-            ("id".into(), E::Lit(Cell::U64(1))),
-            ("value".into(), E::col("value")),
-        ],
+    // Native decimal accumulation avoids UInt64 overflow before the exact cast.
+    let aggregate = if count {
+        "count(value)"
+    } else {
+        "sum(CAST(value AS DECIMAL(38, 0)))"
     };
+    let value = if reject_empty {
+        format!("pse_require_nonnull(CASE WHEN count(*) = 0 THEN NULL ELSE {aggregate} END)")
+    } else {
+        format!("coalesce({aggregate}, 0)")
+    };
+    let plan = format!(
+        "SELECT CAST(1 AS INT UNSIGNED) AS id, CAST({value} AS BIGINT UNSIGNED) AS value FROM authored.input"
+    );
     declare(
         &mut builder,
         RuleDecl::new(
             "integer_reduction",
             "1",
             0,
-            RuleHead::Relation("inferred.reduced".to_owned()),
+            "inferred.reduced",
             plan,
+            vec![fixture::read("authored.input", "source")],
         )
         .assertions("provenance.reduction_assertions"),
     );
@@ -242,7 +212,7 @@ fn integer_reduction(function: F, empty: Empty) -> pse_schema::RegistryBuilder {
 #[tokio::test]
 async fn checked_integer_aggregate_rejects_overflow_and_preserves_exact_large_values() {
     let exact = Fixture::new(
-        integer_reduction(F::Sum, Empty::Zero),
+        integer_reduction(false, false),
         vec![
             vec![Cell::U64(1), Cell::U64(u64::MAX - 1)],
             vec![Cell::U64(2), Cell::U64(1)],
@@ -255,7 +225,7 @@ async fn checked_integer_aggregate_rejects_overflow_and_preserves_exact_large_va
         vec![vec![Cell::U64(1), Cell::U64(u64::MAX)]]
     );
     let overflow = Fixture::new(
-        integer_reduction(F::Sum, Empty::Zero),
+        integer_reduction(false, false),
         vec![
             vec![Cell::U64(1), Cell::U64(u64::MAX)],
             vec![Cell::U64(2), Cell::U64(1)],
@@ -266,9 +236,9 @@ async fn checked_integer_aggregate_rejects_overflow_and_preserves_exact_large_va
 }
 #[tokio::test]
 async fn count_empty_error_refuses_zero_and_zero_policy_is_explicit() {
-    let rejected = Fixture::new(integer_reduction(F::Count, Empty::Error), vec![], 1);
+    let rejected = Fixture::new(integer_reduction(true, true), vec![], 1);
     assert!(rejected.run(5).await.is_err());
-    let zero = Fixture::new(integer_reduction(F::Count, Empty::Zero), vec![], 1);
+    let zero = Fixture::new(integer_reduction(true, false), vec![], 1);
     let result = zero.run(5).await.unwrap();
     assert_eq!(
         zero.rows(&result, "inferred.reduced"),
@@ -282,7 +252,7 @@ async fn unnest_retains_parent_support_without_inventing_members_for_empty_or_nu
         vec![Cell::U64(2), Cell::List(vec![])],
         vec![Cell::U64(3), Cell::Null],
     ];
-    let fixture = Fixture::new(unnest(NullListPolicy::NoMembers), rows.clone(), 2);
+    let fixture = Fixture::new(unnest(false), rows.clone(), 2);
     let result = fixture.run(5).await.unwrap();
     assert_eq!(
         fixture.rows(&result, "inferred.expanded"),
@@ -295,6 +265,6 @@ async fn unnest_retains_parent_support_without_inventing_members_for_empty_or_nu
         fixture.rows(&result, "provenance.rule_support_edges").len(),
         2
     );
-    let rejected = Fixture::new(unnest(NullListPolicy::Reject), rows, 1);
+    let rejected = Fixture::new(unnest(true), rows, 1);
     assert!(rejected.run(5).await.is_err());
 }

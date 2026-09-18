@@ -9,6 +9,10 @@ use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
 use pse_relations::generated::reference;
 use std::collections::BTreeSet;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "check_descriptor keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(crate) fn check_descriptor(
     descriptor: &reference::kernel_specs::Row,
     physical: &QuantityRegistry,

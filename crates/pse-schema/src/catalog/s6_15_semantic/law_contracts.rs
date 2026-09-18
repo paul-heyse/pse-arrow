@@ -9,7 +9,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         builder,
         N::Authored,
         "template_contribution_contracts",
-        2,
+        3,
         S::Model,
         &["contribution_decl_id"],
         vec![
@@ -21,19 +21,13 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             ),
             column("quantity_type_id", T::id())
                 .with_fk("reference.quantity_types", "quantity_type_id"),
-            column("subject_kind", T::enumeration("ContributionSubjectKind")),
-            column("subject_axis", T::native(arrow_schema::DataType::UInt16)).optional(),
-            column("phase_axis", T::native(arrow_schema::DataType::UInt16)).optional(),
-            column("subject_id", T::id()).optional(),
-            column("phase_id", T::id()).optional(),
+            column("subject", super::conservation_values::subject(false)),
             column(
-                "transfer_port_name",
-                T::native(arrow_schema::DataType::Utf8),
-            )
-            .optional(),
-            column(
-                "transfer_member_ordinal",
-                T::native(arrow_schema::DataType::UInt16),
+                "transfer",
+                T::structure(vec![
+                    T::native(arrow_schema::DataType::Utf8).with_name("port_name"),
+                    T::nonnegative(i64::from(u16::MAX)).with_name("member_ordinal"),
+                ]),
             )
             .optional(),
         ],
@@ -54,21 +48,16 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             ),
             column("quantity_type_id", T::id())
                 .with_fk("reference.quantity_types", "quantity_type_id"),
-            column("balance_enum_id", T::id()).with_fk("reference.schema_enums", "enum_id"),
+            column("balance_enum_id", T::id()).with_fk("reference.schema_enum_types", "enum_id"),
             column(
-                "default_state_child",
-                T::native(arrow_schema::DataType::Utf8),
+                "default_balance",
+                T::structure(vec![
+                    T::native(arrow_schema::DataType::Utf8).with_name("state_child"),
+                    T::native(arrow_schema::DataType::Utf8).with_name("feature_name"),
+                ]),
             )
             .optional(),
-            column(
-                "default_feature_name",
-                T::native(arrow_schema::DataType::Utf8),
-            )
-            .optional(),
-            column("subject_axis", T::native(arrow_schema::DataType::UInt16)).optional(),
-            column("phase_axis", T::native(arrow_schema::DataType::UInt16)).optional(),
-            column("subject_id", T::id()).optional(),
-            column("phase_id", T::id()).optional(),
+            column("coordinates", super::conservation_values::coordinates()),
         ],
         "Actual law index and required physical result; typed balance choice selects one declared law binding.",
     );
@@ -94,7 +83,7 @@ fn declare_bindings(builder: &mut RegistryBuilder) {
         &["law_template_id", "balance_enum_id", "balance_member"],
         vec![
             column("law_template_id", T::id()).with_fk("authored.templates", "template_id"),
-            column("balance_enum_id", T::id()).with_fk("reference.schema_enums", "enum_id"),
+            column("balance_enum_id", T::id()).with_fk("reference.schema_enum_types", "enum_id"),
             column("balance_member", T::native(arrow_schema::DataType::Utf8)),
             column("family", T::enumeration("LawFamily")),
             column("source_family", T::enumeration("LawFamily")),

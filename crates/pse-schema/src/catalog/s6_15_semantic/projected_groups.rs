@@ -16,7 +16,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column(
                 "fixed_coordinates",
                 T::list(T::structure(vec![
-                    T::native(arrow_schema::DataType::UInt16)
+                    T::nonnegative(i64::from(u16::MAX))
                         .with_name("axis")
                         .with_nullable(false),
                     T::id().with_name("member_id").with_nullable(false),

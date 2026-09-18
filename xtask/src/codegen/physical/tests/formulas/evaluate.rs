@@ -47,7 +47,14 @@ pub(super) fn expression(
             args,
             named,
         } => {
-            assert_eq!(args.len(), 1);
+            if *function == Function::Broadcast {
+                assert_eq!(args.len(), 2);
+                assert!(named.is_empty());
+                // This oracle evaluates one already selected scalar member.
+                // Broadcast's second argument names its index, not a value.
+                return expression(&args[0], values, registry);
+            }
+            assert_eq!(args.len(), 1, "{function:?}");
             assert!(named.is_empty());
             let value = expression(&args[0], values, registry);
             match function {

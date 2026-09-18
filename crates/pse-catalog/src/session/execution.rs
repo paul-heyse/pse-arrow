@@ -28,6 +28,10 @@ use std::{
 /// Actual PSE execution services bound into native SessionConfig for this operation.
 #[derive(Debug)]
 pub struct NativeExecutionContext {
+    implementation_generation: pse_ids::SemanticId,
+    pub(super) caches: Arc<super::cache::CacheStore>,
+    completed_state: std::sync::Mutex<Option<std::sync::Weak<SessionState>>>,
+    leases: Vec<Arc<crate::delta::lease::ReadLease>>,
     settlement: std::sync::atomic::AtomicBool,
     effective: super::policy::EffectivePolicy,
     registry: Arc<Registry>,
@@ -41,12 +45,21 @@ pub struct NativeExecutionContext {
     trace: Arc<super::trace::ExecutionTrace>,
 }
 impl NativeExecutionContext {
+    /// Invalidate invocation-local round-dependent completions after every stream
+    /// of the previous round has settled. Physical plan ownership remains native.
+    pub fn advance_round_epoch(&self) {
+        self.caches.advance_epoch();
+    }
     pub(super) fn bind(
         session: &SnapshotSession,
         state: SessionState,
         cancel: &CancellationToken,
     ) -> Result<SessionState, CatalogError> {
         let services = Arc::new(Self {
+            implementation_generation: session.implementation_generation(),
+            caches: Arc::new(super::cache::CacheStore::default()),
+            completed_state: std::sync::Mutex::new(None),
+            leases: session.leases.clone(),
             settlement: std::sync::atomic::AtomicBool::new(false),
             effective: session.effective_policy()?,
             registry: Arc::clone(&session.registry),
@@ -66,10 +79,8 @@ impl NativeExecutionContext {
                         .bindings
                         .scopes()
                         .map(|(catalog, schema)| match schema {
-                            Some(schema) => {
-                                ProviderScope::Schema(catalog.to_owned(), schema.to_owned())
-                            }
-                            None => ProviderScope::Catalog(catalog.to_owned()),
+                            Some(schema) => ProviderScope::Schema(catalog, schema),
+                            None => ProviderScope::Catalog(catalog),
                         }),
                 )
                 .chain(session.bindings.iter().map(|(_, binding)| {
@@ -133,10 +144,25 @@ impl NativeExecutionContext {
         state: &SessionState,
         cancel: &CancellationToken,
     ) -> SessionState {
+        Self::execution_state_with_caches(
+            state,
+            cancel,
+            Arc::new(super::cache::CacheStore::default()),
+        )
+    }
+    pub(super) fn execution_state_with_caches(
+        state: &SessionState,
+        cancel: &CancellationToken,
+        caches: Arc<super::cache::CacheStore>,
+    ) -> SessionState {
         let Some(source) = state.config().get_extension::<Self>() else {
             return state.clone();
         };
         let services = Arc::new(Self {
+            caches,
+            implementation_generation: source.implementation_generation,
+            completed_state: std::sync::Mutex::new(None),
+            leases: source.leases.clone(),
             settlement: std::sync::atomic::AtomicBool::new(false),
             effective: source.effective.clone(),
             registry: Arc::clone(&source.registry),
@@ -152,6 +178,24 @@ impl NativeExecutionContext {
         SessionStateBuilder::new_from_existing(state.clone())
             .with_config(state.config().clone().with_extension(services))
             .build()
+    }
+
+    /// Command state is owned by its physical result, never by this configuration
+    /// extension. A weak link avoids state -> extension -> state reference cycles.
+    pub(super) fn record_command_state(&self, state: &Arc<SessionState>) -> Result<()> {
+        *self.completed_state.lock().map_err(|_| {
+            DataFusionError::Internal("native command state lock poisoned".into())
+        })? = Some(Arc::downgrade(state));
+        Ok(())
+    }
+    pub(super) fn command_state(&self, original: &SessionState) -> Result<SessionState> {
+        Ok(self
+            .completed_state
+            .lock()
+            .map_err(|_| DataFusionError::Internal("native command state lock poisoned".into()))?
+            .as_ref()
+            .and_then(std::sync::Weak::upgrade)
+            .map_or_else(|| original.clone(), |state| state.as_ref().clone()))
     }
 
     /// Called immediately before starting cooperative foreign work that cannot
@@ -188,6 +232,7 @@ impl NativeExecutionContext {
             });
         }
         let factory = SessionFactory {
+            implementation_generation: self.implementation_generation,
             state: state.clone(),
             reserver: Arc::clone(&self.reserver),
             profile: self.profile.clone(),
@@ -196,7 +241,6 @@ impl NativeExecutionContext {
                 optimizers: state.optimizer().rules.clone(),
                 physical: state.physical_optimizers().to_vec(),
             }),
-            function_bindings: super::functions::Functions::from_state(state),
             requirement_planner: self.requirements.clone(),
             policies: Arc::clone(&self.policies),
         };
@@ -207,6 +251,7 @@ impl NativeExecutionContext {
             session.bindings.target(scope.clone());
         }
         session.trace = Arc::clone(&self.trace);
+        session.leases.clone_from(&self.leases);
         Ok(session)
     }
 }

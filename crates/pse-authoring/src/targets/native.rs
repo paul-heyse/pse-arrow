@@ -4,6 +4,12 @@
 //! Target declaration and finite member products execute as native logical plans.
 use super::{IndexSelector, TargetPath, TargetRow};
 use crate::{AuthoringError, document::Batches};
+use authored::case_spec_targets::{
+    AuthoredCaseSpecTargetsFieldMember as Member,
+    AuthoredCaseSpecTargetsFieldMemberEquation as Equation,
+    AuthoredCaseSpecTargetsFieldMemberPort as Port,
+    AuthoredCaseSpecTargetsFieldMemberSymbol as Symbol,
+};
 use datafusion::{
     arrow::{
         array::{FixedSizeBinaryArray, RecordBatch},
@@ -17,10 +23,7 @@ use pse_catalog::session::{
     output::{checked_literal, declare_relation_output},
 };
 use pse_ids::{CancellationToken, SemanticId};
-use pse_relations::{
-    columnar::FieldCheckedBatch,
-    generated::{authored, enums::TargetKind},
-};
+use pse_relations::{columnar::FieldCheckedBatch, generated::authored};
 use pse_schema::model::FieldContract;
 use std::collections::BTreeSet;
 
@@ -31,7 +34,7 @@ fn contract(at: Option<crate::SourceSpan>, reason: &str) -> AuthoringError {
     }
 }
 fn engine(error: datafusion::common::DataFusionError) -> AuthoringError {
-    crate::change_set::plans::engine(error)
+    crate::native_relations::plans::engine(error)
 }
 fn field(alias: &str, name: &str) -> Expr {
     Expr::Column(Column::new(Some(alias), name))
@@ -52,7 +55,7 @@ async fn selected(
     relation: SemanticId,
     condition: Expr,
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<FieldCheckedBatch, AuthoringError> {
     let plan = LogicalPlanBuilder::from(scan(session, relation)?)
         .filter(condition)
@@ -65,7 +68,7 @@ async fn materialize(
     relation: SemanticId,
     plan: LogicalPlan,
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<FieldCheckedBatch, AuthoringError> {
     let spec = session
         .registry()
@@ -73,7 +76,7 @@ async fn materialize(
         .ok_or_else(|| contract(None, "target relation absent"))?;
     let plan = declare_relation_output(plan, session.registry(), spec).map_err(engine)?;
     let batches =
-        crate::change_set::plans::execute_recorded(session, plan, cancel, completed).await?;
+        crate::native_relations::plans::execute_recorded(session, plan, cancel, completed).await?;
     let mut work = session.reserver().open("authoring:target-native-output");
     work.try_grow(batches.iter().try_fold(0_usize, |sum, batch| {
         crate::work::add(sum, pse_ids::validation_extent(batch)?)
@@ -113,19 +116,13 @@ pub async fn resolve_native(
         .map(|(id, batch)| (format!("target_{id}"), batch.clone()))
         .collect();
     let session = session.with_checked_role_inputs(roles, cancel)?;
-    let session = crate::change_set::plans::session(&session)?;
+    let session = crate::native_relations::plans::session(&session)?;
     let instance = instance(path, &session, cancel, completed).await?;
     let mut target = TargetRow {
         spec_id: source_id,
         ordinal: 0,
         instance_id: instance.instance_id,
-        member_kind: TargetKind::InstanceWildcard,
-        symbol_decl_id: None,
-        equation_decl_id: None,
-        port_template_id: None,
-        port_name: None,
-        index: None,
-        wildcard: path.instance_wildcard,
+        member: Member::from_instance_wildcard(),
     };
     if path.instance_wildcard {
         return Ok(vec![target]);
@@ -150,12 +147,12 @@ pub async fn resolve_native(
     }
     let plan = target_product(path, &session, &instance, &axes, cancel, completed).await?;
     let tuples =
-        crate::change_set::plans::execute_recorded(&session, plan, cancel, completed).await?;
+        crate::native_relations::plans::execute_recorded(&session, plan, cancel, completed).await?;
     let count = tuples.iter().map(RecordBatch::num_rows).sum::<usize>();
     if count > usize::from(u16::MAX) + 1 {
         return Err(contract(
             Some(path.at),
-            "target ordinal exceeds declared UInt16",
+            "target ordinal exceeds its declared bound",
         ));
     }
     work.try_grow(crate::work::mul(
@@ -171,7 +168,7 @@ pub async fn resolve_native(
             let mut result = target.clone();
             result.ordinal = i64::try_from(output.len())
                 .map_err(|_| contract(Some(path.at), "target ordinal overflow"))?;
-            result.index = Some(
+            let index = Some(
                 batch
                     .columns()
                     .iter()
@@ -189,16 +186,49 @@ pub async fn resolve_native(
                     })
                     .collect::<Result<Vec<_>, AuthoringError>>()?,
             );
+            set_index(&mut result, index, path)?;
             output.push(result);
         }
     }
     Ok(output)
 }
+fn set_index(
+    result: &mut TargetRow,
+    index: Option<Vec<SemanticId>>,
+    path: &TargetPath,
+) -> Result<(), AuthoringError> {
+    match result.member.kind {
+        pse_relations::generated::enums::TargetKind::Symbol => {
+            result
+                .member
+                .symbol
+                .as_mut()
+                .ok_or_else(|| contract(None, "symbol target payload absent"))?
+                .index = index;
+        }
+        pse_relations::generated::enums::TargetKind::Equation => {
+            result
+                .member
+                .equation
+                .as_mut()
+                .ok_or_else(|| contract(None, "equation target payload absent"))?
+                .index = index;
+        }
+        _ => {
+            return Err(contract(
+                Some(path.at),
+                "only indexed declarations have target coordinates",
+            ));
+        }
+    }
+    Ok(())
+}
+
 async fn instance(
     path: &TargetPath,
     session: &SnapshotSession,
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<authored::instances::Row, AuthoringError> {
     let count = path.names.len() - usize::from(!path.instance_wildcard);
     let name = path.names[..count].join(".");
@@ -258,7 +288,7 @@ async fn domain(
     instance: &authored::instances::Row,
     name: &str,
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<authored::domains::Row, AuthoringError> {
     let declaration = selected(
         session,
@@ -370,7 +400,10 @@ fn selector_condition(
                 ScalarValue::Float64(Some(number)),
             )
             .map_err(engine)?;
-            condition = condition.or(crate::change_set::exact::equal(col("coordinate"), value));
+            condition = condition.or(crate::native_relations::exact::equal(
+                col("coordinate"),
+                value,
+            ));
         }
     }
     Ok(condition)
@@ -382,7 +415,7 @@ async fn select_member(
     instance: &authored::instances::Row,
     target: &mut TargetRow,
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<Vec<String>, AuthoringError> {
     let name = path
         .names
@@ -418,21 +451,26 @@ async fn select_member(
         ));
     }
     let axes = if let Some(symbol) = symbols.into_iter().next() {
-        target.member_kind = TargetKind::Symbol;
-        target.symbol_decl_id = Some(symbol.symbol_decl_id);
+        target.member = Member::from_symbol(Symbol {
+            symbol_decl_id: symbol.symbol_decl_id,
+            index: None,
+        });
         symbol.indexed_by
     } else if let Some(equation) = equations.into_iter().next() {
-        target.member_kind = TargetKind::Equation;
-        target.equation_decl_id = Some(equation.equation_decl_id);
+        target.member = Member::from_equation(Equation {
+            equation_decl_id: equation.equation_decl_id,
+            index: None,
+        });
         equation.indexed_by
     } else {
         let port = ports
             .into_iter()
             .next()
             .ok_or_else(|| contract(Some(path.at), "target port absent"))?;
-        target.member_kind = TargetKind::Port;
-        target.port_template_id = Some(port.template_id);
-        target.port_name = Some(port.name);
+        target.member = Member::from_port(Port {
+            template_id: port.template_id,
+            name: port.name,
+        });
         Vec::new()
     };
     Ok(axes)
@@ -444,7 +482,7 @@ async fn target_product(
     instance: &authored::instances::Row,
     axes: &[String],
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<LogicalPlan, AuthoringError> {
     let mut product = None;
     for (position, name) in axes.iter().enumerate() {
@@ -487,7 +525,7 @@ async fn axis_members(
     name: &str,
     position: usize,
     cancel: &CancellationToken,
-    completed: &mut crate::change_set::plans::Completions,
+    completed: &mut crate::native_relations::plans::Completions,
 ) -> Result<LogicalPlan, AuthoringError> {
     let domain = domain(path, session, instance, name, cancel, completed).await?;
     let mut plan = LogicalPlanBuilder::from(scan(session, authored::domain_members::RELATION_ID)?)
@@ -517,7 +555,7 @@ async fn axis_members(
         .and_then(|plan| plan.filter(col("multiplicity").gt(lit(1_i64))))
         .and_then(LogicalPlanBuilder::build)
         .map_err(engine)?;
-    if crate::change_set::plans::execute_recorded(session, duplicate, cancel, completed)
+    if crate::native_relations::plans::execute_recorded(session, duplicate, cancel, completed)
         .await?
         .iter()
         .any(|batch| batch.num_rows() > 0)
@@ -528,7 +566,7 @@ async fn axis_members(
         ));
     }
     let selected =
-        crate::change_set::plans::execute_recorded(session, plan.clone(), cancel, completed)
+        crate::native_relations::plans::execute_recorded(session, plan.clone(), cancel, completed)
             .await?;
     let count = selected.iter().map(RecordBatch::num_rows).sum::<usize>();
     if count == 0

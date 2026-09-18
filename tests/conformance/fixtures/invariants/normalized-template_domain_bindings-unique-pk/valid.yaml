@@ -3,10 +3,8 @@
   "rows": {
     "normalized.template_domain_bindings": [
       {
-        "domain_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "name": "[\"text\",\"value-1\"]",
-        "parameter_name": "[\"text\",\"value-1\"]",
-        "source": "[\"enum\",\"domain\"]",
+        "source": "[\"struct\",[[\"text\",\"domain\"],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"]]],[\"null\",null]]]",
         "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ]

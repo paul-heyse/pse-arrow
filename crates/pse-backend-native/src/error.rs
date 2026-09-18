@@ -5,6 +5,10 @@
 /// Failures before a native run or during its actual numerical callbacks.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum NativeError {
+    /// A generated solver contract could not be established.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Relation(#[from] pse_relations::RelationError),
     /// Invalid input layout, bound, scale or solver option.
     #[error("invalid native problem: {0}")]
     #[diagnostic(code(compile::math))]

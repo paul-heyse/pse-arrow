@@ -32,6 +32,7 @@ exclude = [
   "tooling/dfarrow-apiex/verify",
   "docker",
   "external",
+  "vendor/delta-rs",
 ]
 
 [workspace.package]
@@ -120,12 +121,12 @@ datafusion-proto = "=55.1.0"
 
 # Delta's development API matches the DataFusion/Arrow family above (ADR-0068).
 # Its kernel branch is locked separately and checked against metadata.pse below.
-deltalake = { package = "deltalake-core", git = "https://github.com/delta-io/delta-rs", rev = "58f07cd62bfbce3649a7e1c87c696288068ae184", default-features = false, features = [
+deltalake = { package = "deltalake-core", path = "vendor/delta-rs/crates/core", version = "=1.0.0", default-features = false, features = [
   "datafusion",
   "rustls",
   "nanosecond-timestamps",
 ] }
-url = "=2.5.8"
+url = { version = "=2.5.8", features = ["serde"] }
 
 # Required by DataFusion 55 (^0.13.2); 0.14.x exists on crates.io and must not be taken.
 object_store = "=0.13.2"
@@ -311,6 +312,7 @@ codegen-units = 1
 
 [workspace.metadata.pse]
 blueprint = "docs/authoritative_design/blueprint.md"
+delta-source-revision = "58f07cd62bfbce3649a7e1c87c696288068ae184"
 # delta-rs tracks this repository by branch; its resolved revision is a PSE contract.
 delta-kernel-revision = "8ba063f8f84fec222000f66d40d70911d7c79675"
 # Passed to every test invocation by the justfile and CI; never a default feature.

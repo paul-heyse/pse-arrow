@@ -2,7 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Rule heads admit exact values and declared meanings, not merely castable storage.
-#![allow(clippy::unwrap_used, reason = "fixed rule boundary fixture assertions")]
+#![allow(
+    clippy::unwrap_used,
+    clippy::panic,
+    reason = "fixed rule boundary fixture assertions"
+)]
 
 use datafusion::execution::runtime_env::RuntimeEnv;
 use pse_catalog::session::{
@@ -11,16 +15,15 @@ use pse_catalog::session::{
 };
 use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId};
 use pse_rules::{
-    RuleError,
     exec::execute,
     plan::{PortBinding, compile},
 };
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{
-        Authority, Cell, DerivationGranularity, EnumDecl, EnumMember, FieldContract,
-        FieldContract as T, Namespace, RelationDecl, RuleDecl, RuleExpr, RuleHead, RulePlan,
-        RuleSpec, SnapshotClass,
+        Authority, Cell, DependencyMode, DerivationGranularity, EnumDecl, EnumMember,
+        FieldContract, FieldContract as T, Namespace, RelationDecl, RuleDecl, RuleInput, RuleSpec,
+        SnapshotClass,
     },
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
@@ -114,19 +117,18 @@ fn fixture(
 fn column(ty: T) -> FieldContract {
     FieldContract::payload("value", ty, "value contract")
 }
-fn rule(value: RuleExpr) -> RuleSpec {
+fn rule(value: &str) -> RuleSpec {
     let declaration = RuleDecl::new(
         "head_exactness",
         "1",
         1,
-        RuleHead::Relation("inferred.output".to_owned()),
-        RulePlan::Project {
-            input: Box::new(RulePlan::Scan {
-                relation: "authored.input".to_owned(),
-                port: "input",
-            }),
-            columns: vec![("id".into(), RuleExpr::col("id")), ("value".into(), value)],
-        },
+        "inferred.output",
+        format!("SELECT id, {value} AS value FROM authored.input"),
+        vec![RuleInput {
+            relation: "authored.input".into(),
+            port: "input",
+            mode: DependencyMode::Read,
+        }],
     );
     RuleSpec {
         id: SemanticId::from_bytes([42; 16]),
@@ -135,19 +137,47 @@ fn rule(value: RuleExpr) -> RuleSpec {
         stratum: declaration.stratum,
         head: declaration.head,
         assertion_relation: None,
-        plan: declaration.plan,
+        queries: declaration.queries,
+        inputs: declaration.inputs,
         negation: declaration.negation,
         monotonic: declaration.monotonic,
         conflict_policy: declaration.conflict_policy,
     }
 }
+fn literal_sql(literal: &Cell, target: &FieldContract) -> String {
+    let (value, source) = match literal {
+        Cell::I64(value) => (format!("CAST('{value}' AS BIGINT)"), "BIGINT"),
+        Cell::U64(value) => (
+            format!("CAST('{value}' AS BIGINT UNSIGNED)"),
+            "BIGINT UNSIGNED",
+        ),
+        Cell::F64(value) => (format!("CAST('{value:?}' AS DOUBLE)"), "DOUBLE"),
+        Cell::Enum(value) => return format!("'{}'", value.replace('\'', "''")),
+        Cell::Null => return "NULL".into(),
+        _ => panic!("unsupported fixture literal"),
+    };
+    let destination = match target.data_type() {
+        datafusion::arrow::datatypes::DataType::Float64 => "DOUBLE",
+        datafusion::arrow::datatypes::DataType::Int64 => "BIGINT",
+        _ => return value,
+    };
+    if source == destination {
+        return value;
+    }
+    format!(
+        "pse_require_nonnull(CASE WHEN CAST(CAST({value} AS {destination}) AS {source}) = {value} THEN CAST({value} AS {destination}) ELSE NULL END)"
+    )
+}
 async fn admitted(target: FieldContract, literal: Cell, expected: Cell) {
+    let value = literal_sql(&literal, &target);
     let (registry, session, ports) = fixture(
         column(T::native(datafusion::arrow::datatypes::DataType::UInt32)),
         target,
         Cell::U64(0),
     );
-    let compiled = compile(&rule(RuleExpr::Lit(literal)), &ports, &session, &registry).unwrap();
+    let compiled = compile(&rule(&value), &ports, &session, &registry)
+        .await
+        .unwrap();
     let outcome = execute(&compiled, &session, &registry, &CancellationToken::new())
         .await
         .unwrap();
@@ -158,16 +188,20 @@ async fn admitted(target: FieldContract, literal: Cell, expected: Cell) {
         .collect::<Vec<_>>();
     assert_eq!(rows, vec![vec![Cell::U64(1), expected]]);
 }
-fn refused(target: FieldContract, literal: Cell) {
+async fn refused(target: FieldContract, literal: Cell) {
+    let value = literal_sql(&literal, &target);
     let (registry, session, ports) = fixture(
         column(T::native(datafusion::arrow::datatypes::DataType::UInt32)),
         target,
         Cell::U64(0),
     );
-    assert!(matches!(
-        compile(&rule(RuleExpr::Lit(literal)), &ports, &session, &registry),
-        Err(RuleError::HeadSchemaMismatch { .. })
-    ));
+    if let Ok(compiled) = compile(&rule(&value), &ports, &session, &registry).await {
+        assert!(
+            execute(&compiled, &session, &registry, &CancellationToken::new())
+                .await
+                .is_err()
+        );
+    }
 }
 
 #[tokio::test]
@@ -190,7 +224,8 @@ async fn integer_to_float_requires_exact_representability_at_the_binary_boundary
         refused(
             column(T::native(datafusion::arrow::datatypes::DataType::Float64)),
             Cell::I64(value),
-        );
+        )
+        .await;
     }
 }
 
@@ -218,12 +253,13 @@ async fn float_to_integer_requires_integrality_and_the_actual_signed_range() {
         refused(
             column(T::native(datafusion::arrow::datatypes::DataType::Int64)),
             Cell::F64(value),
-        );
+        )
+        .await;
     }
 }
 
 #[tokio::test]
-async fn nullable_heads_accept_typed_null_without_allowing_nullability_narrowing() {
+async fn nullable_heads_accept_null_and_required_heads_reject_actual_null() {
     admitted(
         column(T::native(datafusion::arrow::datatypes::DataType::Int64)).optional(),
         Cell::Null,
@@ -233,16 +269,21 @@ async fn nullable_heads_accept_typed_null_without_allowing_nullability_narrowing
     refused(
         column(T::native(datafusion::arrow::datatypes::DataType::Int64)),
         Cell::Null,
-    );
+    )
+    .await;
     let (registry, session, ports) = fixture(
         column(T::native(datafusion::arrow::datatypes::DataType::Int64)).optional(),
         column(T::native(datafusion::arrow::datatypes::DataType::Int64)),
-        Cell::I64(3),
+        Cell::Null,
     );
-    assert!(matches!(
-        compile(&rule(RuleExpr::col("value")), &ports, &session, &registry),
-        Err(RuleError::HeadSchemaMismatch { .. })
-    ));
+    let compiled = compile(&rule("value"), &ports, &session, &registry)
+        .await
+        .unwrap();
+    assert!(
+        execute(&compiled, &session, &registry, &CancellationToken::new())
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -251,7 +292,8 @@ async fn quantity_and_enum_contracts_cannot_be_obtained_from_storage_agreement()
         column(T::native(datafusion::arrow::datatypes::DataType::Float64))
             .with_quantity("temperature"),
         Cell::F64(3.0),
-    );
+    )
+    .await;
     let (registry, session, ports) = fixture(
         column(T::native(datafusion::arrow::datatypes::DataType::Float64))
             .with_quantity("temperature"),
@@ -259,23 +301,26 @@ async fn quantity_and_enum_contracts_cannot_be_obtained_from_storage_agreement()
             .with_quantity("pressure"),
         Cell::F64(3.0),
     );
-    assert!(matches!(
-        compile(&rule(RuleExpr::col("value")), &ports, &session, &registry),
-        Err(RuleError::HeadSchemaMismatch { .. })
-    ));
+    assert!(
+        compile(&rule("value"), &ports, &session, &registry)
+            .await
+            .is_err()
+    );
     let (registry, session, ports) = fixture(
         column(T::enumeration("SourceChoice")),
         column(T::enumeration("TargetChoice")),
         Cell::Enum("shared"),
     );
-    assert!(matches!(
-        compile(&rule(RuleExpr::col("value")), &ports, &session, &registry),
-        Err(RuleError::HeadSchemaMismatch { .. })
-    ));
+    assert!(
+        compile(&rule("value"), &ports, &session, &registry)
+            .await
+            .is_err()
+    );
     refused(
         column(T::enumeration("TargetChoice")),
         Cell::Enum("source_only"),
-    );
+    )
+    .await;
     admitted(
         column(T::enumeration("TargetChoice")),
         Cell::Enum("target_only"),

@@ -10,7 +10,11 @@ use datafusion::arrow::array::{Array, FixedSizeBinaryArray};
 use pse_catalog::session::output::checked_literal;
 use pse_ids::CancellationToken;
 
-type Guard = (Option<(SemanticId, u64)>, Support);
+type Guard = (Option<(SemanticId, i64)>, Support);
+#[expect(
+    clippy::too_many_lines,
+    reason = "lookup keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn lookup(
     inventory: &mut Inventory<'_>,
     source: Option<&n::expression_sources::Row>,
@@ -41,7 +45,7 @@ pub(super) async fn lookup(
     .map_err(error)?;
     // Normalization preserves the actual declaration key. Compare it in its
     // authored scope; the selected normalized row remains the support owner.
-    let plan = LogicalPlanBuilder::from(inventory.session.scan_role(&name)?)
+    let plan = LogicalPlanBuilder::from(inventory.scan_key(relation.key)?)
         .filter(
             scalar::key(
                 authored.id,

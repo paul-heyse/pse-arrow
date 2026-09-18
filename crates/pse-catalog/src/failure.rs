@@ -113,8 +113,9 @@ pub fn classify(error: DataFusionError, origin: PlanOrigin) -> Vec<CatalogError>
             .into_iter()
             .flat_map(|inner| classify(inner, origin))
             .collect(),
-        DataFusionError::Diagnostic(_, inner) | DataFusionError::Context(_, inner) => {
-            classify(*inner, origin)
+        DataFusionError::Diagnostic(_, inner) => classify(*inner, origin),
+        DataFusionError::Context(context, inner) => {
+            with_context(classify(*inner, origin), &context)
         }
         DataFusionError::Shared(shared) => match Arc::try_unwrap(shared) {
             Ok(inner) => classify(inner, origin),
@@ -146,6 +147,27 @@ pub fn classify(error: DataFusionError, origin: PlanOrigin) -> Vec<CatalogError>
     }
 }
 
+// Keep native phase context without changing the platform diagnostic class or
+// resource/configuration identity. Infrastructure errors retain their source chain.
+fn with_context(errors: Vec<CatalogError>, context: &str) -> Vec<CatalogError> {
+    errors
+        .into_iter()
+        .map(|error| match error {
+            CatalogError::Infrastructure { op, source } => CatalogError::Infrastructure {
+                op,
+                source: Box::new(DataFusionError::External(source).context(context)),
+            },
+            CatalogError::Internal { message } => CatalogError::Internal {
+                message: format!("{context}: {message}"),
+            },
+            CatalogError::UserModel { message } => CatalogError::UserModel {
+                message: format!("{context}: {message}"),
+            },
+            other => other,
+        })
+        .collect()
+}
+
 /// The full mapping, decided without taking ownership.
 ///
 /// This is where the policy lives; [`classify`] only adds the arms that ownership makes
@@ -156,8 +178,9 @@ fn classify_borrowed(error: &DataFusionError, origin: PlanOrigin) -> Vec<Catalog
             .iter()
             .flat_map(|inner| classify_borrowed(inner, origin))
             .collect(),
-        DataFusionError::Diagnostic(_, inner) | DataFusionError::Context(_, inner) => {
-            classify_borrowed(inner, origin)
+        DataFusionError::Diagnostic(_, inner) => classify_borrowed(inner, origin),
+        DataFusionError::Context(context, inner) => {
+            with_context(classify_borrowed(inner, origin), context)
         }
         DataFusionError::Shared(shared) => classify_borrowed(shared, origin),
         DataFusionError::External(source) => {
@@ -213,48 +236,8 @@ fn copy_platform_diagnostic(error: &CatalogError) -> CatalogError {
             op: op.clone(),
             source: source.to_string().into(),
         },
-        CatalogError::CorruptObject {
-            path,
-            expected,
-            actual,
-        } => CatalogError::CorruptObject {
-            path: path.clone(),
-            expected: expected.clone(),
-            actual: actual.clone(),
-        },
-        CatalogError::RefConflict { name } => CatalogError::RefConflict { name: name.clone() },
-        CatalogError::Publication { outcomes, source } => CatalogError::Publication {
-            outcomes: outcomes.clone(),
-            source: Box::new(copy_platform_diagnostic(source)),
-        },
-        CatalogError::ManifestInvalid { reason } => CatalogError::ManifestInvalid {
-            reason: reason.clone(),
-        },
-        CatalogError::UnknownRegistry { fingerprint } => CatalogError::UnknownRegistry {
-            fingerprint: *fingerprint,
-        },
-        CatalogError::UnknownVersion { field, value } => CatalogError::UnknownVersion {
-            field: field.clone(),
-            value: value.clone(),
-        },
         CatalogError::Admission { path, reason } => CatalogError::Admission {
             path: path.clone(),
-            reason: reason.clone(),
-        },
-        CatalogError::ForeignSource { table } => CatalogError::ForeignSource {
-            table: table.clone(),
-        },
-        CatalogError::Sealed => CatalogError::Sealed,
-        CatalogError::LogicalHashMismatch {
-            relation,
-            expected,
-            actual,
-        } => CatalogError::LogicalHashMismatch {
-            relation: relation.clone(),
-            expected: *expected,
-            actual: *actual,
-        },
-        CatalogError::Membership { reason } => CatalogError::Membership {
             reason: reason.clone(),
         },
         CatalogError::ConfigInvalid { key, reason } => CatalogError::ConfigInvalid {
@@ -271,7 +254,6 @@ fn copy_platform_diagnostic(error: &CatalogError) -> CatalogError {
             message: message.clone(),
         },
         CatalogError::Canon(error) => CatalogError::Canon(error.copy_for_reporting()),
-        CatalogError::Snapshot(error) => CatalogError::Snapshot(error.clone()),
         CatalogError::Reserve(error) => CatalogError::Reserve(error.clone()),
         CatalogError::Internal { message } => CatalogError::Internal {
             message: message.clone(),
@@ -634,22 +616,20 @@ mod tests {
 
     #[test]
     fn an_external_platform_error_is_passed_through_unchanged() {
-        let platform = CatalogError::Sealed;
+        let platform = CatalogError::Cancelled;
         let wrapped = DataFusionError::External(Box::new(platform));
         assert!(matches!(
             one(wrapped, PlanOrigin::KernelUdf),
-            CatalogError::Sealed
+            CatalogError::Cancelled
         ));
     }
 
     #[test]
     fn shared_external_platform_errors_keep_class_and_fields_through_all_wrappers() {
         use miette::Diagnostic;
-
         let inputs = vec![
             CatalogError::Semantic(Arc::new(pse_ids::CanonError::Cancelled)),
             CatalogError::Cancelled,
-            CatalogError::Sealed,
             CatalogError::Admission {
                 path: "authored.units".to_owned(),
                 reason: "duplicate key".to_owned(),
@@ -707,7 +687,10 @@ mod tests {
                 DataFusionError::External(Box::new(CatalogError::Semantic(Arc::new(
                     pse_ids::CanonError::Cancelled,
                 )))),
-                DataFusionError::External(Box::new(CatalogError::Sealed)),
+                DataFusionError::External(Box::new(CatalogError::ConfigInvalid {
+                    key: "fixture".into(),
+                    reason: "invalid".into(),
+                })),
             ]),
             PlanOrigin::Analytics,
         ));
@@ -717,7 +700,7 @@ mod tests {
             .expect("related diagnostic group")
             .map(|error| error.code().expect("leaf code").to_string())
             .collect::<Vec<_>>();
-        assert_eq!(codes, vec!["runtime::cancelled", "schema::sealed"]);
+        assert_eq!(codes, vec!["runtime::cancelled", "config::invalid"]);
         let shared = Arc::new(DataFusionError::External(Box::new(error)));
         let retained = Arc::clone(&shared);
         let copied = one(DataFusionError::Shared(shared), PlanOrigin::Analytics);

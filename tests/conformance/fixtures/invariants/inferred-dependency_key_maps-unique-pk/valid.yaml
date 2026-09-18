@@ -3,7 +3,7 @@
   "rows": {
     "inferred.dependency_key_maps": [
       {
-        "dependency_ordinal": "[\"u64\",1]",
+        "dependency_ordinal": "[\"i64\",1]",
         "derivation_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",

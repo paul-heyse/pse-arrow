@@ -6,10 +6,14 @@ use pse_relations::generated::inferred;
 use pse_templates::paths::{Coordinate, PathInventory, PathRequest, ResolvedMember};
 
 impl Evaluation<'_, '_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "path keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn path(
         &mut self,
         source: SemanticId,
-        path: u64,
+        path: i64,
         values: &[Value],
     ) -> Result<Value, CompilerError> {
         if values.iter().any(|value| matches!(value, Value::Unknown)) {

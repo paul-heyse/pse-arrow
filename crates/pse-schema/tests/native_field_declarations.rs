@@ -19,7 +19,6 @@ use std::{collections::HashMap, path::Path};
 
 fn fixture(value: F) -> Result<Registry, SchemaError> {
     let mut builder = RegistryBuilder::new();
-    pse_schema::catalog::manifest::declare(&mut builder);
     builder.declare_enum(pse_schema::model::EnumDecl::platform(
         "BoundKind",
         vec![

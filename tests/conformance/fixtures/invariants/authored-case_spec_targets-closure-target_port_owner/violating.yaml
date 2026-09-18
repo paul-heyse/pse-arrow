@@ -3,16 +3,10 @@
   "rows": {
     "authored.case_spec_targets": [
       {
-        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "index": "[\"list\",[[\"id\",\"01010101010101010101010101010101\"]]]",
         "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "member_kind": "[\"enum\",\"symbol\"]",
+        "member": "[\"struct\",[[\"enum\",\"port\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"text\",\"missing port\"]]]]]",
         "ordinal": "[\"i64\",1]",
-        "port_name": "[\"text\",\"missing port\"]",
-        "port_template_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "spec_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "symbol_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "wildcard": "[\"bool\",true]"
+        "spec_id": "[\"id\",\"01010101010101010101010101010101\"]"
       }
     ],
     "authored.instances": [

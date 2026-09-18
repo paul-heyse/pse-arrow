@@ -678,121 +678,157 @@
     {
       "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "242af871dd464fcb82edcad1991b0f13",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "242af871dd464fcb82edcad1991b0f13",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "47b9a6169f1842d8809568cb2cf4d1f7",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "3414cba5df7f494aa697637e0e620a84",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "3414cba5df7f494aa697637e0e620a84",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "ae816e50c8794aea9d656b78b229fb70",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "ae816e50c8794aea9d656b78b229fb70",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "b85e948565bb46db98cddceae395febc",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "b85e948565bb46db98cddceae395febc",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "26a0c885415b4cda8f3628f5fc75030b",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "26a0c885415b4cda8f3628f5fc75030b",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "26a0c885415b4cda8f3628f5fc75030b",
       "name": "n",
-      "source": "parameter",
-      "domain_id": null,
-      "parameter_name": "inlet_domain"
+      "source": {
+        "kind": "parameter",
+        "domain": null,
+        "parameter": {
+          "name": "inlet_domain"
+        }
+      }
     },
     {
       "template_id": "944c2261a26243a3ba12cbabfa5c81ec",
       "name": "e",
-      "source": "element",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "element",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "26a0c885415b4cda8f3628f5fc75030b",
       "name": "e",
-      "source": "element",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "element",
+        "domain": null,
+        "parameter": null
+      }
     }
   ],
   "template_submodels": [
@@ -1580,11 +1616,23 @@
         "j"
       ],
       "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
-      "subject_kind": "phase_species",
-      "subject_axis": 1,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "phase_species",
+        "phase_species": {
+          "member": {
+            "kind": "axis",
+            "axis": {
+              "position": 1
+            }
+          },
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 0
+            }
+          }
+        }
+      }
     },
     {
       "contribution_decl_id": "eeefec9cb6874bf0afca79ec5f92f30c",
@@ -1592,11 +1640,17 @@
         "p"
       ],
       "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
-      "subject_kind": "energy",
-      "subject_axis": null,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "energy",
+        "energy": {
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 0
+            }
+          }
+        }
+      }
     },
     {
       "contribution_decl_id": "32bdece76b5744e9980349a9df206258",
@@ -1605,11 +1659,23 @@
         "j"
       ],
       "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
-      "subject_kind": "phase_species",
-      "subject_axis": 1,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "phase_species",
+        "phase_species": {
+          "member": {
+            "kind": "axis",
+            "axis": {
+              "position": 1
+            }
+          },
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 0
+            }
+          }
+        }
+      }
     },
     {
       "contribution_decl_id": "f19d536168f743c98147654f000837f7",
@@ -1617,31 +1683,39 @@
         "p"
       ],
       "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
-      "subject_kind": "energy",
-      "subject_axis": null,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "energy",
+        "energy": {
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 0
+            }
+          }
+        }
+      }
     },
     {
       "contribution_decl_id": "e9d1805b10fa4b9a809cd91e1fab73d6",
       "indexed_by": [],
       "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
-      "subject_kind": "energy",
-      "subject_axis": null,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "energy",
+        "energy": {
+          "phase": null
+        }
+      }
     },
     {
       "contribution_decl_id": "cfb8684436b54e6fa04ef524d6145872",
       "indexed_by": [],
       "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
-      "subject_kind": "energy",
-      "subject_axis": null,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "energy",
+        "energy": {
+          "phase": null
+        }
+      }
     },
     {
       "contribution_decl_id": "617226101f574c8d8dd10c1070d830c4",
@@ -1651,11 +1725,23 @@
         "j"
       ],
       "quantity_type_id": "ff5edf50941d442fbcef8ad392f53185",
-      "subject_kind": "phase_species",
-      "subject_axis": 2,
-      "phase_axis": 1,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "phase_species",
+        "phase_species": {
+          "member": {
+            "kind": "axis",
+            "axis": {
+              "position": 2
+            }
+          },
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 1
+            }
+          }
+        }
+      }
     },
     {
       "contribution_decl_id": "ee4baf4da32543da9366b3581e073c7b",
@@ -1664,11 +1750,23 @@
         "j"
       ],
       "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
-      "subject_kind": "phase_species",
-      "subject_axis": 1,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "phase_species",
+        "phase_species": {
+          "member": {
+            "kind": "axis",
+            "axis": {
+              "position": 1
+            }
+          },
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 0
+            }
+          }
+        }
+      }
     },
     {
       "contribution_decl_id": "0ac0784d0f634e28a40db7095c3105a4",
@@ -1677,11 +1775,17 @@
         "p"
       ],
       "quantity_type_id": "85da4749daed4d6e8a88ed6221e886ad",
-      "subject_kind": "energy",
-      "subject_axis": null,
-      "phase_axis": 1,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "energy",
+        "energy": {
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 1
+            }
+          }
+        }
+      }
     },
     {
       "contribution_decl_id": "0c2b523bc87844f88e376783eaa3d658",
@@ -1689,11 +1793,17 @@
         "p"
       ],
       "quantity_type_id": "b5065a6e90254578b286947f2b1423c6",
-      "subject_kind": "energy",
-      "subject_axis": null,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null
+      "subject": {
+        "kind": "energy",
+        "energy": {
+          "phase": {
+            "kind": "axis",
+            "axis": {
+              "position": 0
+            }
+          }
+        }
+      }
     }
   ],
   "template_symbol_expressions": [

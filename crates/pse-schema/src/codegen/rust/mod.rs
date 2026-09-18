@@ -4,11 +4,12 @@
 //! Readable Rust source generated through syn, quote and prettyplease (ADR-0031).
 
 mod alternative;
+mod arguments;
 mod columnar;
 mod enums;
-mod manifest;
 mod mathir;
 mod mathir_sink;
+mod mathir_value;
 pub mod physical;
 mod relation;
 pub(crate) mod types;
@@ -87,6 +88,8 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub mod enums;
             /// Composite extension storage values.
             pub mod extension_values;
+            /// Enforced algorithm argument projections.
+            pub mod algorithm_arguments;
             /// Registry identity; validity is established by admission.
             pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([#(#bytes),*]);
             /// Resolves an exact declaration from the current registry.
@@ -98,6 +101,11 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
         },
     )?;
     emit(&mut tree, format!("{ROOT}/enums.rs"), enums::render(reg))?;
+    emit(
+        &mut tree,
+        format!("{ROOT}/algorithm_arguments.rs"),
+        arguments::render(),
+    )?;
     emit(
         &mut tree,
         format!("{ROOT}/extension_values.rs"),
@@ -119,14 +127,13 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
             pub mod documents;
         },
     )?;
-    manifest_files(&mut tree, reg)?;
     mathir_files(&mut tree, reg)?;
     Ok(tree)
 }
 
 fn mathir_files(tree: &mut GeneratedTree, reg: &Registry) -> Result<(), SchemaError> {
     // The graph bridge is a consumer of the declared graph family. Standalone
-    // manifest/document registries do not request or acquire that consumer.
+    // document registries do not request or acquire that consumer.
     if reg.relation("compiled.math_expr_nodes").is_none() {
         return Ok(());
     }
@@ -150,27 +157,6 @@ fn mathir_files(tree: &mut GeneratedTree, reg: &Registry) -> Result<(), SchemaEr
             pub(crate) mod mathir_sink;
         },
     )?;
-    Ok(())
-}
-
-fn manifest_files(tree: &mut GeneratedTree, reg: &Registry) -> Result<(), SchemaError> {
-    if let Some(spec) = reg.manifest() {
-        emit(
-            tree,
-            "crates/pse-catalog/src/generated/manifest.rs",
-            manifest::render(spec)?,
-        )?;
-        emit(
-            tree,
-            "crates/pse-catalog/src/generated/mod.rs",
-            quote! {
-                //! Physical envelope types projected from the manifest declaration.
-                #![allow(clippy::doc_markdown, reason = "registry documentation is projected verbatim")]
-                /// Strict manifest wire types; admission remains in the catalog.
-                pub mod manifest;
-            },
-        )?;
-    }
     Ok(())
 }
 

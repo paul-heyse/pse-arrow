@@ -5,15 +5,12 @@
 use super::native::Source;
 use super::{Configuration, Origins, invalid, native, selected::SelectedRoot, value};
 use crate::CompilerError;
+use authored::template_domain_bindings::AuthoredTemplateDomainBindingsFieldSourceSelected as BindingSource;
 use datafusion::logical_expr::{col, lit};
 use pse_ids::{SemanticId, named_id};
 use pse_relations::{
     columnar::RelationRow,
-    generated::{
-        authored,
-        enums::{DomainBindingSource, MethodFamily, MethodRealization},
-        normalized, reference,
-    },
+    generated::{authored, enums::MethodFamily, normalized, reference},
 };
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
@@ -539,20 +536,12 @@ async fn domain_candidates(
         .await?;
     for source in &sources {
         origins.extend(result.origin(source)?);
-        let actual = match source.row.source {
-            DomainBindingSource::Domain => source
-                .row
-                .domain_id
-                .ok_or_else(|| invalid("domain source lacks identity"))?,
-            DomainBindingSource::Parameter => {
-                let name = source
-                    .row
-                    .parameter_name
-                    .as_ref()
-                    .ok_or_else(|| invalid("domain parameter name absent"))?;
+        let actual = match source.row.source.selected()? {
+            BindingSource::Domain(value) => value.domain_id,
+            BindingSource::Parameter(parameter) => {
                 let value = result
                     .values
-                    .get(&(instance.instance_id, name.clone()))
+                    .get(&(instance.instance_id, parameter.name.clone()))
                     .ok_or_else(|| invalid("domain parameter omitted its sources"))?;
                 origins.extend(value.sources.clone());
                 value
@@ -562,8 +551,11 @@ async fn domain_candidates(
                     .map(|arm| arm.value)
                     .ok_or_else(|| invalid("domain parameter lacks actual identity"))?
             }
-            _ => {
-                super::material_domains::bind(result, instance, source.row.source, domain.kind)
+            BindingSource::Species
+            | BindingSource::Phase
+            | BindingSource::PhaseSpecies
+            | BindingSource::Element => {
+                super::material_domains::bind(result, instance, source.row.source.kind, domain.kind)
                     .await?
             }
         };
@@ -651,19 +643,18 @@ async fn select_child_template(
         .await?;
     origins.extend(result.origin(&method)?);
     let method = method.row;
-    if method.family != MethodFamily::StateDefinition
-        || method.realization != MethodRealization::EquationTemplate
-        || method.kernel_id.is_some()
-    {
+    let reference::method_specs::ReferenceMethodSpecsFieldRealizationSelected::EquationTemplate(
+        producer,
+    ) = method.realization.selected()?
+    else {
         return Err(invalid(
-            "property package state definition must be an actual equation-template state method",
+            "property package state definition requires an equation template",
+        ));
+    };
+    if method.family != MethodFamily::StateDefinition {
+        return Err(invalid(
+            "property package state definition requires a state method",
         ));
     }
-    Ok((
-        method
-            .template_id
-            .ok_or_else(|| invalid("state-definition template absent"))?,
-        Some(selected),
-        origins,
-    ))
+    Ok((producer.template_id, Some(selected), origins))
 }

@@ -7,6 +7,9 @@
     reason = "independent native row-check assertions"
 )]
 
+#[path = "support/native_execution.rs"]
+mod native_execution;
+
 use datafusion::{
     arrow::{
         array::{BooleanArray, Int64Array, ListArray, RecordBatch},
@@ -30,6 +33,9 @@ use pse_ids::SemanticId;
 use pse_relations::generated::{enums::PublicationKind, runtime::publications};
 use pse_schema::{Registry, RegistryBuilder, model::*};
 use std::{collections::BTreeMap, sync::Arc};
+
+#[path = "support/source_syntax.rs"]
+mod source_syntax;
 
 fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
@@ -94,7 +100,7 @@ fn candidate(registry: &Registry) -> publications::Row {
         publication_id: SemanticId::NIL,
         parent_publication_id: None,
         attempt_id: SemanticId::NIL,
-        kind: PublicationKind::Source,
+        kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![publications::RuntimePublicationsFieldMembersItem {
             catalog_name: "datafusion".into(),
@@ -183,11 +189,7 @@ async fn first_and_cold_delta_writes_execute_declared_native_sql() {
         )
         .unwrap();
         let state = context.state();
-        let result = collect(
-            state.create_physical_plan(&write).await.unwrap(),
-            state.task_ctx(),
-        )
-        .await;
+        let result = native_execution::run(&state, Arc::clone(&registry), &write).await;
         assert_eq!(result.is_ok(), valid, "first write: {result:?}");
         if let Err(error) = result {
             assert!(

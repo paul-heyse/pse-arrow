@@ -17,8 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::builder::Registry;
 use crate::error::SchemaError;
 use crate::model::{
-    Cell, DependencyMode, ExtensionUse, FieldContract, NegationPolicy, PortSource, RelationDecl,
-    RuleHead,
+    Cell, DependencyMode, ExtensionUse, FieldContract, NegationPolicy, RelationDecl,
 };
 
 /// Admit a declaration's literal against its resolved logical contract before it can
@@ -113,6 +112,7 @@ pub(crate) fn invalid(context: impl Into<String>, reason: impl Into<String>) -> 
 }
 
 pub(crate) fn relation_declaration(decl: &RelationDecl) -> Result<(), SchemaError> {
+    crate::arrow::validate_delta_properties(&decl.delta_properties)?;
     let context = decl.key.to_string();
     if decl
         .checks
@@ -205,22 +205,18 @@ fn logical_type(ty: &FieldContract, context: &str) -> Result<(), SchemaError> {
 ///
 /// # Errors
 ///
-/// [`SchemaError::RuleStratification`], [`SchemaError::StageGraph`] or
+/// [`SchemaError::RuleStratification`] or
 /// [`SchemaError::InvalidDeclaration`] when a whole-registry contract fails.
 pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
-    if let Some(manifest) = registry.manifest() {
-        manifest_fields(manifest.fields(), "manifest")?;
-    }
     for rule in registry.rules() {
         if let Some(assertion) = &rule.assertion_relation {
             let head = registry
-                .relation(rule.head.relation())
+                .relation(&rule.head)
                 .ok_or_else(|| invalid(rule.qualified_name(), "undeclared head"))?;
             let assertion = registry
                 .relation(assertion)
                 .ok_or_else(|| invalid(rule.qualified_name(), "undeclared assertion relation"))?;
-            if !matches!(rule.head, RuleHead::Relation(_))
-                || assertion.primary_key != ["assertion_id"]
+            if assertion.primary_key != ["assertion_id"]
                 || assertion.columns != crate::model::rule::assertion_columns(&head.columns)
                 || assertion.authority != crate::model::Authority::Derived
             {
@@ -230,23 +226,22 @@ pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
                 ));
             }
         }
-        for writer in registry.rules().iter().filter(|writer| {
-            writer.head.relation() == rule.head.relation()
-                && matches!(writer.head, RuleHead::Relation(_))
-        }) {
-            if matches!(rule.head, RuleHead::Relation(_))
-                && writer.conflict_policy != rule.conflict_policy
-            {
+        for writer in registry
+            .rules()
+            .iter()
+            .filter(|writer| writer.head == rule.head)
+        {
+            if writer.conflict_policy != rule.conflict_policy {
                 return Err(invalid(
                     rule.qualified_name(),
                     "one head cannot mix conflict policies",
                 ));
             }
         }
-        let dependencies = rule.plan.dependencies();
+        let dependencies = &rule.inputs;
         if dependencies
             .iter()
-            .any(|(_, _, mode)| *mode == DependencyMode::Negate)
+            .any(|input| input.mode == DependencyMode::Negate)
             && rule.negation != NegationPolicy::Stratified
         {
             return Err(invalid(
@@ -254,11 +249,14 @@ pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
                 "anti-join requires declared stratified negation",
             ));
         }
-        for (relation, _, mode) in dependencies {
-            for writer in registry.rules().iter().filter(|writer| {
-                matches!(&rule.head, RuleHead::Relation(_))
-                    && matches!(&writer.head, RuleHead::Relation(target) if target == relation)
-            }) {
+        for input in dependencies {
+            let relation = input.relation.as_str();
+            let mode = input.mode;
+            for writer in registry
+                .rules()
+                .iter()
+                .filter(|writer| writer.head == relation)
+            {
                 if mode == DependencyMode::Negate && writer.stratum >= rule.stratum {
                     return Err(SchemaError::RuleStratification {
                         rule: rule.qualified_name(),
@@ -268,8 +266,7 @@ pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
                 if writer.stratum == rule.stratum
                     && mode == DependencyMode::Read
                     && (writer.conflict_policy == crate::model::ConflictPolicy::Undecided
-                        || !rule.monotonic
-                        || !crate::model::rule_validation::monotone_over(&rule.plan, relation))
+                        || !rule.monotonic)
                 {
                     return Err(invalid(
                         rule.qualified_name(),
@@ -288,77 +285,7 @@ pub(crate) fn run(registry: &Registry) -> Result<(), SchemaError> {
             }
         }
     }
-    stage_graph(registry)
-}
-
-fn stage_graph(registry: &Registry) -> Result<(), SchemaError> {
-    let mut completed = BTreeSet::new();
-    let mut pending: BTreeMap<_, _> = registry
-        .passes()
-        .iter()
-        .map(|pass| (pass.id, pass))
-        .collect();
-    while !pending.is_empty() {
-        let ready: Vec<_> = pending
-            .iter()
-            .filter(|(_, pass)| {
-                pass.inputs.iter().all(|input| match input.source {
-                    PortSource::Pinned => true,
-                    PortSource::Derived { pass: name, .. } => registry
-                        .pass(name)
-                        .is_some_and(|producer| completed.contains(&producer.id)),
-                })
-            })
-            .map(|(id, _)| *id)
-            .collect();
-        if ready.is_empty() {
-            return Err(SchemaError::StageGraph {
-                reason: "the declared producer graph contains a cycle".to_owned(),
-            });
-        }
-        for id in ready {
-            pending.remove(&id);
-            completed.insert(id);
-        }
-    }
     Ok(())
-}
-
-fn manifest_fields(
-    fields: &[crate::model::ManifestField],
-    context: &str,
-) -> Result<(), SchemaError> {
-    let mut names = BTreeSet::new();
-    for field in fields {
-        if !names.insert(field.name) {
-            return Err(SchemaError::DuplicateDeclaration {
-                kind: "manifest field",
-                name: format!("{context}.{}", field.name),
-            });
-        }
-        if let Some(binding) = field.rust
-            && !binding.accepts(&field.ty)
-        {
-            return Err(invalid(
-                format!("{context}.{}", field.name),
-                format!(
-                    "Rust binding {binding:?} is incompatible with declared wire type {}",
-                    field.ty
-                ),
-            ));
-        }
-        manifest_type(&field.ty, &format!("{context}.{}", field.name))?;
-    }
-    Ok(())
-}
-
-fn manifest_type(ty: &crate::model::ManifestType, context: &str) -> Result<(), SchemaError> {
-    match ty {
-        crate::model::ManifestType::Struct(fields) => manifest_fields(fields, context),
-        crate::model::ManifestType::List(element)
-        | crate::model::ManifestType::Optional(element) => manifest_type(element, context),
-        _ => Ok(()),
-    }
 }
 
 pub(crate) fn migration(

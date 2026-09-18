@@ -5,7 +5,7 @@
 //! (blueprint §5.1, §5.3; ADR-0007, ADR-0030, ADR-0045).
 //!
 //! These are the contract, not a regression net. A change to any value below is a change
-//! to identity: every stored `logical_hash`, `snapshot_id` and derived entity ID computed
+//! to identity: every stored `logical_hash` and derived entity ID computed
 //! under the old value becomes unreachable, which is why ADR-0045 needed a `v2` rather
 //! than a repair of `v1`. When one of these assertions fails the question is never "what
 //! is the new value" but "which contract changed, and where is its decision record".
@@ -17,12 +17,10 @@
 
 use pse_ids::derive::context;
 use pse_ids::{
-    CANONICAL_F32_NAN_BITS, CANONICAL_F64_NAN_BITS, ContentHash, FramedHasher, IndexTuple,
-    LogicalHash, Ordinal, SNAPSHOT_PROFILE, SchemaVersion, SemanticId, SnapshotFrame, SnapshotId,
-    SnapshotKind, SnapshotMember, SnapshotParent, canonical_f32_bits, canonical_f64_bits,
-    connection_equation_id, derive_hash, derive_id, discretized_symbol_id, encoding_checksum,
-    equation_instance_id, law_term_id, mesh_node_id, named_id, snapshot_id, snapshot_preimage,
-    symbol_instance_id,
+    CANONICAL_F32_NAN_BITS, CANONICAL_F64_NAN_BITS, FramedHasher, IndexTuple, Ordinal, SemanticId,
+    canonical_f32_bits, canonical_f64_bits, connection_equation_id, derive_hash, derive_id,
+    discretized_symbol_id, encoding_checksum, equation_instance_id, law_term_id, mesh_node_id,
+    named_id, symbol_instance_id,
 };
 
 // ---------------------------------------------------------------- fixed inputs --
@@ -41,9 +39,6 @@ const INDEX: IndexTuple<'static> = IndexTuple(&[C, D]);
 
 /// The fixed ordinal used by the connection and mesh vectors.
 const ORDINAL: Ordinal = Ordinal(7);
-
-/// The fixed registry fingerprint of the snapshot vector: `[0x11; 32]`.
-const FINGERPRINT: ContentHash = ContentHash::from_bytes([0x11; 32]);
 
 // ------------------------------------------------------- frozen identity vectors --
 
@@ -75,44 +70,9 @@ const MESH_NODE: &str = "eb00e870f92170e9ac71856dca721e01";
 /// `discretized_symbol_id(A, B)`, context `pse:symbol:v1` with two parts.
 const DISCRETIZED_SYMBOL: &str = "7d39e0dbf3fea05cb118af04f299257a";
 
-/// `snapshot_id` of the two-member, one-parent case frame built by [`case_frame`].
-const CASE_SNAPSHOT_ID: &str = "f778ddfdfc8864bd7c10168528f35bf164c14b184ae55d29b4ca8a76427693f8";
-
 /// `encoding_checksum(b"pse")`: plain, unkeyed BLAKE3 over three bytes.
 const ENCODING_CHECKSUM_PSE: &str =
     "b183159a276933fcc7170f73b6e21ff751344a2769b9669736ff4ffa47c689ee";
-
-/// The two-member, one-parent case frame the snapshot vector is taken from.
-///
-/// Deliberately assembled out of sorted order — port `case/bbbb` is declared second but
-/// the parent list is the only one that is already sorted — so the vector also witnesses
-/// that the frame sorts rather than the caller.
-fn case_frame() -> SnapshotFrame {
-    SnapshotFrame {
-        registry_fingerprint: FINGERPRINT,
-        kind: SnapshotKind::Case,
-        parents: vec![SnapshotParent {
-            role: "model".to_owned(),
-            snapshot_id: SnapshotId(ContentHash::from_bytes([0x22; 32])),
-        }],
-        members: vec![
-            SnapshotMember {
-                port: "case/aaaa".to_owned(),
-                namespace: "case".to_owned(),
-                relation_id: C,
-                schema_version: SchemaVersion(1),
-                logical_hash: LogicalHash(ContentHash::from_bytes([0x33; 32])),
-            },
-            SnapshotMember {
-                port: "case/bbbb".to_owned(),
-                namespace: "case".to_owned(),
-                relation_id: D,
-                schema_version: SchemaVersion(2),
-                logical_hash: LogicalHash(ContentHash::from_bytes([0x44; 32])),
-            },
-        ],
-    }
-}
 
 // --------------------------------------------------------------------- the table --
 
@@ -266,37 +226,6 @@ fn the_derive_key_contexts_are_frozen() {
     assert_eq!(context::STAGE_KEY, "pse:stage_key:v1");
     assert_eq!(context::SETTINGS, "pse:settings:v1");
     assert_eq!(context::MATHIR_NODE, "pse:mathir:node:v1");
-}
-
-#[test]
-fn the_snapshot_identity_is_frozen() {
-    assert_eq!(SNAPSHOT_PROFILE, "pse.snapshot.v2");
-
-    let frame = case_frame();
-    let id = snapshot_id(&frame).expect("the frozen case frame is well formed");
-    assert_eq!(id.0.to_hex(), CASE_SNAPSHOT_ID);
-
-    // The preimage is version ‖ fingerprint ‖ kind ‖ 1 parent ‖ 2 members.
-    let preimage = snapshot_preimage(&frame).expect("the frozen case frame is well formed");
-    let expected_len =
-        // u64 length + "pse.snapshot.v2"
-        8 + 15
-        // registry fingerprint
-        + 32
-        // u64 length + "case"
-        + 8 + 4
-        // parent count + (u64 length + "model") + snapshot id
-        + 8 + (8 + 5) + 32
-        // member count
-        + 8
-        // two members, each: (u64 + "case/xxxx") + (u64 + "case") + id + u32 + hash
-        + 2 * ((8 + 9) + (8 + 4) + 16 + 4 + 32);
-    assert_eq!(preimage.len(), expected_len);
-    assert_eq!(
-        blake3::hash(&preimage).to_hex().as_str(),
-        CASE_SNAPSHOT_ID,
-        "the snapshot ID is a plain BLAKE3 hash of the frame, with no key"
-    );
 }
 
 #[test]

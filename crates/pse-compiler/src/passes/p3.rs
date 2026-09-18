@@ -17,15 +17,15 @@ mod selectors;
 mod source;
 mod units;
 
-use crate::{CompilerError, InputBundle, PassContext};
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use pse_authoring::document::{OwnedDocumentSet, binding::bind_sources_owned};
-use pse_catalog::computation::ProducedStage;
 use pse_catalog::session::SnapshotSession;
 use pse_ids::CancellationToken;
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{
     Registry,
-    model::{PassSpec, RelationKey},
+    model::{AlgorithmSpec, RelationKey},
 };
 use std::collections::BTreeMap;
 
@@ -41,7 +41,7 @@ pub struct NormalizationOutput {
 /// Executable implementation bound to the exact registered P3 specification.
 #[derive(Debug)]
 pub struct P3 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 
 impl P3 {
@@ -51,22 +51,22 @@ impl P3 {
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         Ok(Self {
             spec: registry
-                .pass("P3@1")
+                .algorithm("P3@1")
                 .ok_or_else(|| invalid("P3 declaration missing"))?
                 .clone(),
         })
     }
 }
 
-impl crate::Pass for P3 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P3 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             let output = Box::pin(normalize(
                 inputs,
@@ -89,10 +89,10 @@ impl crate::Pass for P3 {
                         .rows
                         .get(&spec.key)
                         .ok_or_else(|| invalid("P3 omitted a declared output"))?;
-                    Ok((port.port.to_owned(), batch.clone()))
+                    Ok((port.port.clone(), batch.clone()))
                 })
                 .collect::<Result<_, CompilerError>>()?;
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: Vec::new(),
                 derivations: vec![output.derivations.into_batch()],
@@ -109,7 +109,7 @@ impl crate::Pass for P3 {
 /// Missing or foreign source bindings, invalid syntax/configuration, semantic conflicts,
 /// failed native obligations, cancellation or shared resource exhaustion.
 pub async fn normalize(
-    inputs: &InputBundle,
+    inputs: &AlgorithmInputs,
     documents: &OwnedDocumentSet,
     session: &SnapshotSession,
     physical: &crate::quantity_relations::PhysicalInventory,
@@ -117,7 +117,7 @@ pub async fn normalize(
 ) -> Result<NormalizationOutput, CompilerError> {
     let registry = session.registry();
     let pass = registry
-        .pass("P3@1")
+        .algorithm("P3@1")
         .ok_or_else(|| invalid("P3 declaration missing"))?;
     inputs.validate(pass, registry)?;
     let checked = inputs.checked_rows(registry)?;

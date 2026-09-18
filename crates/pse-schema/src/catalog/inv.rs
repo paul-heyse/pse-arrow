@@ -1,74 +1,53 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Declarative invariant constructors; no second row-wise implementation.
-use crate::RegistryBuilder;
-use crate::model::{
-    AggregateEmptyPolicy, AggregateNullPolicy, InvariantDecl, InvariantKind, RuleAggregate,
-    RuleAggregateFn, RuleDecl, RuleExpr, RuleHead, RulePlan,
+//! Native invariant declarations bound by the actual DataFusion session.
+use crate::{
+    RegistryBuilder,
+    model::{InvariantDecl, InvariantKind},
 };
 
-pub(super) fn scan(relation: impl Into<String>, port: &'static str) -> RulePlan {
-    RulePlan::Scan {
-        relation: relation.into(),
-        port,
-    }
+pub(crate) fn identifier(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
 }
-pub(super) fn project(input: RulePlan, keys: &[&'static str]) -> RulePlan {
-    RulePlan::Project {
-        input: Box::new(input),
-        columns: (keys
-            .iter()
-            .map(|key| (*key, RuleExpr::col(*key)))
-            .collect::<Vec<_>>())
-        .into_iter()
-        .map(|(name, expression)| (name.to_owned().into(), expression))
-        .collect(),
-    }
+pub(crate) fn table(name: &str) -> String {
+    name.split('.')
+        .map(identifier)
+        .collect::<Vec<_>>()
+        .join(".")
 }
-pub(super) fn filter(input: RulePlan, predicate: RuleExpr) -> RulePlan {
-    RulePlan::Filter {
-        input: Box::new(input),
-        predicate,
-    }
+pub(crate) fn literal(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
 }
-pub(super) fn count(output_name: &'static str) -> RuleAggregate {
-    RuleAggregate {
-        function: RuleAggregateFn::Count,
-        input: None,
-        output_name: (output_name).into(),
-        order_by: vec![],
-        null_policy: AggregateNullPolicy::Reject,
-        empty_policy: AggregateEmptyPolicy::Zero,
-    }
+pub(crate) fn columns(keys: &[&str], alias: &str) -> String {
+    keys.iter()
+        .map(|key| format!("{alias}.{}", identifier(key)))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
-pub(super) fn declare(
+
+#[expect(
+    clippy::too_many_arguments,
+    reason = "declaration fields are independent invariant contract dimensions"
+)]
+pub(crate) fn declare(
     builder: &mut RegistryBuilder,
     relation: &str,
     name: &str,
     kind: InvariantKind,
     keys: &[&'static str],
-    plan: RulePlan,
+    query: impl Into<String>,
+    inputs: &[&str],
     doc: &'static str,
 ) {
-    let rule_name = format!("{name}:{relation}");
-    let rule = RuleDecl::new(
-        rule_name.clone(),
-        "1",
-        1,
-        RuleHead::Violations {
-            of: relation.to_owned(),
-            key_columns: keys.to_vec(),
-        },
-        plan,
-    )
-    .stratified_negation();
-    builder.declare_rule(rule);
-    builder.declare_invariant(InvariantDecl::error(
-        relation,
-        name,
-        kind,
-        format!("{rule_name}@1"),
-        doc,
-    ));
+    let mut inputs = inputs
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect::<Vec<_>>();
+    inputs.sort();
+    inputs.dedup();
+    let declaration = InvariantDecl::error(relation, name, kind, query, inputs, keys.to_vec(), doc);
+    if !builder.declared_invariants().contains(&declaration) {
+        builder.declare_invariant(declaration);
+    }
 }

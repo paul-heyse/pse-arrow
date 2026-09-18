@@ -5,7 +5,7 @@
       {
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "parameter_kind": "[\"text\",\"value-1\"]",
-        "position": "[\"u64\",1]",
+        "position": "[\"i64\",1]",
         "source_coordinate": "[\"enum\",\"member\"]"
       }
     ]

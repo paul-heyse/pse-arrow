@@ -1,0 +1,276 @@
+--- a/crates/core/src/operations/load_cdf.rs
++++ b/crates/core/src/operations/load_cdf.rs
+@@ -105,6 +105,19 @@
+             filter: None,
+             parquet_metadata_cache,
+         }
++    }
++
++    /// Use the caller's native metadata cache, including its storage namespace and
++    /// capacity owner. Data and log paths passed to the object store are unchanged.
++    pub fn with_file_metadata_cache(
++        mut self,
++        cache: Arc<datafusion::execution::cache::cache_manager::FileMetadataCache>,
++    ) -> Self {
++        self.parquet_metadata_cache = Arc::new(CachedParquetFileReaderFactory::new(
++            self.log_store.object_store(None),
++            cache,
++        ));
++        self
+     }
+ 
+     /// Version to start at (version 0 if not provided)
+--- a/crates/core/src/table/builder.rs
++++ b/crates/core/src/table/builder.rs
+@@ -62,6 +62,12 @@
+     #[serde(default)]
+     pub skip_stats: bool,
+ 
++    /// Maximum commits to advance a stale kernel CRC. Zero disables incremental
++    /// CRC replay; active-file enumeration still uses native action replay.
++    #[serde(default)]
++    #[delta(skip)]
++    pub crc_replay_max_commits: u64,
++
+     #[serde(skip_serializing, skip_deserializing)]
+     #[delta(skip)]
+     /// When a runtime handler is provided, all IO tasks are spawn in that handle
+@@ -78,6 +84,7 @@
+                 * 4,
+             log_batch_size: 1024,
+             skip_stats: false,
++            crc_replay_max_commits: 0,
+             io_runtime: None,
+         }
+     }
+@@ -89,6 +96,7 @@
+             && self.log_buffer_size == other.log_buffer_size
+             && self.log_batch_size == other.log_batch_size
+             && self.skip_stats == other.skip_stats
++            && self.crc_replay_max_commits == other.crc_replay_max_commits
+     }
+ }
+ 
+@@ -153,6 +161,12 @@
+     /// Sets `version` to the builder
+     pub fn with_version(mut self, version: Version) -> Self {
+         self.version = DeltaVersion::Version(version);
++        self
++    }
++
++    /// Bound native incremental CRC replay without changing file replay semantics.
++    pub fn with_crc_replay_max_commits(mut self, max_commits: u64) -> Self {
++        self.table_config.crc_replay_max_commits = max_commits;
+         self
+     }
+ 
+--- a/crates/core/src/kernel/snapshot/mod.rs
++++ b/crates/core/src/kernel/snapshot/mod.rs
+@@ -219,6 +219,46 @@
+ }
+ 
+ impl Snapshot {
++    /// Estimated retained heap extent, including native kernel/log metadata and
++    /// materialized action/statistics buffers. Shared allocations are deliberately
++    /// charged in full per snapshot. This is capacity evidence, not allocator telemetry.
++    pub fn estimated_owned_heap_size_bytes(&self) -> usize {
++        let kernel = self.inner.estimated_owned_heap_size_bytes();
++        let materialized = self.materialized_files.as_ref().map_or(0, |files| {
++            // The private identity clones protocol/metadata from the same snapshot;
++            // charge another kernel metadata extent rather than serialized JSON size.
++            files.batches.iter().fold(
++                kernel.saturating_add(std::mem::size_of::<MaterializedFiles>()),
++                |sum, batch| sum.saturating_add(batch.get_array_memory_size()),
++            )
++        });
++        std::mem::size_of::<Self>()
++            .saturating_add(kernel)
++            .saturating_add(materialized)
++    }
++
++    /// Write the optional native CRC after a committed version. The returned
++    /// snapshot carries the kernel's resulting CRC state. Errors here do not mean
++    /// that an earlier data commit failed and must never replay that write.
++    pub async fn write_checksum(
++        self: Arc<Self>,
++        engine: Arc<dyn Engine>,
++    ) -> DeltaResult<(delta_kernel::snapshot::ChecksumWriteResult, Arc<Self>)> {
++        let current = self.inner.clone();
++        let (outcome, inner) =
++            spawn_blocking_with_span(move || current.write_checksum(engine.as_ref()))
++                .await
++                .map_err(|e| DeltaTableError::Generic(e.to_string()))??;
++        Ok((
++            outcome,
++            Arc::new(Self {
++                inner,
++                config: self.config.clone(),
++                materialized_files: self.materialized_files.clone(),
++            }),
++        ))
++    }
++
+     /// Build a snapshot of the table at `table_root` using the provided kernel `engine`.
+     ///
+     /// When `version` is `None` the latest available version is loaded. This is the engine-aware
+@@ -229,8 +269,11 @@
+         config: DeltaTableConfig,
+         version: Option<Version>,
+     ) -> DeltaResult<Self> {
++        let crc_replay =
++            delta_kernel::snapshot::IncrementalReplay::UpToCommits(config.crc_replay_max_commits);
+         let snapshot = match spawn_blocking_with_span(move || {
+-            let mut builder = KernelSnapshot::builder_for(table_root);
++            let mut builder =
++                KernelSnapshot::builder_for(table_root).with_incremental_crc_replay(crc_replay);
+             if let Some(version) = version {
+                 builder = builder.at_version(version);
+             }
+@@ -313,8 +356,12 @@
+ 
+         let current = self.inner.clone();
+         let task_engine = engine.clone();
++        let crc_replay = delta_kernel::snapshot::IncrementalReplay::UpToCommits(
++            self.config.crc_replay_max_commits,
++        );
+         let snapshot = spawn_blocking_with_span(move || {
+-            let mut builder = KernelSnapshot::builder_from(current);
++            let mut builder =
++                KernelSnapshot::builder_from(current).with_incremental_crc_replay(crc_replay);
+             if let Some(version) = target_version {
+                 builder = builder.at_version(version);
+             }
+@@ -1397,6 +1444,11 @@
+         Ok(())
+     }
+ 
++    /// Retain the actual native snapshot; the Arc preserves its materialized state.
++    pub fn snapshot_ref(&self) -> Arc<Snapshot> {
++        self.snapshot.clone()
++    }
++
+     /// Get the underlying snapshot
+     pub(crate) fn snapshot(&self) -> &Snapshot {
+         &self.snapshot
+--- a/crates/core/src/operations/write/metrics.rs
++++ b/crates/core/src/operations/write/metrics.rs
+@@ -8,7 +8,6 @@
+ use datafusion::{
+     catalog::Session,
+     physical_planner::{ExtensionPlanner, PhysicalPlanner},
+-    prelude::Expr,
+ };
+ 
+ use crate::delta_datafusion::{logical::MetricObserver, physical::MetricObserverExec};
+--- a/crates/core/src/operations/write/execution.rs
++++ b/crates/core/src/operations/write/execution.rs
+@@ -16,7 +16,7 @@
+ };
+ use delta_kernel::engine::arrow_conversion::TryIntoKernel as _;
+ use delta_kernel::table_configuration::TableConfiguration;
+-use futures::{StreamExt as _, TryStreamExt as _};
++use futures::StreamExt as _;
+ use object_store::prefix::PrefixStore;
+ use parquet::file::properties::WriterProperties;
+ use tokio::sync::mpsc;
+@@ -37,34 +37,11 @@
+ use crate::operations::cdc::CDC_COLUMN_NAME;
+ use crate::operations::write::WriterStatsConfig;
+ 
+-const DEFAULT_WRITER_BATCH_CHANNEL_SIZE: usize = 10;
+-
+ /// Error message used when a worker's `send` fails because the writer task has
+ /// already closed the channel (e.g. the writer errored). It is recognised by
+ /// [`is_writer_task_closed_error`] so the real (writer) error is surfaced
+ /// instead of this downstream symptom.
+ const WRITER_TASK_CLOSED_UNEXPECTEDLY_MSG: &str = "Writer task closed unexpectedly";
+-
+-fn parse_channel_size(raw: Option<&str>) -> usize {
+-    raw.and_then(|s| s.parse::<usize>().ok())
+-        .filter(|size| *size > 0)
+-        .unwrap_or(DEFAULT_WRITER_BATCH_CHANNEL_SIZE)
+-}
+-
+-/// Capacity of the mpsc channels between partition-reader workers and the writer task.
+-/// Env override: `DELTARS_WRITER_BATCH_CHANNEL_SIZE` (positive integer; 0 or invalid → default).
+-/// Distinct from `DELTARS_MAX_CONCURRENT_WRITERS` (partition parallelism) and
+-/// `DELTARS_MAX_CONCURRENCY_TASKS` in writer.rs (per-file upload parallelism).
+-fn channel_size() -> usize {
+-    static CHANNEL_SIZE: OnceLock<usize> = OnceLock::new();
+-    *CHANNEL_SIZE.get_or_init(|| {
+-        parse_channel_size(
+-            std::env::var("DELTARS_WRITER_BATCH_CHANNEL_SIZE")
+-                .ok()
+-                .as_deref(),
+-        )
+-    })
+-}
+ 
+ #[cfg(test)]
+ mod tests {
+--- a/crates/core/src/datafile/reader.rs
++++ b/crates/core/src/datafile/reader.rs
+@@ -19,6 +19,10 @@
+ use futures::stream::{StreamExt as _, TryStreamExt as _};
+ use object_store::ObjectStore;
+ use object_store::path::Path;
++#[expect(
++    deprecated,
++    reason = "pinned upstream non-DataFusion reader; PSE selects native DataFusion scans"
++)]
+ use parquet::arrow::async_reader::{ParquetObjectReader, ParquetRecordBatchStreamBuilder};
+ 
+ use crate::DeltaTable;
+@@ -62,6 +66,10 @@
+ 
+     /// Read a data file, optionally passing its known size so the parquet reader
+     /// can skip the extra `HEAD` request it would otherwise make to discover it.
++    #[expect(
++        deprecated,
++        reason = "pinned upstream non-DataFusion reader; PSE selects native DataFusion scans"
++    )]
+     async fn read_file_sized(&self, path: Path, size: Option<u64>) -> DeltaResult<BatchStream> {
+         let mut reader = ParquetObjectReader::new(self.store.clone(), path);
+         if let Some(size) = size {
+--- a/crates/core/src/kernel/mod.rs
++++ b/crates/core/src/kernel/mod.rs
+@@ -19,6 +19,8 @@
+ pub mod transaction;
+ 
+ pub use arrow::engine_ext::StructDataExt;
++/// The exact native kernel used by this Delta implementation.
++pub use delta_kernel as native;
+ pub use delta_kernel::Version;
+ pub use delta_kernel::engine;
+ pub use error::*;
+diff --git a/crates/core/src/delta_datafusion/cdf/scan.rs b/crates/core/src/delta_datafusion/cdf/scan.rs
+--- a/crates/core/src/delta_datafusion/cdf/scan.rs
++++ b/crates/core/src/delta_datafusion/cdf/scan.rs
+@@ -117,9 +117,26 @@
+         &self,
+         filter: &[&Expr],
+     ) -> DataFusionResult<Vec<TableProviderFilterPushDown>> {
++        let snapshot = self.cdf_builder.snapshot.as_ref().ok_or_else(|| {
++            datafusion::common::DataFusionError::Plan("CDF snapshot is absent".into())
++        })?;
++        let data_schema = snapshot.input_schema();
+         Ok(filter
+             .iter()
+-            .map(|_| TableProviderFilterPushDown::Exact) // maybe exact
++            .map(|predicate| {
++                // The native file/action pruning scope has only table columns.
++                // CDF metadata is added afterwards; leave such predicates to the
++                // caller's residual FilterExec instead of planning them in that scope.
++                if predicate
++                    .column_refs()
++                    .iter()
++                    .all(|column| data_schema.field_with_name(&column.name).is_ok())
++                {
++                    TableProviderFilterPushDown::Exact
++                } else {
++                    TableProviderFilterPushDown::Unsupported
++                }
++            })
+             .collect())
+     }
+ }

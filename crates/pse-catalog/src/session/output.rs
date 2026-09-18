@@ -53,9 +53,10 @@ pub fn forget_relation_annotations(plan: LogicalPlan) -> Result<LogicalPlan> {
         })
         .collect::<Vec<_>>();
     if changed {
-        datafusion::logical_expr::LogicalPlanBuilder::from(plan)
-            .project(expressions)?
-            .build()
+        Ok(LogicalPlan::Projection(Projection::try_new(
+            expressions,
+            Arc::new(plan),
+        )?))
     } else {
         Ok(plan)
     }

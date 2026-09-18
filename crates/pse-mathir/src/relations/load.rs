@@ -29,7 +29,7 @@ pub struct LoadedMath {
 /// and row order is irrelevant; child/payload/list order remains authoritative.
 ///
 /// # Errors
-/// Rejects duplicate/orphan rows, ordinal gaps, wrong payloads, nonfinite values, dangling
+/// Rejects duplicate/orphan rows, wrong payloads, nonfinite values, dangling
 /// references and cycles, including kernel inputs and unreachable components. Digests are
 /// deliberately not consulted to determine validity.
 pub fn load_untyped(
@@ -95,16 +95,22 @@ fn mapped(remap: &BTreeMap<NodeId, NodeId>, id: NodeId) -> Result<NodeId, MathIr
 }
 fn load_nodes(rows: &mut VecSink) -> Result<BTreeMap<NodeId, Node>, MathIrError> {
     let mut nodes = BTreeMap::new();
-    for (id, opcode, quantity_type, scope, _) in rows.nodes.drain(..) {
+    for (id, opcode, children, payload, quantity_type, scope, _) in rows.nodes.drain(..) {
+        if id.0 < 0 {
+            return Err(MathIrError::malformed_at(
+                id,
+                "negative expression-node ordinal",
+            ));
+        }
         if nodes
             .insert(
                 id,
                 Node {
                     opcode,
+                    payload,
+                    children,
                     quantity_type,
                     scope,
-                    payload: Payload::None,
-                    children: vec![],
                 },
             )
             .is_some()
@@ -114,33 +120,6 @@ fn load_nodes(rows: &mut VecSink) -> Result<BTreeMap<NodeId, Node>, MathIrError>
                 "duplicate expression-node row",
             ));
         }
-    }
-    let mut payload_seen = BTreeSet::new();
-    for (id, payload) in rows.payloads.drain(..) {
-        if !payload_seen.insert(id) {
-            return Err(MathIrError::malformed_at(
-                id,
-                "multiple payload rows for one node",
-            ));
-        }
-        nodes
-            .get_mut(&id)
-            .ok_or_else(|| MathIrError::malformed_at(id, "orphan payload row"))?
-            .payload = payload;
-    }
-    rows.args
-        .sort_unstable_by_key(|(parent, ordinal, _)| (*parent, *ordinal));
-    for (parent, ordinal, child) in rows.args.drain(..) {
-        let node = nodes
-            .get_mut(&parent)
-            .ok_or_else(|| MathIrError::malformed_at(parent, "orphan argument row"))?;
-        if usize::from(ordinal) != node.children.len() {
-            return Err(MathIrError::malformed_at(
-                parent,
-                "duplicate or noncontiguous argument ordinal",
-            ));
-        }
-        node.children.push(child);
     }
     Ok(nodes)
 }
@@ -211,6 +190,7 @@ fn load_equations(
 ) -> Result<Vec<EquationRecord>, MathIrError> {
     let mut equations = BTreeMap::new();
     for mut equation in rows {
+        crate::canonicalize::validate_equation_bounds(&equation)?;
         equation.map_node_references(|id| mapped(remap, id))?;
         if equations
             .insert(equation.indexed_equation_id, equation)
@@ -325,7 +305,7 @@ pub fn load_canonical(
 ) -> Result<crate::CanonicalGraph, MathIrError> {
     let mut stored = VecSink::new();
     source.read(&mut stored)?;
-    if stored.nodes.iter().any(|row| row.2.is_none()) {
+    if stored.nodes.iter().any(|row| row.4.is_none()) {
         return Err(MathIrError::malformed(
             "canonical node lacks a complete quantity type",
         ));

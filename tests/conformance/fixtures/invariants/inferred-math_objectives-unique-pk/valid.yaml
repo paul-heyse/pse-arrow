@@ -3,7 +3,7 @@
   "rows": {
     "inferred.math_objectives": [
       {
-        "body_node_id": "[\"u64\",1]",
+        "body_node_id": "[\"i64\",1]",
         "default_active": "[\"bool\",true]",
         "objective_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "owner_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",

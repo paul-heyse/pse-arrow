@@ -15,9 +15,7 @@ pub(super) fn populate(
     invalid: &mut Rows,
 ) {
     let relation = invariant.relation.as_str();
-    if super::alternatives::populate(invariant, valid, invalid)
-        || super::inference::populate(registry, invariant, valid, invalid)
-    {
+    if super::inference::populate(registry, invariant, valid, invalid) {
         return;
     }
     match invariant.name.as_str() {
@@ -36,7 +34,7 @@ pub(super) fn populate(
         }
         "cardinality:member_ordinal" => {
             let mut second = row(registry, registry.relation(relation).unwrap(), 2);
-            second.insert("ordinal".to_owned(), Cell::U64(1));
+            second.insert("ordinal".to_owned(), Cell::I64(1));
             valid.get_mut(relation).unwrap().push(second);
             *invalid = valid.clone();
             invalid.get_mut(relation).unwrap()[1].insert("domain_id".to_owned(), id(1));
@@ -44,41 +42,25 @@ pub(super) fn populate(
         "closure:target_port_owner" => {
             put(registry, valid, "authored.instances", 1);
             put(registry, valid, "authored.template_ports", 1);
+            set(
+                valid,
+                relation,
+                "member",
+                target_member("port", Cell::Struct(vec![id(1), Cell::text("value-1")])),
+            );
             *invalid = valid.clone();
-            set(invalid, relation, "port_name", Cell::text("missing port"));
+            set(
+                invalid,
+                relation,
+                "member",
+                target_member(
+                    "port",
+                    Cell::Struct(vec![id(1), Cell::text("missing port")]),
+                ),
+            );
         }
         "closure:entity_registered" | "closure:entity_fields" => {
             entity(registry, invariant, valid, invalid);
-        }
-        name if name.starts_with("check:terminal_") => terminal(invariant, valid, invalid),
-        "check:positive_scale" => positive(invariant, "scale_to_canonical", valid, invalid),
-        "check:positive_nominal" => positive(invariant, "nominal_magnitude", valid, invalid),
-        "nonnegative_cost" => {
-            set(valid, relation, "cost", Cell::F64(0.0));
-            *invalid = valid.clone();
-            set(invalid, relation, "cost", Cell::F64(-1.0));
-        }
-        "check:ordered_bounds" => {
-            set(valid, relation, "lower", Cell::F64(1.0));
-            set(valid, relation, "upper", Cell::F64(2.0));
-            *invalid = valid.clone();
-            set(invalid, relation, "lower", Cell::F64(3.0));
-        }
-        "check:target_shape" => {
-            set(valid, relation, "member_kind", Cell::Enum("symbol"));
-            for name in ["equation_decl_id", "port_template_id", "port_name"] {
-                set(valid, relation, name, Cell::Null);
-            }
-            set(valid, relation, "wildcard", Cell::Bool(false));
-            *invalid = valid.clone();
-            set(invalid, relation, "equation_decl_id", id(1));
-        }
-        "check:domain_reference" => {
-            set(valid, relation, "template_id", Cell::Null);
-            set(valid, relation, "domain_name", Cell::Null);
-            *invalid = valid.clone();
-            set(invalid, relation, "template_id", id(1));
-            set(invalid, relation, "domain_name", Cell::text("space"));
         }
         "closure:material_system_species_exist" => material(
             registry,
@@ -102,6 +84,7 @@ pub(super) fn populate(
         name if name.starts_with("closure:target_owner:") => {
             target_owner(
                 registry,
+                relation,
                 name.strip_prefix("closure:target_owner:").unwrap(),
                 valid,
                 invalid,
@@ -115,7 +98,6 @@ fn parents(relation: &str, valid: &mut Rows, invalid: &mut Rows) {
         "authored.entities" => "parent_entity_id",
         "authored.instances" => "parent_instance_id",
         "authored.cases" => "parent_case_id",
-        "authored.model_revisions" => "parent_revision_id",
         _ => panic!("uncovered parent relation {relation}"),
     };
     set(valid, relation, parent, Cell::Null);
@@ -123,23 +105,49 @@ fn parents(relation: &str, valid: &mut Rows, invalid: &mut Rows) {
     set(invalid, relation, parent, id(1));
 }
 
-fn target_owner(registry: &Registry, column: &str, valid: &mut Rows, invalid: &mut Rows) {
-    let declarations = match column {
-        "symbol_decl_id" => "authored.template_symbols",
-        "equation_decl_id" => "authored.template_equations",
-        _ => panic!("uncovered target owner {column}"),
+fn target_member(kind: &'static str, payload: Cell) -> Cell {
+    let mut payload = Some(payload);
+    Cell::Struct(
+        std::iter::once(Cell::Enum(kind))
+            .chain(
+                ["symbol", "group", "equation", "port"]
+                    .into_iter()
+                    .map(|name| {
+                        if name == kind {
+                            payload.take().expect("one complete target arm")
+                        } else {
+                            Cell::Null
+                        }
+                    }),
+            )
+            .collect(),
+    )
+}
+fn target_owner(
+    registry: &Registry,
+    relation: &str,
+    kind: &str,
+    valid: &mut Rows,
+    invalid: &mut Rows,
+) {
+    let (kind, declarations) = match kind {
+        "symbol" => ("symbol", "authored.template_symbols"),
+        "group" => ("group", "authored.template_symbols"),
+        "equation" => ("equation", "authored.template_equations"),
+        _ => panic!("uncovered target owner {kind}"),
     };
+    set(
+        valid,
+        relation,
+        "member",
+        target_member(kind, Cell::Struct(vec![id(1), Cell::Null])),
+    );
     put(registry, valid, "authored.instances", 1);
     put(registry, valid, declarations, 1);
     *invalid = valid.clone();
     set(invalid, declarations, "template_id", id(2));
 }
 
-fn positive(invariant: &InvariantSpec, column: &str, valid: &mut Rows, invalid: &mut Rows) {
-    set(valid, &invariant.relation, column, Cell::F64(1.0));
-    *invalid = valid.clone();
-    set(invalid, &invariant.relation, column, Cell::F64(0.0));
-}
 fn entity(registry: &Registry, invariant: &InvariantSpec, valid: &mut Rows, invalid: &mut Rows) {
     let section = registry
         .documents()
@@ -235,97 +243,4 @@ fn stoichiometry(registry: &Registry, valid: &mut Rows, invalid: &mut Rows) {
         "valid_phase_types",
         Cell::List(vec![Cell::Enum(pse_material::PhaseType::Vapor.as_str())]),
     );
-}
-
-fn terminal(invariant: &InvariantSpec, valid: &mut Rows, invalid: &mut Rows) {
-    use pse_relations::{
-        generated::{
-            enums::{FailureClass, FindingSeverity},
-            provenance::pass_records as record,
-        },
-        typed::CellCodec,
-    };
-    let relation = invariant.relation.as_str();
-    for (column, value) in [
-        ("status", Cell::Enum("ok")),
-        ("failure_class", Cell::Null),
-        ("finding_count", Cell::I64(0)),
-        ("findings", Cell::List(vec![])),
-        ("snapshot_out", Cell::Null),
-        ("duration_ms", Cell::F64(1.0)),
-    ] {
-        set(valid, relation, column, value);
-    }
-    let error = record::ProvenancePassRecordsFieldFindingsItem {
-        finding_id: pse_ids::SemanticId::from_bytes([3; 16]),
-        subject_snapshot: None,
-        run_id: None,
-        check_id: None,
-        severity: FindingSeverity::Error,
-        subjects: vec![],
-        evidence: record::ProvenancePassRecordsFieldFindingsItemEvidence::from_execution(
-            record::ProvenancePassRecordsFieldFindingsItemEvidenceExecution {
-                failure_class: FailureClass::RuntimeInfrastructure,
-                diagnostic_code: None,
-                attempt_error: "actual execution failure".into(),
-            },
-        ),
-        message: "actual execution failure".into(),
-        next_steps: vec![],
-    };
-    if matches!(
-        invariant.name.as_str(),
-        "check:terminal_cancel_class"
-            | "check:terminal_failed_output"
-            | "check:terminal_failure_finding"
-            | "check:terminal_finding_origin"
-    ) {
-        set(valid, relation, "status", Cell::Enum("failed"));
-        set(
-            valid,
-            relation,
-            "failure_class",
-            Cell::Enum("runtime.infrastructure"),
-        );
-        set(valid, relation, "finding_count", Cell::I64(1));
-        set(
-            valid,
-            relation,
-            "findings",
-            Cell::List(vec![error.clone().into_cell()]),
-        );
-    }
-    *invalid = valid.clone();
-    match invariant.name.as_str() {
-        "check:terminal_count" => set(invalid, relation, "finding_count", Cell::I64(1)),
-        "check:terminal_failure_class" => set(
-            invalid,
-            relation,
-            "failure_class",
-            Cell::Enum("runtime.infrastructure"),
-        ),
-        "check:terminal_cancel_class" => set(invalid, relation, "status", Cell::Enum("cancelled")),
-        "check:terminal_failed_output" => set(
-            invalid,
-            relation,
-            "snapshot_out",
-            Cell::Hash(pse_ids::ContentHash::from_bytes([9; 32])),
-        ),
-        "check:terminal_failure_finding" => {
-            set(invalid, relation, "finding_count", Cell::I64(0));
-            set(invalid, relation, "findings", Cell::List(vec![]));
-        }
-        "check:terminal_duration" => set(invalid, relation, "duration_ms", Cell::F64(-1.0)),
-        "check:terminal_finding_origin" => {
-            let mut warning = error;
-            warning.severity = FindingSeverity::Warning;
-            set(
-                invalid,
-                relation,
-                "findings",
-                Cell::List(vec![warning.into_cell()]),
-            );
-        }
-        name => panic!("missing terminal witness: {name}"),
-    }
 }

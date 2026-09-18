@@ -1,21 +1,17 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Relational invariants derived from declarations and explicitly stated domain contracts.
-use super::inv::{declare as invariant, filter, project, scan};
-use crate::RegistryBuilder;
-use crate::model::{Cell, CmpOp, InvariantKind, RuleExpr, RulePlan};
+//! Native relational integrity queries over explicit source bindings.
+use super::inv::{columns, declare as invariant, identifier, table};
+use crate::{RegistryBuilder, model::InvariantKind};
 
 /// Add mechanical integrity projections and explicitly declared domain contracts.
 pub fn declare(builder: &mut RegistryBuilder) {
     builder.derive_integrity();
     entity_registration(builder);
-    physical_checks(builder);
     target_checks(builder);
-    domain_reference_checks(builder);
     super::invariant_closure::declare(builder);
     super::invariant_domain::declare(builder);
-    super::invariant_semantic::declare(builder);
 }
 fn entity_registration(builder: &mut RegistryBuilder) {
     let mut mappings = std::collections::BTreeMap::new();
@@ -35,173 +31,64 @@ fn entity_registration(builder: &mut RegistryBuilder) {
         }
     }
     for (relation, (identity, kind, name, owner)) in mappings {
-        let entities = filter(
-            scan("authored.entities", "registered"),
-            RuleExpr::cmp(
-                CmpOp::Eq,
-                RuleExpr::col("kind"),
-                RuleExpr::Lit(Cell::Enum(kind)),
-            ),
-        );
-        let missing = RulePlan::AntiJoin {
-            left: Box::new(scan(relation, "subject")),
-            right: Box::new(entities),
-            keys: (vec![(identity, "entity_id")])
-                .into_iter()
-                .map(|(left, right)| (left.into(), right.into()))
-                .collect(),
-        };
+        let source = table(relation);
+        let key = identifier(identity);
+        let kind = super::inv::literal(kind);
         invariant(
             builder,
             relation,
             "closure:entity_registered",
             InvariantKind::Closure,
             &[identity],
-            project(missing, &[identity]),
+            format!(
+                "SELECT s.{key} FROM {source} s WHERE NOT EXISTS (SELECT 1 FROM authored.entities e WHERE e.entity_id = s.{key} AND e.kind = {kind})"
+            ),
+            &[relation, "authored.entities"],
             "Every declared identity has an entity row with its declared entity kind.",
         );
-        entity_fields(builder, relation, identity, name, owner);
+        let mut mismatches = Vec::new();
+        if let Some(name) = name {
+            mismatches.push(format!("s.{} IS DISTINCT FROM e.name", identifier(name)));
+        }
+        let parent = owner.map_or_else(|| "NULL".into(), |name| format!("s.{}", identifier(name)));
+        mismatches.push(format!("{parent} IS DISTINCT FROM e.parent_entity_id"));
+        let has_package = builder
+            .declared_relations()
+            .iter()
+            .find(|spec| spec.key.qualified_name() == relation)
+            .is_some_and(|spec| {
+                spec.columns
+                    .iter()
+                    .any(|column| column.name() == "package_id")
+            });
+        let mut owner_join = String::new();
+        if has_package {
+            mismatches.push("s.package_id IS DISTINCT FROM e.package_id".into());
+        } else if let Some(owner) = owner {
+            owner_join = format!(
+                " JOIN authored.entities p ON s.{} = p.entity_id",
+                identifier(owner)
+            );
+            mismatches.push("p.package_id IS DISTINCT FROM e.package_id".into());
+        }
+        invariant(
+            builder,
+            relation,
+            "closure:entity_fields",
+            InvariantKind::Closure,
+            &[identity],
+            format!(
+                "SELECT s.{key} FROM {source} s JOIN authored.entities e ON s.{key} = e.entity_id{owner_join} WHERE {}",
+                mismatches
+                    .iter()
+                    .map(|predicate| format!("({predicate})"))
+                    .collect::<Vec<_>>()
+                    .join(" OR ")
+            ),
+            &[relation, "authored.entities"],
+            "Entity names, explicit parents and available declaring-package facts match their actual source declarations.",
+        );
     }
-}
-fn entity_fields(
-    builder: &mut RegistryBuilder,
-    relation: &'static str,
-    identity: &'static str,
-    name: Option<&'static str>,
-    owner: Option<&'static str>,
-) {
-    let registered = RulePlan::Project {
-        input: Box::new(scan("authored.entities", "registered")),
-        columns: (vec![
-            ("__entity", RuleExpr::col("entity_id")),
-            ("__entity_package", RuleExpr::col("package_id")),
-            ("__entity_name", RuleExpr::col("name")),
-            ("__entity_parent", RuleExpr::col("parent_entity_id")),
-        ])
-        .into_iter()
-        .map(|(name, expression)| (name.to_owned().into(), expression))
-        .collect(),
-    };
-    let mut joined = RulePlan::EquiJoin {
-        left: Box::new(scan(relation, "subject")),
-        right: Box::new(registered),
-        keys: (vec![(identity, "__entity")])
-            .into_iter()
-            .map(|(left, right)| (left.into(), right.into()))
-            .collect(),
-        null_equality: crate::model::NullEquality::NullEqualsNothing,
-    };
-    let mut mismatches = vec![];
-    let distinct = |left, right| RuleExpr::IsDistinctFrom(Box::new(left), Box::new(right));
-    if let Some(name) = name {
-        mismatches.push(distinct(
-            RuleExpr::col(name),
-            RuleExpr::col("__entity_name"),
-        ));
-    }
-    mismatches.push(distinct(
-        owner.map_or(RuleExpr::Lit(Cell::Null), RuleExpr::col),
-        RuleExpr::col("__entity_parent"),
-    ));
-    let has_package = builder
-        .declared_relations()
-        .iter()
-        .find(|spec| spec.key.qualified_name() == relation)
-        .is_some_and(|spec| {
-            spec.columns
-                .iter()
-                .any(|column| column.name() == "package_id")
-        });
-    if has_package {
-        mismatches.push(distinct(
-            RuleExpr::col("package_id"),
-            RuleExpr::col("__entity_package"),
-        ));
-    } else if let Some(owner) = owner {
-        let parents = RulePlan::Project {
-            input: Box::new(scan("authored.entities", "owners")),
-            columns: (vec![
-                ("__owner", RuleExpr::col("entity_id")),
-                ("__owner_package", RuleExpr::col("package_id")),
-            ])
-            .into_iter()
-            .map(|(name, expression)| (name.to_owned().into(), expression))
-            .collect(),
-        };
-        joined = RulePlan::EquiJoin {
-            left: Box::new(joined),
-            right: Box::new(parents),
-            keys: (vec![(owner, "__owner")])
-                .into_iter()
-                .map(|(left, right)| (left.into(), right.into()))
-                .collect(),
-            null_equality: crate::model::NullEquality::NullEqualsNothing,
-        };
-        mismatches.push(distinct(
-            RuleExpr::col("__owner_package"),
-            RuleExpr::col("__entity_package"),
-        ));
-    }
-    invariant(
-        builder,
-        relation,
-        "closure:entity_fields",
-        InvariantKind::Closure,
-        &[identity],
-        project(filter(joined, RuleExpr::Or(mismatches)), &[identity]),
-        "Entity names, explicit parents and available declaring-package facts match their actual source declarations.",
-    );
-}
-
-fn check(
-    builder: &mut RegistryBuilder,
-    relation: &str,
-    name: &str,
-    predicate: RuleExpr,
-    doc: &'static str,
-) {
-    let keys = builder
-        .declared_relations()
-        .iter()
-        .find(|spec| spec.key.qualified_name() == relation)
-        .and_then(|spec| spec.primary_key.clone())
-        .unwrap_or_default();
-    invariant(
-        builder,
-        relation,
-        name,
-        InvariantKind::Check,
-        &keys,
-        project(filter(scan(relation, "subject"), predicate), &keys),
-        doc,
-    );
-}
-fn physical_checks(builder: &mut RegistryBuilder) {
-    let zero = || RuleExpr::Lit(Cell::F64(0.0));
-    check(
-        builder,
-        "reference.units",
-        "check:positive_scale",
-        RuleExpr::cmp(CmpOp::LtEq, RuleExpr::col("scale_to_canonical"), zero()),
-        "Unit representation scale is strictly positive.",
-    );
-    check(
-        builder,
-        "reference.quantity_types",
-        "check:positive_nominal",
-        RuleExpr::And(vec![
-            RuleExpr::IsNotNull(Box::new(RuleExpr::col("nominal_magnitude"))),
-            RuleExpr::cmp(CmpOp::LtEq, RuleExpr::col("nominal_magnitude"), zero()),
-        ]),
-        "A present nominal magnitude is strictly positive.",
-    );
-    check(
-        builder,
-        "authored.continuous_domains",
-        "check:ordered_bounds",
-        RuleExpr::cmp(CmpOp::GtEq, RuleExpr::col("lower"), RuleExpr::col("upper")),
-        "Continuous-domain bounds are strictly increasing.",
-    );
 }
 fn target_checks(builder: &mut RegistryBuilder) {
     for relation in [
@@ -209,262 +96,58 @@ fn target_checks(builder: &mut RegistryBuilder) {
         "authored.case_activation_targets",
         "authored.observation_targets",
     ] {
-        let has = |name| RuleExpr::IsNotNull(Box::new(RuleExpr::col(name)));
-        let missing = |name| RuleExpr::IsNull(Box::new(RuleExpr::col(name)));
-        let kind = |name| {
-            RuleExpr::cmp(
-                CmpOp::Eq,
-                RuleExpr::col("member_kind"),
-                RuleExpr::Lit(Cell::Enum(name)),
-            )
-        };
-        let common_symbol = RuleExpr::And(vec![
-            RuleExpr::Or(vec![kind("symbol"), kind("group")]),
-            has("symbol_decl_id"),
-            missing("equation_decl_id"),
-            missing("port_template_id"),
-            missing("port_name"),
-            RuleExpr::Not(Box::new(RuleExpr::col("wildcard"))),
-        ]);
-        let equation = RuleExpr::And(vec![
-            kind("equation"),
-            missing("symbol_decl_id"),
-            has("equation_decl_id"),
-            missing("port_template_id"),
-            missing("port_name"),
-            RuleExpr::Not(Box::new(RuleExpr::col("wildcard"))),
-        ]);
-        let port = RuleExpr::And(vec![
-            kind("port"),
-            missing("symbol_decl_id"),
-            missing("equation_decl_id"),
-            has("port_template_id"),
-            has("port_name"),
-            RuleExpr::Not(Box::new(RuleExpr::col("wildcard"))),
-        ]);
-        let wildcard = RuleExpr::And(vec![
-            kind("instance_wildcard"),
-            missing("symbol_decl_id"),
-            missing("equation_decl_id"),
-            missing("port_template_id"),
-            missing("port_name"),
-            missing("index"),
-            RuleExpr::col("wildcard"),
-        ]);
-        check(
-            builder,
-            relation,
-            "check:target_shape",
-            RuleExpr::Not(Box::new(RuleExpr::Or(vec![
-                common_symbol,
-                equation,
-                port,
-                wildcard,
-            ]))),
-            "Target kind, concrete declaration, port pair, wildcard and optional index agree.",
-        );
-        target_owner(
-            builder,
-            relation,
-            "symbol_decl_id",
-            "authored.template_symbols",
-            "symbol_decl_id",
-        );
-        target_owner(
-            builder,
-            relation,
-            "equation_decl_id",
-            "authored.template_equations",
-            "equation_decl_id",
-        );
-        target_port_owner(builder, relation);
-    }
-}
-fn target_port_owner(builder: &mut RegistryBuilder, relation: &str) {
-    let keys = builder
-        .declared_relations()
-        .iter()
-        .find(|spec| spec.key.qualified_name() == relation)
-        .and_then(|spec| spec.primary_key.clone())
-        .unwrap_or_default();
-    let subject = filter(
-        scan(relation, "subject"),
-        RuleExpr::IsNotNull(Box::new(RuleExpr::col("port_template_id"))),
-    );
-    let owners = RulePlan::Project {
-        input: Box::new(scan("authored.instances", "owners")),
-        columns: (vec![
-            ("__owner_instance", RuleExpr::col("instance_id")),
-            ("__owner_template", RuleExpr::col("template_id")),
-        ])
-        .into_iter()
-        .map(|(name, expression)| (name.to_owned().into(), expression))
-        .collect(),
-    };
-    let joined = RulePlan::EquiJoin {
-        left: Box::new(subject),
-        right: Box::new(owners),
-        keys: (vec![("instance_id", "__owner_instance")])
-            .into_iter()
-            .map(|(left, right)| (left.into(), right.into()))
-            .collect(),
-        null_equality: crate::model::NullEquality::NullEqualsNothing,
-    };
-    let ports = RulePlan::Project {
-        input: Box::new(scan("authored.template_ports", "ports")),
-        columns: (vec![
-            ("__port_template", RuleExpr::col("template_id")),
-            ("__port_name", RuleExpr::col("name")),
-        ])
-        .into_iter()
-        .map(|(name, expression)| (name.to_owned().into(), expression))
-        .collect(),
-    };
-    let missing = RulePlan::AntiJoin {
-        left: Box::new(joined),
-        right: Box::new(ports),
-        keys: (vec![
-            ("port_template_id", "__port_template"),
-            ("__owner_template", "__port_template"),
-            ("port_name", "__port_name"),
-        ])
-        .into_iter()
-        .map(|(left, right)| (left.into(), right.into()))
-        .collect(),
-    };
-    invariant(
-        builder,
-        relation,
-        "closure:target_port_owner",
-        InvariantKind::Closure,
-        &keys,
-        project(missing, &keys),
-        "Port targets name an actual declared port of the target instance's template.",
-    );
-}
-fn target_owner(
-    builder: &mut RegistryBuilder,
-    relation: &str,
-    column: &'static str,
-    declarations: &'static str,
-    identity: &'static str,
-) {
-    let keys = builder
-        .declared_relations()
-        .iter()
-        .find(|spec| spec.key.qualified_name() == relation)
-        .and_then(|spec| spec.primary_key.clone())
-        .unwrap_or_default();
-    let owners = RulePlan::Project {
-        input: Box::new(scan("authored.instances", "owners")),
-        columns: (vec![
-            ("owner_instance", RuleExpr::col("instance_id")),
-            ("owner_template", RuleExpr::col("template_id")),
-        ])
-        .into_iter()
-        .map(|(name, expression)| (name.to_owned().into(), expression))
-        .collect(),
-    };
-    let subject = filter(
-        scan(relation, "subject"),
-        RuleExpr::IsNotNull(Box::new(RuleExpr::col(column))),
-    );
-    let joined = RulePlan::EquiJoin {
-        left: Box::new(subject),
-        right: Box::new(owners),
-        keys: (vec![("instance_id", "owner_instance")])
-            .into_iter()
-            .map(|(left, right)| (left.into(), right.into()))
-            .collect(),
-        null_equality: crate::model::NullEquality::NullEqualsNothing,
-    };
-    let declared = RulePlan::Project {
-        input: Box::new(scan(declarations, "declarations")),
-        columns: (vec![
-            ("decl_identity", RuleExpr::col(identity)),
-            ("decl_template", RuleExpr::col("template_id")),
-        ])
-        .into_iter()
-        .map(|(name, expression)| (name.to_owned().into(), expression))
-        .collect(),
-    };
-    let wrong = RulePlan::AntiJoin {
-        left: Box::new(joined),
-        right: Box::new(declared),
-        keys: (vec![
-            (column, "decl_identity"),
-            ("owner_template", "decl_template"),
-        ])
-        .into_iter()
-        .map(|(left, right)| (left.into(), right.into()))
-        .collect(),
-    };
-    invariant(
-        builder,
-        relation,
-        &format!("closure:target_owner:{column}"),
-        InvariantKind::Closure,
-        &keys,
-        project(wrong, &keys),
-        "Concrete target declarations belong to the actual target instance's template.",
-    );
-}
-
-fn domain_reference_checks(builder: &mut RegistryBuilder) {
-    let relations = builder.declared_relations().to_vec();
-    for spec in relations {
-        if spec.key.namespace != crate::model::Namespace::Normalized
-            || !spec
-                .columns
-                .iter()
-                .any(|column| column.name() == "domain_name")
-            || !spec
-                .columns
-                .iter()
-                .any(|column| column.name() == "template_id")
-        {
-            continue;
-        }
-        let actual = if spec
-            .columns
+        let keys = builder
+            .declared_relations()
             .iter()
-            .any(|column| column.name() == "wrt_domain_id")
-        {
-            "wrt_domain_id"
-        } else if spec
-            .columns
-            .iter()
-            .any(|column| column.name() == "domain_id")
-        {
-            "domain_id"
-        } else {
-            continue;
-        };
-        let has = |name| RuleExpr::IsNotNull(Box::new(RuleExpr::col(name)));
-        let missing = |name| RuleExpr::IsNull(Box::new(RuleExpr::col(name)));
-        let valid = RuleExpr::Or(vec![
-            RuleExpr::And(vec![
-                has(actual),
-                missing("template_id"),
-                missing("domain_name"),
-            ]),
-            RuleExpr::And(vec![
-                missing(actual),
-                has("template_id"),
-                has("domain_name"),
-                RuleExpr::cmp(
-                    CmpOp::NotEq,
-                    RuleExpr::col("domain_name"),
-                    RuleExpr::Lit(Cell::Text(String::new())),
+            .find(|spec| spec.key.qualified_name() == relation)
+            .and_then(|spec| spec.primary_key.clone())
+            .unwrap_or_default();
+        let source = table(relation);
+        let projection = columns(&keys, "s");
+        for (kind, column, declarations, identity) in [
+            (
+                "symbol",
+                "symbol_decl_id",
+                "authored.template_symbols",
+                "symbol_decl_id",
+            ),
+            (
+                "group",
+                "symbol_decl_id",
+                "authored.template_symbols",
+                "symbol_decl_id",
+            ),
+            (
+                "equation",
+                "equation_decl_id",
+                "authored.template_equations",
+                "equation_decl_id",
+            ),
+        ] {
+            invariant(
+                builder,
+                relation,
+                &format!("closure:target_owner:{kind}"),
+                InvariantKind::Closure,
+                &keys,
+                format!(
+                    "SELECT {projection} FROM (SELECT *, member.{kind}.{column} AS target_id FROM {source} WHERE member.kind = '{kind}') s JOIN authored.instances i ON s.instance_id = i.instance_id WHERE NOT EXISTS (SELECT 1 FROM {declarations} d WHERE d.{identity} = s.target_id AND d.template_id = i.template_id)"
                 ),
-            ]),
-        ]);
-        check(
+                &[relation, "authored.instances", declarations],
+                "Concrete target declarations belong to the actual target instance's template.",
+            );
+        }
+        invariant(
             builder,
-            &spec.key.qualified_name(),
-            "check:domain_reference",
-            RuleExpr::Not(Box::new(RuleExpr::IsTrue(Box::new(valid)))),
-            "A normalized domain reference is exactly one actual ID or complete template/name pair.",
+            relation,
+            "closure:target_port_owner",
+            InvariantKind::Closure,
+            &keys,
+            format!(
+                "SELECT {projection} FROM (SELECT *, member.port.template_id AS port_template_id, member.port.name AS port_name FROM {source} WHERE member.kind = 'port') s JOIN authored.instances i ON s.instance_id = i.instance_id WHERE TRUE AND NOT EXISTS (SELECT 1 FROM authored.template_ports p WHERE p.template_id = s.port_template_id AND p.template_id = i.template_id AND p.name = s.port_name)"
+            ),
+            &[relation, "authored.instances", "authored.template_ports"],
+            "Port targets name an actual declared port of the target instance's template.",
         );
     }
 }

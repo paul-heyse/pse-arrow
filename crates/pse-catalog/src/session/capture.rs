@@ -132,7 +132,10 @@ impl SnapshotSession {
         let source: Arc<dyn TableProvider> = Arc::new(ObservationTable { provider, schema });
         let mut session = self.with_provider(reference.clone(), Arc::clone(&source), cancel)?;
         if !observed {
-            session.bindings.resolved_metadata(&reference);
+            session
+                .bindings
+                .resolved_metadata(&reference)
+                .map_err(super::engine)?;
         }
         let plan = native::plan(
             scan(reference, source)?,

@@ -59,8 +59,8 @@ impl CanonicalGraph {
     pub fn iter(&self) -> impl Iterator<Item = (NodeId, &CanonicalNode)> {
         self.nodes
             .iter()
-            .enumerate()
-            .map(|(index, node)| (NodeId(index as u64), node))
+            .zip(0_i64..)
+            .map(|(node, index)| (NodeId(index), node))
     }
     /// Indexed equation rows with every expression reference in canonical storage.
     pub fn equations(&self) -> &[crate::equation::EquationRecord] {
@@ -184,7 +184,7 @@ pub fn number_typed_graph_with_bindings(
             if node.scope != original.scope {
                 node.scope = None;
             }
-            remap.insert(old, NodeId(existing as u64));
+            remap.insert(old, NodeId::from_index(existing)?);
             continue;
         }
         let node = Node {
@@ -210,7 +210,7 @@ pub fn number_typed_graph_with_bindings(
             &remap,
             &result,
         )?;
-        let id = NodeId(result.nodes.len() as u64);
+        let id = NodeId::from_index(result.nodes.len())?;
         exact.insert(key, result.nodes.len());
         remap.insert(old, id);
         result.nodes.push(CanonicalNode {

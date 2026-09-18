@@ -11,11 +11,10 @@
 
 use pse_schema::builder::RegistryBuilder;
 use pse_schema::model::{
-    Authority, Cell, CmpOp, ColumnRole, DependencyMode, DepthBound, Determinism, DocumentKind,
-    DocumentSection, DocumentSpec, EnumDecl, EnumMember, ExtensionUse, FieldContract, InputPort,
-    ManifestField, ManifestSpec, ManifestType, MigrationSpec, MigrationStep, Namespace,
-    NullEquality, OutputPort, PassDecl, PortSource, RelationDecl, RuleDecl, RuleExpr, RuleHead,
-    RulePlan, SnapshotClass,
+    AlgorithmDecl, ArgumentSpec, Authority, Cell, ColumnRole, DependencyMode, Determinism,
+    DocumentKind, DocumentSection, DocumentSpec, EnumDecl, EnumMember, ExtensionUse, FieldContract,
+    InvariantDecl, InvariantKind, MigrationSpec, MigrationStep, Namespace, RelationDecl,
+    ResultSpec, RuleDecl, RuleInput, RuleQuery, SnapshotClass,
 };
 use pse_schema::{Registry, SchemaError};
 
@@ -91,36 +90,41 @@ fn native_sql_checks_are_part_of_exact_contract_identity() {
     );
 }
 
-fn scan(relation: &'static str, port: &'static str) -> RulePlan {
-    RulePlan::Scan {
-        relation: relation.to_owned(),
-        port,
-    }
-}
-
-fn rule(version: &'static str, plan: RulePlan) -> RuleDecl {
+fn rule(version: &'static str, sql: &str) -> RuleDecl {
     RuleDecl::new(
         "fixture",
         version,
         0,
-        RuleHead::Violations {
-            of: "authored.base".to_owned(),
-            key_columns: vec!["id"],
-        },
-        plan,
+        "inferred.output",
+        sql,
+        vec![RuleInput {
+            relation: "authored.base".into(),
+            port: "base",
+            mode: DependencyMode::Read,
+        }],
     )
-}
-
-fn filtered(predicate: RuleExpr) -> RulePlan {
-    RulePlan::Filter {
-        input: Box::new(scan("authored.base", "base")),
-        predicate,
-    }
 }
 
 fn rules(rules: Vec<RuleDecl>) -> Result<Registry, SchemaError> {
     let mut builder = RegistryBuilder::new();
     builder.declare_relation(relation("base", 1, vec![]));
+    builder.declare_relation(
+        RelationDecl::new(
+            Namespace::Inferred,
+            "output",
+            1,
+            Authority::Derived,
+            SnapshotClass::Model,
+            "Native query output",
+        )
+        .granularity(pse_schema::model::DerivationGranularity::Row)
+        .pk(&["id"])
+        .columns(vec![FieldContract::key(
+            "id",
+            FieldContract::id(),
+            "identity",
+        )]),
+    );
     for rule in rules {
         builder.declare_rule(rule);
     }
@@ -128,39 +132,41 @@ fn rules(rules: Vec<RuleDecl>) -> Result<Registry, SchemaError> {
 }
 
 #[test]
-fn explicit_assertion_is_allowed_only_beneath_output_projections() {
-    let assertion = RulePlan::Assert {
-        input: Box::new(scan("authored.base", "base")),
-        predicate: RuleExpr::Lit(Cell::Bool(true)),
-    };
-    assert!(
-        rules(vec![rule(
-            "1",
-            RulePlan::Project {
-                input: Box::new(assertion.clone()),
-                columns: vec![("id".into(), RuleExpr::col("id"))],
-            }
-        )])
-        .is_ok()
-    );
-    for invalid in [
-        RulePlan::Filter {
-            input: Box::new(assertion.clone()),
-            predicate: RuleExpr::Lit(Cell::Bool(true)),
-        },
-        RulePlan::Union(vec![assertion.clone(), assertion.clone()]),
-        RulePlan::Assert {
-            input: Box::new(assertion),
-            predicate: RuleExpr::Lit(Cell::Bool(true)),
-        },
-    ] {
-        let error = rules(vec![rule("1", invalid)]).unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("assertion predicate is allowed only"),
-            "{error}"
-        );
+fn native_rule_declarations_require_outcomes_and_resolved_scopes() {
+    let base = rule("1", "SELECT id FROM authored.base");
+    assert!(rules(vec![base.clone()]).is_ok());
+    let mut invalid = Vec::new();
+    let mut empty = base.clone();
+    empty.queries.clear();
+    invalid.push(empty);
+    for (truth, sql) in [("true", " "), ("conflict", "SELECT id FROM authored.base")] {
+        let mut query = base.clone();
+        query.queries = vec![RuleQuery {
+            truth,
+            sql: sql.into(),
+        }];
+        invalid.push(query);
+    }
+    let mut missing = base.clone();
+    missing.inputs[0].relation = "authored.absent".into();
+    invalid.push(missing);
+    let mut write_input = base.clone();
+    write_input.inputs[0].mode = DependencyMode::Write;
+    invalid.push(write_input);
+    for head in ["authored.base", "inferred.absent"] {
+        let mut wrong_head = base.clone();
+        wrong_head.head = head.into();
+        invalid.push(wrong_head);
+    }
+    let mut ambiguous = base;
+    ambiguous.inputs.push(RuleInput {
+        relation: "inferred.output".into(),
+        port: "base",
+        mode: DependencyMode::Read,
+    });
+    invalid.push(ambiguous);
+    for declaration in invalid {
+        assert!(rules(vec![declaration]).is_err());
     }
 }
 
@@ -224,7 +230,7 @@ fn malformed_keys_and_duplicate_columns_are_rejected_before_identity() {
 }
 
 #[test]
-fn duplicate_enum_members_document_sections_and_manifest_fields_are_rejected() {
+fn duplicate_enum_members_and_document_sections_are_rejected() {
     let mut builder = RegistryBuilder::new();
     builder.declare_enum(EnumDecl::platform(
         "Choice",
@@ -266,38 +272,6 @@ fn duplicate_enum_members_document_sections_and_manifest_fields_are_rejected() {
         builder.build(),
         Err(SchemaError::DuplicateDeclaration {
             kind: "document section",
-            ..
-        })
-    ));
-    let manifest = || ManifestSpec::new("test", "test", vec![]);
-    let mut builder = RegistryBuilder::new();
-    builder
-        .declare_manifest(manifest())
-        .declare_manifest(manifest());
-    assert!(matches!(
-        builder.build(),
-        Err(SchemaError::DuplicateDeclaration {
-            kind: "manifest",
-            ..
-        })
-    ));
-    let mut builder = RegistryBuilder::new();
-    builder.declare_manifest(ManifestSpec::new(
-        "test",
-        "test",
-        vec![ManifestField::new(
-            "payload",
-            ManifestType::Struct(vec![
-                ManifestField::new("x", ManifestType::U64, "x"),
-                ManifestField::new("x", ManifestType::U64, "duplicate"),
-            ]),
-            "payload",
-        )],
-    ));
-    assert!(matches!(
-        builder.build(),
-        Err(SchemaError::DuplicateDeclaration {
-            kind: "manifest field",
             ..
         })
     ));
@@ -400,44 +374,29 @@ fn arbitrary_registries_project_complete_declared_integrity_programs() {
         ])
     );
     let ordinal = registry
-        .rule("ordinal_range:nested.items[]:authored.source@1")
+        .invariants()
+        .iter()
+        .find(|invariant| {
+            invariant.qualified_name() == "authored.source:ordinal_range:nested.items[]"
+        })
         .unwrap();
-    let dependencies = ordinal.plan.dependencies();
-    assert!(
-        dependencies
-            .iter()
-            .any(|(name, _, _)| *name == "authored.source")
-    );
-    assert!(
-        dependencies
-            .iter()
-            .any(|(name, _, _)| *name == "authored.target")
-    );
+    assert!(ordinal.inputs.contains(&"authored.source".to_owned()));
+    assert!(ordinal.inputs.contains(&"authored.target".to_owned()));
 }
 
 #[test]
 fn a_conflicting_manual_integrity_projection_cannot_replace_the_declaration() {
     let mut builder = RegistryBuilder::new();
     builder.declare_relation(relation("base", 1, vec![]));
-    builder.declare_rule(
-        RuleDecl::new(
-            "unique:pk:authored.base",
-            "1",
-            1,
-            RuleHead::Violations {
-                of: "authored.base".into(),
-                key_columns: vec!["id"],
-            },
-            RulePlan::Project {
-                input: Box::new(filtered(RuleExpr::Lit(Cell::Bool(false)))),
-                columns: (vec![("id", RuleExpr::col("id"))])
-                    .into_iter()
-                    .map(|(name, expression)| (name.into(), expression))
-                    .collect(),
-            },
-        )
-        .stratified_negation(),
-    );
+    builder.declare_invariant(InvariantDecl::error(
+        "authored.base",
+        "unique:pk",
+        InvariantKind::Unique,
+        "SELECT id FROM authored.base WHERE false",
+        vec!["authored.base".into()],
+        vec!["id"],
+        "Conflicting manual uniqueness declaration",
+    ));
     assert!(matches!(
         builder.build(),
         Err(SchemaError::DuplicateDeclaration { .. })
@@ -445,292 +404,60 @@ fn a_conflicting_manual_integrity_projection_cannot_replace_the_declaration() {
 }
 
 #[test]
-fn rule_predicate_payloads_are_rows_and_change_the_registry_fingerprint() {
-    let before = rules(vec![rule("1", filtered(RuleExpr::Lit(Cell::Bool(true))))]).unwrap();
-    let after = rules(vec![rule("1", filtered(RuleExpr::Lit(Cell::Bool(false))))]).unwrap();
-    assert_eq!(rows(&before, "rule_expr_nodes")[0][7], Cell::Bool(true));
-    assert_eq!(rows(&after, "rule_expr_nodes")[0][7], Cell::Bool(false));
+fn native_query_text_and_outcomes_are_reflected_and_change_identity() {
+    let before = rules(vec![rule("1", "SELECT id FROM authored.base WHERE true")]).unwrap();
+    let after = rules(vec![rule("1", "SELECT id FROM authored.base WHERE false")]).unwrap();
+    assert_eq!(
+        rows(&before, "rule_specs")[0][5],
+        Cell::List(vec![Cell::Struct(vec![
+            Cell::text("true"),
+            Cell::text("SELECT id FROM authored.base WHERE true"),
+        ])])
+    );
+    assert_ne!(
+        rows(&before, "rule_specs")[0][5],
+        rows(&after, "rule_specs")[0][5]
+    );
     assert_ne!(before.fingerprint(), after.fingerprint());
-    assert!(
-        before
-            .rule_dependencies()
-            .iter()
-            .all(|dependency| dependency.mode != DependencyMode::Write)
+    let mut unknown = rule("1", "SELECT id FROM authored.base WHERE true");
+    unknown.queries[0].truth = "unknown";
+    let unknown = rules(vec![unknown]).unwrap();
+    assert_ne!(before.fingerprint(), unknown.fingerprint());
+    assert_eq!(
+        unknown.rule("fixture@1").unwrap().queries[0].truth,
+        "unknown"
     );
 }
 
 #[test]
-fn nested_literals_and_expression_edges_preserve_every_scalar_payload() {
-    let literal = Cell::Struct(vec![
-        Cell::List(vec![Cell::U64(u64::MAX), Cell::I64(i64::MIN)]),
-        Cell::F64(f64::from_bits(0x7ff8_0000_0000_0001)),
-        Cell::Enum("enum literal"),
-    ]);
-    let registry = rules(vec![rule(
-        "1",
-        filtered(RuleExpr::IsNull(Box::new(RuleExpr::Lit(literal)))),
-    )])
-    .unwrap();
-    let rule_id = registry.rule("fixture@1").unwrap().id;
-    let nodes = rows(&registry, "rule_expr_nodes")
-        .into_iter()
-        .filter(|row| row[1] == Cell::Id(rule_id))
-        .collect::<Vec<_>>();
-    let edges = rows(&registry, "rule_expr_edges")
-        .into_iter()
-        .filter(|row| nodes.iter().any(|node| node[0] == row[0]))
-        .collect::<Vec<_>>();
-    assert_eq!(nodes.len(), 7);
-    assert_eq!(edges.len(), 6);
-    assert!(nodes.iter().any(|row| row[6] == Cell::Enum("struct")));
-    assert!(nodes.iter().any(|row| row[6] == Cell::Enum("list")));
-    assert!(nodes.iter().any(|row| row[9] == Cell::U64(u64::MAX)));
-    assert!(nodes.iter().any(|row| row[8] == Cell::I64(i64::MIN)));
-    assert!(
-        nodes
-            .iter()
-            .any(|row| row[10] == Cell::U64(0x7ff8_0000_0000_0001))
-    );
-    assert!(
-        nodes
-            .iter()
-            .any(|row| row[6] == Cell::Enum("enum") && row[11] == Cell::text("enum literal"))
-    );
-    for edge in edges {
-        assert!(nodes.iter().any(|row| row[0] == edge[0]));
-        assert!(nodes.iter().any(|row| row[0] == edge[2]));
-    }
-}
-
-#[test]
-fn comparison_changes_are_persisted_and_invalid_operand_types_are_rejected() {
-    let build = |op| {
-        rules(vec![rule(
-            "1",
-            filtered(RuleExpr::cmp(op, RuleExpr::col("id"), RuleExpr::col("id"))),
-        )])
-        .unwrap()
-    };
-    let equal = build(CmpOp::Eq);
-    let unequal = build(CmpOp::NotEq);
-    assert_ne!(equal.fingerprint(), unequal.fingerprint());
-    assert!(
-        rows(&unequal, "rule_expr_nodes")
-            .iter()
-            .any(|row| row[4] == Cell::Enum("not_eq"))
-    );
-    assert!(
-        rules(vec![rule(
-            "1",
-            filtered(RuleExpr::cmp(
-                CmpOp::Eq,
-                RuleExpr::col("id"),
-                RuleExpr::Lit(Cell::Enum("not an identity"))
-            ))
-        )])
-        .is_err()
-    );
-}
-
-#[test]
-fn rule_versions_have_exact_dependencies_and_ambiguous_names_do_not_resolve() {
+fn rule_versions_have_exact_read_and_write_dependencies_and_unambiguous_names() {
     let registry = rules(vec![
-        rule("1", filtered(RuleExpr::Lit(Cell::Bool(true)))),
-        rule("2", filtered(RuleExpr::Lit(Cell::Bool(false)))),
+        rule("1", "SELECT id FROM authored.base WHERE true"),
+        rule("2", "SELECT id FROM authored.base WHERE false"),
     ])
     .unwrap();
     assert!(registry.rule("fixture").is_none());
+    let source = registry.relation("authored.base").unwrap().id;
+    let output = registry.relation("inferred.output").unwrap().id;
     for version in ["fixture@1", "fixture@2"] {
         let id = registry.rule(version).unwrap().id;
-        assert!(
-            registry
-                .rule_dependencies()
-                .iter()
-                .any(|dependency| dependency.rule_id == id)
-        );
+        let dependencies = registry
+            .rule_dependencies()
+            .iter()
+            .filter(|dependency| dependency.rule_id == id)
+            .collect::<Vec<_>>();
+        assert_eq!(dependencies.len(), 2);
+        assert!(dependencies.iter().any(|dep| dep.relation_id == source
+            && dep.mode == DependencyMode::Read
+            && dep.input_port == Some("base")));
+        assert!(dependencies.iter().any(|dep| dep.relation_id == output
+            && dep.mode == DependencyMode::Write
+            && dep.input_port.is_none()));
     }
     assert_ne!(
-        registry.rule_dependencies()[0].rule_id,
-        registry.rule_dependencies()[1].rule_id
+        registry.rule("fixture@1").unwrap().id,
+        registry.rule("fixture@2").unwrap().id
     );
-}
-
-#[test]
-fn recursive_references_bind_lexically_and_do_not_become_external_dependencies() {
-    let recursive = |seed, step| RulePlan::Recursive {
-        name: "closure",
-        seed: Box::new(seed),
-        step: Box::new(step),
-        is_distinct: false,
-        depth_bound: DepthBound::Bounded(4),
-    };
-    let reference = || RulePlan::RecursiveRef { name: "closure" };
-    assert!(rules(vec![rule("1", reference())]).is_err());
-    assert!(
-        rules(vec![rule(
-            "1",
-            recursive(reference(), scan("authored.base", "base"))
-        )])
-        .is_err()
-    );
-    let registry = rules(vec![rule(
-        "1",
-        recursive(scan("authored.base", "base"), reference()),
-    )])
-    .unwrap();
-    assert_eq!(
-        registry
-            .rule_dependencies()
-            .iter()
-            .filter(|dependency| dependency.rule_id == registry.rule("fixture@1").unwrap().id)
-            .count(),
-        1
-    );
-    let nodes = rows(&registry, "rule_plan_nodes");
-    let binder = nodes
-        .iter()
-        .find(|row| row[2] == Cell::Enum("recursive"))
-        .unwrap();
-    let reference = nodes
-        .iter()
-        .find(|row| row[2] == Cell::Enum("recursive_ref"))
-        .unwrap();
-    assert_eq!(reference[12], binder[0]);
-    assert_eq!(binder[15], Cell::U64(4));
-}
-
-#[test]
-fn recursive_policy_retains_native_closure_and_resolves_nearest_binders() {
-    let recursive = |seed, step, is_distinct, depth_bound| RulePlan::Recursive {
-        name: "closure",
-        seed: Box::new(seed),
-        step: Box::new(step),
-        is_distinct,
-        depth_bound,
-    };
-    for (is_distinct, depth_bound, accepted) in [
-        (false, DepthBound::FixedPoint, true),
-        (true, DepthBound::FixedPoint, true),
-        (true, DepthBound::Bounded(4), true),
-        (false, DepthBound::Bounded(0), false),
-    ] {
-        assert_eq!(
-            rules(vec![rule(
-                "1",
-                recursive(
-                    scan("authored.base", "base"),
-                    RulePlan::RecursiveRef { name: "closure" },
-                    is_distinct,
-                    depth_bound
-                ),
-            )])
-            .is_ok(),
-            accepted
-        );
-    }
-    let registry = rules(vec![rule(
-        "1",
-        recursive(
-            scan("authored.base", "base"),
-            recursive(
-                scan("authored.base", "base"),
-                RulePlan::RecursiveRef { name: "closure" },
-                false,
-                DepthBound::Bounded(2),
-            ),
-            false,
-            DepthBound::SeedRows,
-        ),
-    )])
-    .unwrap();
-    let nodes = rows(&registry, "rule_plan_nodes");
-    let inner = nodes.iter().find(|row| row[15] == Cell::U64(2)).unwrap();
-    let reference = nodes
-        .iter()
-        .find(|row| row[2] == Cell::Enum("recursive_ref"))
-        .unwrap();
-    assert_eq!(reference[12], inner[0]);
-    assert!(nodes.iter().any(|row| row[14] == Cell::Enum("seed_rows")));
-    assert_eq!(
-        registry
-            .rule_dependencies()
-            .iter()
-            .filter(|dependency| dependency.rule_id == registry.rule("fixture@1").unwrap().id)
-            .count(),
-        1
-    );
-}
-
-#[test]
-fn projected_float_keys_are_rejected_in_the_operator_that_uses_them() {
-    let plan = RulePlan::Distinct(Box::new(RulePlan::Project {
-        input: Box::new(scan("authored.base", "base")),
-        columns: (vec![("id", RuleExpr::Lit(Cell::F64(1.0)))])
-            .into_iter()
-            .map(|(name, expression)| (name.into(), expression))
-            .collect(),
-    }));
-    assert!(matches!(
-        rules(vec![rule("1", plan)]),
-        Err(SchemaError::RuleFloatKey { .. })
-    ));
-}
-
-#[test]
-fn join_keys_resolve_against_their_own_sides_and_preserve_null_semantics() {
-    let build = |null_equality| {
-        let mut builder = RegistryBuilder::new();
-        builder.declare_relation(relation("base", 1, vec![]));
-        builder.declare_relation(
-            RelationDecl::new(
-                Namespace::Authored,
-                "right",
-                1,
-                Authority::Authored,
-                SnapshotClass::Model,
-                "right",
-            )
-            .pk(&["key"])
-            .columns(vec![
-                FieldContract::key("key", FieldContract::id(), "key"),
-                FieldContract::new(
-                    "id",
-                    FieldContract::native(arrow_schema::DataType::Float64),
-                    false,
-                    ColumnRole::Measure,
-                    "unrelated same-name float",
-                ),
-            ]),
-        );
-        builder.declare_rule(rule(
-            "1",
-            RulePlan::Project {
-                input: Box::new(RulePlan::EquiJoin {
-                    left: Box::new(scan("authored.base", "left")),
-                    right: Box::new(scan("authored.right", "right")),
-                    keys: (vec![("id", "key")])
-                        .into_iter()
-                        .map(|(left, right)| (left.into(), right.into()))
-                        .collect(),
-                    null_equality,
-                }),
-                columns: (vec![("id", RuleExpr::col("left.id"))])
-                    .into_iter()
-                    .map(|(name, expression)| (name.into(), expression))
-                    .collect(),
-            },
-        ));
-        builder.build().unwrap()
-    };
-    let sql = build(NullEquality::NullEqualsNothing);
-    let distinct = build(NullEquality::NullEqualsNull);
-    let nodes = rows(&sql, "rule_plan_nodes");
-    assert!(
-        nodes
-            .iter()
-            .any(|row| row[10] == Cell::Enum("null_equals_nothing"))
-    );
-    assert_ne!(sql.fingerprint(), distinct.fingerprint());
 }
 
 #[test]
@@ -780,63 +507,45 @@ fn migration_defaults_are_lossless_and_type_checked() {
 }
 
 #[test]
-fn stage_ports_must_match_relations_and_have_an_acyclic_producer_graph() {
-    let build = |mismatch, cycle| {
+fn algorithm_signatures_check_local_arguments_without_a_stored_producer_graph() {
+    let build = |input: &str, duplicate: bool| {
         let mut builder = RegistryBuilder::new();
-        builder
-            .declare_relation(relation("base", 1, vec![]))
-            .declare_relation(relation("other", 1, vec![]));
-        builder.declare_pass(
-            PassDecl::new("P0", "1", Determinism::Deterministic)
-                .inputs(if cycle {
-                    vec![InputPort {
-                        port: "back",
-                        relation: "authored.base".to_owned(),
-                        source: PortSource::Derived {
-                            pass: "P1",
-                            port: "out",
-                        },
-                        required: true,
-                    }]
+        builder.declare_relation(relation("base", 1, vec![]));
+        let argument = ArgumentSpec {
+            port: "input".into(),
+            relation: input.into(),
+            required: true,
+            consumption: pse_schema::model::algorithm::InputConsumption::Whole,
+        };
+        builder.declare_algorithm(
+            AlgorithmDecl::new("domain", "1", Determinism::Deterministic)
+                .inputs(if duplicate {
+                    vec![argument.clone(), argument]
                 } else {
-                    vec![]
+                    vec![argument]
                 })
-                .outputs(vec![OutputPort {
-                    port: "out",
-                    relation: "authored.base".to_owned(),
-                }]),
-        );
-        builder.declare_pass(
-            PassDecl::new("P1", "1", Determinism::Deterministic)
-                .inputs(vec![InputPort {
-                    port: "in",
-                    relation: if mismatch {
-                        "authored.other"
-                    } else {
-                        "authored.base"
-                    }
-                    .to_owned(),
-                    source: PortSource::Derived {
-                        pass: "P0",
-                        port: "out",
-                    },
-                    required: true,
-                }])
-                .outputs(vec![OutputPort {
-                    port: "out",
-                    relation: "authored.base".to_owned(),
+                .outputs(vec![ResultSpec {
+                    port: "result".into(),
+                    relation: "authored.base".into(),
                 }]),
         );
         builder.build()
     };
-    assert!(build(false, false).is_ok());
+    let valid = build("authored.base", false).unwrap();
+    assert_eq!(valid.algorithms().len(), 1);
+    assert_eq!(
+        valid.algorithms()[0].effects,
+        [pse_schema::model::provider::OperationEffect::Read]
+            .into_iter()
+            .collect()
+    );
     assert!(matches!(
-        build(true, false),
-        Err(SchemaError::StageGraph { .. })
+        build("authored.missing", false),
+        Err(SchemaError::UnknownReference { .. })
     ));
     assert!(matches!(
-        build(false, true),
-        Err(SchemaError::StageGraph { .. })
+        build("authored.base", true),
+        Err(SchemaError::DuplicateDeclaration { .. })
     ));
 }
 
@@ -1011,22 +720,22 @@ fn pass_diagnostics_resolve_actual_declared_failure_members_before_materializati
     ] {
         let mut builder = RegistryBuilder::new();
         pse_schema::catalog::declare(&mut builder);
-        builder.declare_pass(
-            PassDecl::new("FixtureBadDiagnostic", "1", Determinism::Deterministic)
+        builder.declare_algorithm(
+            AlgorithmDecl::new("FixtureBadDiagnostic", "1", Determinism::Deterministic)
                 .diagnostics(diagnostics),
         );
         assert!(builder.build().is_err());
     }
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare(&mut builder);
-    builder.declare_pass(
-        PassDecl::new("FixtureDiagnostic", "1", Determinism::Deterministic)
+    builder.declare_algorithm(
+        AlgorithmDecl::new("FixtureDiagnostic", "1", Determinism::Deterministic)
             .diagnostics(vec!["compile.math", "runtime.resource_limit"]),
     );
     assert!(builder.build().is_ok());
     let mut builder = RegistryBuilder::new();
-    builder.declare_pass(
-        PassDecl::new("FixtureMissingVocabulary", "1", Determinism::Deterministic)
+    builder.declare_algorithm(
+        AlgorithmDecl::new("FixtureMissingVocabulary", "1", Determinism::Deterministic)
             .diagnostics(vec!["compile.math"]),
     );
     assert!(builder.build().is_err());

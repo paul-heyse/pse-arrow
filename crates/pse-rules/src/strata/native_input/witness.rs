@@ -3,7 +3,7 @@
 
 //! Witness membership and support-map projection are native typed joins.
 
-use super::{NativeWitness, require_empty};
+use super::{NativeWitness, materialize_with_constraint, require_empty};
 use crate::{
     RuleError,
     errmap::{engine, internal},
@@ -205,22 +205,17 @@ pub(super) async fn mapping(
         } else {
             direct
         };
-        let mapped =
-            pse_catalog::session::output::declare_relation_output(mapped, registry, target)
-                .map_err(engine)?;
-        let collisions = relational::identity_collisions(mapped.clone(), "mapping_id")?;
-        require_empty(
-            collisions,
-            &session,
-            cancel,
-            "native support identity collision",
-        )
-        .await?;
-        let complete = session
-            .prepare_rule_plan(mapped, cancel)?
-            .execute(cancel)
-            .await?;
-        results.push(complete.checked_relation(registry, target, cancel)?);
+        results.push(
+            materialize_with_constraint(
+                mapped,
+                target,
+                &session,
+                cancel,
+                |values| relational::identity_collisions(values, "mapping_id"),
+                "native support identity collision",
+            )
+            .await?,
+        );
     }
     if results.is_empty() {
         return Ok(FieldCheckedBatch::admit(

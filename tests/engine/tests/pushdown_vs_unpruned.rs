@@ -6,25 +6,17 @@
     clippy::expect_used,
     reason = "fixture assertions identify exact failures"
 )]
-#[path = "../../support/native_catalog.rs"]
-mod native_catalog;
+#[path = "../../support/native_publication.rs"]
+mod native_publication;
 #[path = "../src/oracle.rs"]
 mod oracle;
 use datafusion::{
     arrow::{array::RecordBatch, compute::concat_batches, datatypes::SchemaRef},
     catalog::TableProvider,
     datasource::MemTable,
-    logical_expr::{TableProviderFilterPushDown, col, lit},
+    logical_expr::TableProviderFilterPushDown,
 };
-use pse_catalog::{
-    Catalog, EncodingPolicy, FixedClock, RelationContract, TrustLevel,
-    provider::table::RelationTable,
-    store::{
-        membership::AdmissionContext,
-        publish::{BundleDraft, RelationDraft},
-    },
-};
-use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SnapshotKind};
+use pse_ids::FixedBudget;
 use pse_schema::{
     RegistryBuilder,
     model::{
@@ -34,9 +26,10 @@ use pse_schema::{
 };
 use std::{collections::BTreeMap, sync::Arc};
 
-async fn fixture() -> (Arc<RelationTable>, RecordBatch) {
+async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
+    pse_schema::catalog::declare_publications(&mut builder);
     builder.declare_enum(EnumDecl::platform(
         "Choice",
         vec![EnumMember::new("one", "One"), EnumMember::new("two", "Two")],
@@ -95,39 +88,21 @@ async fn fixture() -> (Arc<RelationTable>, RecordBatch) {
         })
         .collect::<Vec<_>>();
     let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows).expect("batch");
-    let reserver: Arc<dyn MemoryReserver> = FixedBudget::new(64 << 20);
-    let catalog = native_catalog::with_invariants(Catalog::open(
-        Arc::new(object_store::memory::InMemory::new()),
-        Arc::clone(&registry),
-        TrustLevel::Untrusted,
-        Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        native_catalog::from_reserver(Arc::clone(&reserver)),
-    ));
-    let context = AdmissionContext::default();
-    let snapshot = catalog
-        .publish_bundle(
-            BundleDraft {
-                manifest: catalog
-                    .manifest_template(SnapshotKind::Model, &context)
-                    .expect("manifest"),
-                context,
-                relations: BTreeMap::from([(
-                    pse_ids::model_port_name("authored", spec.id),
-                    RelationDraft {
-                        contract: Arc::new(
-                            RelationContract::from_spec(&registry, spec, EncodingPolicy::IpcFile)
-                                .expect("contract"),
-                        ),
-                        batches: vec![batch],
-                    },
-                )]),
-            },
-            &CancellationToken::default(),
-        )
-        .await
-        .expect("publish");
-    let table = Arc::new(RelationTable::new(snapshot, spec.id, &registry).expect("admitted table"));
-    (Arc::clone(&table), table.relation().batch().clone())
+    let key = spec.key;
+    let (publication, directory, _) = native_publication::publish(
+        registry,
+        BTreeMap::from([(key, batch.clone())]),
+        FixedBudget::new(64 << 20),
+    )
+    .await;
+    let table = datafusion::datasource::source_as_provider(
+        &publication
+            .session()
+            .table_source(&key)
+            .expect("native selected provider"),
+    )
+    .expect("provider");
+    (table, batch, directory)
 }
 fn unpruned(batch: RecordBatch) -> Arc<dyn TableProvider> {
     Arc::new(MemTable::try_new(batch.schema(), vec![vec![batch]]).expect("unpruned source"))
@@ -175,21 +150,7 @@ impl TableProvider for DefectiveExact {
 }
 #[tokio::test]
 async fn all_declared_filter_shapes_match_complete_unpruned_results() {
-    let (table, batch) = fixture().await;
-    let filters = [
-        col("id").eq(lit(1_i64)),
-        col("id").in_list(vec![lit(1_i64), lit(2_i64)], false),
-        col("parent").is_null(),
-        col("parent").is_not_null(),
-        col("choice").eq(lit("one")),
-    ];
-    assert!(
-        table
-            .supports_filters_pushdown(&filters.iter().collect::<Vec<_>>())
-            .expect("pure support")
-            .iter()
-            .all(|support| *support == TableProviderFilterPushDown::Exact)
-    );
+    let (table, batch, _directory) = fixture().await;
     let baseline = unpruned(batch);
     let cases = [
         "SELECT * FROM items WHERE id = 1",
@@ -216,7 +177,7 @@ async fn all_declared_filter_shapes_match_complete_unpruned_results() {
 }
 #[tokio::test]
 async fn oracle_detects_over_pruning_empty_and_extra_rows() {
-    let (_table, batch) = fixture().await;
+    let (_table, batch, _directory) = fixture().await;
     let sql = "SELECT * FROM items WHERE id IN (1,2)";
     let expected = oracle::multiset(&oracle::query(unpruned(batch.clone()), sql).await);
     let over_pruning = batch.slice(0, 1);

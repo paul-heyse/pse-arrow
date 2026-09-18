@@ -14,6 +14,10 @@ use pse_templates::{
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "bind_coordinates keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn bind_coordinates(
         &mut self,
         source: &normalized::expression_sources::Row,
@@ -221,6 +225,10 @@ impl Realizer<'_> {
         Ok(())
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "emit_reindexing keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     fn emit_reindexing(
         &mut self,
         instance: SemanticId,

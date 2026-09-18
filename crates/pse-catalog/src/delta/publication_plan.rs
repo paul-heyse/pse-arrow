@@ -10,13 +10,19 @@ use datafusion::{
     common::{DataFusionError, ResolvedTableReference, Result, ScalarValue},
     functions::core::expr_fn::named_struct,
     functions_aggregate::expr_fn::array_agg,
-    logical_expr::{Expr, ExprFunctionExt, LogicalPlan, LogicalPlanBuilder, col, lit},
+    logical_expr::{
+        Aggregate, Expr, ExprFunctionExt, LogicalPlan, LogicalPlanBuilder, Projection, Union, col,
+        lit,
+    },
 };
 use deltalake::{DeltaTable, kernel::transaction::CommitProperties, protocol::SaveMode};
 use pse_ids::SemanticId;
 use pse_relations::generated::runtime::publications;
 use pse_schema::Registry;
 use std::sync::Arc;
+
+#[cfg(test)]
+mod tests;
 
 /// A real relation input and its bound native Delta destination. No predecessor
 /// object or historical member version is required to construct this command.
@@ -32,83 +38,112 @@ pub struct MemberWrite {
     pub input: LogicalPlan,
 }
 
+/// A member selected by a new publication. Both routes are validated together
+/// against the complete candidate vector before the control commit.
+#[derive(Debug)]
+pub enum Member {
+    /// Execute a declared native write and select its actual committed version.
+    Write(MemberWrite),
+    /// Select an unchanged exact version and optional revision slice.
+    Retained(publications::RuntimePublicationsFieldMembersItem),
+}
+
 /// Compose all member writes, their actual committed versions and the conditional
 /// control commit into one native plan. The caller executes only this plan.
 /// An error can leave unpublished member versions, never a partial publication.
-/// `header.members` must be empty; native write outcomes supply the complete vector.
+/// `header.members` must be empty; writes and exact retained selectors supply the vector.
 /// # Errors
 /// Invalid declarations, duplicate names, empty inputs, incompatible fields or a
 /// header that already contains members.
 pub fn plan(
     location: url::Url,
     header: publications::Row,
-    members: Vec<MemberWrite>,
+    members: Vec<Member>,
     registry: Arc<Registry>,
+) -> Result<LogicalPlan> {
+    compose(location, header, members, registry, None)
+}
+
+pub(crate) fn plan_bound(
+    location: url::Url,
+    header: publications::Row,
+    members: Vec<Member>,
+    registry: Arc<Registry>,
+    operation_id: SemanticId,
+    dependencies: Vec<pse_relations::generated::runtime::native_dependencies::Row>,
+) -> Result<LogicalPlan> {
+    compose(
+        location,
+        header,
+        members,
+        registry,
+        Some(&(operation_id, dependencies)),
+    )
+}
+
+fn compose(
+    location: url::Url,
+    header: publications::Row,
+    members: Vec<Member>,
+    registry: Arc<Registry>,
+    identity: Option<&(
+        SemanticId,
+        Vec<pse_relations::generated::runtime::native_dependencies::Row>,
+    )>,
 ) -> Result<LogicalPlan> {
     if !header.members.is_empty() || members.is_empty() {
         return Err(invalid(
-            "publication composition needs an empty member header and actual writes",
+            "publication composition needs an empty member header and explicit members",
         ));
     }
     let mut names = std::collections::BTreeSet::new();
-    let mut union = None;
+    let mut candidate = header.clone();
+    let mut inputs = Vec::new();
     for member in members {
-        if !names.insert(member.reference.clone()) {
+        let (outcome, descriptor) = match member {
+            Member::Write(member) => write_member(member, &header, &registry, &location, identity)?,
+            Member::Retained(descriptor) => {
+                let version = LogicalPlanBuilder::empty(true)
+                    .project([lit(descriptor.delta_version).alias("version")])?
+                    .build()?;
+                (version, descriptor)
+            }
+        };
+        let reference = (
+            descriptor.catalog_name.clone(),
+            descriptor.schema_name.clone(),
+            descriptor.table_name.clone(),
+        );
+        if !names.insert(reference) {
             return Err(invalid("duplicate publication member binding"));
         }
-        let spec = registry
-            .relation_by_id(member.relation_id)
-            .ok_or_else(|| invalid("unknown publication member contract"))?;
-        let descriptor = publications::RuntimePublicationsFieldMembersItem {
-            catalog_name: member.reference.catalog.to_string(),
-            schema_name: member.reference.schema.to_string(),
-            table_name: member.reference.table.to_string(),
-            relation_id: spec.id,
-            relation_version: i64::from(spec.key.version),
-            contract_fingerprint: spec.fingerprint,
-            table_uri: member.table.table_url().to_string(),
-            delta_version: 0,
-            selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
-        };
-        let mode = if member.table.version().is_none() {
-            SaveMode::ErrorIfExists
-        } else {
-            SaveMode::Overwrite
-        };
-        let commit =
-            CommitProperties::default().with_metadata(std::collections::HashMap::from([(
-                "pse.attempt".to_owned(),
-                serde_json::Value::String(header.attempt_id.to_string()),
-            )]));
-        let write = DeltaWrite::declared(
-            member.table,
-            member.input,
-            mode,
-            commit,
-            DeclaredCheck::new(&registry, spec.id)?,
-        )?;
-        let input = describe(write, &header, descriptor)?;
-        union = Some(match union {
-            None => input,
-            Some(previous) => LogicalPlanBuilder::from(previous).union(input)?.build()?,
-        });
+        candidate.members.push(descriptor.clone());
+        inputs.push(Arc::new(describe(outcome, &header, descriptor)?));
     }
-    let union = union.ok_or_else(|| invalid("no publication members"))?;
-    let members = LogicalPlanBuilder::from(union)
-        .aggregate(
-            Vec::<Expr>::new(),
-            vec![
-                array_agg(col("member"))
-                    .order_by(vec![
-                        col("catalog_name").sort(true, false),
-                        col("schema_name").sort(true, false),
-                        col("table_name").sort(true, false),
-                    ])
-                    .build()?
-                    .alias("members"),
-            ],
-        )?
-        .build()?;
+    super::admission::admit_profile(&candidate, &registry)?;
+    let union = if inputs.len() == 1 {
+        inputs
+            .pop()
+            .ok_or_else(|| invalid("no publication members"))?
+    } else {
+        Arc::new(LogicalPlan::Union(Union::try_new_with_loose_types(inputs)?))
+    };
+    // All expressions below name fields of our immediately preceding native
+    // constructors. They require no SQL name resolution through the write DAG.
+    let members = LogicalPlan::Aggregate(Aggregate::try_new(
+        union,
+        Vec::<Expr>::new(),
+        vec![
+            array_agg(col("member"))
+                .order_by(vec![
+                    col("catalog_name").sort(true, false),
+                    col("schema_name").sort(true, false),
+                    col("table_name").sort(true, false),
+                ])
+                .build()?
+                .alias("members"),
+        ],
+    )?);
     let literal = control_batch(header)?;
     let layout = DurableLayout::new(literal.schema())?;
     let expressions = literal
@@ -133,13 +168,73 @@ pub fn plan(
                 .alias(field.name()))
         })
         .collect::<Result<Vec<_>>>()?;
-    let control = layout.decode(
-        LogicalPlanBuilder::from(members)
-            .project(expressions)?
-            .build()?,
-    )?;
+    let control = layout.decode(LogicalPlan::Projection(Projection::try_new(
+        expressions,
+        Arc::new(members),
+    )?))?;
     DeltaPublish::plan(location, control, registry)
 }
+fn write_member(
+    member: MemberWrite,
+    header: &publications::Row,
+    registry: &Registry,
+    location: &url::Url,
+    identity: Option<&(
+        SemanticId,
+        Vec<pse_relations::generated::runtime::native_dependencies::Row>,
+    )>,
+) -> Result<(
+    LogicalPlan,
+    publications::RuntimePublicationsFieldMembersItem,
+)> {
+    let spec = registry
+        .relation_by_id(member.relation_id)
+        .ok_or_else(|| invalid("unknown publication member contract"))?;
+    let descriptor = publications::RuntimePublicationsFieldMembersItem {
+        catalog_name: member.reference.catalog.to_string(),
+        schema_name: member.reference.schema.to_string(),
+        table_name: member.reference.table.to_string(),
+        relation_id: spec.id,
+        relation_version: i64::from(spec.key.version),
+        contract_fingerprint: spec.fingerprint,
+        table_uri: member.table.table_url().to_string(),
+        delta_version: 0,
+        selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+    };
+    let mode = if member.table.version().is_none() {
+        SaveMode::ErrorIfExists
+    } else {
+        SaveMode::Overwrite
+    };
+    let commit = CommitProperties::default().with_metadata(std::collections::HashMap::from([(
+        "pse.attempt".to_owned(),
+        serde_json::Value::String(header.attempt_id.to_string()),
+    )]));
+    let attempt = identity.map(
+        |(operation_id, dependencies)| super::attempt::MemberAttempt {
+            operation_id: *operation_id,
+            publication_uri: location.clone(),
+            workspace_id: header.workspace_id,
+            publication_id: header.publication_id,
+            parent_publication_id: header.parent_publication_id,
+            attempt_id: header.attempt_id,
+            member: descriptor.clone(),
+            inputs: header.inputs.clone(),
+            dependencies: dependencies.clone(),
+            base_version: member.table.version(),
+        },
+    );
+    let write = DeltaWrite::declared_attempt(
+        member.table,
+        member.input,
+        mode,
+        commit,
+        DeclaredCheck::new(registry, spec.id)?,
+        attempt,
+    )?;
+    Ok((write, descriptor))
+}
+
 fn describe(
     write: LogicalPlan,
     header: &publications::Row,
@@ -166,14 +261,15 @@ fn describe(
             lit(ScalarValue::try_from_array(values.column(index), 0)?)
         });
     }
-    LogicalPlanBuilder::from(write)
-        .project(vec![
+    Ok(LogicalPlan::Projection(Projection::try_new(
+        vec![
             named_struct(arguments).alias("member"),
             lit(descriptor.catalog_name).alias("catalog_name"),
             lit(descriptor.schema_name).alias("schema_name"),
             lit(descriptor.table_name).alias("table_name"),
-        ])?
-        .build()
+        ],
+        Arc::new(write),
+    )?))
 }
 fn control_batch(row: publications::Row) -> Result<datafusion::arrow::array::RecordBatch> {
     let mut builder = publications::Builder::new().map_err(external)?;

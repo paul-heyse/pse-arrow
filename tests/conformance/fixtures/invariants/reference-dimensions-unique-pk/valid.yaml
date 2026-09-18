@@ -4,7 +4,7 @@
     "reference.dimensions": [
       {
         "name": "[\"text\",\"value-1\"]",
-        "ordinal": "[\"u64\",1]"
+        "ordinal": "[\"i64\",1]"
       }
     ]
   },

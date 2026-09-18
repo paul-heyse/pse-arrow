@@ -4,12 +4,9 @@
     "provenance.method_resolution_assertions": [
       {
         "assertion_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "realization": "[\"enum\",\"equation_template\"]",
+        "outcome": "[\"struct\",[[\"text\",\"ambiguous\"],[\"null\",null]]]",
         "requirement_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "rule_id": "[\"id\",\"01010101010101010101010101010101\"]",
-        "status": "[\"enum\",\"resolved\"]",
-        "template_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "truth": "[\"enum\",\"true\"]"
       }
     ]

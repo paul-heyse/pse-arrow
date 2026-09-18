@@ -279,12 +279,19 @@
       ],
       "quantity_type_id": "08f85f7bd5164fc79f815eaf7e78e748",
       "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
-      "subject_axis": 0,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "properties_out",
-      "default_feature_name": "default_material_balance_type"
+      "default_balance": {
+        "state_child": "properties_out",
+        "feature_name": "default_material_balance_type"
+      },
+      "coordinates": {
+        "member": {
+          "kind": "axis",
+          "axis": {
+            "position": 0
+          }
+        },
+        "phase": null
+      }
     },
     {
       "law_instance_decl_id": "8073babb055d45bf84b24f71d3eb70ee",
@@ -293,12 +300,19 @@
       ],
       "quantity_type_id": "08f85f7bd5164fc79f815eaf7e78e748",
       "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
-      "subject_axis": 0,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "mixed_state",
-      "default_feature_name": "default_material_balance_type"
+      "default_balance": {
+        "state_child": "mixed_state",
+        "feature_name": "default_material_balance_type"
+      },
+      "coordinates": {
+        "member": {
+          "kind": "axis",
+          "axis": {
+            "position": 0
+          }
+        },
+        "phase": null
+      }
     },
     {
       "law_instance_decl_id": "6eca410d9f854fc89bb7e73ad6923866",
@@ -308,12 +322,24 @@
       ],
       "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
       "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
-      "subject_axis": 1,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "properties_out",
-      "default_feature_name": "default_material_balance_type"
+      "default_balance": {
+        "state_child": "properties_out",
+        "feature_name": "default_material_balance_type"
+      },
+      "coordinates": {
+        "member": {
+          "kind": "axis",
+          "axis": {
+            "position": 1
+          }
+        },
+        "phase": {
+          "kind": "axis",
+          "axis": {
+            "position": 0
+          }
+        }
+      }
     },
     {
       "law_instance_decl_id": "a2773546bb964c8f8ae90b14f6303867",
@@ -323,12 +349,24 @@
       ],
       "quantity_type_id": "d5da9b09f9de4279b55641b93ddb196d",
       "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
-      "subject_axis": 1,
-      "phase_axis": 0,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "mixed_state",
-      "default_feature_name": "default_material_balance_type"
+      "default_balance": {
+        "state_child": "mixed_state",
+        "feature_name": "default_material_balance_type"
+      },
+      "coordinates": {
+        "member": {
+          "kind": "axis",
+          "axis": {
+            "position": 1
+          }
+        },
+        "phase": {
+          "kind": "axis",
+          "axis": {
+            "position": 0
+          }
+        }
+      }
     },
     {
       "law_instance_decl_id": "6ab8d602e47248b4ac4a8e1c93a7bf91",
@@ -337,12 +375,19 @@
       ],
       "quantity_type_id": "c2a3ac7b619c45239bae6808fa7b9fa2",
       "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
-      "subject_axis": 0,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "properties_out",
-      "default_feature_name": "default_material_balance_type"
+      "default_balance": {
+        "state_child": "properties_out",
+        "feature_name": "default_material_balance_type"
+      },
+      "coordinates": {
+        "member": {
+          "kind": "axis",
+          "axis": {
+            "position": 0
+          }
+        },
+        "phase": null
+      }
     },
     {
       "law_instance_decl_id": "9b6a3df8534046d98c0aa69f429a0392",
@@ -351,48 +396,61 @@
       ],
       "quantity_type_id": "c2a3ac7b619c45239bae6808fa7b9fa2",
       "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
-      "subject_axis": 0,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "mixed_state",
-      "default_feature_name": "default_material_balance_type"
+      "default_balance": {
+        "state_child": "mixed_state",
+        "feature_name": "default_material_balance_type"
+      },
+      "coordinates": {
+        "member": {
+          "kind": "axis",
+          "axis": {
+            "position": 0
+          }
+        },
+        "phase": null
+      }
     },
     {
       "law_instance_decl_id": "67594f3521004705ae380a33fd853dbf",
       "indexed_by": [],
       "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
       "balance_enum_id": "290c5aece709971026ad20276f691ae0",
-      "subject_axis": null,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "properties_out",
-      "default_feature_name": "default_energy_balance_type"
+      "default_balance": {
+        "state_child": "properties_out",
+        "feature_name": "default_energy_balance_type"
+      },
+      "coordinates": {
+        "member": null,
+        "phase": null
+      }
     },
     {
       "law_instance_decl_id": "a74230f12455469ebc397354898aeca3",
       "indexed_by": [],
       "quantity_type_id": "e1f2106da9eb4fe0aa2749fa5469fa1a",
       "balance_enum_id": "290c5aece709971026ad20276f691ae0",
-      "subject_axis": null,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "mixed_state",
-      "default_feature_name": "default_energy_balance_type"
+      "default_balance": {
+        "state_child": "mixed_state",
+        "feature_name": "default_energy_balance_type"
+      },
+      "coordinates": {
+        "member": null,
+        "phase": null
+      }
     },
     {
       "law_instance_decl_id": "972c9dd9a71d40239c7d95965dea07b7",
       "indexed_by": [],
       "quantity_type_id": "6df479e3be3bda77c5938727311f1063",
       "balance_enum_id": "ec25568117107d9c0445af04f18376bf",
-      "subject_axis": null,
-      "phase_axis": null,
-      "subject_id": null,
-      "phase_id": null,
-      "default_state_child": "mixed_state",
-      "default_feature_name": "default_material_balance_type"
+      "default_balance": {
+        "state_child": "mixed_state",
+        "feature_name": "default_material_balance_type"
+      },
+      "coordinates": {
+        "member": null,
+        "phase": null
+      }
     }
   ],
   "element_projection_contracts": [

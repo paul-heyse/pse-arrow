@@ -2,20 +2,12 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Declared 6.13 execution and evidence contracts.
-use super::declarations::{column, relation, relation_version, structure};
+use super::declarations::{column, relation, structure};
 use crate::RegistryBuilder;
 use crate::model::{FieldContract, FieldContract as T, Namespace as N, SnapshotClass as S};
 /// Declare the structural contracts; no later pass is implemented by these declarations.
 pub fn declare(builder: &mut RegistryBuilder) {
-    super::declarations::enumeration(
-        builder,
-        "PassStatus",
-        crate::model::PassStatus::ALL
-            .iter()
-            .map(|value| value.as_str()),
-    );
     declare_provenance(builder);
-    super::terminal_attempts::declare(builder);
     declare_diagnostics(builder);
     declare_runs(builder);
     declare_solutions(builder);
@@ -217,7 +209,6 @@ fn declare_iterations(builder: &mut RegistryBuilder) {
 pub fn diagnostic_columns(execution_finding: bool) -> Vec<FieldContract> {
     let mut fields = vec![
         column("finding_id", T::id()),
-        column("subject_snapshot", T::hash()).optional(),
         column("run_id", T::id()).optional(),
         column("check_id", T::id()),
         column("severity", T::enumeration("FindingSeverity")),
@@ -229,12 +220,8 @@ pub fn diagnostic_columns(execution_finding: bool) -> Vec<FieldContract> {
             T::list(T::native(arrow_schema::DataType::Utf8)),
         ),
     ];
-    fields[3] = fields[3].clone().with_nullable(execution_finding);
+    fields[2] = fields[2].clone().with_nullable(execution_finding);
     fields
-}
-
-fn diagnostic_type() -> T {
-    T::structure(diagnostic_columns(true))
 }
 
 fn diagnostic_evidence() -> T {
@@ -407,7 +394,7 @@ fn declare_provenance(builder: &mut RegistryBuilder) {
             column("relation_id", T::id()),
             column("row_key", T::row_key()),
             column("rule_id", T::id()).optional(),
-            column("pass_id", T::id()).optional(),
+            column("algorithm_id", T::id()).optional(),
             column(
                 "supporting",
                 T::list(structure(vec![
@@ -415,29 +402,9 @@ fn declare_provenance(builder: &mut RegistryBuilder) {
                     ("row_key", T::row_key()),
                 ])),
             ),
-            column("snapshot_id", T::hash()).optional(),
-            column("fingerprint", T::hash()).optional(),
         ],
         "blueprint §6.13 derivation evidence.",
     );
-    relation(
-        builder,
-        N::Provenance,
-        "refs",
-        S::Sidecar,
-        &["name"],
-        vec![
-            column("name", T::native(arrow_schema::DataType::Utf8)),
-            column("snapshot_id", T::hash()),
-            column("manifest_checksum", T::hash()),
-            column(
-                "updated_at",
-                T::native(crate::model::extension::timestamp_storage()),
-            ),
-        ],
-        "blueprint §6.13 mutable refs.",
-    );
-    declare_pass_records(builder);
     builder.declare_relation(
         crate::model::RelationDecl::new(
             N::Provenance,
@@ -455,58 +422,5 @@ fn declare_provenance(builder: &mut RegistryBuilder) {
             column("status", T::enumeration("AssertionStatus")),
             column("reason", T::native(arrow_schema::DataType::Utf8)),
         ]),
-    );
-}
-fn declare_pass_records(builder: &mut RegistryBuilder) {
-    let derivations = builder
-        .declared_relations()
-        .iter()
-        .find(|relation| relation.key.qualified_name() == "provenance.derivations")
-        .map_or_else(
-            || T::structure(Vec::new()),
-            |relation| T::structure(relation.columns.clone()),
-        );
-    relation_version(
-        builder,
-        N::Provenance,
-        "pass_records",
-        2,
-        S::Sidecar,
-        &["pass_run_id"],
-        vec![
-            column("pass_run_id", T::id()),
-            column("pass_id", T::id()),
-            column("version", T::native(arrow_schema::DataType::Utf8)),
-            column("snapshot_in", T::hash()).optional(),
-            column("snapshot_out", T::hash()).optional(),
-            column("engine_profile_hash", T::hash()).optional(),
-            column(
-                "plan_evidence",
-                T::list(structure(vec![
-                    ("encoding_checksum", T::hash()),
-                    ("encoding", T::native(arrow_schema::DataType::Utf8)),
-                    ("codec_version", T::native(arrow_schema::DataType::Utf8)),
-                ])),
-            ),
-            column(
-                "plan_explain",
-                T::list(T::native(arrow_schema::DataType::Utf8)),
-            ),
-            column(
-                "rules_fired",
-                T::list(structure(vec![
-                    ("plan_ordinal", T::nonnegative(i64::from(u16::MAX))),
-                    ("rule_name", T::native(arrow_schema::DataType::Utf8)),
-                    ("ordinal", T::nonnegative(i64::from(u16::MAX))),
-                ])),
-            ),
-            column("duration_ms", T::native(arrow_schema::DataType::Float64)),
-            column("finding_count", T::nonnegative(i64::MAX)),
-            column("status", T::enumeration("PassStatus")),
-            column("findings", T::list(diagnostic_type())),
-            column("failure_class", T::enumeration("FailureClass")).optional(),
-            column("derivations", T::list(derivations)),
-        ],
-        "blueprint §6.13 noncanonical execution evidence.",
     );
 }

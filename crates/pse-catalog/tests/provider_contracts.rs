@@ -84,13 +84,26 @@ async fn native_created_tables_preserve_defaults_and_get_private_mutation_genera
     use pse_schema::model::provider::OperationPurpose;
     let cancel = CancellationToken::new();
     let original = session().with_purpose(OperationPurpose::Mutate);
-    let created = original
+    let prepared = original
         .prepare_sql(
             "CREATE TABLE authored.defaults (id BIGINT PRIMARY KEY, value BIGINT DEFAULT 17)",
             &cancel,
         )
         .await
-        .unwrap()
+        .unwrap();
+    for (label, plan) in [
+        ("original", prepared.original_plan()),
+        ("optimized", prepared.optimized_plan()),
+    ] {
+        let datafusion::logical_expr::LogicalPlan::Ddl(
+            datafusion::logical_expr::DdlStatement::CreateMemoryTable(command),
+        ) = plan
+        else {
+            panic!("native table command")
+        };
+        assert_eq!(command.constraints.len(), 1, "{label} declaration");
+    }
+    let created = prepared
         .execute(&cancel)
         .await
         .unwrap()
@@ -111,6 +124,23 @@ async fn native_created_tables_preserve_defaults_and_get_private_mutation_genera
         .sql("SELECT value FROM authored.defaults", &cancel)
         .await
         .unwrap();
+    for (label, session) in [("created", &created), ("inserted", &inserted)] {
+        use datafusion::common::tree_node::TreeNodeRecursion;
+        let prepared = session
+            .prepare_sql("SELECT * FROM authored.defaults", &cancel)
+            .await
+            .unwrap();
+        prepared
+            .original_plan()
+            .apply_with_subqueries(|plan| {
+                if let datafusion::logical_expr::LogicalPlan::TableScan(scan) = plan {
+                    let provider = datafusion::datasource::source_as_provider(&scan.source)?;
+                    assert_eq!(provider.constraints().map(|c| c.len()), Some(1), "{label}");
+                }
+                Ok(TreeNodeRecursion::Continue)
+            })
+            .unwrap();
+    }
     assert_eq!(
         rows[0]
             .column(0)
@@ -349,6 +379,13 @@ async fn private_dml_rejects_key_violations_and_truthfully_reports_unsupported_h
             .sum::<usize>(),
         2
     );
+}
+
+#[tokio::test]
+async fn native_write_hooks_execute_after_admission_and_explain_never_mutates() {
+    use pse_schema::model::provider::OperationPurpose;
+    let cancel = CancellationToken::new();
+    let base = session();
     let live = base
         .with_provider(
             TableReference::full("model", "authored", "live"),
@@ -357,12 +394,38 @@ async fn private_dml_rejects_key_violations_and_truthfully_reports_unsupported_h
         )
         .unwrap()
         .with_purpose(OperationPurpose::Mutate);
-    assert!(
-        live.prepare_sql("DELETE FROM authored.live", &cancel)
+    // This pinned MemTable implements DELETE. Its eager native hook must run
+    // only during execution, after the policy/requirement barrier.
+    live.clone()
+        .with_purpose(OperationPurpose::Inspect)
+        .prepare_sql("EXPLAIN DELETE FROM authored.live", &cancel)
+        .await
+        .unwrap()
+        .execute(&cancel)
+        .await
+        .unwrap();
+    let delete = live
+        .prepare_sql("DELETE FROM authored.live", &cancel)
+        .await
+        .unwrap();
+    assert_eq!(
+        live.sql("SELECT * FROM authored.live", &cancel)
             .await
-            .unwrap_err()
-            .to_string()
-            .contains("private-table factory")
+            .unwrap()
+            .iter()
+            .map(RecordBatch::num_rows)
+            .sum::<usize>(),
+        3
+    );
+    delete.execute(&cancel).await.unwrap();
+    assert_eq!(
+        live.sql("SELECT * FROM authored.live", &cancel)
+            .await
+            .unwrap()
+            .iter()
+            .map(RecordBatch::num_rows)
+            .sum::<usize>(),
+        0
     );
 }
 

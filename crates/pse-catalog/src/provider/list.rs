@@ -41,6 +41,51 @@ impl SnapshotCatalogList {
         Arc::clone(&self.generation)
     }
 }
+impl Clone for SnapshotCatalogList {
+    fn clone(&self) -> Self {
+        let generation = Arc::new(AtomicU64::new(0));
+        let catalogs = self
+            .catalogs
+            .read()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .iter()
+            .map(|(name, catalog)| {
+                let catalog: Arc<dyn CatalogProvider> = catalog
+                    .downcast_ref::<super::catalog::SnapshotCatalog>()
+                    .map_or_else(
+                        || Arc::clone(catalog),
+                        |catalog| Arc::new(catalog.fork(Arc::clone(&generation))),
+                    );
+                (name.clone(), catalog)
+            })
+            .collect();
+        Self::with_generation(catalogs, generation)
+    }
+}
+impl Default for SnapshotCatalogList {
+    fn default() -> Self {
+        Self::new(BTreeMap::new())
+    }
+}
+impl SnapshotCatalogList {
+    pub(crate) fn ensure_catalog(&self, name: &str) -> Arc<dyn CatalogProvider> {
+        Arc::clone(
+            self.catalogs
+                .write()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .entry(name.to_owned())
+                .or_insert_with(|| {
+                    Arc::new(super::catalog::SnapshotCatalog::from_tables(
+                        &BTreeMap::new(),
+                        None,
+                        std::iter::empty(),
+                        Arc::clone(&self.generation),
+                    ))
+                }),
+        )
+    }
+}
+
 impl CatalogProviderList for SnapshotCatalogList {
     fn register_catalog(
         &self,

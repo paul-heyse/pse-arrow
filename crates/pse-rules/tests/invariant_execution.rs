@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! P2 observes duplicate candidate rows and preserves exact diagnostic/provenance keys.
+#[path = "support/native_check_execution.rs"]
+mod native_check_execution;
 #[path = "support/row_key.rs"]
 mod row_key;
 use datafusion::arrow::array::{Array, RecordBatch};
@@ -10,13 +12,8 @@ use pse_catalog::session::{
     ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
     native_engine_profile,
 };
-use pse_catalog::store::membership::SemanticValidator;
 use pse_ids::{CancellationToken, ContentHash, FixedBudget, SemanticId};
-use pse_rules::{
-    invariants::{InvariantScope, run_invariants},
-    plan::{PortBinding, compile},
-    validator::InvariantValidator,
-};
+use pse_rules::invariants::{InvariantScope, run_invariants};
 use pse_schema::{
     Registry,
     model::{Cell, RelationKey},
@@ -97,86 +94,87 @@ async fn provider_requirements_execute_the_same_primary_key_obligation_before_sc
     }
 }
 
+fn physical_subject(kind: &'static str, member: &Cell, phase: &Cell, law: bool) -> Cell {
+    let mut fields = vec![Cell::Enum(kind)];
+    for arm in [
+        "total",
+        "energy",
+        "momentum",
+        "species",
+        "element",
+        "phase_species",
+    ] {
+        fields.push(if arm == kind {
+            Cell::Struct(match arm {
+                "total" | "energy" | "momentum" => vec![phase.clone()],
+                "species" | "element" if !law => vec![member.clone()],
+                _ => vec![member.clone(), phase.clone()],
+            })
+        } else {
+            Cell::Null
+        });
+    }
+    Cell::Struct(fields)
+}
+
 #[tokio::test]
 async fn subject_alternatives_admit_indexed_physics_and_reject_overlapping_coordinates() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let spec = registry
         .relation("authored.template_contribution_contracts")
         .unwrap();
-    // Independent coordinate cases: scalar heat, phase enthalpy, species flow,
-    // phase/species flow, then missing, overlapping and incompatible alternatives.
+    // Typed alternatives make missing/overlapping arm payloads structural errors.
+    // The remaining relational rule forbids reusing one axis for two coordinates.
+    let axis = |position| {
+        Cell::Struct(vec![
+            Cell::Enum("axis"),
+            Cell::Null,
+            Cell::Struct(vec![Cell::I64(position)]),
+        ])
+    };
+    let fixed = || {
+        Cell::Struct(vec![
+            Cell::Enum("fixed"),
+            Cell::Struct(vec![Cell::Id(SemanticId::NIL)]),
+            Cell::Null,
+        ])
+    };
     let cases = [
-        ("energy", None, None, false, false, true),
-        ("energy", None, Some(0), false, false, true),
-        ("energy", None, None, false, true, true),
-        ("species", Some(0), None, false, false, true),
-        ("species", None, None, true, false, true),
-        ("phase_species", Some(1), Some(0), false, false, true),
-        ("phase_species", None, Some(0), true, false, true),
-        ("phase_species", None, None, true, true, true),
-        ("species", None, None, false, false, false),
-        ("species", Some(0), None, true, false, false),
-        ("species", Some(0), Some(1), false, false, false),
-        ("phase_species", Some(0), Some(0), false, false, false),
-        ("phase_species", Some(1), None, false, false, false),
-        ("energy", Some(0), None, false, false, false),
-        ("energy", None, Some(0), false, true, false),
+        physical_subject("energy", &Cell::Null, &Cell::Null, false),
+        physical_subject("energy", &Cell::Null, &axis(0), false),
+        physical_subject("energy", &Cell::Null, &fixed(), false),
+        physical_subject("species", &axis(0), &Cell::Null, false),
+        physical_subject("species", &fixed(), &Cell::Null, false),
+        physical_subject("phase_species", &axis(1), &axis(0), false),
+        physical_subject("phase_species", &fixed(), &axis(0), false),
+        physical_subject("phase_species", &fixed(), &fixed(), false),
+        physical_subject("phase_species", &axis(0), &axis(0), false),
     ];
-    let mut expected = std::collections::BTreeSet::new();
+    let expected = std::collections::BTreeSet::from([vec![9; 16]]);
     let values = cases
         .into_iter()
         .enumerate()
-        .map(
-            |(index, (kind, subject_axis, phase_axis, subject, phase, valid))| {
-                let id = SemanticId::from_bytes([u8::try_from(index + 1).unwrap(); 16]);
-                if !valid {
-                    expected.insert(id.as_bytes().to_vec());
-                }
-                vec![
-                    Cell::Id(id),
-                    Cell::List(vec![]),
-                    Cell::Id(SemanticId::NIL),
-                    Cell::Enum(kind),
-                    subject_axis.map_or(Cell::Null, Cell::U64),
-                    phase_axis.map_or(Cell::Null, Cell::U64),
-                    if subject {
-                        Cell::Id(SemanticId::NIL)
-                    } else {
-                        Cell::Null
-                    },
-                    if phase {
-                        Cell::Id(SemanticId::NIL)
-                    } else {
-                        Cell::Null
-                    },
-                    Cell::Null,
-                    Cell::Null,
-                ]
-            },
-        )
+        .map(|(index, subject)| {
+            vec![
+                Cell::Id(SemanticId::from_bytes(
+                    [u8::try_from(index + 1).unwrap(); 16],
+                )),
+                Cell::List(vec![]),
+                Cell::Id(SemanticId::NIL),
+                subject,
+                Cell::Null,
+            ]
+        })
         .collect::<Vec<_>>();
     let rows = BTreeMap::from([(
         spec.key,
         pse_relations::cells::batch_from_cells(&registry, spec, &values).unwrap(),
     )]);
     let session = session(&registry, &rows);
-    let rule = registry
-        .rules()
-        .iter()
-        .find(|rule| rule.name == "subject_alternative:authored.template_contribution_contracts")
-        .unwrap();
-    let compiled = compile(
-        rule,
-        &PortBinding {
-            ports: BTreeMap::from([("subject".to_owned(), spec.key)]),
-        },
-        &session,
-        &registry,
-    )
-    .unwrap();
+    let plan = native_check_execution::violations(&session, spec, "distinct_subject_axes");
     let cancel = CancellationToken::default();
     let result = session
-        .prepare_rule_plan(compiled.plan, &cancel)
+        .prepare_rule_plan(plan, &cancel)
         .unwrap()
         .execute(&cancel)
         .await
@@ -199,6 +197,84 @@ async fn subject_alternatives_admit_indexed_physics_and_reject_overlapping_coord
 }
 
 #[tokio::test]
+async fn species_law_accepts_a_fixed_phase_slice_but_rejects_a_free_phase_axis() {
+    let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
+    let spec = registry.relation("compiled.law_applications").unwrap();
+    let values = [None, Some(1)]
+        .into_iter()
+        .enumerate()
+        .map(|(index, phase_axis)| {
+            spec.columns
+                .iter()
+                .map(|column| match column.name() {
+                    "application_id" => Cell::Id(SemanticId::from_bytes(
+                        [u8::try_from(index + 1).unwrap(); 16],
+                    )),
+                    "subject" => physical_subject(
+                        "species",
+                        &Cell::Struct(vec![
+                            Cell::Enum("axis"),
+                            Cell::Null,
+                            Cell::Struct(vec![Cell::I64(0)]),
+                        ]),
+                        &phase_axis.map_or_else(
+                            || {
+                                Cell::Struct(vec![
+                                    Cell::Enum("fixed"),
+                                    Cell::Struct(vec![Cell::Id(SemanticId::NIL)]),
+                                    Cell::Null,
+                                ])
+                            },
+                            |position| {
+                                Cell::Struct(vec![
+                                    Cell::Enum("axis"),
+                                    Cell::Null,
+                                    Cell::Struct(vec![Cell::I64(position)]),
+                                ])
+                            },
+                        ),
+                        true,
+                    ),
+                    "basis_id" => Cell::Null,
+                    "law_family" | "source_family" => Cell::Enum("material"),
+                    "subject_projection" => Cell::Enum("identity"),
+                    "expansion" => Cell::Enum("conservation"),
+                    _ => Cell::Id(SemanticId::NIL),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let rows = BTreeMap::from([(
+        spec.key,
+        pse_relations::cells::batch_from_cells(&registry, spec, &values).unwrap(),
+    )]);
+    let session = session(&registry, &rows);
+    let plan = native_check_execution::violations(&session, spec, "species_phase_slice");
+    let cancel = CancellationToken::default();
+    let result = session
+        .prepare_rule_plan(plan, &cancel)
+        .unwrap()
+        .execute(&cancel)
+        .await
+        .unwrap();
+    let invalid = result
+        .batches()
+        .iter()
+        .flat_map(|batch| {
+            let ids = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::FixedSizeBinaryArray>()
+                .unwrap();
+            (0..ids.len())
+                .map(|row| ids.value(row).to_vec())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(invalid, vec![vec![2; 16]]);
+}
+
+#[tokio::test]
 async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_identity() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let rows = packages(&registry, 2);
@@ -208,7 +284,6 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
         &session,
         &registry,
         InvariantScope::Candidate,
-        None,
         &CancellationToken::default(),
     )
     .await
@@ -218,12 +293,7 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
         &report.findings()[0],
     )
     .unwrap();
-    assert_eq!(finding.subject_snapshot_column().null_count(), 1);
-    let rule = registry
-        .rules()
-        .iter()
-        .find(|rule| rule.name == "unique:pk:authored.packages")
-        .unwrap();
+    let source = registry.relation("authored.packages").unwrap();
     assert_eq!(
         finding
             .row(0)
@@ -233,9 +303,10 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
             .unwrap()
             .row_key
             .as_bytes(),
-        row_key::rule(
-            rule,
+        row_key::values(
             &registry,
+            source.id,
+            &[source.column("package_id").unwrap()],
             &[Cell::Id(SemanticId::from_bytes([7; 16]))]
         )
         .await
@@ -262,7 +333,6 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
             &session,
             &registry,
             InvariantScope::Candidate,
-            None,
             &CancellationToken::default()
         )
         .await
@@ -271,44 +341,42 @@ async fn p2_keeps_candidate_duplicates_and_never_invents_execution_or_snapshot_i
 }
 
 #[tokio::test]
-async fn catalog_validator_executes_candidate_rules_and_retains_typed_violations() {
+async fn native_requirement_queries_retain_typed_violations_and_cancellation() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let validator = InvariantValidator::new(Arc::clone(&registry));
-    let execution = session(&registry, &BTreeMap::new());
-    validator
-        .validate(
-            &registry,
-            &packages(&registry, 1),
+    for (count, valid) in [(1, true), (2, false)] {
+        let rows = packages(&registry, count);
+        let execution = session(&registry, &rows);
+        let report = run_invariants(
+            &rows,
             &execution,
-            &CancellationToken::default(),
+            &registry,
+            InvariantScope::Candidate,
+            &CancellationToken::new(),
         )
         .await
         .unwrap();
-    let error = validator
-        .validate(
-            &registry,
-            &packages(&registry, 2),
-            &execution,
-            &CancellationToken::default(),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(
-        miette::Diagnostic::code(&error).unwrap().to_string(),
-        "validation::invariant"
-    );
-    let token = CancellationToken::default();
-    token.cancel();
-    assert!(
-        validator
-            .validate(&registry, &packages(&registry, 1), &execution, &token)
+        assert_eq!(report.error_count() == 0, valid);
+        if !valid {
+            assert!(!report.findings().is_empty());
+        }
+        let token = CancellationToken::new();
+        token.cancel();
+        assert!(
+            run_invariants(
+                &rows,
+                &execution,
+                &registry,
+                InvariantScope::Candidate,
+                &token
+            )
             .await
             .is_err()
-    );
+        );
+    }
 }
 
-#[test]
-fn every_registered_invariant_compiles_against_its_exact_candidate_contract() {
+#[tokio::test]
+async fn every_registered_invariant_compiles_against_its_exact_candidate_contract() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
     let rows = registry
         .relations()
@@ -324,14 +392,14 @@ fn every_registered_invariant_compiles_against_its_exact_candidate_contract() {
         .collect();
     let session = session(&registry, &rows);
     for invariant in registry.invariants() {
-        let rule = registry.rule(&invariant.rule).unwrap();
-        let mut binding = PortBinding::default();
-        for (relation, port, _) in rule.plan.dependencies() {
-            binding
-                .ports
-                .insert(port.to_owned(), registry.relation(relation).unwrap().key);
-        }
-        compile(rule, &binding, &session, &registry)
+        let inputs = invariant
+            .inputs
+            .iter()
+            .map(|name| registry.relation(name).unwrap().key)
+            .collect::<Vec<_>>();
+        session
+            .bind_declared_query(&invariant.query, &inputs, &CancellationToken::default())
+            .await
             .unwrap_or_else(|error| panic!("{}: {error}", invariant.qualified_name()));
     }
 }
@@ -359,7 +427,6 @@ async fn complete_minimal_model_executes_all_applicable_invariants_with_explicit
         &session,
         &registry,
         InvariantScope::Model,
-        None,
         &CancellationToken::default(),
     )
     .await
@@ -376,6 +443,12 @@ async fn complete_minimal_model_executes_all_applicable_invariants_with_explicit
                     == pse_schema::model::SnapshotClass::Model
             )
             .count()
+            + registry
+                .relations()
+                .iter()
+                .filter(|spec| spec.snapshot_class == pse_schema::model::SnapshotClass::Model)
+                .map(|spec| spec.checks.len())
+                .sum::<usize>()
     );
 }
 
@@ -482,7 +555,6 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
         &bound_session,
         &registry,
         InvariantScope::Candidate,
-        None,
         &CancellationToken::default(),
     )
     .await
@@ -549,7 +621,6 @@ async fn native_integrity_program_reports_duplicates_references_and_nested_ordin
             &incomplete_session,
             &registry,
             InvariantScope::Candidate,
-            None,
             &CancellationToken::default()
         )
         .await

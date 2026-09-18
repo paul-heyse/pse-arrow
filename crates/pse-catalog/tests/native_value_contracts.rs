@@ -8,6 +8,9 @@
     reason = "independent native contract assertions"
 )]
 
+#[path = "support/native_execution.rs"]
+mod native_execution;
+
 use datafusion::{
     arrow::{
         array::{ArrayRef, Int64Array, ListArray, RecordBatch, StringArray, StructArray},
@@ -19,8 +22,8 @@ use datafusion::{
         context::{SessionConfig, SessionContext},
         session_state::SessionStateBuilder,
     },
-    physical_plan::collect,
 };
+use datafusion_proto::bytes::Serializeable;
 use deltalake::{
     DeltaTableBuilder,
     delta_datafusion::SessionFallbackPolicy,
@@ -53,9 +56,13 @@ fn every_registry_contract_is_native_sql_against_its_durable_schema() {
             .unwrap_or_else(|error| panic!("{}: {error}; {sql}", spec.key));
         for (key, sql) in contract.properties() {
             if key.starts_with("pse.check.nested.expression.") {
-                let predicate = expressions
-                    .create_logical_expr(sql, &schema)
-                    .unwrap_or_else(|error| panic!("{}: {error}; {sql}", spec.key));
+                let encoded: Vec<u8> = serde_json::from_str(sql).unwrap();
+                let predicate = datafusion::logical_expr::Expr::from_bytes_with_ctx(
+                    &encoded,
+                    &expressions.task_ctx(),
+                )
+                .unwrap();
+                let predicate = predicate.resolve_lambda_variables(&schema).unwrap().data;
                 expressions
                     .create_physical_expr(predicate, &schema)
                     .unwrap_or_else(|error| panic!("{}: {error}; {sql}", spec.key));
@@ -134,7 +141,7 @@ fn batch(schema: SchemaRef, kind: &str, offset: i64, visible: bool) -> RecordBat
     RecordBatch::try_new(schema, vec![Arc::new(Int64Array::from(vec![1])), members]).unwrap()
 }
 
-async fn seed(contract: &DeclaredCheck, location: &url::Url) {
+async fn seed(registry: &Arc<Registry>, contract: &DeclaredCheck, location: &url::Url) {
     let state = SessionStateBuilder::new()
         .with_default_features()
         .with_query_planner(Arc::new(UnifiedPlanner::default()))
@@ -162,20 +169,17 @@ async fn seed(contract: &DeclaredCheck, location: &url::Url) {
     )
     .unwrap();
     let state = context.state();
-    collect(
-        state.create_physical_plan(&write).await.unwrap(),
-        state.task_ctx(),
-    )
-    .await
-    .unwrap();
+    native_execution::run(&state, Arc::clone(registry), &write)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]
 async fn nested_native_checks_guard_first_write_and_cold_raw_delta_mutations() {
-    let (_registry, contract) = fixture();
+    let (registry, contract) = fixture();
     let root = tempfile::tempdir().unwrap();
     let location = url::Url::from_directory_path(root.path()).unwrap();
-    seed(&contract, &location).await;
+    seed(&registry, &contract, &location).await;
     // A fresh session needs only the declared native-expression adapter; neither
     // a PSE query planner nor the deleted Cell validator is involved.
     let cold = SessionContext::new_with_state(

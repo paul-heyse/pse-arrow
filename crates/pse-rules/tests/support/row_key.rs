@@ -18,7 +18,7 @@ use datafusion::{
 };
 use pse_schema::{
     Registry,
-    model::{Cell, FieldContract, RelationSpec, RuleHead, RuleSpec},
+    model::{Cell, FieldContract, RelationSpec, RuleSpec},
 };
 use std::sync::Arc;
 
@@ -96,11 +96,8 @@ pub(crate) async fn rule(
     registry: &Registry,
     row: &[Cell],
 ) -> pse_ids::ContentHash {
-    let target = registry.relation(spec.head.relation()).unwrap();
-    let names = match &spec.head {
-        RuleHead::Relation(_) => &target.primary_key,
-        RuleHead::Violations { key_columns, .. } => key_columns,
-    };
+    let target = registry.relation(&spec.head).unwrap();
+    let names = &target.primary_key;
     values(
         registry,
         target.id,

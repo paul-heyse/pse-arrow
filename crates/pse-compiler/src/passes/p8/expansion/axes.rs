@@ -4,7 +4,7 @@
 mod fixed;
 use super::super::outputs::Output;
 use super::{Inputs, invalid, unique};
-use crate::{CompilerError, PassContext};
+use crate::{AlgorithmContext, CompilerError};
 use pse_mathir::{DomainRef, Payload, ValueRef, index::DomainFacts, relations::LoadedMath};
 use pse_quantity::{
     BoundIndexId, BoundIndexRef, DomainId, DomainKind, IndexSet, QuantityRegistry, QuantityTypeId,
@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 
 pub(super) fn domains(
     inputs: &Inputs,
-    _ctx: &PassContext<'_>,
+    _ctx: &AlgorithmContext<'_>,
 ) -> Result<BTreeMap<DomainId, DomainFacts>, CompilerError> {
     let domains = &inputs.domains;
     let members = &inputs.domain_members;
@@ -56,6 +56,10 @@ pub(super) struct TermAxes {
     pub(super) broadcasts: Vec<BoundIndexRef>,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "environment keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) fn environment(
     inputs: &Inputs,
     loaded: &LoadedMath,
@@ -227,7 +231,9 @@ pub(super) fn environment(
     let mut fixed_positions = Vec::new();
     let mut free = Vec::new();
     for (position, axis) in axes.into_iter().enumerate() {
-        if usize::from(axis.position) != position || axis.domain_id != factors[position] {
+        if usize::try_from(axis.position).ok() != Some(position)
+            || axis.domain_id != factors[position]
+        {
             return Err(invalid(
                 "contribution axis order differs from its exact product",
             ));

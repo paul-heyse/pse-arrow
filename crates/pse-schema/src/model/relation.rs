@@ -136,6 +136,9 @@ pub struct RelationSpec {
     /// Named native DataFusion SQL predicates. Each must evaluate to true for a row;
     /// false and null are violations. Binding uses the actual execution session.
     pub checks: std::collections::BTreeMap<String, String>,
+    /// Native Delta properties. These participate in contract identity and are
+    /// verified at every declared open/write, including registry-free opening.
+    pub delta_properties: std::collections::BTreeMap<String, String>,
     /// What the relation means.
     pub doc: &'static str,
     /// The BLAKE3 digest of this relation's registry rows, filled at assembly.
@@ -150,6 +153,14 @@ impl RelationSpec {
     /// The qualified name without the version.
     pub fn qualified_name(&self) -> String {
         self.key.qualified_name()
+    }
+
+    /// Stable identity of a named native check in this exact relation version.
+    /// The predicate remains authoritative in `checks`; this label grants no validity.
+    pub fn row_check_id(&self, name: &str) -> Option<SemanticId> {
+        self.checks
+            .contains_key(name)
+            .then(|| pse_ids::named_id(self.id, &format!("native-row-check:{name}")))
     }
 
     /// The column of that name, if the relation has one.
@@ -178,6 +189,8 @@ pub struct RelationDecl {
     pub columns: Vec<FieldContract>,
     /// See [`RelationSpec::checks`].
     pub checks: std::collections::BTreeMap<String, String>,
+    /// See [`RelationSpec::delta_properties`].
+    pub delta_properties: std::collections::BTreeMap<String, String>,
     /// See [`RelationSpec::doc`].
     pub doc: &'static str,
 }
@@ -202,6 +215,14 @@ impl RelationDecl {
             primary_key: None,
             columns: Vec::new(),
             checks: std::collections::BTreeMap::new(),
+            delta_properties: std::collections::BTreeMap::from([
+                ("delta.enableChangeDataFeed".into(), "true".into()),
+                // Retained publication selections own log retention. Automatic
+                // cleanup cannot see their leases or protected versions.
+                ("delta.enableExpiredLogCleanup".into(), "false".into()),
+                ("delta.checkpointInterval".into(), "10".into()),
+                ("delta.minWriterVersion".into(), "3".into()),
+            ]),
             doc,
         }
     }
@@ -225,6 +246,18 @@ impl RelationDecl {
     #[must_use]
     pub fn checks(mut self, checks: std::collections::BTreeMap<String, String>) -> Self {
         self.checks = checks;
+        self
+    }
+
+    /// Extend or override native table policies in the authoritative declaration.
+    /// Delta validates supported property values and negotiates protocol features;
+    /// generated CHECK properties are derived separately from fields and checks.
+    #[must_use]
+    pub fn delta_properties(
+        mut self,
+        properties: impl IntoIterator<Item = (String, String)>,
+    ) -> Self {
+        self.delta_properties.extend(properties);
         self
     }
 

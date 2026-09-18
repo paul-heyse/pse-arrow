@@ -5,13 +5,13 @@
       {
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "parameter_kind": "[\"text\",\"value-1\"]",
-        "position": "[\"u64\",1]",
+        "position": "[\"i64\",1]",
         "source_coordinate": "[\"enum\",\"member\"]"
       },
       {
         "method_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "parameter_kind": "[\"text\",\"value-1\"]",
-        "position": "[\"u64\",1]",
+        "position": "[\"i64\",1]",
         "source_coordinate": "[\"enum\",\"member\"]"
       }
     ]
@@ -20,7 +20,7 @@
     [
       "[\"id\",\"01010101010101010101010101010101\"]",
       "[\"text\",\"value-1\"]",
-      "[\"u64\",1]"
+      "[\"i64\",1]"
     ]
   ]
 }

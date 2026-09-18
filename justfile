@@ -107,6 +107,16 @@ lib-outline doc:
 metadata:
     cargo metadata --no-deps --format-version 1
 
+[group('discovery')]
+[doc('Resolve the current native dependency declarations using already acquired sources')]
+metadata-resolve:
+    cargo metadata --offline --format-version 1
+
+[group('discovery')]
+[doc('Verify or regenerate the pinned Delta source override; pass --apply explicitly to regenerate')]
+delta-source source *args:
+    {{ py }} scripts/vendor-delta.py {{ source }} {{ args }}
+
 # -------------------------------------------------------------------- local --
 
 [group('local')]
@@ -118,6 +128,16 @@ check:
 [doc('Compile one library during a bounded architectural replacement; no tests or dev dependencies')]
 check-library pkg:
     cargo check -p {{ pkg }} --lib --locked
+
+[group('local')]
+[doc('Compile one package and its test sources without executing tests')]
+check-package pkg:
+    cargo check -p {{ pkg }} -p pse-relations --all-targets --locked {{ validate }}
+
+[group('local')]
+[doc('Compile a named Rust test target without executing tests during the architectural pivot')]
+check-test pkg target:
+    cargo check -p {{ pkg }} --test {{ target }} --locked {{ validate }}
 
 [group('local')]
 [doc('clippy with -D warnings, workspace, all targets (default and --no-default-features)')]
@@ -140,6 +160,11 @@ test *args:
 [doc('Rust tests for one package')]
 test-package pkg *args:
     cargo nextest run -p {{ pkg }} --locked {{ validate }} {{ args }}
+
+[group('local')]
+[doc('Explicitly selected Rust unit tests only; review the filter to exclude storage/compiler/solver journeys even under --lib')]
+unit-package pkg filter:
+    cargo nextest run -p {{ pkg }} -p pse-relations --lib --locked {{ validate }} -E {{ quote(filter) }}
 
 [group('local')]
 [doc('Native Ipopt tests with force_validate, executed in the pinned solver container')]
@@ -218,14 +243,19 @@ engineering-inspection output *args:
     cargo run --quiet --package xtask --locked {{ validate }} -- engineering-inspection {{ quote(output) }} {{ args }}
 
 [group('local')]
-[doc('Qualify fresh source-to-solve models, Delta publication and cold Rust/Python results')]
-simulator-acceptance output:
-    cargo run --quiet --package xtask --locked {{ validate }} -- simulator-acceptance {{ quote(output) }}
+[doc('Final Plan 08 current-function architecture campaign; run after all implementation and deletions')]
+architecture-acceptance output *args:
+    cargo run --quiet --package xtask --locked {{ validate }} -- architecture-acceptance {{ quote(output) }} {{ args }}
 
 [group('local')]
 [doc('Python tests against a fresh native store (unit + component; pass -m to override)')]
 py-test *args:
     cargo run --quiet --package xtask --locked {{ validate }} -- python-tests {{ args }}
+
+[group('local')]
+[doc('Python unit tests without compiling or publishing an inspection fixture')]
+py-unit *args:
+    uv run --no-sync pytest -m unit {{ args }}
 
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]
@@ -278,6 +308,11 @@ coverage:
 bench-smoke:
     cargo test --benches -p pse-benches -p pse-relations --locked {{ validate }}
 
+[group('local')]
+[doc('Plan 09 final-phase cache/round/reuse measurements; never run before the implementation/deletion barrier')]
+bench-cache:
+    cargo bench -p pse-benches -p pse-relations --bench native_cache --locked {{ validate }}
+
 [group('pr')]
 [doc('Identifiers named in docs resolve in the extracted API facts')]
 doc-lint:
@@ -315,6 +350,9 @@ ci-pr: ci-fast governance docs-rust bench-smoke quality adr-lint docs py-test
 [group('scheduled')]
 [doc('cargo hack feature powerset (depth 2) and --no-default-features')]
 features-powerset:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-solver-env.sh
     cargo hack check --workspace --feature-powerset --depth 2 --locked
     cargo hack check --workspace --no-default-features --locked
 
@@ -398,6 +436,13 @@ codegen *args:
 codegen-bootstrap *args:
     cargo run -p xtask --no-default-features -- codegen --only rust-contracts
     cargo xtask codegen {{ args }}
+
+[group('mutating')]
+[doc('Generate schema contracts and reference docs without executing physical package fixtures')]
+codegen-contracts:
+    cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts
+    cargo run -p xtask --no-default-features --locked -- codegen --only python
+    cargo run -p xtask --no-default-features --locked -- codegen --only docs
 
 [group('mutating')]
 [doc('Regenerate concrete invariant fixtures from the declared typed contracts')]

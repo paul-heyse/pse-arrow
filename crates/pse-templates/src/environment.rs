@@ -84,15 +84,15 @@ pub struct InstantiationEnvironment {
     /// Exact source group declaration to realized group correspondence.
     pub groups: BTreeMap<SemanticId, GroupBinding>,
     /// Exact source occurrence paths after actual selected-template traversal.
-    pub paths: BTreeMap<(SemanticId, u64), PathBinding>,
+    pub paths: BTreeMap<(SemanticId, i64), PathBinding>,
     /// Admitted source node to its exact finite arithmetic subscript interpretation.
     pub evaluated_gathers: BTreeMap<NodeId, EvaluatedGather>,
     /// Explicit numeric coordinate values mapped to actual domain members.
     pub integer_members: BTreeMap<(DomainId, i64), SemanticId>,
     /// Decided predicate outcomes for this actual instance.
-    pub predicates: BTreeMap<(SemanticId, u64), bool>,
+    pub predicates: BTreeMap<(SemanticId, i64), bool>,
     /// Index-dependent outcomes represented by declared actual Boolean symbol groups.
-    pub predicate_masks: BTreeMap<(SemanticId, u64), PredicateMask>,
+    pub predicate_masks: BTreeMap<(SemanticId, i64), PredicateMask>,
     /// Exact source kernel-binding identity to realized binding identity.
     pub kernel_bindings: BTreeMap<SemanticId, SemanticId>,
     /// Exact implicit-system declaration to actual instance correspondence.
@@ -157,7 +157,7 @@ impl InstantiationEnvironment {
     pub(crate) fn predicate(
         &self,
         source_id: SemanticId,
-        predicate: u64,
+        predicate: i64,
     ) -> Result<bool, TemplateError> {
         self.predicates.get(&(source_id, predicate)).copied().ok_or(
             TemplateError::GuardUndecidable {
@@ -173,7 +173,7 @@ impl InstantiationEnvironment {
     pub fn predicate_guard(
         &self,
         source_id: SemanticId,
-        predicate_id: u64,
+        predicate_id: i64,
         graph: &mut ExprGraph,
         indices: &IndexSet,
     ) -> Result<NodeId, TemplateError> {

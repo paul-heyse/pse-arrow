@@ -28,8 +28,6 @@ pub struct RuleOutcome {
     pub head: Vec<RecordBatch>,
     /// Actual unknown candidate keys, never inserted into the head.
     pub undecided: Vec<RecordBatch>,
-    /// Engine plan rendering for attribution only; not a semantic cache input.
-    pub explain_pgjson: String,
     /// Actual execution counters.
     pub rules_fired: Vec<RuleFired>,
     /// Retained actual optimizer observations for every executed plan.
@@ -48,16 +46,6 @@ pub async fn execute(
     cancel: &CancellationToken,
 ) -> Result<RuleOutcome, RuleError> {
     let mut plans = vec![];
-    for (plan, reason) in &rule.checks {
-        let (rows, observed) = session
-            .execute_rule_observed(plan.clone(), cancel)
-            .await
-            .map_err(|error| context(rule, "semantic precheck", error))?;
-        plans.push(observed);
-        if rows.iter().any(|batch| batch.num_rows() != 0) {
-            return Err(internal(reason.clone()));
-        }
-    }
     let completed = session
         .prepare_rule_plan(rule.plan.clone(), cancel)
         .map_err(|error| context(rule, "head preparation", error))?
@@ -65,9 +53,9 @@ pub async fn execute(
         .await
         .map_err(|error| context(rule, "decided head", error))?;
     let observed = completed.observation().clone();
-    let explain_pgjson = observed.explain_pgjson().to_owned();
     plans.push(observed);
-    let head = if let pse_schema::model::RuleHead::Relation(name) = &rule.head {
+    let head = {
+        let name = &rule.head;
         let target = registry
             .relation(name)
             .ok_or_else(|| internal("head declaration absent"))?;
@@ -76,8 +64,6 @@ pub async fn execute(
                 .into_checked_relation(registry, target, cancel)?
                 .into_batch(),
         ]
-    } else {
-        completed.into_batches()
     };
     let mut undecided = vec![];
     if let Some(plan) = &rule.undecided {
@@ -99,7 +85,6 @@ pub async fn execute(
     Ok(RuleOutcome {
         head,
         undecided,
-        explain_pgjson,
         rules_fired: vec![fired],
         plans,
     })

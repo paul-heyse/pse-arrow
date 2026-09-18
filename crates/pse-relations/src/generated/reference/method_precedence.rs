@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    140u8, 167u8, 170u8, 128u8, 151u8, 31u8, 154u8, 186u8, 183u8, 128u8, 248u8, 20u8,
-    94u8, 36u8, 65u8, 238u8, 12u8, 252u8, 122u8, 195u8, 235u8, 14u8, 51u8, 249u8, 7u8,
-    54u8, 87u8, 21u8, 163u8, 115u8, 187u8, 1u8,
+    19u8, 231u8, 90u8, 60u8, 112u8, 174u8, 234u8, 215u8, 99u8, 27u8, 147u8, 153u8, 27u8,
+    168u8, 214u8, 139u8, 118u8, 116u8, 56u8, 156u8, 241u8, 176u8, 87u8, 145u8, 93u8,
+    254u8, 83u8, 105u8, 144u8, 67u8, 69u8, 156u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -34,7 +34,7 @@ pub struct ReferenceMethodPrecedenceRow {
     ///scope_kind
     pub r#scope_kind: crate::generated::enums::ScopeKind,
     ///rank
-    pub r#rank: u16,
+    pub r#rank: i64,
 }
 impl crate::typed::CellCodec for ReferenceMethodPrecedenceRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -77,7 +77,7 @@ impl crate::typed::CellCodec for ReferenceMethodPrecedenceRow {
                         stringify!(ReferenceMethodPrecedenceRow),
                     ))?,
             )?,
-            r#rank: <u16 as crate::typed::CellCodec>::from_cell(
+            r#rank: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -124,7 +124,7 @@ impl crate::columnar::ArrowValue for ReferenceMethodPrecedenceRow {
         <crate::generated::enums::ScopeKind as crate::columnar::ArrowValue>::append_null(
             children[2usize].as_mut(),
         )?;
-        <u16 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -147,7 +147,7 @@ impl crate::columnar::ArrowValue for ReferenceMethodPrecedenceRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#rank: <u16 as crate::columnar::ArrowValue>::read(
+            r#rank: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
@@ -181,7 +181,7 @@ impl ReferenceMethodPrecedenceRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"a24371205cd038b015555667cb8aec94\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_precedence\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"is_default\"],[\"text\",\"property_specific\"],[\"text\",\"scope_kind\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"is_default\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"is_default\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"is_default\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"property_specific\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"property_specific\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"property_specific\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"scope_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"scope_kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ScopeKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"scope_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"cc1c4c0b68613edd6067640d93fbb7bf\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"cc1c4c0b68613edd6067640d93fbb7bf\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ScopeKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ScopeKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"cc1c4c0b68613edd6067640d93fbb7bf\\\"}\"],[\"struct\",[[\"id\",\"cc1c4c0b68613edd6067640d93fbb7bf\"],[\"text\",\"ScopeKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"package\"],[\"null\",null],[\"bool\",false],[\"text\",\"package\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase_species\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase_species\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"reaction\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"rank\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"rank\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"rank\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Complete registry-versioned method preference; equal distinct winners are ambiguous.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"a24371205cd038b015555667cb8aec94\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"a24371205cd038b015555667cb8aec94\"],[\"struct\",[[\"text\",\"reference\"],[\"text\",\"method_precedence\"],[\"u64\",1]]],[\"text\",\"reference\"],[\"text\",\"model\"],[\"null\",null],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"is_default\"],[\"text\",\"property_specific\"],[\"text\",\"scope_kind\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"is_default\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"is_default\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"is_default\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"property_specific\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"property_specific\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"property_specific\"],[\"text\",\"\\\"Boolean\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"bool\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"scope_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"scope_kind\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ScopeKind\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"scope_kind\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"cc1c4c0b68613edd6067640d93fbb7bf\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"cc1c4c0b68613edd6067640d93fbb7bf\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ScopeKind\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ScopeKind\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"cc1c4c0b68613edd6067640d93fbb7bf\\\"}\"],[\"struct\",[[\"id\",\"cc1c4c0b68613edd6067640d93fbb7bf\"],[\"text\",\"ScopeKind\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"package\"],[\"null\",null],[\"bool\",false],[\"text\",\"package\"]]],[\"struct\",[[\"text\",\"phase\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase\"]]],[\"struct\",[[\"text\",\"species\"],[\"null\",null],[\"bool\",false],[\"text\",\"species\"]]],[\"struct\",[[\"text\",\"phase_species\"],[\"null\",null],[\"bool\",false],[\"text\",\"phase_species\"]]],[\"struct\",[[\"text\",\"reaction\"],[\"null\",null],[\"bool\",false],[\"text\",\"reaction\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"rank\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"rank\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]]]]]],[\"struct\",[[\"text\",\"rank\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Complete registry-versioned method preference; equal distinct winners are ambiguous.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"a24371205cd038b015555667cb8aec94\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"reference\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -257,7 +257,7 @@ impl crate::columnar::RelationRow for ReferenceMethodPrecedenceRow {
         ReferenceMethodPrecedenceView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        38_264_usize + size_of::<Self::Builder>()
+        41_160_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         64usize
@@ -320,7 +320,7 @@ pub struct ReferenceMethodPrecedenceView<'a> {
     is_default_column: &'a arrow_array::BooleanArray,
     property_specific_column: &'a arrow_array::BooleanArray,
     scope_kind_column: &'a arrow_array::StringArray,
-    rank_column: &'a arrow_array::UInt16Array,
+    rank_column: &'a arrow_array::Int64Array,
 }
 impl<'a> ReferenceMethodPrecedenceView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -368,7 +368,7 @@ impl<'a> ReferenceMethodPrecedenceView<'a> {
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
             rank_column: crate::columnar::array::<
-                arrow_array::UInt16Array,
+                arrow_array::Int64Array,
             >(batch.column(3usize).as_ref())?,
         })
     }
@@ -425,7 +425,7 @@ impl<'a> ReferenceMethodPrecedenceView<'a> {
         "rank",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn rank_column(&self) -> &'a arrow_array::UInt16Array {
+    pub const fn rank_column(&self) -> &'a arrow_array::Int64Array {
         self.rank_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "rank", "`.")]
@@ -523,6 +523,16 @@ impl ReferenceMethodPrecedenceBuilder {
         &mut self,
         row: ReferenceMethodPrecedenceRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=65_535_i64).contains(&(row.r#rank).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "rank",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

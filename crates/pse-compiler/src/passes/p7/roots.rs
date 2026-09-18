@@ -39,7 +39,7 @@ impl Realizer<'_> {
         rows.sort_by_key(|row| row.position);
         for (position, index) in rows.into_iter().enumerate() {
             let position =
-                u16::try_from(position).map_err(|_| invalid("expression root axis overflow"))?;
+                i64::try_from(position).map_err(|_| invalid("expression root axis overflow"))?;
             if index.position != Some(position) {
                 return Err(invalid("expression root axes are not contiguous"));
             }

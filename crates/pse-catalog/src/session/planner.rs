@@ -32,6 +32,10 @@ impl UnifiedPlanner {
             deltalake::delta_datafusion::planner::DeltaExtensionPlanner::new(),
             Arc::new(crate::delta::write::WritePlanner),
             Arc::new(crate::delta::publish::PublishPlanner),
+            Arc::new(crate::delta::maintenance::MaintenancePlanner),
+            Arc::new(super::contract::ContractPlanner),
+            Arc::new(super::cache::CachePlanner),
+            Arc::new(super::commands::deferred::CommandPlanner),
         ];
         all.extend(extensions);
         Self { extensions: all }
@@ -49,8 +53,11 @@ impl QueryPlanner for UnifiedPlanner {
         logical_plan: &LogicalPlan,
         session: &dyn Session,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        DefaultPhysicalPlanner::with_extension_planners(self.extensions.clone())
-            .create_physical_plan(logical_plan, session)
-            .await
+        let plan = super::cache::reuse_completed(logical_plan, session)?;
+        let planner = DefaultPhysicalPlanner::with_extension_planners(self.extensions.clone());
+        let plan = super::cache::physical::prepare(plan, session, &planner).await?;
+        let physical = planner.create_physical_plan(&plan, session).await?;
+        super::cache::record_physical(&physical, session)?;
+        Ok(physical)
     }
 }

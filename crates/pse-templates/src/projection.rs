@@ -11,7 +11,7 @@ pub struct GroupProjection {
     /// Original actual group identity.
     pub source_group: SemanticId,
     /// Ordered fixed source-axis positions and actual domain members.
-    pub fixed_coordinates: Vec<(u16, SemanticId)>,
+    pub fixed_coordinates: Vec<(i64, SemanticId)>,
     /// Exact projected factors and tuple-to-provider inventory.
     pub group: GroupBinding,
 }
@@ -21,7 +21,7 @@ pub struct GroupProjection {
 /// Unknown/unsorted/repeated axes, foreign members or conflicting projected providers.
 pub fn project_group(
     source: &GroupBinding,
-    fixed: &[(u16, SemanticId)],
+    fixed: &[(i64, SemanticId)],
     env: &InstantiationEnvironment,
 ) -> Result<GroupProjection, TemplateError> {
     if fixed.is_empty() || fixed.windows(2).any(|pair| pair[0].0 >= pair[1].0) {
@@ -30,7 +30,7 @@ pub fn project_group(
     for (axis, member) in fixed {
         let domain = source
             .axes
-            .get(usize::from(*axis))
+            .get(usize::try_from(*axis).map_err(|_| env.invalid("negative projected axis"))?)
             .ok_or_else(|| env.invalid("projected axis absent"))?;
         let facts = env
             .domain_facts
@@ -44,7 +44,11 @@ pub fn project_group(
         .axes
         .iter()
         .enumerate()
-        .filter(|(axis, _)| !fixed.iter().any(|(fixed, _)| usize::from(*fixed) == *axis))
+        .filter(|(axis, _)| {
+            !fixed
+                .iter()
+                .any(|(fixed, _)| usize::try_from(*fixed).ok() == Some(*axis))
+        })
         .collect::<Vec<_>>();
     let mut members = BTreeMap::new();
     for (tuple, symbol) in &source.members {
@@ -60,10 +64,9 @@ pub fn project_group(
                 return Err(env.invalid("source projection contains a foreign actual member"));
             }
         }
-        if fixed
-            .iter()
-            .all(|(axis, member)| tuple[usize::from(*axis)] == *member)
-        {
+        if fixed.iter().all(|(axis, member)| {
+            usize::try_from(*axis).ok().and_then(|axis| tuple.get(axis)) == Some(member)
+        }) {
             let projected = remaining
                 .iter()
                 .map(|(axis, _)| tuple[*axis])

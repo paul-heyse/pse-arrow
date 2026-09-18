@@ -16,6 +16,7 @@ pub mod error;
 pub mod expressions;
 mod finite;
 pub mod scalar_math;
+mod vector;
 
 pub use error::NumericsError;
 pub use expressions::EvaluationProgram;

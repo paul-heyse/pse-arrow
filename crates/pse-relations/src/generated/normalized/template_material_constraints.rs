@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    94u8, 83u8, 251u8, 204u8, 227u8, 200u8, 220u8, 241u8, 52u8, 99u8, 86u8, 137u8, 206u8,
-    236u8, 204u8, 169u8, 160u8, 182u8, 88u8, 249u8, 24u8, 130u8, 255u8, 226u8, 84u8,
-    110u8, 157u8, 152u8, 158u8, 170u8, 252u8, 203u8,
+    242u8, 184u8, 194u8, 21u8, 141u8, 161u8, 125u8, 166u8, 117u8, 5u8, 188u8, 207u8,
+    145u8, 118u8, 202u8, 180u8, 162u8, 64u8, 195u8, 211u8, 53u8, 188u8, 132u8, 241u8,
+    181u8, 131u8, 248u8, 206u8, 91u8, 255u8, 67u8, 98u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -30,13 +30,13 @@ pub struct NormalizedTemplateMaterialConstraintsRow {
     ///template_id
     pub r#template_id: pse_ids::SemanticId,
     ///min_phases
-    pub r#min_phases: u16,
+    pub r#min_phases: i64,
     ///max_phases
-    pub r#max_phases: Option<u16>,
+    pub r#max_phases: Option<i64>,
     ///min_species
-    pub r#min_species: u16,
+    pub r#min_species: i64,
     ///max_species
-    pub r#max_species: Option<u16>,
+    pub r#max_species: Option<i64>,
 }
 impl crate::typed::CellCodec for NormalizedTemplateMaterialConstraintsRow {
     fn into_cell(self) -> pse_schema::model::Cell {
@@ -74,7 +74,7 @@ impl crate::typed::CellCodec for NormalizedTemplateMaterialConstraintsRow {
                         stringify!(NormalizedTemplateMaterialConstraintsRow),
                     ))?,
             )?,
-            r#min_phases: <u16 as crate::typed::CellCodec>::from_cell(
+            r#min_phases: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -82,7 +82,7 @@ impl crate::typed::CellCodec for NormalizedTemplateMaterialConstraintsRow {
                     ))?,
             )?,
             r#max_phases: <Option<
-                u16,
+                i64,
             > as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
@@ -90,7 +90,7 @@ impl crate::typed::CellCodec for NormalizedTemplateMaterialConstraintsRow {
                         stringify!(NormalizedTemplateMaterialConstraintsRow),
                     ))?,
             )?,
-            r#min_species: <u16 as crate::typed::CellCodec>::from_cell(
+            r#min_species: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -98,7 +98,7 @@ impl crate::typed::CellCodec for NormalizedTemplateMaterialConstraintsRow {
                     ))?,
             )?,
             r#max_species: <Option<
-                u16,
+                i64,
             > as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
@@ -151,13 +151,13 @@ impl crate::columnar::ArrowValue for NormalizedTemplateMaterialConstraintsRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <u16 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Option<
-            u16,
+            i64,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <u16 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <Option<
-            u16,
+            i64,
         > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -173,22 +173,22 @@ impl crate::columnar::ArrowValue for NormalizedTemplateMaterialConstraintsRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#min_phases: <u16 as crate::columnar::ArrowValue>::read(
+            r#min_phases: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
             r#max_phases: <Option<
-                u16,
+                i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#min_species: <u16 as crate::columnar::ArrowValue>::read(
+            r#min_species: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
             r#max_species: <Option<
-                u16,
+                i64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
@@ -224,7 +224,7 @@ impl NormalizedTemplateMaterialConstraintsRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c16f7585ed7605a176c12ef736bffe9e\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"template_material_constraints\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"template_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.templates\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.templates.template_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"d94c00712b3f1ad196beb2f9e2045e87\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"templates\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"min_phases\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"min_phases\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"min_phases\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"max_phases\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"max_phases\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"max_phases\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"min_species\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"min_species\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"min_species\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"max_species\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"max_species\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"max_species\"],[\"text\",\"\\\"UInt16\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u16\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Bounds on the distinct actual phase and species members of the selected material system, evaluated before realization; caller declarations of counts are not evidence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c16f7585ed7605a176c12ef736bffe9e\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"c16f7585ed7605a176c12ef736bffe9e\"],[\"struct\",[[\"text\",\"normalized\"],[\"text\",\"template_material_constraints\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"template_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.column\"],[\"text\",\"template_id\"]]],[\"struct\",[[\"text\",\"pse.domain.fk.relation\"],[\"text\",\"authored.templates\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"template_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.fk\"],[\"text\",\"authored.templates.template_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"struct\",[[\"id\",\"d94c00712b3f1ad196beb2f9e2045e87\"],[\"struct\",[[\"text\",\"authored\"],[\"text\",\"templates\"],[\"u64\",1]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"min_phases\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"min_phases\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]]]]]],[\"struct\",[[\"text\",\"min_phases\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"max_phases\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"max_phases\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]]]]]],[\"struct\",[[\"text\",\"max_phases\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"min_species\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"min_species\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]]]]]],[\"struct\",[[\"text\",\"min_species\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"max_species\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"max_species\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]]]]]],[\"struct\",[[\"text\",\"max_species\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",true],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,65535]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"Bounds on the distinct actual phase and species members of the selected material system, evaluated before realization; caller declarations of counts are not evidence.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"c16f7585ed7605a176c12ef736bffe9e\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"normalized\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -300,7 +300,7 @@ impl crate::columnar::RelationRow for NormalizedTemplateMaterialConstraintsRow {
         NormalizedTemplateMaterialConstraintsView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        42_776_usize + size_of::<Self::Builder>()
+        49_080_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         88usize
@@ -384,10 +384,10 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
 pub struct NormalizedTemplateMaterialConstraintsView<'a> {
     batch: &'a crate::RecordBatch,
     template_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    min_phases_column: &'a arrow_array::UInt16Array,
-    max_phases_column: &'a arrow_array::UInt16Array,
-    min_species_column: &'a arrow_array::UInt16Array,
-    max_species_column: &'a arrow_array::UInt16Array,
+    min_phases_column: &'a arrow_array::Int64Array,
+    max_phases_column: &'a arrow_array::Int64Array,
+    min_species_column: &'a arrow_array::Int64Array,
+    max_species_column: &'a arrow_array::Int64Array,
 }
 impl<'a> NormalizedTemplateMaterialConstraintsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -429,16 +429,16 @@ impl<'a> NormalizedTemplateMaterialConstraintsView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
             min_phases_column: crate::columnar::array::<
-                arrow_array::UInt16Array,
+                arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
             max_phases_column: crate::columnar::array::<
-                arrow_array::UInt16Array,
+                arrow_array::Int64Array,
             >(batch.column(2usize).as_ref())?,
             min_species_column: crate::columnar::array::<
-                arrow_array::UInt16Array,
+                arrow_array::Int64Array,
             >(batch.column(3usize).as_ref())?,
             max_species_column: crate::columnar::array::<
-                arrow_array::UInt16Array,
+                arrow_array::Int64Array,
             >(batch.column(4usize).as_ref())?,
         })
     }
@@ -471,7 +471,7 @@ impl<'a> NormalizedTemplateMaterialConstraintsView<'a> {
         "min_phases",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn min_phases_column(&self) -> &'a arrow_array::UInt16Array {
+    pub const fn min_phases_column(&self) -> &'a arrow_array::Int64Array {
         self.min_phases_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "min_phases", "`.")]
@@ -483,7 +483,7 @@ impl<'a> NormalizedTemplateMaterialConstraintsView<'a> {
         "max_phases",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn max_phases_column(&self) -> &'a arrow_array::UInt16Array {
+    pub const fn max_phases_column(&self) -> &'a arrow_array::Int64Array {
         self.max_phases_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "max_phases", "`.")]
@@ -495,7 +495,7 @@ impl<'a> NormalizedTemplateMaterialConstraintsView<'a> {
         "min_species",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn min_species_column(&self) -> &'a arrow_array::UInt16Array {
+    pub const fn min_species_column(&self) -> &'a arrow_array::Int64Array {
         self.min_species_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "min_species", "`.")]
@@ -507,7 +507,7 @@ impl<'a> NormalizedTemplateMaterialConstraintsView<'a> {
         "max_species",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn max_species_column(&self) -> &'a arrow_array::UInt16Array {
+    pub const fn max_species_column(&self) -> &'a arrow_array::Int64Array {
         self.max_species_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "max_species", "`.")]
@@ -612,6 +612,47 @@ impl NormalizedTemplateMaterialConstraintsBuilder {
         &mut self,
         row: NormalizedTemplateMaterialConstraintsRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=65_535_i64).contains(&(row.r#min_phases).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "min_phases",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if let Some(value) = (row.r#max_phases).as_ref()
+            && !((0_i64..=65_535_i64).contains(&(value).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "max_phases",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if !((0_i64..=65_535_i64).contains(&(row.r#min_species).to_owned())) {
+            return Err(
+                crate::columnar::value_error(
+                    "min_species",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if let Some(value) = (row.r#max_species).as_ref()
+            && !((0_i64..=65_535_i64).contains(&(value).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "max_species",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

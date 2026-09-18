@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Demand and law declarations prepare native plans for every truth branch.
-use crate::plan::{PortBinding, compile};
+use crate::plan::{PortBinding, compile_query};
 use datafusion::execution::runtime_env::RuntimeEnv;
 use pse_catalog::session::{
     ExecutionSettings, SessionFactory, ThreadBudget, native_engine_profile,
@@ -11,18 +11,15 @@ use pse_ids::{CancellationToken, FixedBudget};
 use pse_relations::columnar::FieldCheckedBatch;
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 
-#[test]
-fn every_demand_and_law_truth_candidate_prepares_with_its_exact_input_fields() {
+#[tokio::test]
+async fn every_native_rule_binds_with_its_exact_input_fields() {
     let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-    let rules = registry
-        .rules()
-        .iter()
-        .filter(|rule| rule.name.starts_with("P6.") || rule.name.starts_with("P8."))
-        .collect::<Vec<_>>();
+    let rules = registry.rules().iter().collect::<Vec<_>>();
     assert!(!rules.is_empty());
     let mut inputs = BTreeMap::new();
     for rule in &rules {
-        for (name, _, _) in rule.plan.dependencies() {
+        for input in &rule.inputs {
+            let name = input.relation.as_str();
             let spec = registry.relation(name).unwrap();
             inputs
                 .entry(spec.key)
@@ -47,19 +44,37 @@ fn every_demand_and_law_truth_candidate_prepares_with_its_exact_input_fields() {
     for rule in rules {
         let binding = PortBinding {
             ports: rule
-                .plan
-                .dependencies()
-                .into_iter()
-                .map(|(name, port, _)| (port.to_owned(), registry.relation(name).unwrap().key))
+                .inputs
+                .iter()
+                .map(|input| {
+                    (
+                        input.port.to_owned(),
+                        registry.relation(&input.relation).unwrap().key,
+                    )
+                })
                 .collect(),
         };
-        for (truth, plan) in crate::plan::outcomes::candidates(&rule.plan) {
-            let mut candidate = rule.clone();
-            candidate.plan = plan;
-            let prepared =
-                compile(&candidate, &binding, &session, &registry).and_then(|compiled| {
-                    Ok(session.prepare_rule_plan(compiled.plan, &CancellationToken::new())?)
-                });
+        for query in &rule.queries {
+            let truth = query.truth;
+            let prepared = compile_query(
+                rule,
+                query,
+                &binding,
+                &session,
+                &registry,
+                &CancellationToken::new(),
+            )
+            .await
+            .and_then(|compiled| {
+                crate::plan::trace::compile_support(
+                    &compiled.plan,
+                    rule,
+                    &registry,
+                    &session,
+                    &CancellationToken::new(),
+                )?;
+                Ok(())
+            });
             if let Err(error) = prepared {
                 failures.push(format!("{} ({truth}): {error}", rule.name));
             }

@@ -38,7 +38,7 @@ pub(super) async fn emit(
             .await?;
     let registry = session.registry();
     let pass = registry
-        .pass("P3@1")
+        .algorithm("P3@1")
         .ok_or_else(|| invalid("P3 declaration absent"))?;
     let mut output = OutputRows::new(registry, session.reserver(), cancel)?;
     parse(ports, &mut output, cancel)?;
@@ -55,7 +55,7 @@ fn parse(
     for (port, source) in ports {
         cancel.checkpoint()?;
         let support = BTreeSet::from([source]);
-        let mut length = 0_u64;
+        let mut length = 0_i64;
         if port.bound_to != "self" {
             for child in port.bound_to.split('.') {
                 cancel.checkpoint()?;

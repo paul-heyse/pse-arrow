@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::{Realizer, invalid};
-use crate::CompilerError;
+use crate::{CompilerError, mathir_relations::syntax::EquationSelected};
 use pse_ids::{IndexTuple, SemanticId, equation_instance_id};
 use pse_mathir::{
     NodeId, Opcode, Payload,
@@ -15,11 +15,11 @@ use pse_templates::InstantiationEnvironment;
 use std::collections::BTreeSet;
 
 struct Leaf {
-    id: u64,
+    id: i64,
     left: NodeId,
     right: NodeId,
     sense: Sense,
-    guards: Vec<(u64, bool)>,
+    guards: Vec<(i64, bool)>,
 }
 
 impl Realizer<'_> {
@@ -60,7 +60,7 @@ impl Realizer<'_> {
             for ordinal in first_new..self.graph.len() {
                 self.node_support
                     .entry(NodeId(
-                        u64::try_from(ordinal).map_err(|_| invalid("graph ordinal overflow"))?,
+                        i64::try_from(ordinal).map_err(|_| invalid("graph ordinal overflow"))?,
                     ))
                     .or_default()
                     .extend(self.active_support.iter().copied());
@@ -150,7 +150,9 @@ impl Realizer<'_> {
                     .binders
                     .get(&BoundIndexId::from_id(index.bound_index_id))
                     .ok_or_else(|| invalid("equation free binder absent"))?;
-                if index.position.map(usize::from) != Some(position) || binding.domain != *domain {
+                if index.position.and_then(|value| usize::try_from(value).ok()) != Some(position)
+                    || binding.domain != *domain
+                {
                     return Err(invalid("equation source axis/domain mismatch"));
                 }
                 Ok(FreeIndex {
@@ -185,19 +187,12 @@ impl Realizer<'_> {
             let node = nodes
                 .get(&id)
                 .ok_or_else(|| invalid("equation source node absent"))?;
-            match node.kind.as_str() {
-                "relation" => {
-                    let roots = [
-                        node.left_expr
-                            .ok_or_else(|| invalid("left operand absent"))?,
-                        node.right_expr
-                            .ok_or_else(|| invalid("right operand absent"))?,
-                    ];
+            match node.value.selected()? {
+                EquationSelected::Relation(value) => {
+                    let roots = [value.left, value.right];
                     let mapped = self.instantiate_roots(source, &roots, env)?;
-                    let sense = node
-                        .sense
-                        .and_then(|sense| Sense::parse(sense.as_str()))
-                        .ok_or_else(|| invalid("equation sense absent or unknown"))?;
+                    let sense = Sense::parse(value.sense.as_str())
+                        .ok_or_else(|| invalid("equation sense unknown"))?;
                     leaves.push(Leaf {
                         id,
                         left: mapped[0],
@@ -206,16 +201,10 @@ impl Realizer<'_> {
                         guards,
                     });
                 }
-                "conditional" => {
-                    let guard = node
-                        .guard_predicate
-                        .ok_or_else(|| invalid("conditional guard absent"))?;
-                    let yes = node
-                        .then_equation
-                        .ok_or_else(|| invalid("then equation absent"))?;
-                    let no = node
-                        .else_equation
-                        .ok_or_else(|| invalid("else equation absent"))?;
+                EquationSelected::Conditional(value) => {
+                    let guard = value.guard;
+                    let yes = value.then;
+                    let no = value.otherwise;
                     if let Some(value) = env.predicates.get(&(source.source_id, guard)) {
                         tasks.push((if *value { yes } else { no }, guards, ancestors));
                     } else if env.predicate_masks.contains_key(&(source.source_id, guard)) {
@@ -234,7 +223,6 @@ impl Realizer<'_> {
                         .into());
                     }
                 }
-                _ => return Err(invalid("unknown equation source node kind")),
             }
         }
         Ok(leaves)
@@ -243,7 +231,7 @@ impl Realizer<'_> {
     fn branch_filter(
         &mut self,
         source: SemanticId,
-        guards: &[(u64, bool)],
+        guards: &[(i64, bool)],
         authored: Option<NodeId>,
         env: &InstantiationEnvironment,
     ) -> Result<Option<NodeId>, CompilerError> {

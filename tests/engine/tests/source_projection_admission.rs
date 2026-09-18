@@ -1,91 +1,49 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Actual committed sources remain the authority for model publication and reopening.
+//! Source projection reads its actual document child, independent of other bindings.
 #[path = "../../support/native_pipeline.rs"]
 mod native_pipeline;
 #[path = "../../support/physical_source.rs"]
 mod physical_source;
-
-use datafusion::arrow::array::{RecordBatch, StringArray};
-use pse_catalog::store::{
-    membership::AdmissionContext,
-    publish::{BundleDraft, RelationDraft},
-};
-use pse_ids::{CancellationToken, SnapshotKind};
-use std::sync::Arc;
-
+use pse_ids::CancellationToken;
+use pse_relations::{columnar::FieldCheckedBatch, generated::authored};
+use std::collections::BTreeMap;
 #[tokio::test]
-async fn changed_package_values_cannot_replace_the_actual_committed_source() {
-    let mut fixture = native_pipeline::Fixture::new();
+async fn unrelated_package_values_cannot_replace_the_actual_source_child() {
+    let fixture = native_pipeline::Fixture::new();
     let source = pse_authoring::document::load_package_texts(
         physical_source::physical_texts(&fixture.registry),
         &fixture.registry,
         pse_authoring::ParseBudget::default(),
     )
     .unwrap();
-    let tip = fixture.commit(vec![source]).await;
-    let committed = Arc::clone(&tip.parents()["model"]);
-    let context = AdmissionContext {
-        traversal: Arc::default(),
-        invocation: None,
-        parents: committed.parents().clone(),
-        stage_pass: committed.stage_pass(),
-    };
+    let package = source.batches[&authored::packages::RELATION_ID].clone();
+    let expected = authored::packages::View::from_checked(&package)
+        .unwrap()
+        .rows()
+        .unwrap();
+    let mut rows = authored::packages::Builder::new().unwrap();
+    for mut row in expected.clone() {
+        row.name = "not_the_document".into();
+        rows.push(row).unwrap();
+    }
+    let forged: FieldCheckedBatch = rows.finish().unwrap();
+    let (session, documents) = fixture.source(vec![source]);
     let cancel = CancellationToken::new();
-    let reopened = fixture
-        .catalog
-        .read_manifest(committed.manifest_ref(), &context, &cancel)
-        .await
-        .unwrap();
-    assert_eq!(reopened.snapshot_id(), committed.snapshot_id());
-    let mut changed = false;
-    let relations = committed
-        .relations()
-        .values()
-        .map(|relation| {
-            let mut batch = relation.batch().clone();
-            if relation.contract().namespace == "authored" && relation.contract().name == "packages"
-            {
-                let index = batch.schema().index_of("name").unwrap();
-                let mut columns = batch.columns().to_vec();
-                columns[index] = Arc::new(StringArray::from(vec![
-                    "changed_without_source_edit";
-                    batch.num_rows()
-                ]));
-                batch = RecordBatch::try_new(batch.schema(), columns).unwrap();
-                changed = true;
-            }
-            (
-                relation.member().port.clone(),
-                RelationDraft {
-                    contract: Arc::clone(relation.contract()),
-                    batches: vec![batch],
-                },
-            )
-        })
-        .collect();
-    assert!(changed);
-    let manifest = fixture
-        .catalog
-        .manifest_template(SnapshotKind::Model, &context)
-        .unwrap();
-    let error = fixture
-        .catalog
-        .publish_bundle(
-            BundleDraft {
-                manifest,
-                context,
-                relations,
-            },
+    let session = session
+        .with_checked_workspace(
+            BTreeMap::from([(authored::packages::RELATION_KEY, forged)]),
             &cancel,
         )
+        .unwrap();
+    let plan = pse_compiler::native::model::source(&session, documents, &cancel)
         .await
-        .unwrap_err();
-    assert!(
-        error
-            .to_string()
-            .contains("differ from exact source projection"),
-        "{error}"
-    );
+        .unwrap();
+    let values = fixture.capture(&plan).await.unwrap();
+    let actual = authored::packages::View::from_checked(&values[&authored::packages::RELATION_KEY])
+        .unwrap()
+        .rows()
+        .unwrap();
+    assert_eq!(actual, expected);
 }

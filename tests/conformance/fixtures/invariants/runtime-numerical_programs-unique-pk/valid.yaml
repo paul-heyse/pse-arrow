@@ -1,0 +1,14 @@
+{
+  "invariant": "runtime.numerical_programs:unique:pk",
+  "rows": {
+    "runtime.numerical_programs": [
+      {
+        "jacobian_dimension": "[\"i64\",1]",
+        "program_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "residual_dimension": "[\"i64\",1]",
+        "variable_columns": "[\"list\",[]]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -4,8 +4,7 @@
 """Contracts generated from the sole registry declaration."""
 
 from pse.contracts.extension_types import EXTENSION_NAMES, register_all
-from pse.contracts.manifest import Manifest
 
-__all__ = ["EXTENSION_NAMES", "REGISTRY_FINGERPRINT", "Manifest", "register_all"]
+__all__ = ["EXTENSION_NAMES", "REGISTRY_FINGERPRINT", "register_all"]
 
-REGISTRY_FINGERPRINT = "blake3:93d9c882646e6fe036bb5c1bd27a900f7d415175c8ddb9eda45b566a6c5f4f85"
+REGISTRY_FINGERPRINT = "blake3:210dcd68b023ac3d812c69c3073c740436a3092793f2a7bc88d65239c37af8e2"

@@ -1,0 +1,14 @@
+{
+  "invariant": "runtime.cache_entry_statistics:unique:pk",
+  "rows": {
+    "runtime.cache_entry_statistics": [
+      {
+        "bytes": "[\"i64\",1]",
+        "cache": "[\"text\",\"value-1\"]",
+        "hits": "[\"i64\",1]",
+        "key": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

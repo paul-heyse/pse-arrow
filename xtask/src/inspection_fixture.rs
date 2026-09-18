@@ -1,39 +1,54 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Fresh current stores for Python inspection; no persisted comparison oracle.
-
+//! Fresh target Delta publications for cold Rust/Python inspection.
 use anyhow::{Context, Result, ensure};
-use pse_catalog::{Snapshot, store::membership::AdmissionContext};
-use pse_compiler::driver::{CommitRequest, CommitRevisionIds, Driver};
-use pse_ids::SemanticId;
-use pse_relations::generated::authored;
-use std::{collections::BTreeMap, path::Path, process::Command, sync::Arc};
-
+use pse_relations::generated::enums::PublicationKind;
+use std::{path::Path, process::Command};
 pub(crate) mod environment;
 mod index;
 use environment::Environment;
-use index::{Index, StoredSnapshot};
+use index::Index;
 
 pub(crate) fn run(path: &Path) -> Result<()> {
-    // A caller owns this fresh destination. Never replace an existing store.
     std::fs::create_dir(path)
-        .with_context(|| format!("creating fresh inspection store {}", path.display()))?;
-    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .with_context(|| format!("creating fresh publication fixture {}", path.display()))?;
+    let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
         .build()?;
-    runtime.block_on(async {
-        publish(path).await?;
-        reopen(path).await
+    executor.block_on(async {
+        let environment = Environment::new(path)?;
+        let plan = environment
+            .source_plan(&[], false)
+            .await
+            .context("compose native inspection source plan")?;
+        let root = environment
+            .publish(path, &plan, PublicationKind::Source)
+            .await
+            .context("publish native inspection source plan")?;
+        drop((plan, environment));
+        let reader = Environment::new(path)?;
+        let publication = reader
+            .open(root.clone())
+            .await
+            .context("reopen native inspection source publication")?;
+        let tables = publication.session().inspection_tables();
+        ensure!(
+            !tables.is_empty(),
+            "source publication omitted its complete typed inventory"
+        );
+        let index = Index { root, tables };
+        let mut bytes = serde_json::to_vec_pretty(&index)?;
+        bytes.push(b'\n');
+        std::fs::write(path.join("publication-index.json"), bytes)?;
+        Ok(())
     })
 }
-
 pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
     let scratch = tempfile::tempdir()?;
     let path = scratch.path().join("inspection");
     run(&path)?;
-    // Build once before pytest starts workers; every worker reads this store.
     let status = Command::new("uv")
         .current_dir(root)
         .args([
@@ -46,107 +61,50 @@ pub(crate) fn python_tests(root: &Path, args: &[String]) -> Result<()> {
             "auto",
         ])
         .args(args)
-        .env("PSE_INSPECTION_STORE", &path)
+        .env("PSE_INSPECTION_PUBLICATION", &path)
         .status()
-        .context("running Python tests against the fresh native store")?;
+        .context("running Python tests against fresh native Delta publication")?;
     ensure!(status.success(), "Python tests failed: {status}");
     Ok(())
 }
 
-async fn publish(path: &Path) -> Result<()> {
-    let environment = Environment::new(path)?;
-    let mut driver = Driver::new(Arc::clone(&environment.catalog))?;
-    let committed = driver
-        .commit(
-            CommitRequest {
-                reference: pse_catalog::RefName::parse("fixture")?,
-                revision_ids: Some(CommitRevisionIds {
-                    model: id(0x100)?,
-                    case: id(0x101)?,
-                }),
-                base: None,
-                documents: Vec::new(),
-                header: authored::change_sets::Row {
-                    change_set_id: id(0x102)?,
-                    base_revision_id: SemanticId::NIL,
-                    author: "inspection fixture".to_owned(),
-                    message: "admitted source fixture".to_owned(),
-                    created_at: 1_000_000_000,
-                },
-                changes: None,
-            },
-            &environment.cancel,
-        )
-        .await?;
-    ensure!(
-        committed.validation.error_count() == 0,
-        "inspection fixture commit produced {} errors",
-        committed.validation.error_count()
-    );
-    let model = committed.model.context("successful commit omitted model")?;
-    let case = committed.tip.context("successful commit omitted case")?;
-    let mut index = Index {
-        snapshots: Vec::new(),
-    };
-    index
-        .snapshots
-        .push(StoredSnapshot::new("model", &model, &[])?);
-    index
-        .snapshots
-        .push(StoredSnapshot::new("case", &case, &[("model", &model)])?);
-    write_json(&path.join("store-index.json"), &index)
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
 
-fn id(ordinal: u16) -> Result<SemanticId> {
-    Ok(pse_authoring::ids::parse_id(
-        &format!("01991d6a13a07000800000000000{ordinal:04x}"),
-        pse_authoring::SourceSpan::head(SemanticId::NIL),
-    )?)
-}
+    #[tokio::test]
+    async fn empty_source_outputs_have_executable_declared_native_fields() {
+        let directory = tempfile::tempdir().unwrap();
+        let environment = Environment::new(directory.path()).unwrap();
+        let plan = environment.source_plan(&[], false).await.unwrap();
+        for (name, output) in plan.outputs() {
+            let prepared = plan.prepare(name, &environment.cancel).unwrap();
+            let completed = prepared
+                .execute(&environment.cancel)
+                .await
+                .unwrap_or_else(|error| panic!("source output {name}: {error}"));
+            let spec = environment
+                .registry
+                .relation_by_id(output.relation_id)
+                .unwrap();
+            let layout = pse_catalog::delta::layout::DurableLayout::new(Arc::new(
+                pse_schema::arrow::relation_schema(&environment.registry, spec).unwrap(),
+            ))
+            .unwrap();
+            let encoded = layout.encode(output.plan.clone()).unwrap();
+            let encoded = plan
+                .session()
+                .prepare_rule_plan(encoded, &environment.cancel)
+                .unwrap();
+            encoded
+                .execute(&environment.cancel)
+                .await
+                .unwrap_or_else(|error| panic!("source output {name} storage projection: {error}"));
 
-async fn reopen(path: &Path) -> Result<()> {
-    let index: Index = read_json(&path.join("store-index.json"))?;
-    let environment = Environment::new(path)?;
-    let mut opened = BTreeMap::<String, Arc<Snapshot>>::new();
-    for stored in index.snapshots {
-        let context = AdmissionContext {
-            traversal: Arc::default(),
-            invocation: None,
-            parents: stored
-                .parents
-                .iter()
-                .map(|(role, label)| {
-                    Ok((
-                        role.clone(),
-                        Arc::clone(opened.get(label).with_context(|| {
-                            format!("parent {label} must precede {}", stored.label)
-                        })?),
-                    ))
-                })
-                .collect::<Result<_>>()?,
-            stage_pass: stored.stage_pass,
-        };
-        let snapshot = environment
-            .catalog
-            .read_manifest(stored.reference, &context, &environment.cancel)
-            .await?;
-        opened.insert(stored.label, snapshot);
+            completed
+                .into_checked_relation(&environment.registry, spec, &environment.cancel)
+                .unwrap_or_else(|error| panic!("source output {name} declaration: {error}"));
+        }
     }
-    println!(
-        "inspection fixture: published and admitted {} current snapshots",
-        opened.len()
-    );
-    Ok(())
-}
-
-fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
-    serde_json::from_slice(
-        &std::fs::read(path).with_context(|| format!("reading {}", path.display()))?,
-    )
-    .with_context(|| format!("decoding {}", path.display()))
-}
-fn write_json(path: &Path, value: &impl serde::Serialize) -> Result<()> {
-    let mut bytes = serde_json::to_vec_pretty(value)?;
-    bytes.push(b'\n');
-    Ok(std::fs::write(path, bytes)?)
 }

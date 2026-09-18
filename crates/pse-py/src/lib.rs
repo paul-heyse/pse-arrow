@@ -12,9 +12,9 @@
 //! The module is imported as `pse._native`; nothing else in the Python package is
 //! allowed to import it directly (ast-grep rule `no-direct-native-import`).
 //!
-//! Exposes build provenance and read-only admitted snapshot inspection. Named table
+//! Exposes build provenance and read-only exact Delta publication inspection. Named table
 //! streams preserve the catalog's final-buffer reservations through Arrow C Stream
-//! consumers; opening replays semantic admission under one explicit process budget.
+//! consumers; opening checks exact declarations under one explicit process budget.
 
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict};
@@ -51,7 +51,10 @@ mod _native {
     #[pymodule_export]
     use super::{
         build_info,
-        inspection::{EngineSettings, InspectionError, Snapshot, Store, TableStream, open_store},
+        inspection::{
+            CacheReport, CacheSettings, EngineSettings, InspectionError, Publication, TableStream,
+            open_publication,
+        },
     };
 
     #[pymodule_export]

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Cold Python admission and owned streams of actual source-produced P10 graphs."""
+"""Cold Python admission and owned streams of actual source-produced native graphs."""
 
 import gc
 import hashlib
@@ -16,25 +16,27 @@ import pytest
 import pse
 from pse.codec import decode_json, structure_rows
 from pse.contracts.compiled import (
-    CompiledMathExprArgsRow,
     CompiledMathExprNodesRow,
     CompiledMathIndexedEquationsRow,
     CompiledSymbolsRow,
 )
 from pse.contracts.enums import SymbolRole
-from pse.tests.test_native_registry import SnapshotReference
+from pse.tests.test_native_registry import PublicationRoot
+from pse.tests.test_publication_streams import (
+    _assert_exported_owner,
+    _assert_released,
+)
 
 T = TypeVar("T")
 
 
 class EngineeringMeasurement(msgspec.Struct, forbid_unknown_fields=True):
     label: str
-    p3: SnapshotReference
-    p10: SnapshotReference
+    publication: PublicationRoot
     state_template: str
     expected_states: int
-    commit_seconds: float
-    compile_seconds: float
+    planning_seconds: float
+    execution_seconds: float
     rust_reopen_seconds: float
     memory_limit_bytes: int
     compile_peak_bytes: int
@@ -43,12 +45,12 @@ class EngineeringMeasurement(msgspec.Struct, forbid_unknown_fields=True):
     threads: int
     partitions: int
     batch_size: int
-    stage_rows: dict[str, dict[str, int]]
+    relation_rows: dict[str, int]
 
 
-def _rows(snapshot: pse.Snapshot, name: str, cls: type[T]) -> list[T]:
+def _rows(snapshot: pse.Publication, name: str, cls: type[T]) -> list[T]:
     with (
-        snapshot.table(name) as stream,
+        snapshot.table("artifact", *name.split(".", 1)) as stream,
         pa.RecordBatchReader.from_stream(stream) as reader,
     ):
         rows: list[dict[str, object]] = [
@@ -57,17 +59,14 @@ def _rows(snapshot: pse.Snapshot, name: str, cls: type[T]) -> list[T]:
     return structure_rows(rows, cls)
 
 
-def _check_equations(snapshot: pse.Snapshot, label: str) -> None:
+def _check_equations(snapshot: pse.Publication, label: str) -> None:
     equations = _rows(
         snapshot, "compiled.math_indexed_equations", CompiledMathIndexedEquationsRow
     )
     nodes = _rows(snapshot, "compiled.math_expr_nodes", CompiledMathExprNodesRow)
-    args = _rows(snapshot, "compiled.math_expr_args", CompiledMathExprArgsRow)
     by_id = {node.node_id: node for node in nodes}
     assert len(by_id) == len(nodes) > 0
-    assert all(
-        arg.parent_node_id in by_id and arg.child_node_id in by_id for arg in args
-    )
+    assert all(child in by_id for node in nodes for child in node.children)
     assert all(
         by_id[row.body_node_id].quantity_type_id is not None for row in equations
     )
@@ -92,7 +91,9 @@ def _check_equations(snapshot: pse.Snapshot, label: str) -> None:
     assert "d21198887b734bdaa6d975d784eb6001" not in declarations
 
 
-def _check_symbols(snapshot: pse.Snapshot, measurement: EngineeringMeasurement) -> None:
+def _check_symbols(
+    snapshot: pse.Publication, measurement: EngineeringMeasurement
+) -> None:
     symbols = _rows(snapshot, "compiled.symbols", CompiledSymbolsRow)
     temperature = (
         "eb889bdb424c416d9e889da639a36879"
@@ -122,12 +123,12 @@ def _check_symbols(snapshot: pse.Snapshot, measurement: EngineeringMeasurement) 
         assert disabled not in declarations
 
 
-def _check_streams(snapshot: pse.Snapshot, expected: dict[str, int]) -> None:
+def _check_streams(snapshot: pse.Publication, expected: dict[str, int]) -> None:
     tables = snapshot.tables()
-    assert {port for _, port in tables} == set(expected)
-    for name, port in tables:
+    assert {f"{schema}.{table}" for _, schema, table in tables} == set(expected)
+    for catalog, schema, table in tables:
         with (
-            snapshot.table(name, port=port) as stream,
+            snapshot.table(catalog, schema, table) as stream,
             pa.RecordBatchReader.from_stream(stream) as reader,
         ):
             assert all(
@@ -138,12 +139,12 @@ def _check_streams(snapshot: pse.Snapshot, expected: dict[str, int]) -> None:
             for batch in reader:
                 assert 0 < batch.num_rows <= 7
                 count += batch.num_rows
-            assert count == expected[port]
+            assert count == expected[f"{schema}.{table}"]
 
 
-def _retained_node(snapshot: pse.Snapshot) -> pa.Array:
+def _retained_node(snapshot: pse.Publication) -> pa.Array:
     with (
-        snapshot.table("compiled.math_expr_nodes") as stream,
+        snapshot.table("artifact", "compiled", "math_expr_nodes") as stream,
         pa.RecordBatchReader.from_stream(stream) as reader,
     ):
         return reader.read_next_batch().column("node_id").slice(0, 1)
@@ -161,10 +162,10 @@ def _store_files(path: Path) -> dict[str, bytes]:
 
 
 @pytest.mark.integration
-def test_source_p10_cold_python_inspection_and_final_export_owner(
+def test_source_native_cold_python_inspection_and_final_export_owner(
     tmp_path: Path,
 ) -> None:
-    configured = os.environ.get("PSE_ENGINEERING_STORE")
+    configured = os.environ.get("PSE_ENGINEERING_PUBLICATION")
     if configured is None:
         pytest.fail(
             "Run just engineering-inspection <new-output-directory>.", pytrace=False
@@ -174,40 +175,44 @@ def test_source_p10_cold_python_inspection_and_final_export_owner(
         (path / "engineering.json").read_bytes(), EngineeringMeasurement
     )
     before = _store_files(path)
+    spill = tmp_path / "spill"
+    spill.mkdir()
     settings = pse.EngineSettings(
         memory_limit_bytes=measurement.memory_limit_bytes,
         threads=measurement.threads,
-        spill_dir=str(tmp_path / "spill"),
+        spill_dir=str(spill),
         max_spill_bytes=1 << 30,
         batch_size=7,
-        max_object_bytes=1 << 30,
-        max_control_bytes=64 << 20,
     )
-    store = pse.open(path, settings=settings)
     started = time.perf_counter()
-    snapshot = store.snapshot(
-        measurement.p10.snapshot_id, measurement.p10.manifest_checksum
+    snapshot = pse.open(
+        measurement.publication.location,
+        version=measurement.publication.version,
+        settings=settings,
     )
     reopen_seconds = time.perf_counter() - started
-    assert snapshot.snapshot_id == measurement.p10.snapshot_id
+    assert snapshot.version == measurement.publication.version
+    assert snapshot.location == measurement.publication.location
     started = time.perf_counter()
-    _check_streams(snapshot, measurement.stage_rows["P10"])
+    _check_streams(snapshot, measurement.relation_rows)
     _check_equations(snapshot, measurement.label)
     _check_symbols(snapshot, measurement)
     stream_seconds = time.perf_counter() - started
     retained = _retained_node(snapshot)
     value = retained.to_pylist()
     snapshot.close()
-    store.close()
     gc.collect()
     assert retained.to_pylist() == value
-    assert store.resource_usage().reserved_bytes > 0
+    _assert_exported_owner(snapshot)
     del retained
     gc.collect()
-    usage = store.resource_usage()
-    assert usage.reserved_bytes == 0
+    usage = snapshot.resource_usage()
+    _assert_released(snapshot)
+    cached = sum(
+        row.capacity_bytes + (row.live_bytes or 0) for row in snapshot.cache_usage()
+    )
     assert _store_files(path) == before, (
-        "cold admission and inspection must not publish or repair store objects"
+        "cold admission and inspection must not publish or repair Delta tables"
     )
     (path / "engineering-python.json").write_bytes(
         msgspec.json.encode(
@@ -218,6 +223,7 @@ def test_source_p10_cold_python_inspection_and_final_export_owner(
                 "peak_bytes": usage.peak_bytes,
                 "process_peak_rss_bytes": usage.process_peak_rss_bytes,
                 "final_reserved_bytes": usage.reserved_bytes,
+                "final_cache_owned_bytes": cached,
             }
         )
     )

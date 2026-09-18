@@ -92,7 +92,7 @@ fn definitions(context: &SessionContext) -> publications::Row {
         publication_id: id(2),
         parent_publication_id: None,
         attempt_id: id(3),
-        kind: PublicationKind::Source,
+        kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
     };

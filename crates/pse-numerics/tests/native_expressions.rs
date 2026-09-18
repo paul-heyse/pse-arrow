@@ -5,7 +5,7 @@
 #![allow(clippy::unwrap_used, reason = "independent numerical test assertions")]
 use datafusion::{
     arrow::{
-        array::{Float64Array, RecordBatch},
+        array::{FixedSizeBinaryArray, Float64Array, ListArray, RecordBatch},
         datatypes::{DataType, Field, Schema, SchemaRef},
     },
     common::Column,
@@ -22,6 +22,11 @@ fn state() -> SessionState {
 }
 fn schema() -> SchemaRef {
     Arc::new(Schema::new(vec![
+        pse_relations::generated::runtime::numerical_evaluations::schema()
+            .unwrap()
+            .field_with_name("scenario_id")
+            .unwrap()
+            .clone(),
         Field::new("x", DataType::Float64, false),
         Field::new("y", DataType::Float64, false),
     ]))
@@ -30,6 +35,12 @@ fn values(x: Vec<f64>, y: Vec<f64>) -> RecordBatch {
     RecordBatch::try_new(
         schema(),
         vec![
+            Arc::new(
+                FixedSizeBinaryArray::try_from_iter(
+                    (0..x.len()).map(|i| [u8::try_from(i).unwrap(); 16]),
+                )
+                .unwrap(),
+            ),
             Arc::new(Float64Array::from(x)),
             Arc::new(Float64Array::from(y)),
         ],
@@ -37,15 +48,34 @@ fn values(x: Vec<f64>, y: Vec<f64>) -> RecordBatch {
     .unwrap()
 }
 fn value(batch: &RecordBatch, column: usize, row: usize) -> f64 {
-    batch
-        .column(column)
+    let residuals = batch
+        .column_by_name("residuals")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .unwrap();
+    let dimension = usize::try_from(residuals.value_length(row)).unwrap();
+    let (name, index) = if column < dimension {
+        ("residuals", column)
+    } else {
+        ("jacobian", column - dimension)
+    };
+    let values = batch
+        .column_by_name(name)
+        .unwrap()
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .unwrap()
+        .value(row);
+    values
         .as_any()
         .downcast_ref::<Float64Array>()
         .unwrap()
-        .value(row)
+        .value(index)
 }
 fn program(expressions: &[Expr]) -> EvaluationProgram {
     EvaluationProgram::compile(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         expressions,
         &[Column::from_name("x"), Column::from_name("y")],
         schema(),
@@ -71,7 +101,11 @@ fn nonlinear_residuals_and_sparse_jacobians_match_independent_oracles() {
     ]);
     assert_eq!(program.residual_count(), 2);
     assert_eq!(
-        program.jacobian_coordinates(),
+        program
+            .jacobian_coordinates()
+            .iter()
+            .map(|row| (row.residual, row.variable))
+            .collect::<Vec<_>>(),
         &[(0, 0), (0, 1), (1, 0), (1, 1)]
     );
     for (x, y) in [(1.2_f64, 2.3_f64), (-1.4, 0.7), (0.0, 1.0)] {
@@ -101,7 +135,14 @@ fn nonlinear_residuals_and_sparse_jacobians_match_independent_oracles() {
 #[test]
 fn native_batches_keep_order_and_omit_structurally_absent_derivatives() {
     let program = program(&[ln(col("x")), lit(8.0_f64)]);
-    assert_eq!(program.jacobian_coordinates(), &[(0, 0)]);
+    assert_eq!(
+        program
+            .jacobian_coordinates()
+            .iter()
+            .map(|row| (row.residual, row.variable))
+            .collect::<Vec<_>>(),
+        &[(0, 0)]
+    );
     let output = program
         .evaluate(&values(vec![1.0, 2.0, 4.0], vec![0.0; 3]))
         .unwrap();
@@ -188,6 +229,7 @@ fn derivative_admission_uses_actual_udf_and_refuses_variable_dependent_guards() 
     );
     assert!(matches!(
         EvaluationProgram::compile(
+            pse_ids::SemanticId::from_bytes([90; 16]),
             &[impostor.call(vec![col("x")])],
             &[Column::from_name("x")],
             schema(),
@@ -202,6 +244,7 @@ fn derivative_admission_uses_actual_udf_and_refuses_variable_dependent_guards() 
         .unwrap();
     assert!(matches!(
         EvaluationProgram::compile(
+            pse_ids::SemanticId::from_bytes([90; 16]),
             &[switch],
             &[Column::from_name("x")],
             schema(),
@@ -218,6 +261,7 @@ fn cancellation_resource_refusal_and_buffer_lifetimes_are_explicit() {
     let cancel = CancellationToken::new();
     let budget = FixedBudget::new(1 << 20);
     let program = EvaluationProgram::compile(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         &[col("x") * col("x")],
         &[Column::from_name("x")],
         schema(),
@@ -239,6 +283,7 @@ fn cancellation_resource_refusal_and_buffer_lifetimes_are_explicit() {
     assert_eq!(budget.reserved(), 0);
     assert!(matches!(
         EvaluationProgram::compile(
+            pse_ids::SemanticId::from_bytes([90; 16]),
             &[exp(col("x"))],
             &[Column::from_name("x")],
             schema(),
@@ -265,6 +310,7 @@ fn native_resource_errors_remain_resource_failures() {
     );
     // Fixed parameter functions need no derivative, but their failure remains real.
     let program = EvaluationProgram::compile(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         &[refused.call(vec![col("y")])],
         &[Column::from_name("x")],
         schema(),
@@ -298,6 +344,7 @@ async fn the_same_numerical_expressions_execute_as_an_ordinary_native_projection
     let state = state();
     let input = values(vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]);
     let program = EvaluationProgram::compile(
+        pse_ids::SemanticId::from_bytes([90; 16]),
         &[col("x") * col("y")],
         &[Column::from_name("x"), Column::from_name("y")],
         schema(),
@@ -323,5 +370,130 @@ async fn the_same_numerical_expressions_execute_as_an_ordinary_native_projection
         .collect()
         .await
         .unwrap();
-    assert_eq!(actual, [expected]);
+    assert_eq!(actual.len(), 1);
+    assert_eq!(actual[0].columns(), expected.columns());
+}
+
+#[tokio::test]
+async fn zero_dimensions_keep_scenario_identity_and_explicit_empty_vectors() {
+    let program = EvaluationProgram::compile(
+        pse_ids::SemanticId::from_bytes([91; 16]),
+        &[],
+        &[],
+        schema(),
+        &state(),
+        FixedBudget::new(1 << 20),
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let input = values(vec![1.0, 2.0], vec![3.0, 4.0]);
+    let output = program.evaluate(&input).unwrap();
+    assert_eq!(output.num_rows(), 2);
+    assert_eq!(
+        output.column_by_name("scenario_id"),
+        input.column_by_name("scenario_id")
+    );
+    assert_eq!(program.contract().residual_dimension, 0);
+    assert_eq!(program.contract().jacobian_dimension, 0);
+    assert!(program.contract().variable_columns.is_empty());
+    assert!(program.jacobian_coordinates().is_empty());
+    for name in ["residuals", "jacobian"] {
+        let list = output
+            .column_by_name(name)
+            .unwrap()
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        assert_eq!(list.value_length(0), 0);
+        assert_eq!(list.value_length(1), 0);
+    }
+    assert_eq!(program.evaluate(&input.slice(0, 0)).unwrap().num_rows(), 0);
+    let context = datafusion::execution::context::SessionContext::new_with_state(state());
+    let child = context.read_batch(input).unwrap().into_unoptimized_plan();
+    let plan = program.logical_projection(child).unwrap();
+    drop(program);
+    let actual = context
+        .execute_logical_plan(plan)
+        .await
+        .unwrap()
+        .collect()
+        .await
+        .unwrap();
+    assert_eq!(actual.len(), 1);
+    assert_eq!(actual[0].columns(), output.columns());
+}
+
+#[test]
+fn scenario_identity_and_exact_nonnull_input_contract_are_required() {
+    let undeclared = Arc::new(Schema::new(vec![
+        Field::new("scenario_id", DataType::FixedSizeBinary(16), false),
+        Field::new("x", DataType::Float64, false),
+    ]));
+    assert!(matches!(
+        EvaluationProgram::compile(
+            pse_ids::SemanticId::from_bytes([91; 16]),
+            &[col("x")],
+            &[Column::from_name("x")],
+            undeclared,
+            &state(),
+            FixedBudget::new(1 << 20),
+            CancellationToken::new(),
+        ),
+        Err(NumericsError::Input { .. })
+    ));
+    let program = program(&[col("x") * col("y"), col("y")]);
+    let coordinates = program.jacobian_coordinates();
+    assert!(
+        coordinates
+            .iter()
+            .enumerate()
+            .all(
+                |(ordinal, coordinate)| coordinate.program_id == program.contract().program_id
+                    && usize::try_from(coordinate.ordinal).unwrap() == ordinal
+                    && coordinate.residual < program.contract().residual_dimension
+                    && usize::try_from(coordinate.variable).unwrap()
+                        < program.contract().variable_columns.len()
+            )
+    );
+    assert!(coordinates.windows(2).all(|rows|
+        (rows[0].residual, rows[0].variable) < (rows[1].residual, rows[1].variable)));
+    let mismatched = values(vec![1.0], vec![2.0]).project(&[0, 2, 1]).unwrap();
+    assert!(matches!(
+        program.evaluate(&mismatched),
+        Err(NumericsError::Input { .. })
+    ));
+}
+
+#[test]
+fn repeated_callback_vectors_keep_contiguous_values_and_release_their_reservations() {
+    let budget = FixedBudget::new(8 << 20);
+    let program = EvaluationProgram::compile(
+        pse_ids::SemanticId::from_bytes([92; 16]),
+        &[col("x") * col("x") + col("y")],
+        &[Column::from_name("x"), Column::from_name("y")],
+        schema(),
+        &state(),
+        budget.clone(),
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let prepared = budget.reserved();
+    let mut max_observed = prepared;
+    let started = std::time::Instant::now();
+    for step in 0..256 {
+        let x = f64::from(step) / 32.0;
+        let output = program.evaluate(&values(vec![x], vec![2.0])).unwrap();
+        max_observed = max_observed.max(budget.reserved());
+        close(value(&output, 0, 0), x * x + 2.0);
+        close(value(&output, 1, 0), 2.0 * x);
+        close(value(&output, 2, 0), 1.0);
+        drop(output);
+        assert_eq!(budget.reserved(), prepared);
+    }
+    println!(
+        "numerical_vectors callbacks=256 elapsed_us={} prepared_reserved_bytes={prepared} maximum_observed_reserved_bytes={max_observed}",
+        started.elapsed().as_micros()
+    );
+    drop(program);
+    assert_eq!(budget.reserved(), 0);
 }

@@ -3,11 +3,11 @@
 
 //! Standard logical joins retain source identity fields and nullable absence explicitly.
 use crate::CompilerError;
+use datafusion::functions_aggregate::expr_fn::array_agg;
 use datafusion::{
     common::{Column, DataFusionError, NullEquality},
     logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder},
 };
-use pse_catalog::session::aggregate::array_agg;
 use pse_catalog::session::{SnapshotSession, scalar};
 use pse_schema::Registry;
 

@@ -30,6 +30,7 @@ datafusion-proto.workspace = true
 deltalake.workspace = true
 async-trait.workspace = true
 url.workspace = true
+uuid.workspace = true
 futures-util.workspace = true
 object_store.workspace = true
 bytes.workspace = true

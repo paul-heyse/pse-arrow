@@ -526,7 +526,7 @@ crate::closed_enum! {
 
 crate::closed_enum! {
     /// Which reduction a `SumOver`/`ProdOver`/`MinOver`/`MaxOver` node performs
-    /// (blueprint §6.9, `compiled.math_reductions.kind`).
+    /// (blueprint §6.9, `compiled.math_expr_nodes.payload.reduction.reduction_kind`).
     pub enum ReductionKind {
         /// An ordered sum over the bound index.
         Sum => "sum",

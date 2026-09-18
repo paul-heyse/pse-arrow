@@ -2,6 +2,11 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Current source fixtures shared by native engineering tests and cold inspection.
+#![allow(
+    clippy::unwrap_used,
+    reason = "test fixture construction and exact independent value assertions"
+)]
+
 use pse_authoring::{
     ParseBudget,
     document::{DocumentBundle, load_package, load_package_texts},

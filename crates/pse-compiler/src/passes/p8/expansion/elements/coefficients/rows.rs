@@ -108,6 +108,10 @@ fn array<'a, T: Array + 'static>(
         .and_then(|column| column.as_any().downcast_ref::<T>())
         .ok_or_else(|| invalid(format!("coefficient field {name} has unexpected storage")))
 }
+#[expect(
+    clippy::too_many_lines,
+    reason = "emit keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) fn emit(
     context: &Context<'_, '_>,
     declaration: &Declaration,
@@ -157,19 +161,19 @@ pub(super) fn emit(
         name: format!("element_coefficients:{}", declaration.group.to_hex()),
         product_id: declaration.product,
     })?;
-    let mut next_ordinal =
-        output
-            .rows::<compiled::symbols::Row>()?
-            .iter()
-            .try_fold(0u64, |next, row| {
-                Ok::<_, CompilerError>(
-                    next.max(
-                        row.ordinal
-                            .checked_add(1)
-                            .ok_or_else(|| invalid("symbol ordinal overflow"))?,
-                    ),
-                )
-            })?;
+    let mut next_ordinal = output
+        .rows::<compiled::symbols::Row>()?
+        .iter()
+        .chain(context.inputs.symbols.iter().map(|row| &**row))
+        .try_fold(0i64, |next, row| {
+            Ok::<_, CompilerError>(
+                next.max(
+                    row.ordinal
+                        .checked_add(1)
+                        .ok_or_else(|| invalid("symbol ordinal overflow"))?,
+                ),
+            )
+        })?;
     for row in actual {
         context.ctx.cancel.checkpoint()?;
         output.active = base.clone();

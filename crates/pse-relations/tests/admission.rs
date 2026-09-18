@@ -419,7 +419,7 @@ fn a_quantity_carries_its_measure_quantity_and_unit_in_one_nullable_value() {
 }
 
 #[test]
-fn contextual_snapshot_metadata_requires_a_hash_and_producer_requires_an_identity() {
+fn predecessor_contextual_metadata_is_not_part_of_the_declared_contract() {
     let reg = fixture();
     let spec = reg.relation("authored.values").unwrap();
     let schema = pse_schema::arrow::relation_schema(&reg, spec).unwrap();
@@ -432,7 +432,7 @@ fn contextual_snapshot_metadata_requires_a_hash_and_producer_requires_an_identit
         "pse.producer_pass_id".to_owned(),
         SemanticId::from_bytes([2; 16]).to_hex(),
     );
-    assert!(validate_schema(&reg, spec, &schema.clone().with_metadata(metadata.clone())).is_ok());
+    assert!(validate_schema(&reg, spec, &schema.clone().with_metadata(metadata.clone())).is_err());
     metadata.insert(
         "pse.snapshot_id".to_owned(),
         SemanticId::from_bytes([2; 16]).to_hex(),

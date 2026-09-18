@@ -121,6 +121,7 @@ mod linked {
             .ok_or_else(|| DataFusionError::Plan("solve requires actual SessionState".into()))?;
         let cancel = services.cancellation().child_token();
         let program = EvaluationProgram::compile(
+            node.specification.program_id,
             &UserDefinedLogicalNodeCore::expressions(node),
             &node
                 .specification
@@ -143,7 +144,7 @@ mod linked {
             permits: Arc::clone(&planner.permits),
             foreign_bytes: planner.foreign_bytes,
             properties: Arc::new(PlanProperties::new(
-                EquivalenceProperties::new(super::super::output::schema()),
+                EquivalenceProperties::new(super::super::output::schema().map_err(error)?),
                 Partitioning::UnknownPartitioning(1),
                 EmissionType::Final,
                 Boundedness::Bounded,

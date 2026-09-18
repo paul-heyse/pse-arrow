@@ -4,12 +4,12 @@
 //! Declared and lexical axes become ordered factors through native owner/name joins.
 use super::native::{Plans, append, c, error, join, prefix, project, union};
 use crate::CompilerError;
+use datafusion::functions_aggregate::expr_fn::array_agg;
 use datafusion::{
-    functions::core::expr_fn::coalesce,
+    functions::core::expr_fn::{coalesce, get_field},
     functions_nested::expr_fn::flatten,
     logical_expr::{Expr, ExprFunctionExt, JoinType, LogicalPlan, LogicalPlanBuilder, col, when},
 };
-use pse_catalog::session::aggregate::array_agg;
 use pse_catalog::session::scalar;
 
 pub(super) async fn build(plans: &mut Plans<'_>) -> Result<LogicalPlan, CompilerError> {
@@ -78,6 +78,10 @@ pub(super) async fn build(plans: &mut Plans<'_>) -> Result<LogicalPlan, Compiler
     shapes.push(expression_axes(plans, instances).await?);
     plans.retain(union(shapes)?).await
 }
+#[expect(
+    clippy::too_many_lines,
+    reason = "expression_axes keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 async fn expression_axes(
     plans: &mut Plans<'_>,
     instances: LogicalPlan,
@@ -88,33 +92,43 @@ async fn expression_axes(
         sources,
         JoinType::Inner,
         [c("instance", "instance_id")
-            .eq(c("source", "owner_instance_id"))
-            .or(c("instance", "template_id").eq(c("source", "owner_template_id")))],
+            .eq(get_field(
+                get_field(c("source", "owner"), "instance"),
+                "instance_id",
+            ))
+            .or(c("instance", "template_id").eq(get_field(
+                get_field(c("source", "owner"), "template"),
+                "template_id",
+            )))],
     )?;
     let base = project(
         base,
         [
             c("instance", "instance_id").alias("owner"),
             c("instance", "template_id").alias("template"),
-            c("source", "source_id").alias("source_id"),
+            c("source", "source_id").alias("product_source_id"),
             plans
                 .lists(vec![c("instance", "support"), c("source", "support")])?
                 .alias("supports"),
         ],
     )?;
     let axes = plans.scan("normalized.expression_index_bindings", "axis")?;
+    let actual_domain = get_field(get_field(c("axis", "domain"), "actual"), "domain_id");
+    let template_domain = get_field(c("axis", "domain"), "template");
     let expanded = join(
         base.clone(),
         axes,
         JoinType::Inner,
-        [col("source_id").eq(c("axis", "source_id"))],
+        [col("product_source_id").eq(c("axis", "source_id"))],
     )?;
     plans
         .require(
             &expanded,
-            c("axis", "domain_id")
-                .is_not_null()
-                .or(c("axis", "template_id").eq(col("template"))),
+            actual_domain.clone().is_not_null().or(get_field(
+                template_domain.clone(),
+                "template_id",
+            )
+            .eq(col("template"))),
             "lexical product binder belongs to another template",
         )
         .await?;
@@ -124,12 +138,12 @@ async fn expression_axes(
         binding,
         JoinType::Left,
         [
-            c("axis", "domain_id").is_null(),
+            actual_domain.clone().is_null(),
             col("owner").eq(c("binding", "instance_id")),
-            c("axis", "domain_name").eq(c("binding", "domain_name")),
+            get_field(template_domain, "name").eq(c("binding", "domain_name")),
         ],
     )?;
-    let domain = coalesce(vec![c("axis", "domain_id"), c("binding", "domain_id")]);
+    let domain = coalesce(vec![actual_domain.clone(), c("binding", "domain_id")]);
     plans
         .require(
             &expanded,
@@ -137,7 +151,7 @@ async fn expression_axes(
             "lexical product binder has no actual domain",
         )
         .await?;
-    let supports = when(c("axis", "domain_id").is_not_null(), c("axis", "support"))
+    let supports = when(actual_domain.is_not_null(), c("axis", "support"))
         .otherwise(plans.lists(vec![c("axis", "support"), c("binding", "support")])?)
         .map_err(error)?;
     let expanded = append(
@@ -149,7 +163,7 @@ async fn expression_axes(
     )?;
     let agg = LogicalPlanBuilder::from(expanded)
         .aggregate(
-            [col("owner"), col("source_id")],
+            [col("owner"), col("product_source_id")],
             [
                 ordered(
                     array_agg(col("axis_domain")),
@@ -170,7 +184,7 @@ async fn expression_axes(
         JoinType::Left,
         [
             col("owner").eq(c("axes", "owner")),
-            col("source_id").eq(c("axes", "source_id")),
+            col("product_source_id").eq(c("axes", "product_source_id")),
         ],
     )?;
     project(

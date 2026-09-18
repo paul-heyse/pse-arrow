@@ -45,10 +45,19 @@ fn column(name: &str) -> Expr {
     Expr::Column(Column::from_name(name))
 }
 fn all(checks: impl IntoIterator<Item = Expr>) -> Expr {
-    checks
-        .into_iter()
-        .reduce(Expr::and)
-        .unwrap_or_else(|| lit(true))
+    let mut checks: Vec<_> = checks.into_iter().collect();
+    while checks.len() > 1 {
+        let mut values = checks.into_iter();
+        let mut next = Vec::new();
+        while let Some(left) = values.next() {
+            next.push(match values.next() {
+                Some(right) => left.and(right),
+                None => left,
+            });
+        }
+        checks = next;
+    }
+    checks.pop().unwrap_or_else(|| lit(true))
 }
 
 pub(super) fn field_value(
@@ -71,19 +80,7 @@ pub(super) fn field_value(
     if let Some(alternative) =
         pse_schema::model::TaggedAlternative::from_field(field).map_err(external)?
     {
-        let tag = get_field(value.clone(), &alternative.discriminator);
-        let variants = alternative.arms.iter().map(|(name, selected)| {
-            let presence = alternative.payloads().into_iter().map(|arm| {
-                let payload = get_field(value.clone(), arm);
-                if Some(arm) == selected.as_deref() {
-                    payload.is_not_null()
-                } else {
-                    payload.is_null()
-                }
-            });
-            tag.clone().eq(lit(name.clone())).and(all(presence))
-        });
-        checks.push(variants.reduce(Expr::or).unwrap_or_else(|| lit(false)));
+        checks.push(alternative_value(&alternative, &value)?);
     }
     if let Some(range) = IntegerRange::from_field(field).map_err(external)? {
         checks.push(
@@ -153,6 +150,37 @@ pub(super) fn field_value(
     } else {
         value.is_not_null().and(valid)
     })
+}
+
+fn alternative_value(
+    alternative: &pse_schema::model::TaggedAlternative,
+    value: &Expr,
+) -> Result<Expr> {
+    let mut checks = vec![];
+    let tag = get_field(value.clone(), &alternative.discriminator);
+    checks.push(
+        tag.clone()
+            .in_list(alternative.arms.keys().cloned().map(lit).collect(), false),
+    );
+    // Each payload is present exactly when its tag selects it. This is linear
+    // in the declared arms, including shared payloads and payload-free tags.
+    for arm in alternative.payloads() {
+        let selected = alternative
+            .arms
+            .iter()
+            .filter(|(_, selected)| selected.as_deref() == Some(arm))
+            .map(|(tag, _)| lit(tag.clone()))
+            .collect();
+        let payload = get_field(value.clone(), arm);
+        checks.push(
+            datafusion::logical_expr::when(
+                tag.clone().in_list(selected, false),
+                payload.clone().is_not_null(),
+            )
+            .otherwise(payload.is_null())?,
+        );
+    }
+    Ok(all(checks))
 }
 
 fn collection_value(collection: pse_schema::model::CollectionContract, value: Expr) -> Expr {

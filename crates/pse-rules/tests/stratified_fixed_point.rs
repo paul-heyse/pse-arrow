@@ -5,14 +5,8 @@
 #[path = "support/strata_fixture.rs"]
 mod fixture;
 use fixture::{Fixture, builder, declare, head, id, input};
-use pse_schema::model::{Cell, NullEquality, RuleDecl, RuleExpr as E, RuleHead, RulePlan as P};
+use pse_schema::model::{Cell, RuleDecl};
 
-fn scan(name: &str, port: &'static str) -> P {
-    P::Scan {
-        relation: name.to_owned(),
-        port,
-    }
-}
 fn program() -> pse_schema::RegistryBuilder {
     let mut builder = builder();
     input(&mut builder, vec![id("from"), id("to")], &["from", "to"]);
@@ -29,14 +23,9 @@ fn program() -> pse_schema::RegistryBuilder {
             "seed",
             "1",
             0,
-            RuleHead::Relation("inferred.reach".to_owned()),
-            P::Project {
-                input: Box::new(scan("authored.input", "edges")),
-                columns: vec![
-                    ("origin".into(), E::col("from")),
-                    ("reached".into(), E::col("to")),
-                ],
-            },
+            "inferred.reach",
+            r#"SELECT "from" AS origin, "to" AS reached FROM authored.input"#,
+            vec![fixture::read("authored.input", "edges")],
         )
         .assertions("provenance.reach_assertions"),
     );
@@ -46,22 +35,9 @@ fn program() -> pse_schema::RegistryBuilder {
             "step",
             "1",
             0,
-            RuleHead::Relation("inferred.reach".to_owned()),
-            P::Project {
-                input: Box::new(P::EquiJoin {
-                    left: Box::new(scan("inferred.reach", "reach")),
-                    right: Box::new(scan("authored.input", "edges")),
-                    keys: (vec![("reach.reached", "edges.from")])
-                        .into_iter()
-                        .map(|(left, right)| (left.into(), right.into()))
-                        .collect(),
-                    null_equality: NullEquality::NullEqualsNothing,
-                }),
-                columns: vec![
-                    ("origin".into(), E::col("reach.origin")),
-                    ("reached".into(), E::col("edges.to")),
-                ],
-            },
+            "inferred.reach",
+            r#"SELECT reach.origin, edges."to" AS reached FROM inferred.reach AS reach JOIN authored.input AS edges ON reach.reached = edges."from""#,
+            vec![fixture::read("inferred.reach", "reach"), fixture::read("authored.input", "edges")],
         )
         .assertions("provenance.reach_assertions"),
     );
@@ -168,24 +144,15 @@ async fn union_preserves_distinct_branch_literals_and_widens_nullable_payloads()
             .optional(),
         ],
     );
-    let branch = |key, value| P::Project {
-        input: Box::new(scan("authored.input", "input")),
-        columns: vec![
-            ("key".into(), E::Lit(Cell::U64(key))),
-            ("value".into(), value),
-        ],
-    };
     declare(
         &mut registry,
         RuleDecl::new(
             "union_values",
             "1",
             0,
-            RuleHead::Relation("inferred.union_values".into()),
-            P::Union(vec![
-                branch(1, E::col("optional")),
-                branch(2, E::col("key")),
-            ]),
+            "inferred.union_values",
+            r"SELECT CAST(1 AS INT UNSIGNED) AS key, optional AS value FROM authored.input UNION ALL SELECT CAST(2 AS INT UNSIGNED) AS key, key AS value FROM authored.input",
+            vec![fixture::read("authored.input", "input")],
         )
         .assertions("provenance.union_value_assertions"),
     );
@@ -231,8 +198,9 @@ async fn integer_head_narrowing_preserves_values_and_rejects_overflow() {
                 "narrow",
                 "1",
                 0,
-                RuleHead::Relation("inferred.narrow".into()),
-                scan("authored.input", "input"),
+                "inferred.narrow",
+                r"SELECT key FROM authored.input",
+                vec![fixture::read("authored.input", "input")],
             )
             .assertions("provenance.narrow_assertions"),
         );
@@ -283,8 +251,9 @@ async fn completed_program_retains_actual_rows_and_refuses_changed_workspace_val
             "first",
             "1",
             0,
-            RuleHead::Relation("inferred.first".into()),
-            scan("authored.input", "input"),
+            "inferred.first",
+            r"SELECT key FROM authored.input",
+            vec![fixture::read("authored.input", "input")],
         )
         .assertions("provenance.first_assertions"),
     );
@@ -294,8 +263,9 @@ async fn completed_program_retains_actual_rows_and_refuses_changed_workspace_val
             "second",
             "1",
             1,
-            RuleHead::Relation("inferred.second".into()),
-            scan("inferred.first", "completed"),
+            "inferred.second",
+            r"SELECT key FROM inferred.first",
+            vec![fixture::read("inferred.first", "completed")],
         )
         .assertions("provenance.second_assertions"),
     );

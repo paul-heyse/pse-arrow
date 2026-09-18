@@ -9,22 +9,21 @@
 use datafusion::{
     arrow::{
         array::{Int64Array, RecordBatch},
-        datatypes::{Schema, SchemaRef},
+        datatypes::Schema,
     },
-    catalog::{Session, TableProvider},
+    catalog::Session,
     common::{DFSchema, DFSchemaRef, DataFusionError, Result},
     datasource::provider_as_source,
     execution::{TaskContext, session_state::SessionState},
     logical_expr::{
-        Expr, Extension, LogicalPlan, LogicalPlanBuilder, TableType, UserDefinedLogicalNode,
+        Expr, Extension, LogicalPlan, LogicalPlanBuilder, UserDefinedLogicalNode,
         UserDefinedLogicalNodeCore, physical_planning_context::PhysicalPlanningContext,
     },
-    physical_expr::{EquivalenceProperties, expressions::Column},
+    physical_expr::EquivalenceProperties,
     physical_plan::{
         DisplayAs, DisplayFormatType, ExecutionPlan, Partitioning, PlanProperties,
         SendableRecordBatchStream,
         execution_plan::{Boundedness, EmissionType},
-        projection::ProjectionExec,
         stream::RecordBatchStreamAdapter,
     },
     physical_planner::{ExtensionPlanner, PhysicalPlanner},
@@ -47,12 +46,13 @@ struct WriteRequest {
     mode: SaveMode,
     commit: CommitProperties,
     contract: Option<super::contract::DeclaredCheck>,
+    attempt: Option<super::attempt::MemberAttempt>,
     started: AtomicBool,
 }
 
 /// A Delta write command. Planning and EXPLAIN are side-effect free; collecting its
 /// outcome executes one validating commit and returns its actual version.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DeltaWrite {
     request: Arc<WriteRequest>,
     input: LogicalPlan,
@@ -68,7 +68,7 @@ impl DeltaWrite {
         mode: SaveMode,
         commit: CommitProperties,
     ) -> Result<LogicalPlan> {
-        Self::build(table, input, mode, commit, None)
+        Self::build(table, input, mode, commit, None, None)
     }
     /// Write an exact declared Arrow relation with its generated lossless layout
     /// and persisted native Delta CHECK. Existing tables must already bind it.
@@ -81,6 +81,16 @@ impl DeltaWrite {
         commit: CommitProperties,
         contract: super::contract::DeclaredCheck,
     ) -> Result<LogicalPlan> {
+        Self::declared_attempt(table, input, mode, commit, contract, None)
+    }
+    pub(crate) fn declared_attempt(
+        table: DeltaTable,
+        input: LogicalPlan,
+        mode: SaveMode,
+        commit: CommitProperties,
+        contract: super::contract::DeclaredCheck,
+        attempt: Option<super::attempt::MemberAttempt>,
+    ) -> Result<LogicalPlan> {
         if table.version().is_some() {
             contract.verify(&table)?;
         }
@@ -91,6 +101,7 @@ impl DeltaWrite {
             mode,
             commit.with_max_retries(0),
             Some(contract),
+            attempt,
         )
     }
     fn build(
@@ -99,23 +110,29 @@ impl DeltaWrite {
         mode: SaveMode,
         commit: CommitProperties,
         contract: Option<super::contract::DeclaredCheck>,
+        attempt: Option<super::attempt::MemberAttempt>,
     ) -> Result<LogicalPlan> {
         let schema = Arc::new(DFSchema::try_from(Schema::new(vec![
             pse_schema::model::IntegerRange::NONNEGATIVE.field("version"),
         ]))?);
-        Ok(LogicalPlan::Extension(Extension {
-            node: Arc::new(Self {
-                request: Arc::new(WriteRequest {
-                    table,
-                    mode,
-                    commit,
-                    contract,
-                    started: AtomicBool::new(false),
+        Ok(crate::session::contract::ExecutionContract::plan(
+            LogicalPlan::Extension(Extension {
+                node: Arc::new(Self {
+                    request: Arc::new(WriteRequest {
+                        table,
+                        mode,
+                        commit,
+                        contract,
+                        attempt,
+                        started: AtomicBool::new(false),
+                    }),
+                    input,
+                    schema,
                 }),
-                input,
-                schema,
             }),
-        }))
+            None,
+            effects(),
+        ))
     }
 }
 impl PartialEq for DeltaWrite {
@@ -136,6 +153,13 @@ impl PartialOrd for DeltaWrite {
             std::cmp::Ordering::Equal => self.input.partial_cmp(&other.input),
             order => Some(order),
         }
+    }
+}
+// Native plan renderers visit children separately. Debug describes this
+// node without recursively duplicating complete subgraphs in JSON.
+impl std::fmt::Debug for DeltaWrite {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        UserDefinedLogicalNodeCore::fmt_for_explain(self, f)
     }
 }
 impl UserDefinedLogicalNodeCore for DeltaWrite {
@@ -198,6 +222,9 @@ impl ExtensionPlanner for WritePlanner {
         let Some(node) = node.as_any().downcast_ref::<DeltaWrite>() else {
             return Ok(None);
         };
+        crate::session::execution::NativeExecutionContext::from_session(session)?
+            .admit_effects(&effects())
+            .map_err(|error| DataFusionError::External(Box::new(error)))?;
         let state = session
             .as_any()
             .downcast_ref::<SessionState>()
@@ -288,9 +315,30 @@ impl ExecutionPlan for WriteExec {
         let schema = self.schema();
         let output_schema = Arc::clone(&schema);
         let stream = futures_util::stream::once(async move {
+            let services =
+                crate::session::execution::NativeExecutionContext::from_session(state.as_ref())?;
+            let _writer =
+                super::lease::write(request.table.table_url(), services.cancellation()).await?;
+            services.require_settlement();
+            if let Some(attempt) = &request.attempt {
+                let version = write_attempt(&request, attempt, input, state)
+                    .await
+                    .map_err(|error| {
+                        error.context(format!(
+                            "write publication member {}.{}",
+                            attempt.member.schema_name, attempt.member.table_name
+                        ))
+                    })?;
+                return Ok(RecordBatch::try_new(
+                    schema,
+                    vec![Arc::new(Int64Array::from(vec![version]))],
+                )?);
+            }
             let input = LogicalPlanBuilder::scan(
                 "prepared_delta_input",
-                provider_as_source(Arc::new(PhysicalInput(input))),
+                provider_as_source(Arc::new(
+                    crate::session::physical_input::PhysicalInput::storage(input),
+                )),
                 None,
             )?
             .build()?;
@@ -354,48 +402,140 @@ impl ExecutionPlan for WriteExec {
     }
 }
 
-/// Internal adapter for Delta's logical-input builder, never a registered product table.
-#[derive(Debug)]
-pub(super) struct PhysicalInput(pub(super) Arc<dyn ExecutionPlan>);
-#[async_trait::async_trait]
-impl TableProvider for PhysicalInput {
-    fn schema(&self) -> SchemaRef {
-        // Delta does not persist Arrow schema-level execution annotations.
-        Arc::new(Schema::new(self.0.schema().fields().clone()))
-    }
-    fn table_type(&self) -> TableType {
-        TableType::Temporary
-    }
-    async fn scan(
-        &self,
-        _: &dyn Session,
-        projection: Option<&Vec<usize>>,
-        filters: &[Expr],
-        _: Option<usize>,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        if !filters.is_empty() {
-            return Err(DataFusionError::Plan(
-                "physical input does not accept pushed filters".into(),
-            ));
+async fn write_attempt(
+    request: &WriteRequest,
+    attempt: &super::attempt::MemberAttempt,
+    input: Arc<dyn ExecutionPlan>,
+    state: Arc<SessionState>,
+) -> Result<i64> {
+    use super::attempt::{MemberState, Phase, rejected, unresolved};
+    let contract = request
+        .contract
+        .as_ref()
+        .ok_or_else(|| rejected("member attempt has no declared contract".into()))?;
+    let mut table = request.table.clone();
+    let mut snapshot_owner = None;
+    if table
+        .verify_deltatable_existence()
+        .await
+        .map_err(|error| unresolved(error.to_string()))?
+    {
+        let opened = super::provider::open_native(
+            table.log_store().root_url().clone(),
+            None,
+            crate::cache_service::snapshot::LoadRequirement::Query,
+            &state,
+        )
+        .await?;
+        table = opened.table.clone();
+        snapshot_owner = opened.owner;
+        contract.verify(&table)?;
+        match attempt.inspect(&table, &state).await? {
+            MemberState::Committed(version) => return super::provider::signed_version(version),
+            MemberState::Provisioned(version) if table.version() == Some(version) => {}
+            MemberState::Unpublished if table.version() == attempt.base_version => {}
+            _ => {
+                return Err(rejected(
+                    "destination changed outside this member attempt".into(),
+                ));
+            }
         }
-        let schema = self.schema();
-        let indices = projection
-            .cloned()
-            .unwrap_or_else(|| (0..schema.fields().len()).collect());
-        let expressions: Vec<_> = indices
-            .iter()
-            .map(|&index| {
-                let name = schema.field(index).name();
-                let expression: Arc<dyn datafusion::physical_expr::PhysicalExpr> =
-                    Arc::new(Column::new(name, index));
-                (expression, name.clone())
-            })
-            .collect();
-        let projected = schema.project(&indices)?;
-        Ok(Arc::new(ProjectionExec::try_new_with_schema_metadata(
-            expressions,
-            Arc::clone(&self.0),
-            &projected,
-        )?))
+    } else if attempt.base_version.is_some() {
+        return Err(unresolved("member base version is unavailable".into()));
+    } else {
+        let (properties, _receipt_owner) = attempt.commit(Phase::Provisioned, &state)?;
+        let created = contract.create(table.clone(), properties).await;
+        table = match created {
+            Ok(created) => created,
+            Err(original) => {
+                let opened = super::provider::open_native(
+                    table.log_store().root_url().clone(),
+                    None,
+                    crate::cache_service::snapshot::LoadRequirement::Query,
+                    &state,
+                )
+                .await
+                .map_err(|error| unresolved(format!("create: {original}; observation: {error}")))?;
+                snapshot_owner = opened.owner;
+                opened.table
+            }
+        };
+        contract.verify(&table)?;
+        match attempt.inspect(&table, &state).await? {
+            MemberState::Committed(version) => return super::provider::signed_version(version),
+            MemberState::Provisioned(version) if table.version() == Some(version) => {}
+            _ => {
+                return Err(rejected(
+                    "destination was created by a different operation".into(),
+                ));
+            }
+        }
     }
+    // A recovered data commit returns before executing the real input child.
+    let input = LogicalPlanBuilder::scan(
+        "prepared_delta_input",
+        provider_as_source(Arc::new(
+            crate::session::physical_input::PhysicalInput::storage(input),
+        )),
+        None,
+    )?
+    .build()?;
+    let mode = if attempt.base_version.is_none() {
+        SaveMode::Append
+    } else {
+        request.mode
+    };
+    let (properties, _receipt_owner) = attempt.commit(Phase::Written, &state)?;
+    let result = table
+        .write(Vec::<RecordBatch>::new())
+        .with_input_plan(input)
+        .with_session_state(state.clone())
+        .with_session_fallback_policy(SessionFallbackPolicy::RequireSessionState)
+        .with_save_mode(mode)
+        .with_commit_properties(properties)
+        .await;
+    let _snapshot_owner = snapshot_owner;
+    settle_attempt(request, attempt, contract, result, &state).await
+}
+
+async fn settle_attempt(
+    request: &WriteRequest,
+    attempt: &super::attempt::MemberAttempt,
+    contract: &super::contract::DeclaredCheck,
+    result: std::result::Result<DeltaTable, deltalake::DeltaTableError>,
+    state: &Arc<SessionState>,
+) -> Result<i64> {
+    use super::attempt::{MemberState, rejected, unresolved};
+    let (observed, original_error) = match result {
+        Ok(table) => (super::provider::Opened { table, owner: None }, None),
+        Err(error) => {
+            let opened = super::provider::open_native(
+                request.table.log_store().root_url().clone(),
+                None,
+                crate::cache_service::snapshot::LoadRequirement::Query,
+                state,
+            )
+            .await
+            .map_err(|error| unresolved(error.to_string()))?;
+            (opened, Some(error))
+        }
+    };
+    contract.verify(&observed.table)?;
+    match attempt.inspect(&observed.table, state).await? {
+        MemberState::Committed(version) => {
+            super::provider::committed(&observed.table, state).await;
+            super::provider::signed_version(version)
+        }
+        _ => match original_error {
+            None => Err(unresolved(
+                "native write returned success without its committed transaction".into(),
+            )),
+            Some(error) => Err(rejected(error.to_string())),
+        },
+    }
+}
+
+fn effects() -> std::collections::BTreeSet<pse_schema::model::provider::OperationEffect> {
+    use pse_schema::model::provider::OperationEffect::{Read, Write};
+    [Read, Write].into_iter().collect()
 }

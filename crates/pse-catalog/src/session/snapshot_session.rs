@@ -9,11 +9,8 @@ use super::{
     config,
     profile::{EngineProfile, EngineRules},
 };
-use crate::provider::{
-    binding::{BindingKey, Bindings, TableBinding},
-    table::RelationTable,
-};
-use crate::{CatalogError, PlanOrigin, Snapshot};
+use crate::provider::binding::{BindingKey, Bindings, TableBinding};
+use crate::{CatalogError, PlanOrigin};
 use datafusion::arrow::{
     ARROW_VERSION,
     array::{Array, RecordBatch, StringArray},
@@ -33,6 +30,7 @@ use std::sync::Arc;
 /// An immutable operation environment retaining exact provider, function and policy owners.
 #[derive(Clone)]
 pub struct SnapshotSession {
+    pub(crate) leases: Vec<Arc<crate::delta::lease::ReadLease>>,
     pub(super) trace: Arc<super::trace::ExecutionTrace>,
     pub(super) context: SessionContext,
     pub(super) registry: Arc<Registry>,
@@ -48,63 +46,7 @@ pub struct SnapshotSession {
     functions: ContentHash,
     function_names: BTreeMap<String, Vec<String>>,
     configuration_owner: Option<Arc<pse_ids::ReservationLease>>,
-}
-/// Build a session over exact admitted snapshots under the sealed `model` catalog.
-/// # Errors
-/// Missing/ambiguous members, invalid declarations, or unsupported explicit engine settings.
-pub fn build_session(
-    snapshots: Vec<Arc<Snapshot>>,
-    registry: Arc<Registry>,
-    runtime: Arc<RuntimeEnv>,
-    reserver: Arc<dyn MemoryReserver>,
-    settings: ExecutionSettings,
-    budget: ThreadBudget,
-    profile: EngineProfile,
-) -> Result<SnapshotSession, CatalogError> {
-    super::SessionFactory::new(runtime, reserver, settings, budget, profile)?.open_session(
-        snapshots,
-        registry,
-        &CancellationToken::default(),
-    )
-}
-
-pub(super) fn bind_snapshots(
-    snapshots: Vec<Arc<Snapshot>>,
-    registry: Arc<Registry>,
-    factory: &super::SessionFactory,
-    cancel: &CancellationToken,
-) -> Result<SnapshotSession, CatalogError> {
-    let mut tables = BTreeMap::new();
-    for snapshot in snapshots {
-        for relation in snapshot.relations().values() {
-            let key = registry
-                .relation_by_id(relation.contract().canonical.relation_id)
-                .ok_or_else(|| invalid("snapshot relation missing from registry"))?
-                .key;
-            let table: Arc<dyn TableProvider> = Arc::new(RelationTable::new(
-                Arc::clone(&snapshot),
-                relation.contract().canonical.relation_id,
-                &registry,
-            )?);
-            if tables
-                .insert(
-                    key,
-                    TableBinding::new(
-                        TableReference::full("model", key.namespace.as_str(), key.name),
-                        table,
-                        Some(key),
-                        Some(relation.checked().clone()),
-                    ),
-                )
-                .is_some()
-            {
-                return Err(invalid(
-                    "two snapshot bindings supply the same relation; bind one explicit version",
-                ));
-            }
-        }
-    }
-    build(tables, registry, factory, cancel)
+    implementation_generation: pse_ids::SemanticId,
 }
 /// Build the constraint-free P2 input session. Duplicate keys remain visible to rules.
 /// # Errors
@@ -191,25 +133,29 @@ fn build(
     cancel: &CancellationToken,
 ) -> Result<SnapshotSession, CatalogError> {
     cancel.checkpoint()?;
-    let state_builder = SessionStateBuilder::new_from_existing(factory.state.clone());
-    let function_bindings = Arc::clone(&factory.function_bindings);
+    let mut state_builder = SessionStateBuilder::new_from_existing(factory.state.clone());
+    let functions = state_builder.scalar_functions().get_or_insert_default();
+    if !functions
+        .iter()
+        .any(|function| super::scalar::checked_value::is_bound(function, &registry))
+    {
+        functions.retain(|function| function.name() != "pse_checked_value");
+        functions.push(super::scalar::checked_value::function(Arc::clone(
+            &registry,
+        )));
+    }
     let rules = Arc::clone(&factory.rules);
     let profile = factory.profile.clone();
     let reserver = Arc::clone(&factory.reserver);
-    let settings = config::semantic_settings(
-        &factory
-            .state
-            .config_options()
-            .entries()
-            .into_iter()
-            .chain(factory.state.runtime_env().config_entries())
-            .map(|entry| (entry.key, entry.value))
-            .collect(),
-    )?;
+    let settings = config::semantic_settings(&config::inventory(&factory.state))?;
     let mut bindings = Bindings::default();
     let defaults = &factory.state.config_options().catalog;
-    bindings.namespace(&defaults.default_catalog, None);
-    bindings.namespace(&defaults.default_catalog, Some(&defaults.default_schema));
+    bindings
+        .namespace(&defaults.default_catalog, None)
+        .map_err(engine)?;
+    bindings
+        .namespace(&defaults.default_catalog, Some(&defaults.default_schema))
+        .map_err(engine)?;
     for (key, binding) in tables {
         bindings
             .insert(BindingKey::Relation(key), binding)
@@ -219,7 +165,10 @@ fn build(
         .with_extension_type_registry(super::registry::build(&registry).map_err(engine)?)
         .build();
     let (functions, function_names) = function_inventory(&state);
+    let function_bindings = super::functions::Functions::from_state(&state);
     Ok(SnapshotSession {
+        implementation_generation: factory.implementation_generation,
+        leases: Vec::new(),
         configuration_owner: None,
         trace: Arc::new(super::trace::ExecutionTrace::new(reserver.as_ref())),
         context: SessionContext::new_with_state(state),
@@ -292,7 +241,7 @@ pub struct SessionSemantics {
 }
 impl SessionSemantics {
     pub(crate) fn heap_extent(&self) -> Result<usize, CatalogError> {
-        crate::store::invocation::engine_inputs_extent(
+        super::semantic_extent::engine_inputs_extent(
             self.engine_version.capacity(),
             self.arrow_version.capacity(),
             &self.profile,
@@ -312,11 +261,12 @@ impl SnapshotSession {
     /// configuration or allocation refusal. Explicit absent settings are restored too.
     pub fn restore_engine(mut self, inputs: &SessionSemantics) -> Result<Self, CatalogError> {
         use datafusion::common::config::ConfigField;
-        if self
-            .policies
-            .iter()
-            .any(|required| !inputs.policies.contains(required))
-        {
+        if self.policies.iter().any(|required| {
+            !inputs
+                .policies
+                .iter()
+                .any(|policy| config::policy_semantics_equal(required, policy))
+        }) {
             return Err(invalid(
                 "stored operation does not satisfy the current factory policy declarations",
             ));
@@ -357,13 +307,14 @@ impl SnapshotSession {
                 reason: format!("cannot restore captured setting: {error}"),
             })?;
         }
-        let restored: BTreeMap<_, _> = config
-            .options()
-            .entries()
-            .into_iter()
-            .chain(state.runtime_env().config_entries())
-            .map(|entry| (entry.key, entry.value))
-            .collect();
+        let restored = config::semantic_settings(
+            &config
+                .options()
+                .entries()
+                .into_iter()
+                .map(|entry| (entry.key, entry.value))
+                .collect(),
+        )?;
         if restored != inputs.settings {
             return Err(invalid(
                 "restored settings differ from the captured engine context",
@@ -375,17 +326,29 @@ impl SnapshotSession {
                 .build(),
         );
         self.settings = restored;
-        self.policies = Arc::new(inputs.policies.clone());
+        self.policies = Arc::new(
+            inputs
+                .policies
+                .iter()
+                .map(|policy| {
+                    self.policies
+                        .iter()
+                        .find(|current| config::policy_semantics_equal(current, policy))
+                        .cloned()
+                        .unwrap_or_else(|| config::semantic_policy(policy))
+                })
+                .collect(),
+        );
         self.purpose = inputs.purpose;
         self.effective_policy()?;
         self.configuration_owner = Some(pse_ids::ReservationLease::new(reservation));
         Ok(self)
     }
     /// Borrow the actual immutable provider retained for a declared source.
-    pub fn table_provider(&self, key: &RelationKey) -> Option<&Arc<dyn TableProvider>> {
+    pub fn table_provider(&self, key: &RelationKey) -> Option<Arc<dyn TableProvider>> {
         self.bindings
             .relation(*key)
-            .map(|binding| &binding.provider)
+            .map(|binding| Arc::clone(&binding.provider))
     }
     /// Retain the exact checked Arrow source already bound to this relation name.
     /// This inspects private provider ownership, without executing a query or rescanning
@@ -426,6 +389,7 @@ impl SnapshotSession {
     ) -> Result<Self, CatalogError> {
         let state = self.context.state();
         let mut bound = state.scalar_functions().clone();
+        let mut changed = false;
         for function in functions {
             if let Some(existing) = bound.get(function.name()) {
                 if Arc::ptr_eq(existing.inner(), function.inner()) {
@@ -436,11 +400,15 @@ impl SnapshotSession {
                 ));
             }
             bound.insert(function.name().to_owned(), function);
+            changed = true;
         }
         let state = SessionStateBuilder::new_from_existing(state)
             .with_scalar_functions(bound.into_values().collect())
             .build();
         let mut result = self.clone();
+        if changed {
+            result.implementation_generation = super::factory::new_generation();
+        }
         result.function_bindings = super::functions::Functions::from_state(&state);
         (result.functions, result.function_names) = function_inventory(&state);
         result.context = SessionContext::new_with_state(state);
@@ -620,7 +588,7 @@ impl SnapshotSession {
 
     /// Materialize native lookup only when preparing an operation. Adding a role
     /// changes the immutable binding index without rebuilding engine configuration.
-    pub(super) fn bound_state(
+    pub(crate) fn bound_state(
         &self,
     ) -> Result<datafusion::execution::session_state::SessionState, CatalogError> {
         let state = self.context.state();
@@ -633,41 +601,50 @@ impl SnapshotSession {
                 }
             })?;
         }
+        config = config.with_extension(Arc::new(crate::cache_service::resident::CacheIdentity {
+            generation: self.implementation_generation,
+            policies: self.policies.clone(),
+        }));
         let defaults = &config.options().catalog;
         let catalogs = self
             .bindings
-            .catalogs(&defaults.default_catalog, &defaults.default_schema);
-        Ok(SessionStateBuilder::new_from_existing(state)
-            .with_config(config)
-            .with_catalog_list(Arc::new(catalogs))
-            .build())
+            .catalogs(&defaults.default_catalog, &defaults.default_schema)
+            .map_err(engine)?;
+        crate::cache_service::inspection::bind(
+            SessionStateBuilder::new_from_existing(state)
+                .with_config(config)
+                .with_catalog_list(Arc::new(catalogs))
+                .build(),
+            &self.registry,
+        )
+        .map_err(engine)
     }
 
     /// Shared accounted allocator for typed rule outputs.
     pub(super) fn capture_configuration(
         &mut self,
         state: &datafusion::execution::session_state::SessionState,
-    ) {
+    ) -> Result<(), CatalogError> {
+        let settings = config::semantic_settings(&config::inventory(state))?;
         self.context = SessionContext::new_with_state(state.clone());
-        self.settings = state
-            .config_options()
-            .entries()
-            .into_iter()
-            .chain(state.runtime_env().config_entries())
-            .map(|entry| (entry.key, entry.value))
-            .collect();
+        self.settings = settings;
+        Ok(())
     }
-
     /// Shared accounted allocator for typed rule outputs.
     pub fn reserver(&self) -> &dyn MemoryReserver {
         self.reserver.as_ref()
+    }
+    /// Owned native function/planner/rule assembly, independent of a write attempt.
+    /// Unknown cold assemblies receive a fresh generation and cannot claim equality.
+    pub fn implementation_generation(&self) -> pse_ids::SemanticId {
+        self.implementation_generation
     }
     /// A checked heap bound for cloning the actual borrowed engine semantic inputs.
     /// Producers reserve this before calling [`Self::semantic_inputs`].
     /// # Errors
     /// Addressable allocation-size overflow.
     pub fn semantic_inputs_extent(&self) -> Result<usize, CatalogError> {
-        crate::store::invocation::engine_inputs_extent(
+        super::semantic_extent::engine_inputs_extent(
             datafusion::DATAFUSION_VERSION.len(),
             ARROW_VERSION.len(),
             &self.profile,
@@ -685,7 +662,7 @@ impl SnapshotSession {
             profile: self.profile.clone(),
             settings: self.settings.clone(),
             functions: self.function_names.clone(),
-            policies: self.policies.as_ref().clone(),
+            policies: self.policies.iter().map(config::semantic_policy).collect(),
             purpose: self.purpose,
         }
     }
@@ -697,7 +674,12 @@ impl SnapshotSession {
             && inputs.profile == self.profile
             && inputs.settings == self.settings
             && inputs.functions == self.function_names
-            && inputs.policies == *self.policies
+            && inputs.policies.len() == self.policies.len()
+            && inputs
+                .policies
+                .iter()
+                .zip(self.policies.iter())
+                .all(|(a, b)| config::policy_semantics_equal(a, b))
             && inputs.purpose == self.purpose
     }
 
@@ -831,18 +813,10 @@ impl SnapshotSession {
                 );
             }
         }
-        let selected = config::semantic_settings(&values)?;
         let state = self.execution_scope()?.bound_state()?;
-        let expected: BTreeMap<_, _> = state
-            .config_options()
-            .entries()
-            .into_iter()
-            .chain(state.runtime_env().config_entries())
-            .map(|entry| (entry.key, entry.value))
-            .collect();
-        if selected != expected {
+        if values != config::inventory(&state) {
             return Err(invalid(
-                "information_schema settings differ from the sealed semantic profile",
+                "information_schema settings differ from the full native configuration",
             ));
         }
         Ok(values)

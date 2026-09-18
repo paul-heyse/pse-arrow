@@ -23,7 +23,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("method_id", T::id()).with_fk("reference.method_specs", "method_id"),
             column("parameter_kind", T::native(arrow_schema::DataType::Utf8)),
-            column("position", T::native(arrow_schema::DataType::UInt16)),
+            column("position", T::nonnegative(i64::from(u16::MAX))),
             column(
                 "source_coordinate",
                 T::enumeration("ParameterSourceCoordinate"),
@@ -86,7 +86,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 T::native(arrow_schema::DataType::Boolean),
             ),
             column("scope_kind", T::enumeration("ScopeKind")),
-            column("rank", T::native(arrow_schema::DataType::UInt16)),
+            column("rank", T::nonnegative(i64::from(u16::MAX))),
         ],
         "Complete registry-versioned method preference; equal distinct winners are ambiguous.",
     );
@@ -98,23 +98,15 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         &["method_id", "ordinal"],
         vec![
             column("method_id", T::id()).with_fk("reference.method_specs", "method_id"),
-            column("ordinal", T::native(arrow_schema::DataType::UInt16)),
+            column("ordinal", T::nonnegative(i64::from(u16::MAX))),
             column("target_kind", T::enumeration("MethodDependencyTarget")),
             column("target_id", T::id()),
             column("scope_map", T::enumeration("MethodScopeMap")),
             column(
                 "index_map",
                 T::list(T::structure(vec![
-                    T::enumeration("IndexMapKind")
-                        .with_name("kind")
-                        .with_nullable(false),
-                    T::native(arrow_schema::DataType::UInt16)
-                        .with_name("source_axis")
-                        .with_nullable(true),
-                    T::id().with_name("member_id").with_nullable(true),
-                    T::enumeration("DomainKind")
-                        .with_name("domain_kind")
-                        .with_nullable(false),
+                    T::enumeration("DomainKind").with_name("domain_kind"),
+                    index_coordinate().with_name("source"),
                 ])),
             ),
         ],
@@ -130,13 +122,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("method_id", T::id()).with_fk("reference.method_specs", "method_id"),
             column("property_kind_id", T::id())
                 .with_fk("reference.property_kinds", "property_kind_id"),
-            column("output_kind", T::enumeration("MethodOutputKind")),
-            column("symbol_decl_id", T::id()).optional(),
-            column(
-                "kernel_output_ordinal",
-                T::native(arrow_schema::DataType::UInt16),
-            )
-            .optional(),
+            column("output", method_output()),
             column("quantity_type_id", T::id())
                 .with_fk("reference.quantity_types", "quantity_type_id"),
             column("natural_unit_id", T::id()).with_fk("reference.units", "unit_id"),
@@ -183,7 +169,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             column("selection_id", T::id()),
             column("method_id", T::id()),
             column("applicable", T::native(arrow_schema::DataType::Boolean)),
-            column("rank", T::native(arrow_schema::DataType::UInt16)).optional(),
+            column("rank", T::nonnegative(i64::from(u16::MAX))).optional(),
             column("reason", T::enumeration("MethodCandidateReason")),
         ],
         "Complete candidate classification; absence requires the entire declared inventory.",
@@ -196,16 +182,81 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         vec![
             column("requirement_id", T::id()),
             column("method_id", T::id()),
-            column("template_instance_id", T::id()).optional(),
-            column("kernel_binding_id", T::id()).optional(),
-            column("output_kind", T::enumeration("MethodOutputKind")),
-            column("output_symbol_id", T::id()).optional(),
-            column(
-                "kernel_output_ordinal",
-                T::native(arrow_schema::DataType::UInt16),
-            )
-            .optional(),
+            column("output_symbol_id", T::id()),
+            column("realization", method_realization()),
         ],
         "P9 provision witness, distinct from P6 candidate selection.",
     );
+}
+
+/// Both realization routes produce an actual symbol. Only the producer-specific
+/// correspondence is alternative; it cannot erase the common output identity.
+fn method_realization() -> T {
+    let alternative = crate::model::TaggedAlternative::new(
+        "kind",
+        [
+            ("template_symbol".into(), "template_symbol".into()),
+            ("kernel_output".into(), "kernel_output".into()),
+        ],
+    );
+    T::structure(vec![
+        T::enumeration("MethodOutputKind").with_name("kind"),
+        T::structure(vec![T::id().with_name("template_instance_id")])
+            .with_name("template_symbol")
+            .optional(),
+        T::structure(vec![
+            T::id().with_name("kernel_binding_id"),
+            T::nonnegative(i64::from(u16::MAX)).with_name("output_ordinal"),
+        ])
+        .with_name("kernel_output")
+        .optional(),
+    ])
+    .with_alternative(&alternative)
+}
+
+/// One complete coordinate source; the enclosing item carries its common domain kind.
+fn index_coordinate() -> T {
+    T::structure(vec![
+        T::enumeration("IndexMapKind").with_name("kind"),
+        T::structure(vec![
+            T::nonnegative(i64::from(u16::MAX)).with_name("position"),
+        ])
+        .with_name("source_axis")
+        .optional(),
+        T::structure(vec![T::id().with_name("member_id")])
+            .with_name("fixed_member")
+            .optional(),
+    ])
+    .with_alternative(
+        &crate::model::TaggedAlternative::new(
+            "kind",
+            [
+                ("source_axis".into(), "source_axis".into()),
+                ("fixed_member".into(), "fixed_member".into()),
+            ],
+        )
+        .with_unit("bound_domain"),
+    )
+}
+
+/// A provision names a template symbol or a kernel output position, never both.
+fn method_output() -> T {
+    T::structure(vec![
+        T::enumeration("MethodOutputKind").with_name("kind"),
+        T::structure(vec![T::id().with_name("symbol_decl_id")])
+            .with_name("template_symbol")
+            .optional(),
+        T::structure(vec![
+            T::nonnegative(i64::from(u16::MAX)).with_name("ordinal"),
+        ])
+        .with_name("kernel_output")
+        .optional(),
+    ])
+    .with_alternative(&crate::model::TaggedAlternative::new(
+        "kind",
+        [
+            ("template_symbol".into(), "template_symbol".into()),
+            ("kernel_output".into(), "kernel_output".into()),
+        ],
+    ))
 }

@@ -8,15 +8,15 @@ mod graph;
 mod inventory;
 mod outputs;
 use super::{native_outputs::Sources, native_rows::workspace};
-use crate::{CompilerError, InputBundle, PassContext};
-use pse_catalog::computation::ProducedStage;
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use pse_rules::{RuleError, strata::RuleInputLocation};
-use pse_schema::{Registry, model::PassSpec};
+use pse_schema::{Registry, model::AlgorithmSpec};
 
-/// Registered P8 implementation; participation decisions are declared `RulePlan`s.
+/// Registered P8 implementation; participation decisions are declared native queries.
 #[derive(Debug)]
 pub struct P8 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 impl P8 {
     /// Bind the complete registry declaration.
@@ -25,21 +25,21 @@ impl P8 {
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         Ok(Self {
             spec: registry
-                .pass("P8@1")
+                .algorithm("P8@1")
                 .ok_or_else(|| failure("P8 declaration absent"))?
                 .clone(),
         })
     }
 }
-impl crate::Pass for P8 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P8 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             inputs.validate(&self.spec, ctx.registry)?;
             let base = ctx.session;
@@ -89,10 +89,10 @@ impl crate::Pass for P8 {
                     let batch = expanded.rows.get(&relation.key).ok_or_else(|| {
                         failure(format!("P8 output {} not produced", port.relation))
                     })?;
-                    Ok((port.port.to_owned(), batch.clone()))
+                    Ok((port.port.clone(), batch.clone()))
                 })
                 .collect::<Result<_, RuleError>>()?;
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: vec![],
                 derivations,

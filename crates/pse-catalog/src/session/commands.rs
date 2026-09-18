@@ -3,6 +3,9 @@
 
 //! Typed command destinations participate before any eager native handler runs.
 
+pub(super) mod deferred;
+mod insert;
+
 use super::{SnapshotSession, snapshot_session::engine};
 use crate::{
     CatalogError,
@@ -69,7 +72,19 @@ impl SnapshotSession {
                 name.table.to_string(),
             )
         };
+        let mut visited = std::collections::HashSet::new();
+        let mut memory = self.reserver.open("session:command-targets");
         plan.apply_with_subqueries(|node| {
+            if !matches!(node, LogicalPlan::Subquery(_)) {
+                let key = super::admission::identity(node);
+                if visited.contains(&key) {
+                    return Ok(TreeNodeRecursion::Jump);
+                }
+                memory.try_grow(64).map_err(|error| {
+                    DataFusionError::External(Box::new(CatalogError::from(error)))
+                })?;
+                visited.insert(key);
+            }
             let target = match node {
                 LogicalPlan::Dml(command) => Some(table_scope(&command.table_name)),
                 LogicalPlan::Ddl(command) => match command {

@@ -10,6 +10,7 @@ use pse_schema::{RegistryBuilder, model::*};
 
 fn registry() -> Arc<Registry> {
     let mut builder = RegistryBuilder::new();
+    builder.declare_artifact_profile("relations", std::collections::BTreeSet::new());
     let relation = |name| {
         RelationDecl::new(
             Namespace::Authored,
@@ -49,7 +50,7 @@ fn record() -> publications::Row {
         publication_id: identity(2),
         parent_publication_id: None,
         attempt_id: identity(3),
-        kind: PublicationKind::Source,
+        kind: PublicationKind::Relations,
         inputs: vec![],
         members: vec![],
     }
@@ -89,6 +90,37 @@ fn bind(
 
 fn identity(value: u8) -> SemanticId {
     SemanticId::from_bytes([value; 16])
+}
+
+#[test]
+fn complete_artifact_profiles_refuse_missing_members_but_allow_explicit_partial_collections() {
+    let registry = pse_schema::registry().unwrap();
+    let mut request = record();
+    admit_profile(&request, registry).unwrap();
+    request.kind = PublicationKind::Source;
+    assert!(admit_profile(&request, registry).is_err());
+    request.members = registry
+        .artifact_profile("source")
+        .unwrap()
+        .iter()
+        .map(|id| {
+            let spec = registry.relation_by_id(*id).unwrap();
+            publications::RuntimePublicationsFieldMembersItem {
+                catalog_name: "artifact".into(),
+                schema_name: spec.key.namespace.as_str().into(),
+                table_name: spec.key.name.into(),
+                relation_id: spec.id,
+                relation_version: i64::from(spec.key.version),
+                contract_fingerprint: spec.fingerprint,
+                table_uri: format!("memory:///source/{id}"),
+                delta_version: 1,
+                selection: publications::RuntimePublicationsFieldMembersItemSelection::from_full(),
+            }
+        })
+        .collect();
+    admit_profile(&request, registry).unwrap();
+    request.members.pop();
+    assert!(admit_profile(&request, registry).is_err());
 }
 
 #[tokio::test]
@@ -137,6 +169,7 @@ fn reference(value: u8) -> Cell {
 #[tokio::test]
 async fn an_explicit_singleton_admits_zero_or_one_row_and_refuses_two() {
     let mut builder = RegistryBuilder::new();
+    builder.declare_artifact_profile("relations", std::collections::BTreeSet::new());
     builder.declare_relation(
         RelationDecl::new(
             Namespace::Authored,
@@ -335,6 +368,7 @@ fn composite_registry(policy: ReferenceNullPolicy, scalar: bool) -> Arc<Registry
         .optional()
     };
     let mut builder = RegistryBuilder::new();
+    builder.declare_artifact_profile("relations", std::collections::BTreeSet::new());
     builder.declare_relation(
         relation("targets")
             .pk(&["tenant", "id"])

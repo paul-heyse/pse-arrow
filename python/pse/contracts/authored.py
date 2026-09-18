@@ -13,19 +13,61 @@ from pse.contracts import values as v
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredCaseActivationTargetsFieldMemberSymbol:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseActivationTargetsFieldMemberGroup:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseActivationTargetsFieldMemberEquation:
+    """Declared relation row or nested value."""
+
+    equation_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseActivationTargetsFieldMemberPort:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseActivationTargetsFieldMember:
+    """Declared relation row or nested value."""
+
+    kind: e.TargetKind = attrs.field(validator=attrs.validators.instance_of(e.TargetKind))
+    symbol: AuthoredCaseActivationTargetsFieldMemberSymbol | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseActivationTargetsFieldMemberSymbol)))
+    group: AuthoredCaseActivationTargetsFieldMemberGroup | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseActivationTargetsFieldMemberGroup)))
+    equation: AuthoredCaseActivationTargetsFieldMemberEquation | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseActivationTargetsFieldMemberEquation)))
+    port: AuthoredCaseActivationTargetsFieldMemberPort | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseActivationTargetsFieldMemberPort)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "equation" and self.equation is not None and self.group is None and self.port is None and self.symbol is None) or (self.kind == "group" and self.equation is None and self.group is not None and self.port is None and self.symbol is None) or (self.kind == "instance_wildcard" and self.equation is None and self.group is None and self.port is None and self.symbol is None) or (self.kind == "port" and self.equation is None and self.group is None and self.port is not None and self.symbol is None) or (self.kind == "symbol" and self.equation is None and self.group is None and self.port is None and self.symbol is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredCaseActivationTargetsRow:
     """Declared relation row or nested value."""
 
     activation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    member_kind: e.TargetKind = attrs.field(validator=attrs.validators.instance_of(e.TargetKind))
-    symbol_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    equation_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    port_template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    port_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    wildcard: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    member: AuthoredCaseActivationTargetsFieldMember = attrs.field(validator=attrs.validators.instance_of(AuthoredCaseActivationTargetsFieldMember))
 
 
 @attrs.frozen(kw_only=True)
@@ -62,19 +104,6 @@ class AuthoredCasePoliciesRow:
 
 
 @attrs.frozen(kw_only=True)
-class AuthoredCaseRevisionsRow:
-    """Declared relation row or nested value."""
-
-    case_revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    model_revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    parent_case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    snapshot_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    created_at: datetime = attrs.field(validator=v.utc_timestamp)
-    author: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
 class AuthoredCaseSetSamplesRow:
     """Declared relation row or nested value."""
 
@@ -99,8 +128,56 @@ class AuthoredCaseSetsRow:
     base_case_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     generator_kind: e.GeneratorKind = attrs.field(validator=attrs.validators.instance_of(e.GeneratorKind))
     generator_params: b.tuple[AuthoredCaseSetsFieldGeneratorParamsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(AuthoredCaseSetsFieldGeneratorParamsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    seed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    seed: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
     sample_count: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseSpecTargetsFieldMemberSymbol:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseSpecTargetsFieldMemberGroup:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseSpecTargetsFieldMemberEquation:
+    """Declared relation row or nested value."""
+
+    equation_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseSpecTargetsFieldMemberPort:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredCaseSpecTargetsFieldMember:
+    """Declared relation row or nested value."""
+
+    kind: e.TargetKind = attrs.field(validator=attrs.validators.instance_of(e.TargetKind))
+    symbol: AuthoredCaseSpecTargetsFieldMemberSymbol | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseSpecTargetsFieldMemberSymbol)))
+    group: AuthoredCaseSpecTargetsFieldMemberGroup | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseSpecTargetsFieldMemberGroup)))
+    equation: AuthoredCaseSpecTargetsFieldMemberEquation | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseSpecTargetsFieldMemberEquation)))
+    port: AuthoredCaseSpecTargetsFieldMemberPort | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredCaseSpecTargetsFieldMemberPort)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "equation" and self.equation is not None and self.group is None and self.port is None and self.symbol is None) or (self.kind == "group" and self.equation is None and self.group is not None and self.port is None and self.symbol is None) or (self.kind == "instance_wildcard" and self.equation is None and self.group is None and self.port is None and self.symbol is None) or (self.kind == "port" and self.equation is None and self.group is None and self.port is not None and self.symbol is None) or (self.kind == "symbol" and self.equation is None and self.group is None and self.port is None and self.symbol is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -110,13 +187,7 @@ class AuthoredCaseSpecTargetsRow:
     spec_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    member_kind: e.TargetKind = attrs.field(validator=attrs.validators.instance_of(e.TargetKind))
-    symbol_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    equation_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    port_template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    port_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    wildcard: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    member: AuthoredCaseSpecTargetsFieldMember = attrs.field(validator=attrs.validators.instance_of(AuthoredCaseSpecTargetsFieldMember))
 
 
 @attrs.frozen(kw_only=True)
@@ -147,46 +218,6 @@ class AuthoredCasesRow:
     parent_case_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     kind: e.CaseKind = attrs.field(validator=attrs.validators.instance_of(e.CaseKind))
     doc: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-
-
-@attrs.frozen(kw_only=True)
-class AuthoredChangeOpsFieldRowKey:
-    """Declared relation row or nested value."""
-
-    staged_port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    staged_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-
-
-@attrs.frozen(kw_only=True)
-class AuthoredChangeOpsFieldRow:
-    """Declared relation row or nested value."""
-
-    staged_port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    staged_ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
-
-
-@attrs.frozen(kw_only=True)
-class AuthoredChangeOpsRow:
-    """Declared relation row or nested value."""
-
-    change_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    ordinal: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    op: e.ChangeOpKind = attrs.field(validator=attrs.validators.instance_of(e.ChangeOpKind))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    row_key: AuthoredChangeOpsFieldRowKey = attrs.field(validator=attrs.validators.instance_of(AuthoredChangeOpsFieldRowKey))
-    row: AuthoredChangeOpsFieldRow | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredChangeOpsFieldRow)))
-    precondition: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-
-
-@attrs.frozen(kw_only=True)
-class AuthoredChangeSetsRow:
-    """Declared relation row or nested value."""
-
-    change_set_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    base_revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    author: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    created_at: datetime = attrs.field(validator=v.utc_timestamp)
 
 
 @attrs.frozen(kw_only=True)
@@ -244,6 +275,16 @@ class AuthoredDiscretizationPoliciesRow:
     scheme: e.DiscretizationScheme = attrs.field(validator=attrs.validators.instance_of(e.DiscretizationScheme))
     finite_elements: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
     collocation_points: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 255)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredDocumentEditsRow:
+    """Declared relation row or nested value."""
+
+    document_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    path: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    before: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    after: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
 
 @attrs.frozen(kw_only=True)
@@ -408,15 +449,51 @@ class AuthoredMethodSelectionsRow:
 
 
 @attrs.frozen(kw_only=True)
-class AuthoredModelRevisionsRow:
+class AuthoredObservationTargetsFieldMemberSymbol:
     """Declared relation row or nested value."""
 
-    model_revision_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    parent_revision_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    snapshot_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    created_at: datetime = attrs.field(validator=v.utc_timestamp)
-    author: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    message: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredObservationTargetsFieldMemberGroup:
+    """Declared relation row or nested value."""
+
+    symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredObservationTargetsFieldMemberEquation:
+    """Declared relation row or nested value."""
+
+    equation_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredObservationTargetsFieldMemberPort:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredObservationTargetsFieldMember:
+    """Declared relation row or nested value."""
+
+    kind: e.TargetKind = attrs.field(validator=attrs.validators.instance_of(e.TargetKind))
+    symbol: AuthoredObservationTargetsFieldMemberSymbol | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredObservationTargetsFieldMemberSymbol)))
+    group: AuthoredObservationTargetsFieldMemberGroup | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredObservationTargetsFieldMemberGroup)))
+    equation: AuthoredObservationTargetsFieldMemberEquation | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredObservationTargetsFieldMemberEquation)))
+    port: AuthoredObservationTargetsFieldMemberPort | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredObservationTargetsFieldMemberPort)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "equation" and self.equation is not None and self.group is None and self.port is None and self.symbol is None) or (self.kind == "group" and self.equation is None and self.group is not None and self.port is None and self.symbol is None) or (self.kind == "instance_wildcard" and self.equation is None and self.group is None and self.port is None and self.symbol is None) or (self.kind == "port" and self.equation is None and self.group is None and self.port is not None and self.symbol is None) or (self.kind == "symbol" and self.equation is None and self.group is None and self.port is None and self.symbol is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -426,13 +503,7 @@ class AuthoredObservationTargetsRow:
     observation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    member_kind: e.TargetKind = attrs.field(validator=attrs.validators.instance_of(e.TargetKind))
-    symbol_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    equation_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    port_template_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    port_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    index: b.tuple[v.SemanticId, ...] | None = attrs.field(validator=attrs.validators.optional(attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple))))
-    wildcard: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    member: AuthoredObservationTargetsFieldMember = attrs.field(validator=attrs.validators.instance_of(AuthoredObservationTargetsFieldMember))
 
 
 @attrs.frozen(kw_only=True)
@@ -591,6 +662,15 @@ class AuthoredReactionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredRenameRequestsRow:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    expected_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    new_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredScenariosRow:
     """Declared relation row or nested value."""
 
@@ -701,19 +781,279 @@ class AuthoredStoichiometryRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectTotalPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectTotalPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectTotalPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateContributionContractsFieldSubjectTotalPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectTotalPhaseFixed)))
+    axis: AuthoredTemplateContributionContractsFieldSubjectTotalPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectTotalPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectTotal:
+    """Declared relation row or nested value."""
+
+    phase: AuthoredTemplateContributionContractsFieldSubjectTotalPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectTotalPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectEnergyPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectEnergyPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectEnergyPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateContributionContractsFieldSubjectEnergyPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectEnergyPhaseFixed)))
+    axis: AuthoredTemplateContributionContractsFieldSubjectEnergyPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectEnergyPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectEnergy:
+    """Declared relation row or nested value."""
+
+    phase: AuthoredTemplateContributionContractsFieldSubjectEnergyPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectEnergyPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectMomentumPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectMomentumPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectMomentumPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateContributionContractsFieldSubjectMomentumPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectMomentumPhaseFixed)))
+    axis: AuthoredTemplateContributionContractsFieldSubjectMomentumPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectMomentumPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectMomentum:
+    """Declared relation row or nested value."""
+
+    phase: AuthoredTemplateContributionContractsFieldSubjectMomentumPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectMomentumPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateContributionContractsFieldSubjectSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectSpeciesMemberFixed)))
+    axis: AuthoredTemplateContributionContractsFieldSubjectSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectSpecies:
+    """Declared relation row or nested value."""
+
+    member: AuthoredTemplateContributionContractsFieldSubjectSpeciesMember = attrs.field(validator=attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectSpeciesMember))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectElementMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectElementMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectElementMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateContributionContractsFieldSubjectElementMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectElementMemberFixed)))
+    axis: AuthoredTemplateContributionContractsFieldSubjectElementMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectElementMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectElement:
+    """Declared relation row or nested value."""
+
+    member: AuthoredTemplateContributionContractsFieldSubjectElementMember = attrs.field(validator=attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectElementMember))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMemberFixed)))
+    axis: AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhaseFixed)))
+    axis: AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubjectPhaseSpecies:
+    """Declared relation row or nested value."""
+
+    member: AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMember = attrs.field(validator=attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesMember))
+    phase: AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhase = attrs.field(validator=attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectPhaseSpeciesPhase))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldSubject:
+    """Declared relation row or nested value."""
+
+    kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
+    total: AuthoredTemplateContributionContractsFieldSubjectTotal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectTotal)))
+    energy: AuthoredTemplateContributionContractsFieldSubjectEnergy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectEnergy)))
+    momentum: AuthoredTemplateContributionContractsFieldSubjectMomentum | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectMomentum)))
+    species: AuthoredTemplateContributionContractsFieldSubjectSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectSpecies)))
+    element: AuthoredTemplateContributionContractsFieldSubjectElement | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectElement)))
+    phase_species: AuthoredTemplateContributionContractsFieldSubjectPhaseSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubjectPhaseSpecies)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "element" and self.element is not None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "energy" and self.element is None and self.energy is not None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "momentum" and self.element is None and self.energy is None and self.momentum is not None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "phase_species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is not None and self.species is None and self.total is None) or (self.kind == "species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is not None and self.total is None) or (self.kind == "total" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateContributionContractsFieldTransfer:
+    """Declared relation row or nested value."""
+
+    port_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    member_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredTemplateContributionContractsRow:
     """Declared relation row or nested value."""
 
     contribution_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     indexed_by: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    subject_kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
-    subject_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    transfer_port_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    transfer_member_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    subject: AuthoredTemplateContributionContractsFieldSubject = attrs.field(validator=attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldSubject))
+    transfer: AuthoredTemplateContributionContractsFieldTransfer | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateContributionContractsFieldTransfer)))
 
 
 @attrs.frozen(kw_only=True)
@@ -762,14 +1102,40 @@ class AuthoredTemplateDisplayIndicesRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredTemplateDomainBindingsFieldSourceDomain:
+    """Declared relation row or nested value."""
+
+    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateDomainBindingsFieldSourceParameter:
+    """Declared relation row or nested value."""
+
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateDomainBindingsFieldSource:
+    """Declared relation row or nested value."""
+
+    kind: e.DomainBindingSource = attrs.field(validator=attrs.validators.instance_of(e.DomainBindingSource))
+    domain: AuthoredTemplateDomainBindingsFieldSourceDomain | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateDomainBindingsFieldSourceDomain)))
+    parameter: AuthoredTemplateDomainBindingsFieldSourceParameter | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateDomainBindingsFieldSourceParameter)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "domain" and self.domain is not None and self.parameter is None) or (self.kind == "element" and self.domain is None and self.parameter is None) or (self.kind == "parameter" and self.domain is None and self.parameter is not None) or (self.kind == "phase" and self.domain is None and self.parameter is None) or (self.kind == "phase_species" and self.domain is None and self.parameter is None) or (self.kind == "species" and self.domain is None and self.parameter is None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredTemplateDomainBindingsRow:
     """Declared relation row or nested value."""
 
     template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    source: e.DomainBindingSource = attrs.field(validator=attrs.validators.instance_of(e.DomainBindingSource))
-    domain_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    parameter_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    source: AuthoredTemplateDomainBindingsFieldSource = attrs.field(validator=attrs.validators.instance_of(AuthoredTemplateDomainBindingsFieldSource))
 
 
 @attrs.frozen(kw_only=True)
@@ -845,6 +1211,78 @@ class AuthoredTemplateGuardsRow:
 
 
 @attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldDefaultBalance:
+    """Declared relation row or nested value."""
+
+    state_child: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    feature_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldCoordinatesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldCoordinatesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldCoordinatesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateLawContractsFieldCoordinatesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateLawContractsFieldCoordinatesMemberFixed)))
+    axis: AuthoredTemplateLawContractsFieldCoordinatesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateLawContractsFieldCoordinatesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldCoordinatesPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldCoordinatesPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldCoordinatesPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: AuthoredTemplateLawContractsFieldCoordinatesPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateLawContractsFieldCoordinatesPhaseFixed)))
+    axis: AuthoredTemplateLawContractsFieldCoordinatesPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateLawContractsFieldCoordinatesPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class AuthoredTemplateLawContractsFieldCoordinates:
+    """Declared relation row or nested value."""
+
+    member: AuthoredTemplateLawContractsFieldCoordinatesMember | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateLawContractsFieldCoordinatesMember)))
+    phase: AuthoredTemplateLawContractsFieldCoordinatesPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateLawContractsFieldCoordinatesPhase)))
+
+
+@attrs.frozen(kw_only=True)
 class AuthoredTemplateLawContractsRow:
     """Declared relation row or nested value."""
 
@@ -852,12 +1290,8 @@ class AuthoredTemplateLawContractsRow:
     indexed_by: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     balance_enum_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    default_state_child: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    default_feature_name: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
-    subject_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    default_balance: AuthoredTemplateLawContractsFieldDefaultBalance | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(AuthoredTemplateLawContractsFieldDefaultBalance)))
+    coordinates: AuthoredTemplateLawContractsFieldCoordinates = attrs.field(validator=attrs.validators.instance_of(AuthoredTemplateLawContractsFieldCoordinates))
 
 
 @attrs.frozen(kw_only=True)

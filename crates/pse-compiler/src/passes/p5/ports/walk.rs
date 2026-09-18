@@ -17,6 +17,10 @@ const PORT: [&str; 8] = [
     "guard_outcome",
     "length",
 ];
+#[expect(
+    clippy::too_many_lines,
+    reason = "resolve keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn resolve(
     plans: &mut Plans<'_>,
     base: LogicalPlan,
@@ -25,7 +29,7 @@ pub(super) async fn resolve(
     seed.extend([
         col("owner_instance_id").alias("state_instance_id"),
         col("owner_template_id").alias("state_template_id"),
-        lit(0_u64).alias("position"),
+        lit(0_i64).alias("position"),
         plans
             .session
             .scalar_function("pse_index_tuple")?
@@ -127,7 +131,7 @@ pub(super) async fn resolve(
             plans
                 .present(c("child", "template_id"))?
                 .alias("state_template_id"),
-            (col("position") + lit(1_u64)).alias("position"),
+            (col("position") + lit(1_i64)).alias("position"),
             plans
                 .ids(vec![col("index"), c("child", "index")])?
                 .alias("index"),

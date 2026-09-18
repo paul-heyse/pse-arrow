@@ -30,6 +30,7 @@ pub struct Constraint {
 }
 #[derive(Clone)]
 pub(super) struct Specification {
+    pub program_id: pse_ids::SemanticId,
     pub variables: Vec<Variable>,
     pub constraints: Vec<Constraint>,
     pub objective: Expr,
@@ -51,6 +52,7 @@ impl Solve {
     /// # Errors
     /// Empty/duplicate decision columns or invalid finite bounds/scaling/options.
     pub fn plan(
+        program_id: pse_ids::SemanticId,
         input: LogicalPlan,
         variables: Vec<Variable>,
         constraints: Vec<Constraint>,
@@ -81,12 +83,13 @@ impl Solve {
             validate_bounds(constraint.lower, constraint.upper, constraint.scale)?;
         }
         let schema = Arc::new(
-            DFSchema::try_from(output::schema().as_ref().clone())
+            DFSchema::try_from(output::schema()?.as_ref().clone())
                 .map_err(|e| invalid(e.to_string()))?,
         );
         Ok(LogicalPlan::Extension(Extension {
             node: Arc::new(Self {
                 specification: Arc::new(Specification {
+                    program_id,
                     variables,
                     constraints,
                     objective,
@@ -159,7 +162,8 @@ impl UserDefinedLogicalNodeCore for Solve {
     fn fmt_for_explain(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "PseSolve: variables={}, constraints={}, hessian={:?}, max_iterations={}",
+            "PseSolve: program={}, variables={}, constraints={}, hessian={:?}, max_iterations={}",
+            self.specification.program_id.to_hex(),
             self.specification.variables.len(),
             self.specification.constraints.len(),
             self.specification.options.hessian,

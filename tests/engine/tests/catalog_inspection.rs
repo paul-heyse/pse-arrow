@@ -4,36 +4,23 @@
 //! Admitted table streams retain actual array owners across close and partial drain.
 #![allow(clippy::unwrap_used, reason = "test fixtures fail directly")]
 
-#[path = "../../support/native_catalog.rs"]
-mod native_catalog;
+#[path = "../../support/native_publication.rs"]
+mod native_publication;
 
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 
 use datafusion::arrow::array::UInt64Array;
-use object_store::memory::InMemory;
-use pse_catalog::{
-    Catalog, EncodingPolicy, FixedClock, RelationContract, Snapshot, TrustLevel,
-    inspection::TableReader,
-    store::{
-        membership::AdmissionContext,
-        publish::{BundleDraft, RelationDraft},
-    },
-};
-use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId, SnapshotKind};
+use pse_catalog::{delta::publication::Publication, inspection::TableReader};
+use pse_ids::{CancellationToken, FixedBudget, MemoryReserver, SemanticId};
 use pse_schema::{
     RegistryBuilder,
     model::{Authority, Cell, FieldContract, Namespace, RelationDecl, SnapshotClass},
 };
 
-async fn fixture(
-    empty: bool,
-) -> (
-    Arc<Snapshot>,
-    Arc<FixedBudget>,
-    Arc<pse_catalog::session::SessionFactory>,
-) {
+async fn fixture(empty: bool) -> (Publication, Arc<FixedBudget>, tempfile::TempDir) {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
+    pse_schema::catalog::declare_publications(&mut builder);
     builder.declare_relation(
         RelationDecl::new(
             Namespace::Authored,
@@ -60,17 +47,6 @@ async fn fixture(
     let registry = Arc::new(builder.build().unwrap());
     let budget = FixedBudget::new(32 << 20);
     let reserver: Arc<dyn MemoryReserver> = budget.clone();
-    let catalog = Catalog::open(
-        Arc::new(InMemory::new()),
-        Arc::clone(&registry),
-        TrustLevel::Untrusted,
-        Arc::new(FixedClock("2026-09-14T00:00:00Z".to_owned())),
-        native_catalog::from_reserver(reserver),
-    );
-    let sessions = native_catalog::factory(&catalog);
-    let catalog = catalog.with_semantic_validator(Arc::new(
-        pse_rules::validator::InvariantValidator::new(Arc::clone(&registry)),
-    ));
     let spec = registry.relation("authored.items").unwrap();
     let rows = (0..5)
         .map(|value| {
@@ -82,51 +58,36 @@ async fn fixture(
         .collect::<Vec<_>>();
     let batch = pse_relations::cells::batch_from_cells(&registry, spec, &rows).unwrap();
     let batch = batch.slice(1, if empty { 0 } else { 3 });
-    let context = AdmissionContext::default();
-    let draft = BundleDraft {
-        manifest: catalog
-            .manifest_template(SnapshotKind::Model, &context)
-            .unwrap(),
-        relations: BTreeMap::from([(
-            pse_ids::model_port_name("authored", spec.id),
-            RelationDraft {
-                contract: Arc::new(
-                    RelationContract::from_spec(&registry, spec, EncodingPolicy::IpcFile).unwrap(),
-                ),
-                batches: vec![batch],
-            },
-        )]),
-        context,
-    };
-    let snapshot = catalog
-        .publish_bundle(draft, &CancellationToken::new())
-        .await
-        .unwrap();
-    (snapshot, budget, sessions)
+    let key = spec.key;
+    let (publication, directory, _) =
+        native_publication::publish(registry, BTreeMap::from([(key, batch)]), reserver).await;
+    (publication, budget, directory)
 }
 
 #[tokio::test]
 async fn bounded_streams_preserve_nested_slices_and_last_buffer_accounting() {
-    let (snapshot, budget, sessions) = fixture(false).await;
-    let expected_schema = snapshot
-        .relation("authored", "items")
-        .unwrap()
-        .batch()
-        .schema();
-    let session = sessions
-        .inspect_snapshot(&snapshot, &CancellationToken::new())
-        .unwrap();
+    let (publication, budget, _directory) = fixture(false).await;
+    let expected_schema = Arc::new(
+        pse_schema::arrow::relation_schema(
+            publication.session().registry(),
+            publication
+                .session()
+                .registry()
+                .relation("authored.items")
+                .unwrap(),
+        )
+        .unwrap(),
+    );
+    let session = publication.into_session();
     let mut reader = TableReader::new(
         &session,
-        "authored.items",
-        None,
+        &native_publication::name("authored", "items"),
         NonZeroUsize::new(2).unwrap(),
         CancellationToken::new(),
     )
     .await
     .unwrap();
     drop(session);
-    drop(snapshot);
     let first = reader.next_batch().await.unwrap().unwrap();
     let last = reader.next_batch().await.unwrap().unwrap();
     assert_eq!((first.num_rows(), last.num_rows()), (2, 1));
@@ -160,15 +121,12 @@ async fn bounded_streams_preserve_nested_slices_and_last_buffer_accounting() {
 
 #[tokio::test]
 async fn partial_cancel_releases_unread_owners_and_reports_cancellation() {
-    let (snapshot, budget, sessions) = fixture(false).await;
+    let (publication, budget, _directory) = fixture(false).await;
     let cancel = CancellationToken::new();
-    let session = sessions
-        .inspect_snapshot(&snapshot, &CancellationToken::new())
-        .unwrap();
+    let session = publication.into_session();
     let mut reader = TableReader::new(
         &session,
-        "authored.items",
-        None,
+        &native_publication::name("authored", "items"),
         NonZeroUsize::MIN,
         cancel.clone(),
     )
@@ -186,19 +144,22 @@ async fn partial_cancel_releases_unread_owners_and_reports_cancellation() {
 
 #[tokio::test]
 async fn empty_stream_keeps_its_exact_schema_and_releases_sources_at_eof() {
-    let (snapshot, budget, sessions) = fixture(true).await;
-    let schema = snapshot
-        .relation("authored", "items")
-        .unwrap()
-        .batch()
-        .schema();
-    let session = sessions
-        .inspect_snapshot(&snapshot, &CancellationToken::new())
-        .unwrap();
+    let (publication, budget, _directory) = fixture(true).await;
+    let schema = Arc::new(
+        pse_schema::arrow::relation_schema(
+            publication.session().registry(),
+            publication
+                .session()
+                .registry()
+                .relation("authored.items")
+                .unwrap(),
+        )
+        .unwrap(),
+    );
+    let session = publication.into_session();
     let mut reader = TableReader::new(
         &session,
-        "authored.items",
-        None,
+        &native_publication::name("authored", "items"),
         NonZeroUsize::MIN,
         CancellationToken::new(),
     )
@@ -213,20 +174,13 @@ async fn empty_stream_keeps_its_exact_schema_and_releases_sources_at_eof() {
 
 #[tokio::test]
 async fn wrong_name_and_port_never_select_a_different_admitted_table() {
-    let (snapshot, _, sessions) = fixture(false).await;
-    let session = sessions
-        .inspect_snapshot(&snapshot, &CancellationToken::new())
-        .unwrap();
-    for (name, port) in [
-        ("items", None),
-        ("authored.missing", None),
-        ("authored.items", Some("wrong")),
-    ] {
+    let (publication, _, _directory) = fixture(false).await;
+    let session = publication.into_session();
+    for (schema, table) in [("wrong", "items"), ("authored", "missing"), ("", "items")] {
         assert!(
             TableReader::new(
                 &session,
-                name,
-                port,
+                &native_publication::name(schema, table),
                 NonZeroUsize::MIN,
                 CancellationToken::new()
             )

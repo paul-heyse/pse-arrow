@@ -21,6 +21,7 @@
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
 
+pub use pse_catalog::cache_service::CacheBudget;
 use pse_catalog::{ExecutionSettings, ThreadBudget};
 
 use crate::error::RuntimeError;
@@ -44,6 +45,8 @@ pub struct ResourceBudget {
     pub threads: ThreadBudget,
     /// The session execution settings.
     pub execution: ExecutionSettings,
+    /// Native cache capacity, load staging and query headroom in the same pool.
+    pub cache: CacheBudget,
     /// Whether artifact hashing may take pool threads (`blake3::update_rayon`).
     ///
     /// This grants permission; it does not require parallel hashing or change canonical
@@ -67,6 +70,7 @@ impl ResourceBudget {
     /// configuration error before any.
     pub fn validate(&self) -> Result<(), RuntimeError> {
         self.execution.validate()?;
+        self.cache.validate(self.memory_limit_bytes.get())?;
         if isize::try_from(self.memory_limit_bytes.get()).is_err() {
             return Err(RuntimeError::ConfigInvalid {
                 key: "datafusion.runtime.memory_limit".to_owned(),
@@ -129,6 +133,7 @@ mod tests {
                 target_partitions: count(8),
             },
             execution: ExecutionSettings::default(),
+            cache: CacheBudget::disabled(1),
             hashing_may_use_pool: false,
         }
     }

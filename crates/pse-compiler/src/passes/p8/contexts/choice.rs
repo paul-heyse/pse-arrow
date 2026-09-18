@@ -4,16 +4,20 @@
 //! Literal, feature and selected-state default balance choices use exact source joins.
 use super::native::{Sources, append, c, error, join, require};
 use crate::CompilerError;
+use datafusion::functions_nested::expr_fn::array_element;
 use datafusion::{
     functions::{core::expr_fn::get_field, string::expr_fn::starts_with, unicode::expr_fn::substr},
     functions_aggregate::expr_fn::count_distinct,
     functions_nested::expr_fn::array_length,
     logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder, col, lit, when},
 };
-use pse_catalog::session::scalar::array_element;
 use pse_ids::CancellationToken;
 use std::ops::Not;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "apply keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn apply(
     base: LogicalPlan,
     sources: &mut Sources<'_>,
@@ -23,19 +27,9 @@ pub(super) async fn apply(
     require(
         &base,
         array_length(c("law", "options"))
-            .eq(lit(1_u64))
+            .eq(lit(1_i64))
             .and(get_field(option.clone(), "key").eq(lit("balance_type"))),
         "law requires exactly its declared balance_type option",
-        sources.session,
-        cancel,
-    )
-    .await?;
-    require(
-        &base,
-        c("contract", "default_state_child")
-            .is_null()
-            .eq(c("contract", "default_feature_name").is_null()),
-        "law default child and feature must be declared together",
         sources.session,
         cancel,
     )
@@ -86,7 +80,8 @@ pub(super) async fn apply(
         [
             col("initial_balance").eq(lit("useDefault")),
             c("child", "parent_instance_id").eq(c("instance", "instance_id")),
-            c("child", "submodel_name").eq(c("contract", "default_state_child")),
+            c("child", "submodel_name")
+                .eq(get_field(c("contract", "default_balance"), "state_child")),
         ],
     )?;
     let packages = sources.scan("normalized.property_packages", "package")?;
@@ -110,7 +105,8 @@ pub(super) async fn apply(
         JoinType::Left,
         [
             c("state", "instance_id").eq(c("default_feature", "instance_id")),
-            c("default_feature", "name").eq(c("contract", "default_feature_name")),
+            c("default_feature", "name")
+                .eq(get_field(c("contract", "default_balance"), "feature_name")),
         ],
     )?;
     let is_default = col("initial_balance").eq(lit("useDefault"));
@@ -121,7 +117,13 @@ pub(super) async fn apply(
     let valid = c("state", "instance_id")
         .is_not_null()
         .and(c("definition", "family").eq(lit("state_definition")))
-        .and(c("definition", "template_id").eq(c("state", "template_id")))
+        .and(
+            get_field(
+                get_field(c("definition", "realization"), "equation_template"),
+                "template_id",
+            )
+            .eq(c("state", "template_id")),
+        )
         .and(feature_contract("default_feature"))
         .and(default_value.clone().not_eq(lit("useDefault")));
     require(

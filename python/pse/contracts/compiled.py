@@ -68,6 +68,263 @@ class CompiledCaseBoundSubstitutionsRow:
 
 
 @attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectTotalPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectTotalPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectTotalPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledContributionsFieldSubjectTotalPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectTotalPhaseFixed)))
+    axis: CompiledContributionsFieldSubjectTotalPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectTotalPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectTotal:
+    """Declared relation row or nested value."""
+
+    phase: CompiledContributionsFieldSubjectTotalPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectTotalPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectEnergyPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectEnergyPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectEnergyPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledContributionsFieldSubjectEnergyPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectEnergyPhaseFixed)))
+    axis: CompiledContributionsFieldSubjectEnergyPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectEnergyPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectEnergy:
+    """Declared relation row or nested value."""
+
+    phase: CompiledContributionsFieldSubjectEnergyPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectEnergyPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectMomentumPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectMomentumPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectMomentumPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledContributionsFieldSubjectMomentumPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectMomentumPhaseFixed)))
+    axis: CompiledContributionsFieldSubjectMomentumPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectMomentumPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectMomentum:
+    """Declared relation row or nested value."""
+
+    phase: CompiledContributionsFieldSubjectMomentumPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectMomentumPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledContributionsFieldSubjectSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectSpeciesMemberFixed)))
+    axis: CompiledContributionsFieldSubjectSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectSpecies:
+    """Declared relation row or nested value."""
+
+    member: CompiledContributionsFieldSubjectSpeciesMember = attrs.field(validator=attrs.validators.instance_of(CompiledContributionsFieldSubjectSpeciesMember))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectElementMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectElementMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectElementMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledContributionsFieldSubjectElementMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectElementMemberFixed)))
+    axis: CompiledContributionsFieldSubjectElementMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectElementMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectElement:
+    """Declared relation row or nested value."""
+
+    member: CompiledContributionsFieldSubjectElementMember = attrs.field(validator=attrs.validators.instance_of(CompiledContributionsFieldSubjectElementMember))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectPhaseSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectPhaseSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectPhaseSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledContributionsFieldSubjectPhaseSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectPhaseSpeciesMemberFixed)))
+    axis: CompiledContributionsFieldSubjectPhaseSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectPhaseSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectPhaseSpeciesPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectPhaseSpeciesPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectPhaseSpeciesPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledContributionsFieldSubjectPhaseSpeciesPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectPhaseSpeciesPhaseFixed)))
+    axis: CompiledContributionsFieldSubjectPhaseSpeciesPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectPhaseSpeciesPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubjectPhaseSpecies:
+    """Declared relation row or nested value."""
+
+    member: CompiledContributionsFieldSubjectPhaseSpeciesMember = attrs.field(validator=attrs.validators.instance_of(CompiledContributionsFieldSubjectPhaseSpeciesMember))
+    phase: CompiledContributionsFieldSubjectPhaseSpeciesPhase = attrs.field(validator=attrs.validators.instance_of(CompiledContributionsFieldSubjectPhaseSpeciesPhase))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledContributionsFieldSubject:
+    """Declared relation row or nested value."""
+
+    kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
+    total: CompiledContributionsFieldSubjectTotal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectTotal)))
+    energy: CompiledContributionsFieldSubjectEnergy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectEnergy)))
+    momentum: CompiledContributionsFieldSubjectMomentum | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectMomentum)))
+    species: CompiledContributionsFieldSubjectSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectSpecies)))
+    element: CompiledContributionsFieldSubjectElement | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectElement)))
+    phase_species: CompiledContributionsFieldSubjectPhaseSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledContributionsFieldSubjectPhaseSpecies)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "element" and self.element is not None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "energy" and self.element is None and self.energy is not None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "momentum" and self.element is None and self.energy is None and self.momentum is not None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "phase_species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is not None and self.species is None and self.total is None) or (self.kind == "species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is not None and self.total is None) or (self.kind == "total" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class CompiledContributionsRow:
     """Declared relation row or nested value."""
 
@@ -77,17 +334,13 @@ class CompiledContributionsRow:
     scope_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     product_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    expression_root: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    expression_root: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     law_family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     orientation: e.Orientation = attrs.field(validator=attrs.validators.instance_of(e.Orientation))
     transfer_connection_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    subject_kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
-    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    subject_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    subject: CompiledContributionsFieldSubject = attrs.field(validator=attrs.validators.instance_of(CompiledContributionsFieldSubject))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -109,7 +362,7 @@ class CompiledElementProjectionCoefficientsRow:
     group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     element_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     species_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     count: b.float = attrs.field(validator=v.finite_float)
@@ -141,7 +394,7 @@ class CompiledEquationBranchesFieldBranchGuardsItem:
     """Declared relation row or nested value."""
 
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    predicate_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    predicate_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     expected: b.bool = attrs.field(validator=v.exact_type(b.bool))
 
 
@@ -154,7 +407,7 @@ class CompiledEquationBranchesRow:
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     equation_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    equation_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    equation_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     branch_guards: b.tuple[CompiledEquationBranchesFieldBranchGuardsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledEquationBranchesFieldBranchGuardsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
@@ -212,7 +465,7 @@ class CompiledExpressionRootsRow:
     owner_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     role: e.ExpressionRootRole = attrs.field(validator=attrs.validators.instance_of(e.ExpressionRootRole))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -236,7 +489,7 @@ class CompiledGroupCollectionsRow:
     group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     root_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    path_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    path_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     product_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -288,7 +541,7 @@ class CompiledGroupReindexingsRow:
     source_group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    source_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    source_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     bound_indices: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     fixed_indices: b.tuple[CompiledGroupReindexingsFieldFixedIndicesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledGroupReindexingsFieldFixedIndicesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     product_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -353,13 +606,40 @@ class CompiledInitializationPlansRow:
 
 
 @attrs.frozen(kw_only=True)
+class CompiledKernelBindingsFieldParameterBindingsItemBindingSymbol:
+    """Declared relation row or nested value."""
+
+    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledKernelBindingsFieldParameterBindingsItemBindingLiteral:
+    """Declared relation row or nested value."""
+
+    value: b.float = attrs.field(validator=v.finite_float)
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledKernelBindingsFieldParameterBindingsItemBinding:
+    """Declared relation row or nested value."""
+
+    kind: e.KernelParameterBindingKind = attrs.field(validator=attrs.validators.instance_of(e.KernelParameterBindingKind))
+    symbol: CompiledKernelBindingsFieldParameterBindingsItemBindingSymbol | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledKernelBindingsFieldParameterBindingsItemBindingSymbol)))
+    literal: CompiledKernelBindingsFieldParameterBindingsItemBindingLiteral | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledKernelBindingsFieldParameterBindingsItemBindingLiteral)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "literal" and self.literal is not None and self.symbol is None) or (self.kind == "symbol" and self.literal is None and self.symbol is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class CompiledKernelBindingsFieldParameterBindingsItem:
     """Declared relation row or nested value."""
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    symbol_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    value: b.float | None = attrs.field(validator=attrs.validators.optional(v.finite_float))
-    unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    binding: CompiledKernelBindingsFieldParameterBindingsItemBinding = attrs.field(validator=attrs.validators.instance_of(CompiledKernelBindingsFieldParameterBindingsItemBinding))
 
 
 @attrs.frozen(kw_only=True)
@@ -367,7 +647,7 @@ class CompiledKernelBindingsFieldInputBindingsItem:
     """Declared relation row or nested value."""
 
     name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
 
 
 @attrs.frozen(kw_only=True)
@@ -397,6 +677,321 @@ class CompiledKernelOutputSymbolsRow:
 
 
 @attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectTotalPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectTotalPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectTotalPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectTotalPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectTotalPhaseFixed)))
+    axis: CompiledLawApplicationsFieldSubjectTotalPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectTotalPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectTotal:
+    """Declared relation row or nested value."""
+
+    phase: CompiledLawApplicationsFieldSubjectTotalPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectTotalPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectEnergyPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectEnergyPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectEnergyPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectEnergyPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectEnergyPhaseFixed)))
+    axis: CompiledLawApplicationsFieldSubjectEnergyPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectEnergyPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectEnergy:
+    """Declared relation row or nested value."""
+
+    phase: CompiledLawApplicationsFieldSubjectEnergyPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectEnergyPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectMomentumPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectMomentumPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectMomentumPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectMomentumPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectMomentumPhaseFixed)))
+    axis: CompiledLawApplicationsFieldSubjectMomentumPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectMomentumPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectMomentum:
+    """Declared relation row or nested value."""
+
+    phase: CompiledLawApplicationsFieldSubjectMomentumPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectMomentumPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectSpeciesMemberFixed)))
+    axis: CompiledLawApplicationsFieldSubjectSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectSpeciesPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectSpeciesPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectSpeciesPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectSpeciesPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectSpeciesPhaseFixed)))
+    axis: CompiledLawApplicationsFieldSubjectSpeciesPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectSpeciesPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectSpecies:
+    """Declared relation row or nested value."""
+
+    member: CompiledLawApplicationsFieldSubjectSpeciesMember = attrs.field(validator=attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectSpeciesMember))
+    phase: CompiledLawApplicationsFieldSubjectSpeciesPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectSpeciesPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectElementMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectElementMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectElementMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectElementMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectElementMemberFixed)))
+    axis: CompiledLawApplicationsFieldSubjectElementMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectElementMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectElementPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectElementPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectElementPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectElementPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectElementPhaseFixed)))
+    axis: CompiledLawApplicationsFieldSubjectElementPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectElementPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectElement:
+    """Declared relation row or nested value."""
+
+    member: CompiledLawApplicationsFieldSubjectElementMember = attrs.field(validator=attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectElementMember))
+    phase: CompiledLawApplicationsFieldSubjectElementPhase | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectElementPhase)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectPhaseSpeciesMemberFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectPhaseSpeciesMemberAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectPhaseSpeciesMember:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectPhaseSpeciesMemberFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectPhaseSpeciesMemberFixed)))
+    axis: CompiledLawApplicationsFieldSubjectPhaseSpeciesMemberAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectPhaseSpeciesMemberAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectPhaseSpeciesPhaseFixed:
+    """Declared relation row or nested value."""
+
+    entity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectPhaseSpeciesPhaseAxis:
+    """Declared relation row or nested value."""
+
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectPhaseSpeciesPhase:
+    """Declared relation row or nested value."""
+
+    kind: e.PhysicalCoordinateKind = attrs.field(validator=attrs.validators.instance_of(e.PhysicalCoordinateKind))
+    fixed: CompiledLawApplicationsFieldSubjectPhaseSpeciesPhaseFixed | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectPhaseSpeciesPhaseFixed)))
+    axis: CompiledLawApplicationsFieldSubjectPhaseSpeciesPhaseAxis | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectPhaseSpeciesPhaseAxis)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "axis" and self.axis is not None and self.fixed is None) or (self.kind == "fixed" and self.axis is None and self.fixed is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubjectPhaseSpecies:
+    """Declared relation row or nested value."""
+
+    member: CompiledLawApplicationsFieldSubjectPhaseSpeciesMember = attrs.field(validator=attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectPhaseSpeciesMember))
+    phase: CompiledLawApplicationsFieldSubjectPhaseSpeciesPhase = attrs.field(validator=attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectPhaseSpeciesPhase))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawApplicationsFieldSubject:
+    """Declared relation row or nested value."""
+
+    kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
+    total: CompiledLawApplicationsFieldSubjectTotal | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectTotal)))
+    energy: CompiledLawApplicationsFieldSubjectEnergy | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectEnergy)))
+    momentum: CompiledLawApplicationsFieldSubjectMomentum | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectMomentum)))
+    species: CompiledLawApplicationsFieldSubjectSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectSpecies)))
+    element: CompiledLawApplicationsFieldSubjectElement | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectElement)))
+    phase_species: CompiledLawApplicationsFieldSubjectPhaseSpecies | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawApplicationsFieldSubjectPhaseSpecies)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "element" and self.element is not None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "energy" and self.element is None and self.energy is not None and self.momentum is None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "momentum" and self.element is None and self.energy is None and self.momentum is not None and self.phase_species is None and self.species is None and self.total is None) or (self.kind == "phase_species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is not None and self.species is None and self.total is None) or (self.kind == "species" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is not None and self.total is None) or (self.kind == "total" and self.element is None and self.energy is None and self.momentum is None and self.phase_species is None and self.species is None and self.total is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class CompiledLawApplicationsRow:
     """Declared relation row or nested value."""
 
@@ -409,15 +1004,40 @@ class CompiledLawApplicationsRow:
     law_family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     basis_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    subject_kind: e.ContributionSubjectKind = attrs.field(validator=attrs.validators.instance_of(e.ContributionSubjectKind))
-    subject_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    subject_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_axis: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
-    phase_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    subject: CompiledLawApplicationsFieldSubject = attrs.field(validator=attrs.validators.instance_of(CompiledLawApplicationsFieldSubject))
     source_family: e.LawFamily = attrs.field(validator=attrs.validators.instance_of(e.LawFamily))
     subject_projection: e.LawSubjectProjection = attrs.field(validator=attrs.validators.instance_of(e.LawSubjectProjection))
     expansion: e.LawExpansion = attrs.field(validator=attrs.validators.instance_of(e.LawExpansion))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawParticipationFieldDecisionIncluded:
+    """Declared relation row or nested value."""
+
+    sign: e.ContributionSign = attrs.field(validator=attrs.validators.instance_of(e.ContributionSign))
+    conversion_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawParticipationFieldDecisionExcluded:
+    """Declared relation row or nested value."""
+
+    reason: e.ParticipationExclusionReason = attrs.field(validator=attrs.validators.instance_of(e.ParticipationExclusionReason))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledLawParticipationFieldDecision:
+    """Declared relation row or nested value."""
+
+    kind: e.ParticipationDecision = attrs.field(validator=attrs.validators.instance_of(e.ParticipationDecision))
+    included: CompiledLawParticipationFieldDecisionIncluded | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawParticipationFieldDecisionIncluded)))
+    excluded: CompiledLawParticipationFieldDecisionExcluded | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledLawParticipationFieldDecisionExcluded)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "excluded" and self.excluded is not None and self.included is None) or (self.kind == "included" and self.excluded is None and self.included is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -426,39 +1046,8 @@ class CompiledLawParticipationRow:
 
     application_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     contribution_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    decision: e.ParticipationDecision = attrs.field(validator=attrs.validators.instance_of(e.ParticipationDecision))
-    reason: e.ParticipationReason = attrs.field(validator=attrs.validators.instance_of(e.ParticipationReason))
-    sign: b.int = attrs.field(validator=v.integer_range(-2147483648, 2147483647))
-    conversion_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    decision: CompiledLawParticipationFieldDecision = attrs.field(validator=attrs.validators.instance_of(CompiledLawParticipationFieldDecision))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathAffineFieldTermsItem:
-    """Declared relation row or nested value."""
-
-    coefficient: b.float = attrs.field(validator=v.finite_float)
-    child_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathAffineRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    constant: b.float = attrs.field(validator=v.finite_float)
-    constant_quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    constant_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    terms: b.tuple[CompiledMathAffineFieldTermsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathAffineFieldTermsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathBroadcastsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
 @attrs.frozen(kw_only=True)
@@ -466,17 +1055,9 @@ class CompiledMathComplementarityRow:
     """Declared relation row or nested value."""
 
     pair_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    expr_a_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    expr_b_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    expr_a_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    expr_b_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     formulation: e.ComplementarityForm = attrs.field(validator=attrs.validators.instance_of(e.ComplementarityForm))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathConditionalsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    guard_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
 
 
 @attrs.frozen(kw_only=True)
@@ -490,12 +1071,32 @@ class CompiledMathDaeLinksRow:
 
 
 @attrs.frozen(kw_only=True)
-class CompiledMathDerivativesRow:
+class CompiledMathEquationsFieldConstraintSingle:
     """Declared relation row or nested value."""
 
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    wrt_domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    order: b.int = attrs.field(validator=v.integer_range(0, 255))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathEquationsFieldConstraintRange:
+    """Declared relation row or nested value."""
+
+    lower_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    upper_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathEquationsFieldConstraint:
+    """Declared relation row or nested value."""
+
+    kind: e.Sense = attrs.field(validator=attrs.validators.instance_of(e.Sense))
+    single: CompiledMathEquationsFieldConstraintSingle | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathEquationsFieldConstraintSingle)))
+    range: CompiledMathEquationsFieldConstraintRange | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathEquationsFieldConstraintRange)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "definition" and self.range is None and self.single is not None) or (self.kind == "eq" and self.range is None and self.single is not None) or (self.kind == "ge" and self.range is None and self.single is not None) or (self.kind == "le" and self.range is None and self.single is not None) or (self.kind == "range" and self.range is not None and self.single is None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
@@ -503,16 +1104,14 @@ class CompiledMathEquationsRow:
     """Declared relation row or nested value."""
 
     equation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     owner_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     equation_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     parent_indexed_equation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     qualified_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    body_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    sense: e.Sense = attrs.field(validator=attrs.validators.instance_of(e.Sense))
-    lower_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    upper_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    body_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    constraint: CompiledMathEquationsFieldConstraint = attrs.field(validator=attrs.validators.instance_of(CompiledMathEquationsFieldConstraint))
     residual_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     family: e.EquationFamily = attrs.field(validator=attrs.validators.instance_of(e.EquationFamily))
     role: e.EquationRole = attrs.field(validator=attrs.validators.instance_of(e.EquationRole))
@@ -526,32 +1125,516 @@ class CompiledMathEquationsRow:
 
 
 @attrs.frozen(kw_only=True)
-class CompiledMathExprArgsRow:
+class CompiledMathExprNodesFieldPayloadSymbolReferenceSymbol:
     """Declared relation row or nested value."""
 
-    parent_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    argument_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
-    child_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbolReferenceTemplate:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    member_kind: e.MathTemplateMemberKind = attrs.field(validator=attrs.validators.instance_of(e.MathTemplateMemberKind))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueActual:
+    """Declared relation row or nested value."""
+
+    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueTemplate:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValue:
+    """Declared relation row or nested value."""
+
+    kind: e.MathDomainKind = attrs.field(validator=attrs.validators.instance_of(e.MathDomainKind))
+    actual: CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueActual | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueActual)))
+    template: CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueTemplate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValueTemplate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "actual" and self.actual is not None and self.template is None) or (self.kind == "template" and self.actual is None and self.template is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbolReferenceDomain:
+    """Declared relation row or nested value."""
+
+    value: CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValue = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReferenceDomainValue))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbolReferenceIndex:
+    """Declared relation row or nested value."""
+
+    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbolReference:
+    """Declared relation row or nested value."""
+
+    kind: e.MathReferenceKind = attrs.field(validator=attrs.validators.instance_of(e.MathReferenceKind))
+    symbol: CompiledMathExprNodesFieldPayloadSymbolReferenceSymbol | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReferenceSymbol)))
+    template: CompiledMathExprNodesFieldPayloadSymbolReferenceTemplate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReferenceTemplate)))
+    domain: CompiledMathExprNodesFieldPayloadSymbolReferenceDomain | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReferenceDomain)))
+    index: CompiledMathExprNodesFieldPayloadSymbolReferenceIndex | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReferenceIndex)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "domain" and self.domain is not None and self.index is None and self.symbol is None and self.template is None) or (self.kind == "index" and self.domain is None and self.index is not None and self.symbol is None and self.template is None) or (self.kind == "symbol" and self.domain is None and self.index is None and self.symbol is not None and self.template is None) or (self.kind == "template" and self.domain is None and self.index is None and self.symbol is None and self.template is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSymbol:
+    """Declared relation row or nested value."""
+
+    reference: CompiledMathExprNodesFieldPayloadSymbolReference = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbolReference))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadFloat:
+    """Declared relation row or nested value."""
+
+    value: b.float = attrs.field(validator=v.finite_float)
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadInteger:
+    """Declared relation row or nested value."""
+
+    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadAffine:
+    """Declared relation row or nested value."""
+
+    constant: b.float = attrs.field(validator=v.finite_float)
+    constant_quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    constant_unit_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    coefficients: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadWeightedMeanPairsItem:
+    """Declared relation row or nested value."""
+
+    weight_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    value_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadWeightedMean:
+    """Declared relation row or nested value."""
+
+    pairs: b.tuple[CompiledMathExprNodesFieldPayloadWeightedMeanPairsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadWeightedMeanPairsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    normalization: e.WeightNormalization = attrs.field(validator=attrs.validators.instance_of(e.WeightNormalization))
+    unit_sum_invariant_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadReductionDomainActual:
+    """Declared relation row or nested value."""
+
+    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadReductionDomainTemplate:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadReductionDomain:
+    """Declared relation row or nested value."""
+
+    kind: e.MathDomainKind = attrs.field(validator=attrs.validators.instance_of(e.MathDomainKind))
+    actual: CompiledMathExprNodesFieldPayloadReductionDomainActual | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadReductionDomainActual)))
+    template: CompiledMathExprNodesFieldPayloadReductionDomainTemplate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadReductionDomainTemplate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "actual" and self.actual is not None and self.template is None) or (self.kind == "template" and self.actual is None and self.template is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadReductionFilterMath:
+    """Declared relation row or nested value."""
+
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadReductionFilterPredicate:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    predicate_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadReductionFilter:
+    """Declared relation row or nested value."""
+
+    kind: e.MathGuardKind = attrs.field(validator=attrs.validators.instance_of(e.MathGuardKind))
+    math: CompiledMathExprNodesFieldPayloadReductionFilterMath | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadReductionFilterMath)))
+    predicate: CompiledMathExprNodesFieldPayloadReductionFilterPredicate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadReductionFilterPredicate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "math" and self.math is not None and self.predicate is None) or (self.kind == "predicate" and self.math is None and self.predicate is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadReduction:
+    """Declared relation row or nested value."""
+
+    reduction_kind: e.ReductionKind = attrs.field(validator=attrs.validators.instance_of(e.ReductionKind))
+    domain: CompiledMathExprNodesFieldPayloadReductionDomain = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadReductionDomain))
+    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    filter: CompiledMathExprNodesFieldPayloadReductionFilter | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadReductionFilter)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadGatherCoordinatesItem:
+    """Declared relation row or nested value."""
+
+    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadGather:
+    """Declared relation row or nested value."""
+
+    group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    coordinates: b.tuple[CompiledMathExprNodesFieldPayloadGatherCoordinatesItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadGatherCoordinatesItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadPendingGather:
+    """Declared relation row or nested value."""
+
+    group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    indices: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadPendingPath:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    path_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    indices: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadBroadcastDomainActual:
+    """Declared relation row or nested value."""
+
+    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadBroadcastDomainTemplate:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadBroadcastDomain:
+    """Declared relation row or nested value."""
+
+    kind: e.MathDomainKind = attrs.field(validator=attrs.validators.instance_of(e.MathDomainKind))
+    actual: CompiledMathExprNodesFieldPayloadBroadcastDomainActual | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadBroadcastDomainActual)))
+    template: CompiledMathExprNodesFieldPayloadBroadcastDomainTemplate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadBroadcastDomainTemplate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "actual" and self.actual is not None and self.template is None) or (self.kind == "template" and self.actual is None and self.template is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadBroadcast:
+    """Declared relation row or nested value."""
+
+    domain: CompiledMathExprNodesFieldPayloadBroadcastDomain = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadBroadcastDomain))
+    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadDerivativeDomainActual:
+    """Declared relation row or nested value."""
+
+    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadDerivativeDomainTemplate:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadDerivativeDomain:
+    """Declared relation row or nested value."""
+
+    kind: e.MathDomainKind = attrs.field(validator=attrs.validators.instance_of(e.MathDomainKind))
+    actual: CompiledMathExprNodesFieldPayloadDerivativeDomainActual | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadDerivativeDomainActual)))
+    template: CompiledMathExprNodesFieldPayloadDerivativeDomainTemplate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadDerivativeDomainTemplate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "actual" and self.actual is not None and self.template is None) or (self.kind == "template" and self.actual is None and self.template is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadDerivative:
+    """Declared relation row or nested value."""
+
+    domain: CompiledMathExprNodesFieldPayloadDerivativeDomain = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadDerivativeDomain))
+    order: b.int = attrs.field(validator=v.integer_range(0, 255))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadIntegralDomainActual:
+    """Declared relation row or nested value."""
+
+    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadIntegralDomainTemplate:
+    """Declared relation row or nested value."""
+
+    template_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadIntegralDomain:
+    """Declared relation row or nested value."""
+
+    kind: e.MathDomainKind = attrs.field(validator=attrs.validators.instance_of(e.MathDomainKind))
+    actual: CompiledMathExprNodesFieldPayloadIntegralDomainActual | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadIntegralDomainActual)))
+    template: CompiledMathExprNodesFieldPayloadIntegralDomainTemplate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadIntegralDomainTemplate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "actual" and self.actual is not None and self.template is None) or (self.kind == "template" and self.actual is None and self.template is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadIntegralFilterMath:
+    """Declared relation row or nested value."""
+
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadIntegralFilterPredicate:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    predicate_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadIntegralFilter:
+    """Declared relation row or nested value."""
+
+    kind: e.MathGuardKind = attrs.field(validator=attrs.validators.instance_of(e.MathGuardKind))
+    math: CompiledMathExprNodesFieldPayloadIntegralFilterMath | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadIntegralFilterMath)))
+    predicate: CompiledMathExprNodesFieldPayloadIntegralFilterPredicate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadIntegralFilterPredicate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "math" and self.math is not None and self.predicate is None) or (self.kind == "predicate" and self.math is None and self.predicate is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadIntegral:
+    """Declared relation row or nested value."""
+
+    domain: CompiledMathExprNodesFieldPayloadIntegralDomain = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadIntegralDomain))
+    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quadrature_policy_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    filter: CompiledMathExprNodesFieldPayloadIntegralFilter | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadIntegralFilter)))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadSmooth:
+    """Declared relation row or nested value."""
+
+    eps: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadPendingSmooth:
+    """Declared relation row or nested value."""
+
+    eps: b.float = attrs.field(validator=v.finite_float)
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadConditionalGuardMath:
+    """Declared relation row or nested value."""
+
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadConditionalGuardPredicate:
+    """Declared relation row or nested value."""
+
+    source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    predicate_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadConditionalGuard:
+    """Declared relation row or nested value."""
+
+    kind: e.MathGuardKind = attrs.field(validator=attrs.validators.instance_of(e.MathGuardKind))
+    math: CompiledMathExprNodesFieldPayloadConditionalGuardMath | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadConditionalGuardMath)))
+    predicate: CompiledMathExprNodesFieldPayloadConditionalGuardPredicate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadConditionalGuardPredicate)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "math" and self.math is not None and self.predicate is None) or (self.kind == "predicate" and self.math is None and self.predicate is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadConditional:
+    """Declared relation row or nested value."""
+
+    guard: CompiledMathExprNodesFieldPayloadConditionalGuard = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadConditionalGuard))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadKernelCall:
+    """Declared relation row or nested value."""
+
+    binding_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    output_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadImplicitRef:
+    """Declared relation row or nested value."""
+
+    system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unknown_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadUnitConvert:
+    """Declared relation row or nested value."""
+
+    scale: b.float = attrs.field(validator=v.finite_float)
+    offset: b.float = attrs.field(validator=v.finite_float)
+    from_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    to_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadPendingUnitConvert:
+    """Declared relation row or nested value."""
+
+    to_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadPiecewiseLinearBreakpointsItem:
+    """Declared relation row or nested value."""
+
+    x: b.float = attrs.field(validator=v.finite_float)
+    y: b.float = attrs.field(validator=v.finite_float)
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayloadPiecewiseLinear:
+    """Declared relation row or nested value."""
+
+    breakpoints: b.tuple[CompiledMathExprNodesFieldPayloadPiecewiseLinearBreakpointsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadPiecewiseLinearBreakpointsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    input_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    output_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathExprNodesFieldPayload:
+    """Declared relation row or nested value."""
+
+    kind: e.MathPayloadKind = attrs.field(validator=attrs.validators.instance_of(e.MathPayloadKind))
+    symbol: CompiledMathExprNodesFieldPayloadSymbol | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSymbol)))
+    float: CompiledMathExprNodesFieldPayloadFloat | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadFloat)))
+    integer: CompiledMathExprNodesFieldPayloadInteger | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadInteger)))
+    affine: CompiledMathExprNodesFieldPayloadAffine | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadAffine)))
+    weighted_mean: CompiledMathExprNodesFieldPayloadWeightedMean | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadWeightedMean)))
+    reduction: CompiledMathExprNodesFieldPayloadReduction | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadReduction)))
+    gather: CompiledMathExprNodesFieldPayloadGather | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadGather)))
+    pending_gather: CompiledMathExprNodesFieldPayloadPendingGather | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadPendingGather)))
+    pending_path: CompiledMathExprNodesFieldPayloadPendingPath | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadPendingPath)))
+    broadcast: CompiledMathExprNodesFieldPayloadBroadcast | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadBroadcast)))
+    derivative: CompiledMathExprNodesFieldPayloadDerivative | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadDerivative)))
+    integral: CompiledMathExprNodesFieldPayloadIntegral | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadIntegral)))
+    smooth: CompiledMathExprNodesFieldPayloadSmooth | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadSmooth)))
+    pending_smooth: CompiledMathExprNodesFieldPayloadPendingSmooth | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadPendingSmooth)))
+    conditional: CompiledMathExprNodesFieldPayloadConditional | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadConditional)))
+    kernel_call: CompiledMathExprNodesFieldPayloadKernelCall | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadKernelCall)))
+    implicit_ref: CompiledMathExprNodesFieldPayloadImplicitRef | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadImplicitRef)))
+    unit_convert: CompiledMathExprNodesFieldPayloadUnitConvert | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadUnitConvert)))
+    pending_unit_convert: CompiledMathExprNodesFieldPayloadPendingUnitConvert | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadPendingUnitConvert)))
+    piecewise_linear: CompiledMathExprNodesFieldPayloadPiecewiseLinear | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathExprNodesFieldPayloadPiecewiseLinear)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "affine" and self.affine is not None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "broadcast" and self.affine is None and self.broadcast is not None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "conditional" and self.affine is None and self.broadcast is None and self.conditional is not None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "derivative" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is not None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "float" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is not None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "gather" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is not None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "implicit_ref" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is not None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "integer" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is not None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "integral" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is not None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "kernel_call" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is not None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "none" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "pending_gather" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is not None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "pending_path" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is not None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "pending_smooth" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is not None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "pending_unit_convert" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is not None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "piecewise_linear" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is not None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "reduction" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is not None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "smooth" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is not None and self.symbol is None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "symbol" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is not None and self.unit_convert is None and self.weighted_mean is None) or (self.kind == "unit_convert" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is not None and self.weighted_mean is None) or (self.kind == "weighted_mean" and self.affine is None and self.broadcast is None and self.conditional is None and self.derivative is None and self.float is None and self.gather is None and self.implicit_ref is None and self.integer is None and self.integral is None and self.kernel_call is None and self.pending_gather is None and self.pending_path is None and self.pending_smooth is None and self.pending_unit_convert is None and self.piecewise_linear is None and self.reduction is None and self.smooth is None and self.symbol is None and self.unit_convert is None and self.weighted_mean is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
 
 
 @attrs.frozen(kw_only=True)
 class CompiledMathExprNodesRow:
     """Declared relation row or nested value."""
 
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     opcode: e.Opcode = attrs.field(validator=attrs.validators.instance_of(e.Opcode))
+    children: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 9223372036854775807), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    payload: CompiledMathExprNodesFieldPayload = attrs.field(validator=attrs.validators.instance_of(CompiledMathExprNodesFieldPayload))
     quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     scope_instance_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     subtree_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathFloatConstantsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    value: b.float = attrs.field(validator=v.finite_float)
-    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
 @attrs.frozen(kw_only=True)
@@ -562,32 +1645,6 @@ class CompiledMathFreeIndicesRow:
     bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     position: b.int = attrs.field(validator=v.integer_range(0, 65535))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathGathersFieldCoordinateMapItem:
-    """Declared relation row or nested value."""
-
-    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    position: b.int = attrs.field(validator=v.integer_range(0, 65535))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathGathersRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    coordinate_map: b.tuple[CompiledMathGathersFieldCoordinateMapItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathGathersFieldCoordinateMapItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathImplicitRefsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    implicit_system_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    unknown_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
 
 
 @attrs.frozen(kw_only=True)
@@ -602,6 +1659,35 @@ class CompiledMathImplicitSystemsRow:
 
 
 @attrs.frozen(kw_only=True)
+class CompiledMathIndexedEquationsFieldConstraintSingle:
+    """Declared relation row or nested value."""
+
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathIndexedEquationsFieldConstraintRange:
+    """Declared relation row or nested value."""
+
+    lower_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    upper_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMathIndexedEquationsFieldConstraint:
+    """Declared relation row or nested value."""
+
+    kind: e.Sense = attrs.field(validator=attrs.validators.instance_of(e.Sense))
+    single: CompiledMathIndexedEquationsFieldConstraintSingle | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathIndexedEquationsFieldConstraintSingle)))
+    range: CompiledMathIndexedEquationsFieldConstraintRange | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMathIndexedEquationsFieldConstraintRange)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "definition" and self.range is None and self.single is not None) or (self.kind == "eq" and self.range is None and self.single is not None) or (self.kind == "ge" and self.range is None and self.single is not None) or (self.kind == "le" and self.range is None and self.single is not None) or (self.kind == "range" and self.range is not None and self.single is None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class CompiledMathIndexedEquationsRow:
     """Declared relation row or nested value."""
 
@@ -610,42 +1696,12 @@ class CompiledMathIndexedEquationsRow:
     equation_decl_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     qualified_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     product_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    filter_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    body_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    sense: e.Sense = attrs.field(validator=attrs.validators.instance_of(e.Sense))
-    lower_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-    upper_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    filter_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 9223372036854775807)))
+    body_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
+    constraint: CompiledMathIndexedEquationsFieldConstraint = attrs.field(validator=attrs.validators.instance_of(CompiledMathIndexedEquationsFieldConstraint))
     residual_quantity_type_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     law_instance_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathIntConstantsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    value: b.int = attrs.field(validator=v.integer_range(-9223372036854775808, 9223372036854775807))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathIntegralsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    quadrature_policy_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    filter_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathKernelCallsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    kernel_binding_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    output_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
 
 
 @attrs.frozen(kw_only=True)
@@ -654,28 +1710,10 @@ class CompiledMathObjectivesRow:
 
     objective_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     owner_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    body_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    body_node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     sense: e.ObjectiveSense = attrs.field(validator=attrs.validators.instance_of(e.ObjectiveSense))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     default_active: b.bool = attrs.field(validator=v.exact_type(b.bool))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathPiecewiseLinearFieldBreakpointsItem:
-    """Declared relation row or nested value."""
-
-    x: b.float = attrs.field(validator=v.finite_float)
-    y: b.float = attrs.field(validator=v.finite_float)
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathPiecewiseLinearRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    breakpoints: b.tuple[CompiledMathPiecewiseLinearFieldBreakpointsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathPiecewiseLinearFieldBreakpointsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    input_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    output_quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
 @attrs.frozen(kw_only=True)
@@ -690,68 +1728,12 @@ class CompiledMathQuantitySelectionsFieldConversionsItem:
 class CompiledMathQuantitySelectionsRow:
     """Declared relation row or nested value."""
 
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     operation_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     builtin_rule: e.BuiltinQuantityRule | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.BuiltinQuantityRule)))
     operand_permutation: b.tuple[b.int, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.integer_range(0, 65535), iterable_validator=attrs.validators.instance_of(b.tuple)))
     conversions: b.tuple[CompiledMathQuantitySelectionsFieldConversionsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathQuantitySelectionsFieldConversionsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
     deferred_static_check: b.bool = attrs.field(validator=v.exact_type(b.bool))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathReductionsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    kind: e.ReductionKind = attrs.field(validator=attrs.validators.instance_of(e.ReductionKind))
-    domain_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    bound_index_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    filter_node_id: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathSmoothOpsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    eps: b.float = attrs.field(validator=v.finite_float)
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathSymbolRefsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathUnitConvertsRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    scale: b.float = attrs.field(validator=v.finite_float)
-    offset: b.float = attrs.field(validator=v.finite_float)
-    from_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    to_unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathWeightedMeansFieldPairsItem:
-    """Declared relation row or nested value."""
-
-    weight_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    value_node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledMathWeightedMeansRow:
-    """Declared relation row or nested value."""
-
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    pairs: b.tuple[CompiledMathWeightedMeansFieldPairsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledMathWeightedMeansFieldPairsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-    normalization: e.WeightNormalization = attrs.field(validator=attrs.validators.instance_of(e.WeightNormalization))
-    unit_sum_invariant_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
 
 
 @attrs.frozen(kw_only=True)
@@ -793,16 +1775,42 @@ class CompiledMethodParameterBindingsRow:
 
 
 @attrs.frozen(kw_only=True)
+class CompiledMethodRealizationsFieldRealizationTemplateSymbol:
+    """Declared relation row or nested value."""
+
+    template_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMethodRealizationsFieldRealizationKernelOutput:
+    """Declared relation row or nested value."""
+
+    kernel_binding_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    output_ordinal: b.int = attrs.field(validator=v.integer_range(0, 65535))
+
+
+@attrs.frozen(kw_only=True)
+class CompiledMethodRealizationsFieldRealization:
+    """Declared relation row or nested value."""
+
+    kind: e.MethodOutputKind = attrs.field(validator=attrs.validators.instance_of(e.MethodOutputKind))
+    template_symbol: CompiledMethodRealizationsFieldRealizationTemplateSymbol | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMethodRealizationsFieldRealizationTemplateSymbol)))
+    kernel_output: CompiledMethodRealizationsFieldRealizationKernelOutput | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(CompiledMethodRealizationsFieldRealizationKernelOutput)))
+
+    def __attrs_post_init__(self) -> None:
+        if not ((self.kind == "kernel_output" and self.kernel_output is not None and self.template_symbol is None) or (self.kind == "template_symbol" and self.kernel_output is None and self.template_symbol is not None)):
+            message = "tagged value requires exactly its selected arm"
+            raise ValueError(message)
+
+
+@attrs.frozen(kw_only=True)
 class CompiledMethodRealizationsRow:
     """Declared relation row or nested value."""
 
     requirement_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     method_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    template_instance_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    kernel_binding_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    output_kind: e.MethodOutputKind = attrs.field(validator=attrs.validators.instance_of(e.MethodOutputKind))
-    output_symbol_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    kernel_output_ordinal: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 65535)))
+    output_symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    realization: CompiledMethodRealizationsFieldRealization = attrs.field(validator=attrs.validators.instance_of(CompiledMethodRealizationsFieldRealization))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -825,7 +1833,7 @@ class CompiledPredicateMaskMembersRow:
     group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     index: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     value: b.bool = attrs.field(validator=v.exact_type(b.bool))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
@@ -837,7 +1845,7 @@ class CompiledPredicateMasksRow:
     group_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     source_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    predicate_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    predicate_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     product_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     quantity_type_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
@@ -892,26 +1900,6 @@ class CompiledSparsityPatternsRow:
 
 
 @attrs.frozen(kw_only=True)
-class CompiledStageBundlesFieldMembersItem:
-    """Declared relation row or nested value."""
-
-    port: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    relation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    schema_version: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
-    logical_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-
-
-@attrs.frozen(kw_only=True)
-class CompiledStageBundlesRow:
-    """Declared relation row or nested value."""
-
-    bundle_id: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
-    pass_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    pass_version: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    members: b.tuple[CompiledStageBundlesFieldMembersItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(CompiledStageBundlesFieldMembersItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
-
-
-@attrs.frozen(kw_only=True)
 class CompiledStencilsRow:
     """Declared relation row or nested value."""
 
@@ -929,7 +1917,7 @@ class CompiledSymbolExpressionsRow:
     """Declared relation row or nested value."""
 
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    node_id: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    node_id: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     derivation_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
 
 
@@ -966,7 +1954,7 @@ class CompiledSymbolsRow:
     """Declared relation row or nested value."""
 
     symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
-    ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    ordinal: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     owner_instance_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     symbol_decl_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     qualified_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))

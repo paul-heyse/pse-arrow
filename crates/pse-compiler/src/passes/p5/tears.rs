@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Native edge/cost correspondence feeds the single finite graph heuristic.
-use super::super::p4::invalid;
+use super::super::p4::{invalid, predicates::Inventory};
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     passes::{
         native_outputs::{OutputRows, Sources},
         native_rows::{AlgorithmInputs, column, engine, join},
@@ -19,7 +19,7 @@ use petgraph::{
     algo::{greedy_feedback_arc_set, is_cyclic_directed},
     graph::DiGraph,
 };
-use pse_catalog::session::{SnapshotSession, output::declare_relation_projection, scalar};
+use pse_catalog::session::{output::declare_relation_projection, scalar};
 use pse_ids::{Reservation, SemanticId};
 use pse_relations::{
     columnar::{FieldCheckedBatch, RelationRow},
@@ -27,25 +27,29 @@ use pse_relations::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "emit keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn emit(
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
     sources: &Sources,
-    session: &SnapshotSession,
+    inventory: &mut Inventory<'_>,
     work: &mut dyn Reservation,
     output: &mut OutputRows<'_>,
 ) -> Result<(), CompilerError> {
     output.ensure::<i::tear_candidates::Row>()?;
+    let session = &inventory.session;
     let edge_spec = i::topology_edges::Row::relation(ctx.registry)?;
     let connection_spec = n::connections::Row::relation(ctx.registry)?;
-    let edges = LogicalPlanBuilder::from(session.scan_role(&edge_spec.key.qualified_name())?)
+    let edges = LogicalPlanBuilder::from(inventory.scan::<i::topology_edges::Row>()?)
         .alias("edge")
         .and_then(LogicalPlanBuilder::build)
         .map_err(engine)?;
-    let connections =
-        LogicalPlanBuilder::from(session.scan_role(&connection_spec.key.qualified_name())?)
-            .alias("connection")
-            .and_then(LogicalPlanBuilder::build)
-            .map_err(engine)?;
+    let connections = LogicalPlanBuilder::from(inventory.scan::<n::connections::Row>()?)
+        .alias("connection")
+        .and_then(LogicalPlanBuilder::build)
+        .map_err(engine)?;
     let joined = join(
         edges,
         connections,
@@ -234,7 +238,7 @@ pub(super) async fn emit(
                 cost: *cost,
                 chosen: groups.contains(&(*from, *to)),
                 method: TearMethod::FeedbackArcSet,
-                ordinal: u64::try_from(ordinal)
+                ordinal: i64::try_from(ordinal)
                     .map_err(|_| invalid("tear ordinal exceeds UInt64"))?,
                 derivation_id: SemanticId::NIL,
             },

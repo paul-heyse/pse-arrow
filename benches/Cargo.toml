@@ -22,10 +22,28 @@ criterion.workspace = true
 # The canonicalization group measures pse-ids over Arrow batches it builds itself.
 pse-ids = { workspace = true, features = ["bench-instrumentation"] }
 arrow.workspace = true
+datafusion.workspace = true
+deltalake.workspace = true
+pse-catalog.workspace = true
+pse-relations.workspace = true
+pse-schema.workspace = true
+pse-rules.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tokio.workspace = true
+tempfile.workspace = true
+url.workspace = true
+serde_json.workspace = true
+object_store.workspace = true
+futures-util.workspace = true
+async-trait.workspace = true
 
 [[bench]]
 name = "canonicalization"
 # Criterion supplies its own main; the libtest harness would swallow the arguments.
 # `cargo test --benches -p pse-benches` passes `--test`, which runs each benchmark once
 # with no timing gate — that is the CI smoke check (plan §6).
+harness = false
+
+[[bench]]
+name = "native_cache"
 harness = false

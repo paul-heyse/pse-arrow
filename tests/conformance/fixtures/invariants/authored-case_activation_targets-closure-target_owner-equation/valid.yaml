@@ -1,0 +1,43 @@
+{
+  "invariant": "authored.case_activation_targets:closure:target_owner:equation",
+  "rows": {
+    "authored.case_activation_targets": [
+      {
+        "activation_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "member": "[\"struct\",[[\"enum\",\"equation\"],[\"null\",null],[\"null\",null],[\"struct\",[[\"id\",\"01010101010101010101010101010101\"],[\"null\",null]]],[\"null\",null]]]",
+        "ordinal": "[\"i64\",1]"
+      }
+    ],
+    "authored.instances": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "feature_values": "[\"list\",[]]",
+        "instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "name": "[\"text\",\"value-1\"]",
+        "param_values": "[\"list\",[]]",
+        "parent_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "property_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "reaction_package_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ],
+    "authored.template_equations": [
+      {
+        "doc": "[\"text\",\"value-1\"]",
+        "equation_decl_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "expression": "[\"text\",\"1\"]",
+        "family_hint": "[\"enum\",\"BOUND\"]",
+        "filter": "[\"text\",\"1\"]",
+        "guard_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "idaes_name": "[\"text\",\"value-1\"]",
+        "indexed_by": "[\"list\",[]]",
+        "name": "[\"text\",\"value-1\"]",
+        "role_hint": "[\"enum\",\"HARD_FEASIBILITY\"]",
+        "sense": "[\"enum\",\"eq\"]",
+        "template_id": "[\"id\",\"01010101010101010101010101010101\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

@@ -8,7 +8,7 @@
 )]
 use datafusion::{
     arrow::{
-        array::{Float64Array, RecordBatch},
+        array::{FixedSizeBinaryArray, Float64Array, ListArray, RecordBatch},
         datatypes::{DataType, Field, Schema},
     },
     common::Column,
@@ -77,11 +77,25 @@ fn canonical(mut graph: ExprGraph, roots: &[NodeId]) -> pse_mathir::CanonicalGra
     .unwrap()
 }
 fn schema() -> Arc<Schema> {
-    Arc::new(Schema::new(vec![Field::new("x", DataType::Float64, false)]))
+    Arc::new(Schema::new(vec![
+        pse_relations::generated::runtime::numerical_evaluations::schema()
+            .unwrap()
+            .field_with_name("scenario_id")
+            .unwrap()
+            .clone(),
+        Field::new("x", DataType::Float64, false),
+    ]))
 }
 fn number(batch: &RecordBatch, column: usize) -> f64 {
-    batch
-        .column(column)
+    let name = if column == 0 { "residuals" } else { "jacobian" };
+    let values = batch
+        .column_by_name(name)
+        .unwrap()
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .unwrap()
+        .value(0);
+    values
         .as_any()
         .downcast_ref::<Float64Array>()
         .unwrap()
@@ -126,6 +140,7 @@ fn ordered_weighted_math_executes_after_the_mathematical_graph_is_released() {
         symbols: &symbols,
     }
     .compile(
+        SemanticId::from_bytes([90; 16]),
         &[Column::from_name("x")],
         schema(),
         &SessionStateBuilder::new_with_default_features().build(),
@@ -136,7 +151,16 @@ fn ordered_weighted_math_executes_after_the_mathematical_graph_is_released() {
     drop((graph, symbols));
     let output = program
         .evaluate(
-            &RecordBatch::try_new(schema(), vec![Arc::new(Float64Array::from(vec![4.0]))]).unwrap(),
+            &RecordBatch::try_new(
+                schema(),
+                vec![
+                    Arc::new(
+                        FixedSizeBinaryArray::try_from_iter([[1_u8; 16]].into_iter()).unwrap(),
+                    ),
+                    Arc::new(Float64Array::from(vec![4.0])),
+                ],
+            )
+            .unwrap(),
         )
         .unwrap();
     assert!((number(&output, 0) - 8.8).abs() < 1e-12);
@@ -159,6 +183,7 @@ fn missing_case_bindings_and_inexact_integer_conversion_are_explicit() {
             symbols: &symbols
         }
         .compile(
+            SemanticId::from_bytes([90; 16]),
             &[],
             schema(),
             &state,
@@ -177,6 +202,7 @@ fn missing_case_bindings_and_inexact_integer_conversion_are_explicit() {
             symbols: &symbols
         }
         .compile(
+            SemanticId::from_bytes([90; 16]),
             &[],
             schema(),
             &state,

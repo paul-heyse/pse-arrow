@@ -36,7 +36,7 @@ pub mod peak;
 pub mod reserve;
 pub mod session_factory;
 
-pub use crate::budget::ResourceBudget;
+pub use crate::budget::{CacheBudget, ResourceBudget};
 pub use crate::error::RuntimeError;
 
 pub use crate::cancel::CancelSource;

@@ -8,6 +8,7 @@ use super::native::{
     Plans, c, concat, distinct, error, explode, filter, invalid, join, prefix, project,
 };
 use crate::CompilerError;
+use datafusion::functions_nested::expr_fn::array_element;
 use datafusion::{
     arrow::datatypes::DataType,
     catalog::cte_worktable::CteWorkTable,
@@ -21,7 +22,6 @@ use datafusion::{
     },
 };
 use pse_catalog::session::scalar;
-use pse_catalog::session::scalar::array_element;
 use pse_ids::SemanticId;
 use std::sync::Arc;
 
@@ -317,7 +317,7 @@ pub(super) fn members(input: LogicalPlan) -> Result<LogicalPlan, CompilerError> 
             col("tuple"),
             Expr::Cast(datafusion::logical_expr::expr::Cast::new(
                 Box::new(col("member_position")),
-                DataType::UInt16,
+                DataType::Int64,
             ))
             .alias("position"),
             array_element(col("factors"), col("member_position") + lit(1_i64)).alias("domain_id"),

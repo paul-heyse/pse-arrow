@@ -6,17 +6,20 @@ use crate::{NumericsError, differentiate, error::input, finite};
 use datafusion::{
     arrow::{
         array::{Array, RecordBatch},
-        datatypes::{DataType, Field, Schema, SchemaRef},
+        datatypes::{DataType, SchemaRef},
     },
     common::{
-        Column, DFSchema, ExprSchema,
+        Column, DFSchema, ExprSchema, ScalarValue,
         tree_node::{Transformed, TreeNode, TreeNodeRecursion},
     },
     execution::session_state::SessionState,
-    logical_expr::{Expr, ExprSchemable, LogicalPlan, LogicalPlanBuilder, ScalarUDF},
+    logical_expr::{Expr, ExprSchemable, LogicalPlan, LogicalPlanBuilder, ScalarUDF, col, lit},
     physical_expr::PhysicalExpr,
 };
-use pse_ids::{CancellationToken, MemoryReserver, ReservationLease};
+use pse_ids::{CancellationToken, MemoryReserver, ReservationLease, SemanticId};
+use pse_relations::generated::runtime::{
+    jacobian_coordinates, numerical_evaluations, numerical_programs,
+};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// Derived numerical layout over native expressions; contains no model store or graph.
@@ -29,7 +32,8 @@ pub struct EvaluationProgram {
     logical: Vec<Expr>,
     physical: Vec<Arc<dyn PhysicalExpr>>,
     residuals: usize,
-    coordinates: Vec<(usize, usize)>,
+    contract: numerical_programs::Row,
+    coordinates: Vec<jacobian_coordinates::Row>,
     nodes: usize,
     cancel: CancellationToken,
     reserver: Arc<dyn MemoryReserver>,
@@ -43,6 +47,7 @@ impl EvaluationProgram {
     /// Invalid/null input contracts, unsupported derivative bindings, cancellation,
     /// resource exhaustion or native expression preparation failure.
     pub fn compile(
+        program_id: SemanticId,
         residuals: &[Expr],
         variables: &[Column],
         schema: SchemaRef,
@@ -53,6 +58,19 @@ impl EvaluationProgram {
         cancel.checkpoint()?;
         let native =
             DFSchema::try_from(schema.as_ref().clone()).map_err(NumericsError::preparation)?;
+        let output = numerical_evaluations::schema()?;
+        let scenario = schema
+            .field_with_name("scenario_id")
+            .map_err(|_| input("numerical input needs an explicit scenario_id"))?;
+        let expected = output
+            .field_with_name("scenario_id")
+            .map_err(|error| input(error.to_string()))?;
+        if scenario != expected {
+            return Err(input(
+                "scenario_id differs from its declared semantic identity field",
+            ));
+        }
+        let variable_columns = variables.iter().map(Column::flat_name).collect();
         let variables = variable_map(variables, &native)?;
         if schema.fields().iter().any(|field| field.is_nullable()) {
             return Err(input("numerical input fields must be nonnullable"));
@@ -65,6 +83,13 @@ impl EvaluationProgram {
             .and_then(|n| n.checked_mul(n))
             .and_then(|n| n.checked_mul(variables.len().max(1)))
             .and_then(|n| n.checked_mul(size_of::<Expr>() + 256))
+            .and_then(|n| {
+                output
+                    .fields()
+                    .iter()
+                    .chain(schema.fields())
+                    .try_fold(n, |size, field| size.checked_add(field.size()))
+            })
             .ok_or_else(|| input("numerical preparation extent overflows"))?;
         let mut allocation = reserver.open("numerics:native-expression-preparation");
         allocation
@@ -85,16 +110,30 @@ impl EvaluationProgram {
                 return Err(input("residual expressions must produce Float64"));
             }
             let jet = differentiate::compile(expression, &variables, 0)?;
-            values.push(instrument(jet.value, &native, &guard)?.alias(format!("residual_{row}")));
+            values.push(instrument(jet.value, &native, &guard)?);
             for (column, derivative) in jet.gradient {
-                coordinates.push((row, column));
-                gradients.push(
-                    instrument(derivative, &native, &guard)?
-                        .alias(format!("jacobian_{row}_{column}")),
-                );
+                coordinates.push(jacobian_coordinates::Row {
+                    program_id,
+                    ordinal: dimension(coordinates.len())?,
+                    residual: dimension(row)?,
+                    variable: dimension(column)?,
+                });
+                gradients.push(instrument(derivative, &native, &guard)?);
             }
         }
-        values.extend(gradients);
+        let contract = numerical_programs::Row {
+            program_id,
+            residual_dimension: dimension(residuals.len())?,
+            variable_columns,
+            jacobian_dimension: dimension(coordinates.len())?,
+        };
+        let values = outputs(
+            &contract,
+            [values, gradients],
+            &output,
+            &cancel,
+            &allocation,
+        )?;
         let nodes = expression_count(&values)?;
         let physical = values
             .iter()
@@ -104,24 +143,13 @@ impl EvaluationProgram {
                     .map_err(NumericsError::preparation)
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let output = Arc::new(Schema::new(
-            values
-                .iter()
-                .map(|expression| {
-                    Field::new(
-                        expression.schema_name().to_string(),
-                        DataType::Float64,
-                        false,
-                    )
-                })
-                .collect::<Vec<_>>(),
-        ));
         Ok(Self {
             schema,
             output,
             logical: values,
             physical,
             residuals: residuals.len(),
+            contract,
             coordinates,
             nodes,
             cancel,
@@ -156,12 +184,16 @@ impl EvaluationProgram {
             .and_then(LogicalPlanBuilder::build)
             .map_err(NumericsError::preparation)
     }
-    /// Number of leading output columns containing residuals in requested order.
-    pub const fn residual_count(&self) -> usize {
+    /// Exact generated dimensions and variable ordering for this prepared program.
+    pub fn contract(&self) -> &numerical_programs::Row {
+        &self.contract
+    }
+    /// Number of residual vector entries in requested order.
+    pub fn residual_count(&self) -> usize {
         self.residuals
     }
-    /// Sparse Jacobian columns following residuals, in `(residual, variable)` order.
-    pub fn jacobian_coordinates(&self) -> &[(usize, usize)] {
+    /// Typed sparse coordinates in Jacobian vector order, bound to this program.
+    pub fn jacobian_coordinates(&self) -> &[jacobian_coordinates::Row] {
         &self.coordinates
     }
     /// Evaluate new values without constructing/planning a query. Batches may contain
@@ -186,6 +218,7 @@ impl EvaluationProgram {
             .checked_mul(self.nodes.max(1))
             .and_then(|n| n.checked_mul(64))
             .and_then(|n| n.checked_add(values.get_array_memory_size()))
+            .and_then(|n| n.checked_add(self.output.fields().len().checked_mul(64)?))
             .ok_or_else(|| input("evaluation allocation extent overflows"))?;
         let mut reservation = self.reserver.open("numerics:native-expression-evaluation");
         reservation
@@ -209,7 +242,8 @@ impl EvaluationProgram {
         .map_err(|error| NumericsError::evaluation(error.into()))?;
         // Intermediate native arrays have been dropped. Keep the returned arrays'
         // actual extent charged until their last consumer releases them.
-        reservation.shrink(extent.saturating_sub(output.get_array_memory_size()));
+        reservation
+            .shrink(extent.saturating_sub(pse_ids::owned_buffer::retained_buffer_bytes(&output)?));
         Ok(pse_ids::owned_buffer::attach_reservation(
             output,
             ReservationLease::new(reservation),
@@ -272,4 +306,64 @@ fn instrument(
         })
         .map(|value| value.data)
         .map_err(NumericsError::preparation)
+}
+
+fn dimension(value: usize) -> Result<i64, NumericsError> {
+    i64::try_from(value).map_err(|_| input("numerical dimension exceeds Int64"))
+}
+fn vector(
+    values: Vec<Expr>,
+    field: datafusion::arrow::datatypes::Field,
+    cancel: &CancellationToken,
+    allocation: &Arc<ReservationLease>,
+) -> Expr {
+    crate::vector::function(
+        Arc::new(field),
+        values.len(),
+        cancel.clone(),
+        Arc::clone(allocation),
+    )
+    .call(values)
+}
+
+fn outputs(
+    contract: &numerical_programs::Row,
+    [values, gradients]: [Vec<Expr>; 2],
+    output: &SchemaRef,
+    cancel: &CancellationToken,
+    allocation: &Arc<ReservationLease>,
+) -> Result<Vec<Expr>, NumericsError> {
+    let values = vec![
+        Expr::Literal(
+            ScalarValue::FixedSizeBinary(16, Some(contract.program_id.as_bytes().to_vec())),
+            Some(output.field(0).metadata().into()),
+        ),
+        col("scenario_id"),
+        lit(contract.residual_dimension),
+        lit(dimension(contract.variable_columns.len())?),
+        lit(contract.jacobian_dimension),
+        vector(
+            values,
+            output
+                .field_with_name("residuals")
+                .map_err(|error| input(error.to_string()))?
+                .clone(),
+            cancel,
+            allocation,
+        ),
+        vector(
+            gradients,
+            output
+                .field_with_name("jacobian")
+                .map_err(|error| input(error.to_string()))?
+                .clone(),
+            cancel,
+            allocation,
+        ),
+    ]
+    .into_iter()
+    .zip(output.fields())
+    .map(|(value, field)| value.alias_with_metadata(field.name(), Some(field.metadata().into())))
+    .collect::<Vec<_>>();
+    Ok(values)
 }

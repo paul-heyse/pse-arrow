@@ -3,14 +3,15 @@
 
 use super::{
     AlgorithmInputs, BTreeMap, CancellationToken, CompilerError, Inputs, Inventory, Keyed, NodeId,
-    Registry, RelationRow, SemanticId, SnapshotSession, Support, invalid, n,
+    Registry, RelationRow, SemanticId, SnapshotSession, Support, input_role, invalid, n,
 };
 use crate::passes::native_rows::{self, engine};
 use datafusion::{
-    arrow::array::{Array, FixedSizeBinaryArray, UInt64Array},
+    arrow::array::{Array, FixedSizeBinaryArray, Int64Array},
     common::ScalarValue,
     logical_expr::{LogicalPlanBuilder, col, lit},
 };
+use n::expression_sources::NormalizedExpressionSourcesFieldOwnerSelected as Owner;
 use pse_catalog::session::{output::checked_literal, scalar};
 
 pub(super) async fn rows<T: RelationRow>(
@@ -22,7 +23,7 @@ pub(super) async fn rows<T: RelationRow>(
     let spec = T::relation(registry)?;
     native_rows::keyed_rows(
         arguments,
-        session.scan_role(&spec.key.qualified_name())?,
+        session.scan_role(&input_role(spec.key))?,
         session,
         registry,
         cancel,
@@ -83,7 +84,7 @@ pub(super) async fn node_origins(
         else {
             continue;
         };
-        let plan = LogicalPlanBuilder::from(session.scan_role(&key.qualified_name())?)
+        let plan = LogicalPlanBuilder::from(session.scan_role(&input_role(*key))?)
             .project([
                 col(node.name()).alias("source_node"),
                 scalar::key(
@@ -102,15 +103,15 @@ pub(super) async fn node_origins(
             let nodes = batch
                 .column(0)
                 .as_any()
-                .downcast_ref::<UInt64Array>()
-                .ok_or_else(|| invalid("source node is not UInt64"))?;
+                .downcast_ref::<Int64Array>()
+                .ok_or_else(|| invalid("source node is not Int64"))?;
             let keys = batch
                 .column(1)
                 .as_any()
                 .downcast_ref::<FixedSizeBinaryArray>()
                 .ok_or_else(|| invalid("source node key is not a typed key"))?;
             for row in 0..batch.num_rows() {
-                if nodes.is_null(row) || keys.is_null(row) {
+                if nodes.is_null(row) || keys.is_null(row) || nodes.value(row) < 0 {
                     return Err(invalid("source node occurrence is null"));
                 }
                 result
@@ -130,28 +131,21 @@ impl Inventory<'_> {
         cancel: &CancellationToken,
     ) -> Result<Vec<Keyed<n::instance_bindings::Row>>, CompilerError> {
         let spec = n::instance_bindings::Row::relation(self.registry)?;
-        let plan = self.session.scan_role(&spec.key.qualified_name())?;
-        let mut condition = lit(true);
-        if source.owner_instance_id.is_none() && source.owner_template_id.is_none() {
-            return Err(invalid("predicate source has no declared owner"));
-        }
-        for (name, identity) in [
-            ("instance_id", source.owner_instance_id),
-            ("template_id", source.owner_template_id),
-        ] {
-            if let Some(identity) = identity {
-                let field = spec
-                    .column(name)
-                    .ok_or_else(|| invalid("instance identity field absent"))?;
-                let value = checked_literal(
-                    self.registry,
-                    field,
-                    ScalarValue::FixedSizeBinary(16, Some(identity.as_bytes().to_vec())),
-                )
-                .map_err(engine)?;
-                condition = condition.and(col(name).eq(value));
-            }
-        }
+        let plan = self.session.scan_role(&input_role(spec.key))?;
+        let (name, identity) = match source.owner.selected()? {
+            Owner::Instance(value) => ("instance_id", value.instance_id),
+            Owner::Template(value) => ("template_id", value.template_id),
+        };
+        let field = spec
+            .column(name)
+            .ok_or_else(|| invalid("instance identity field absent"))?;
+        let value = checked_literal(
+            self.registry,
+            field,
+            ScalarValue::FixedSizeBinary(16, Some(identity.as_bytes().to_vec())),
+        )
+        .map_err(engine)?;
+        let condition = col(name).eq(value);
         let plan = LogicalPlanBuilder::from(plan)
             .filter(condition)
             .and_then(LogicalPlanBuilder::build)
@@ -198,7 +192,7 @@ impl Inventory<'_> {
             )
             .map_err(engine)?;
             let members =
-                LogicalPlanBuilder::from(self.session.scan_role(&spec.key.qualified_name())?)
+                LogicalPlanBuilder::from(self.session.scan_role(&input_role(spec.key))?)
                     .filter(col("domain_id").eq(value).and(
                         if let Some(member) = fixed.get(&axis) {
                             col("member_id").eq(checked_literal(

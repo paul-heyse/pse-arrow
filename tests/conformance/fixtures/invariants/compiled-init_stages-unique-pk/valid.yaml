@@ -6,7 +6,7 @@
         "doc": "[\"text\",\"value-1\"]",
         "failure_policy": "[\"enum\",\"abort\"]",
         "kind": "[\"enum\",\"solve_subset\"]",
-        "ordinal": "[\"u64\",1]",
+        "ordinal": "[\"i64\",1]",
         "overlay_case_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "plan_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "solver_profile_id": "[\"id\",\"01010101010101010101010101010101\"]",

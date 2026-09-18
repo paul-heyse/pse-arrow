@@ -54,7 +54,8 @@ impl TableStream {
         py: Python<'py>,
         requested_schema: Option<Bound<'py, PyCapsule>>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        if requested_schema.is_some() {
+        if let Some(schema) = requested_schema {
+            drop(schema);
             return Err(errors::diagnostic(
                 py,
                 &errors::invalid(

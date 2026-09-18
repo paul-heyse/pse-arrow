@@ -9,8 +9,8 @@ use super::{
     native_outputs::{self, OutputRows, SourceRole, Sources},
     native_rows::workspace,
 };
-use crate::{CompilerError, InputBundle, PassContext};
-use pse_catalog::computation::ProducedStage;
+use crate::AlgorithmOutput;
+use crate::{AlgorithmContext, AlgorithmInputs, CompilerError};
 use pse_catalog::session::SnapshotSession;
 use pse_relations::{
     RecordBatch,
@@ -20,7 +20,7 @@ use pse_relations::{
 use pse_rules::strata::RuleInputLocation;
 use pse_schema::{
     Registry,
-    model::{PassSpec, RelationKey},
+    model::{AlgorithmSpec, RelationKey},
 };
 use std::collections::BTreeMap;
 
@@ -35,7 +35,7 @@ pub(crate) struct NativeStage {
 /// Registered P5 implementation over actual native source owners.
 #[derive(Debug)]
 pub struct P5 {
-    spec: PassSpec,
+    spec: AlgorithmSpec,
 }
 impl P5 {
     /// Bind the complete registry declaration.
@@ -44,21 +44,21 @@ impl P5 {
     pub fn new(registry: &Registry) -> Result<Self, CompilerError> {
         Ok(Self {
             spec: registry
-                .pass("P5@1")
+                .algorithm("P5@1")
                 .ok_or_else(|| invalid("P5 declaration absent"))?
                 .clone(),
         })
     }
 }
-impl crate::Pass for P5 {
-    fn spec(&self) -> &PassSpec {
+impl crate::Algorithm for P5 {
+    fn spec(&self) -> &AlgorithmSpec {
         &self.spec
     }
     fn run<'a>(
         &'a self,
-        ctx: &'a PassContext<'a>,
-        inputs: &'a InputBundle,
-    ) -> pse_catalog::provider::BoxFut<'a, Result<ProducedStage, CompilerError>> {
+        ctx: &'a AlgorithmContext<'a>,
+        inputs: &'a AlgorithmInputs,
+    ) -> pse_catalog::provider::BoxFut<'a, Result<AlgorithmOutput, CompilerError>> {
         Box::pin(async move {
             inputs.validate(&self.spec, ctx.registry)?;
             let rows = inputs.checked_rows(ctx.registry)?;
@@ -78,10 +78,10 @@ impl crate::Pass for P5 {
                         .relations
                         .get(&spec.key)
                         .ok_or_else(|| invalid(format!("P5 omitted {}", port.relation)))?;
-                    Ok((port.port.to_owned(), batch.clone()))
+                    Ok((port.port.clone(), batch.clone()))
                 })
                 .collect::<Result<_, CompilerError>>()?;
-            Ok(ProducedStage {
+            Ok(AlgorithmOutput {
                 outputs: ports,
                 findings: Vec::new(),
                 derivations: output.derivations,
@@ -92,9 +92,9 @@ impl crate::Pass for P5 {
 }
 
 pub(crate) async fn evaluate(
-    pass: &PassSpec,
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
+    pass: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
     mut rows: BTreeMap<RelationKey, FieldCheckedBatch>,
     mut sources: Sources,
     base: &SnapshotSession,
@@ -111,7 +111,7 @@ pub(crate) async fn evaluate(
     let session = workspace(base, &relations, ctx.cancel)?;
     let p5 = ctx
         .registry
-        .pass("P5@1")
+        .algorithm("P5@1")
         .ok_or_else(|| invalid("P5 declaration absent"))?;
     let locations = sources.locations()?;
     let result =
@@ -170,14 +170,7 @@ pub(crate) async fn evaluate(
     }
     let mut work = ctx.reserver.open("P5:finite-algorithms");
     paths::emit(&mut inventory, ctx, &sources, work.as_mut(), &mut output).await?;
-    tears::emit(
-        ctx,
-        &sources,
-        &inventory.session,
-        work.as_mut(),
-        &mut output,
-    )
-    .await?;
+    tears::emit(ctx, &sources, &mut inventory, work.as_mut(), &mut output).await?;
     for (key, input) in
         native_outputs::materialize(output.finish()?, &sources, pass, &session, ctx.cancel).await?
     {

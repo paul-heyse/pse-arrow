@@ -11,7 +11,7 @@ paths:
 
 There are exactly two, and they do not overlap (blueprint §21.1):
 
-- **msgspec `Struct`** for the manifest and anything that crosses a JSON boundary.
+- **msgspec `Struct`** for typed records that cross a JSON boundary.
 - **attrs + cattrs** for row-shaped data. Build converters through `pse.codec.converter()`
   — it sets `forbid_extra_keys` and owns the hooks. `cattrs.Converter`,
   `GenConverter`, bare `structure`/`unstructure`, `json` and `tomllib` are banned imports.

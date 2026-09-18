@@ -6,11 +6,11 @@ use crate::{AuthoringError, document::DocumentBundle};
 
 pub(crate) fn add(a: usize, b: usize) -> Result<usize, AuthoringError> {
     a.checked_add(b)
-        .ok_or_else(|| crate::change_set::contract("workspace extent overflow"))
+        .ok_or_else(|| crate::native_relations::contract("workspace extent overflow"))
 }
 pub(crate) fn mul(a: usize, b: usize) -> Result<usize, AuthoringError> {
     a.checked_mul(b)
-        .ok_or_else(|| crate::change_set::contract("workspace extent overflow"))
+        .ok_or_else(|| crate::native_relations::contract("workspace extent overflow"))
 }
 pub(crate) fn sources(bundles: &[DocumentBundle]) -> Result<usize, AuthoringError> {
     bundles.iter().try_fold(4096, |n, bundle| {

@@ -14,7 +14,7 @@ use pse_catalog::session::SnapshotSession;
 use pse_ids::CancellationToken;
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_rules::strata::native_input::NativeInput;
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 
 /// All outputs retain the actual native completion and original row correspondences.
@@ -22,7 +22,7 @@ use std::{collections::BTreeMap, sync::Arc};
 pub(crate) async fn emit(
     inputs: &BTreeMap<RelationKey, FieldCheckedBatch>,
     sources: &Sources,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {

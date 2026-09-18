@@ -19,6 +19,219 @@ use pse_schema::{
 use std::sync::Arc;
 
 #[test]
+fn field_admission_reuse_checks_full_fields_and_releases_or_bypasses_budget() {
+    let (registry, provider, _) = fixture();
+    let field = Arc::clone(&provider.schema().fields()[0]);
+    let mut forged = field.as_ref().clone();
+    forged.metadata_mut().insert(
+        pse_schema::arrow::KEY_EXTENSION_NAME.into(),
+        "pse.unregistered".into(),
+    );
+    for limit in [0, 1 << 20] {
+        let budget = FixedBudget::new(limit);
+        {
+            let mut checks = super::FieldAdmissions::new(&registry, budget.as_ref());
+            checks.intermediate(&field).unwrap();
+            let reserved = budget.reserved();
+            checks.intermediate(&field).unwrap();
+            checks
+                .intermediate(&Arc::new(field.as_ref().clone()))
+                .unwrap();
+            assert_eq!(budget.reserved(), reserved);
+            assert!(checks.intermediate(&Arc::new(forged.clone())).is_err());
+            assert_eq!(checks.accepted.len(), usize::from(limit > 0));
+        }
+        assert_eq!(budget.reserved(), 0);
+    }
+}
+
+#[tokio::test]
+async fn recursive_work_tables_use_nullable_anchor_fields_and_remain_scoped() {
+    let context = datafusion::prelude::SessionContext::new();
+    let plan = context.sql("WITH RECURSIVE walk(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM walk WHERE n < 3) SELECT n FROM walk")
+        .await.unwrap().into_unoptimized_plan();
+    let registry = RegistryBuilder::new().build().unwrap();
+    let cancel = CancellationToken::new();
+    let budget = FixedBudget::new(16 << 20);
+    let mut admitted =
+        restore_semantic_fields(plan, &registry, &[], budget.as_ref(), &cancel).unwrap();
+    let description = admitted.display_indent().to_string();
+    for _ in 0..4 {
+        admitted =
+            restore_semantic_fields(admitted, &registry, &[], budget.as_ref(), &cancel).unwrap();
+        assert_eq!(
+            admitted.display_indent().to_string(),
+            description,
+            "recursive field transport grew during repeated admission"
+        );
+    }
+    let factory = crate::session::SessionFactory::from_builder(
+        context.runtime_env(),
+        budget.clone(),
+        "recursive-dependency-unit",
+        datafusion::execution::session_state::SessionStateBuilder::from(context.state()),
+    );
+    let session = factory
+        .candidate_checked(
+            std::collections::BTreeMap::new(),
+            Arc::new(registry),
+            &cancel,
+        )
+        .unwrap();
+    assert!(session.selected_dependencies(&admitted).unwrap().is_empty());
+    admitted
+        .apply_with_subqueries(|node| {
+            if matches!(node, LogicalPlan::TableScan(_)) {
+                assert!(
+                    session.selected_dependencies(node).is_err(),
+                    "an extracted work table has no owning query scope"
+                );
+            }
+            Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+        })
+        .unwrap();
+    assert_eq!(
+        context
+            .execute_logical_plan(admitted)
+            .await
+            .unwrap()
+            .collect()
+            .await
+            .unwrap()
+            .iter()
+            .map(RecordBatch::num_rows)
+            .sum::<usize>(),
+        3
+    );
+}
+
+#[test]
+fn native_worktable_admits_anchor_or_wider_nullability_but_refuses_changed_meaning() {
+    use datafusion::arrow::datatypes::{DataType, Field, Schema};
+    let registry = RegistryBuilder::new().build().unwrap();
+    let make_scan = |field| {
+        let provider = Arc::new(datafusion_catalog::cte_worktable::CteWorkTable::new(
+            "walk",
+            Arc::new(Schema::new(vec![field])),
+        ));
+        let LogicalPlan::TableScan(scan) =
+            LogicalPlanBuilder::scan("walk", provider_as_source(provider), None)
+                .unwrap()
+                .build()
+                .unwrap()
+        else {
+            panic!("scan expected")
+        };
+        scan
+    };
+    let field = Field::new("n", DataType::Int64, false);
+    let scope = vec![("walk".into(), Arc::new(Schema::new(vec![field.clone()])))];
+    assert!(super::admit_scan(&make_scan(field.clone()), &registry, &[], &scope).is_ok());
+    assert!(
+        super::admit_scan(
+            &make_scan(field.clone().with_nullable(true)),
+            &registry,
+            &[],
+            &scope
+        )
+        .is_ok()
+    );
+    assert!(
+        super::admit_scan(
+            &make_scan(field.clone().with_name("forged")),
+            &registry,
+            &[],
+            &scope
+        )
+        .is_err()
+    );
+    assert!(super::admit_scan(&make_scan(field.clone()), &registry, &[], &[]).is_err());
+    let nullable_scope = vec![(
+        "walk".into(),
+        Arc::new(Schema::new(vec![field.clone().with_nullable(true)])),
+    )];
+    assert!(super::admit_scan(&make_scan(field), &registry, &[], &nullable_scope).is_err());
+}
+
+#[tokio::test]
+async fn recursive_join_terms_transport_their_declared_schema_metadata() {
+    use datafusion::arrow::{
+        array::Int64Array,
+        datatypes::{DataType, Field, Schema},
+    };
+    use datafusion::physical_planner::PhysicalPlanner;
+    let schema = Arc::new(Schema::new_with_metadata(
+        vec![
+            Field::new("n", DataType::Int64, false),
+            Field::new("parent", DataType::Int64, true),
+        ],
+        [("query.scope".into(), "edges".into())]
+            .into_iter()
+            .collect(),
+    ));
+    let batch = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(Int64Array::from(vec![1, 2, 3])),
+            Arc::new(Int64Array::from(vec![None, Some(1), Some(2)])),
+        ],
+    )
+    .unwrap();
+    let provider: Arc<dyn TableProvider> =
+        Arc::new(datafusion::datasource::MemTable::try_new(schema, vec![vec![batch]]).unwrap());
+    let context = datafusion::prelude::SessionContext::new();
+    context.register_table("edges", provider.clone()).unwrap();
+    let seed_schema = Arc::new(Schema::new_with_metadata(
+        vec![Field::new("n", DataType::Int64, false)],
+        [("query.scope".into(), "seeds".into())]
+            .into_iter()
+            .collect(),
+    ));
+    let seeds: Arc<dyn TableProvider> = Arc::new(
+        datafusion::datasource::MemTable::try_new(
+            seed_schema.clone(),
+            vec![vec![
+                RecordBatch::try_new(seed_schema, vec![Arc::new(Int64Array::from(vec![1]))])
+                    .unwrap(),
+            ]],
+        )
+        .unwrap(),
+    );
+    context.register_table("seeds", seeds.clone()).unwrap();
+    let plan = context.sql("WITH RECURSIVE walk(n) AS (SELECT n FROM seeds UNION ALL SELECT e.n FROM walk w JOIN edges e ON e.parent = w.n) SELECT n FROM walk")
+        .await.unwrap().into_optimized_plan().unwrap();
+    let registry = RegistryBuilder::new().build().unwrap();
+    let cancel = CancellationToken::new();
+    let budget = FixedBudget::new(16 << 20);
+    let admitted = restore_semantic_fields(
+        plan,
+        &registry,
+        &[provider, seeds],
+        budget.as_ref(),
+        &cancel,
+    )
+    .unwrap();
+    // Planning directly keeps the final admission boundary after optimization.
+    let state = context.state();
+    let physical = datafusion::physical_planner::DefaultPhysicalPlanner::default()
+        .create_physical_plan(&admitted, &state)
+        .await
+        .unwrap();
+    let batches = datafusion::physical_plan::collect(physical, state.task_ctx())
+        .await
+        .unwrap();
+    assert_eq!(batches.iter().map(RecordBatch::num_rows).sum::<usize>(), 3);
+    assert_eq!(
+        batches[0]
+            .schema()
+            .metadata()
+            .get("query.scope")
+            .map(String::as_str),
+        Some("seeds")
+    );
+}
+
+#[test]
 fn delta_view_adaptation_requires_its_exact_durable_descriptor() {
     use datafusion::arrow::datatypes::{DataType, Schema};
     let registry = pse_schema::registry().unwrap();
@@ -34,6 +247,11 @@ fn delta_view_adaptation_requires_its_exact_durable_descriptor() {
     // descriptor authorizes the view representation at the native scan leaf.
     assert!(super::admit_field(registry, &execution.with_data_type(DataType::Utf8View)).is_err());
     assert!(super::admit_field(registry, &view.clone().with_name("renamed")).is_err());
+    super::admit_intermediate_field(
+        registry,
+        &view.clone().with_name("renamed").with_nullable(true),
+    )
+    .unwrap();
     let mut forged = view;
     forged
         .metadata_mut()

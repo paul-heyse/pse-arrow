@@ -153,48 +153,67 @@ pub(crate) fn nested_metadata(data_type: &DataType) -> bool {
         _ => false,
     }
 }
-fn field_missing_metadata_only(actual: &Field, expected: &Field) -> bool {
+fn field_missing_metadata_only(actual: &Field, expected: &Field, refine: bool) -> bool {
+    if std::ptr::eq(actual, expected) {
+        return true;
+    }
     actual.name() == expected.name()
-        && actual.is_nullable() == expected.is_nullable()
+        && (actual.is_nullable() == expected.is_nullable() || (refine && actual.is_nullable()))
         && actual
             .metadata()
             .iter()
             .all(|(key, value)| expected.metadata().get(key) == Some(value))
-        && missing_metadata_only(actual.data_type(), expected.data_type())
+        && layout_compatible(actual.data_type(), expected.data_type(), refine)
 }
-pub(crate) fn missing_metadata_only(actual: &DataType, expected: &DataType) -> bool {
+fn layout_compatible(actual: &DataType, expected: &DataType, refine: bool) -> bool {
+    // Arrow's immutable shared Fields retain equality across native projections.
+    // Avoid recursively walking the same wide tuple at every ancestor node.
+    if actual == expected {
+        return true;
+    }
     match (actual, expected) {
         (DataType::List(a), DataType::List(b))
         | (DataType::LargeList(a), DataType::LargeList(b))
         | (DataType::ListView(a), DataType::ListView(b))
         | (DataType::LargeListView(a), DataType::LargeListView(b)) => {
-            field_missing_metadata_only(a, b)
+            field_missing_metadata_only(a, b, refine)
         }
         (DataType::FixedSizeList(a, n), DataType::FixedSizeList(b, m)) => {
-            n == m && field_missing_metadata_only(a, b)
+            n == m && field_missing_metadata_only(a, b, refine)
         }
-        (DataType::Map(a, n), DataType::Map(b, m)) => n == m && field_missing_metadata_only(a, b),
+        (DataType::Map(a, n), DataType::Map(b, m)) => {
+            n == m && field_missing_metadata_only(a, b, refine)
+        }
         (DataType::Struct(a), DataType::Struct(b)) => {
             a.len() == b.len()
                 && a.iter()
                     .zip(b)
-                    .all(|(a, b)| field_missing_metadata_only(a, b))
+                    .all(|(a, b)| field_missing_metadata_only(a, b, refine))
         }
         (DataType::Union(a, am), DataType::Union(b, bm)) => {
             am == bm
                 && a.len() == b.len()
                 && a.iter()
                     .zip(b.iter())
-                    .all(|((ai, a), (bi, b))| ai == bi && field_missing_metadata_only(a, b))
+                    .all(|((ai, a), (bi, b))| ai == bi && field_missing_metadata_only(a, b, refine))
         }
         (DataType::RunEndEncoded(ar, av), DataType::RunEndEncoded(br, bv)) => {
-            field_missing_metadata_only(ar, br) && field_missing_metadata_only(av, bv)
+            field_missing_metadata_only(ar, br, refine)
+                && field_missing_metadata_only(av, bv, refine)
         }
         (DataType::Dictionary(a, b), DataType::Dictionary(c, d)) => {
-            a == c && missing_metadata_only(b, d)
+            a == c && layout_compatible(b, d, refine)
         }
         _ => actual == expected,
     }
+}
+pub(crate) fn missing_metadata_only(actual: &DataType, expected: &DataType) -> bool {
+    layout_compatible(actual, expected, false)
+}
+/// A native function's proven input-to-output correspondence may strengthen
+/// nullability that its default type-only return inference discarded.
+pub(crate) fn proven_native_layout(actual: &DataType, expected: &DataType) -> bool {
+    layout_compatible(actual, expected, true)
 }
 fn invalid(reason: &str) -> DataFusionError {
     DataFusionError::Plan(format!("pse_preserve_field: {reason}"))

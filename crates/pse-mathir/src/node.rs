@@ -4,8 +4,8 @@
 //! The node of the expression DAG and its arity (blueprint §6.9, §7.1, §7.2).
 //!
 //! A node is an opcode, an ordered child list, a typed payload and — after P10 — a
-//! resolved quantity type. The ordering of `children` *is* `math_expr_args.argument_ordinal`
-//! (§7.1 constraint 1): it is the authoritative argument order, and nothing here sorts it,
+//! resolved quantity type. The node row carries its ordered `children` list directly.
+//! It is the authoritative argument order, and nothing here sorts it,
 //! not even for commutative operators, because §7.4 step 1 forbids reassociating a graph
 //! whose evaluation order is observable.
 //!
@@ -27,7 +27,15 @@ use pse_schema::math::{Arity, arity};
 ///
 /// [`ExprGraph`]: crate::ExprGraph
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
-pub struct NodeId(pub u64);
+pub struct NodeId(pub i64);
+
+impl NodeId {
+    pub(crate) fn from_index(index: usize) -> Result<Self, crate::MathIrError> {
+        i64::try_from(index)
+            .map(Self)
+            .map_err(|_| crate::MathIrError::malformed("graph ordinal exceeds Int64"))
+    }
+}
 
 impl core::fmt::Display for NodeId {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -47,7 +55,7 @@ pub struct Node {
     pub opcode: Opcode,
     /// The typed operator payload; `Payload::None` for the operators that need none.
     pub payload: Payload,
-    /// The children, in `argument_ordinal` order. Never sorted, not even for `Add`.
+    /// The children, in declared list order. Never sorted, not even for `Add`.
     pub children: Vec<NodeId>,
     /// The complete quantity type, resolved by P10 (`None` before it).
     pub quantity_type: Option<QuantityTypeId>,

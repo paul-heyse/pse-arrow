@@ -12,11 +12,7 @@ use crate::{
 };
 use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, MemoryReserver, SemanticId};
-use pse_relations::generated::{
-    authored,
-    enums::{MethodFamily, MethodRealization, ResolutionStatus},
-    inferred, reference,
-};
+use pse_relations::generated::{authored, enums::MethodFamily, inferred, reference};
 use pse_schema::Registry;
 use std::collections::BTreeMap;
 
@@ -42,6 +38,10 @@ pub(super) struct Selection {
     pub requests: Vec<Request>,
 }
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "select keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn select(
     session: &SnapshotSession,
     registry: &Registry,
@@ -67,39 +67,33 @@ pub(super) async fn select(
     } in candidates
     {
         cancel.checkpoint()?;
-        if resolution.status != ResolutionStatus::Resolved {
+        let inferred::method_resolutions::InferredMethodResolutionsFieldOutcomeSelected::Resolved(
+            selected,
+        ) = resolution.outcome.selected()?
+        else {
             return Err(invalid(
                 "selected property requirement is unresolved or ambiguous",
             ));
-        }
-        if resolution.realization != Some(method.realization)
-            || resolution.template_id != method.template_id
-        {
+        };
+        let template = match method.realization.selected()? {
+            reference::method_specs::ReferenceMethodSpecsFieldRealizationSelected::EquationTemplate(value) => Some(value.template_id),
+            reference::method_specs::ReferenceMethodSpecsFieldRealizationSelected::Kernel(_) => None,
+        };
+        if selected.method_id != method.method_id {
             return Err(invalid(
                 "method resolution differs from actual selected specification",
             ));
         }
-        let equation = method.realization == MethodRealization::EquationTemplate;
-        if (equation
-            && (method.template_id.is_none()
-                || method.kernel_id.is_some()
-                || provision.output_kind.as_str() != "template_symbol"
-                || provision.symbol_decl_id.is_none()
-                || provision.kernel_output_ordinal.is_some()))
-            || (!equation
-                && (method.template_id.is_some()
-                    || method.kernel_id.is_none()
-                    || provision.output_kind.as_str() != "kernel_output"
-                    || provision.symbol_decl_id.is_some()
-                    || provision.kernel_output_ordinal.is_none()))
-        {
+        let equation = template.is_some();
+        let template_output = matches!(provision.output.selected()?, reference::method_provisions::ReferenceMethodProvisionsFieldOutputSelected::TemplateSymbol(_));
+        if equation != template_output {
             return Err(invalid(
-                "selected equation-template method/provision alternatives disagree",
+                "selected method and provision use different producer routes",
             ));
         }
         let existing_state = equation && method.family == MethodFamily::StateDefinition;
         let instance = if existing_state {
-            if Some(state.template_id) != method.template_id {
+            if Some(state.template_id) != template {
                 return Err(invalid(
                     "state definition method differs from actual selected state template",
                 ));
@@ -123,9 +117,8 @@ pub(super) async fn select(
             }
         } else {
             if equation && !existing_state {
-                let template = method
-                    .template_id
-                    .ok_or_else(|| invalid("equation method template absent"))?;
+                let template =
+                    template.ok_or_else(|| invalid("equation method template absent"))?;
                 let assignments = mappings
                     .get(&method.method_id)
                     .map(

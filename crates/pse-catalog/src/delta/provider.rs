@@ -23,13 +23,17 @@ pub async fn open_view(
     layout: &DurableLayout,
     state: Arc<SessionState>,
 ) -> Result<ViewTable> {
+    let state = crate::cache_service::bind_state(&location, &state)?;
+    let lease = super::lease::read(&location, &pse_ids::CancellationToken::new()).await?;
     let version = delta_version(version)?;
-    let table = table_builder(location, &state)?
-        .with_version(version)
-        .load()
-        .await
-        .map_err(external)?;
-    view(table, layout, state).await
+    let opened = open_native(
+        location,
+        Some(version),
+        crate::cache_service::snapshot::LoadRequirement::Query,
+        &state,
+    )
+    .await?;
+    view(opened, layout, state, lease).await
 }
 
 /// Open an exact declared Delta table, checking its persisted properties and CHECK.
@@ -41,27 +45,95 @@ pub async fn open_declared_view(
     contract: &super::contract::DeclaredCheck,
     state: Arc<SessionState>,
 ) -> Result<ViewTable> {
-    let table = table_builder(location, &state)?
-        .with_version(delta_version(version)?)
-        .load()
-        .await
-        .map_err(external)?;
-    contract.verify(&table)?;
-    view(table, contract.layout(), state).await
+    let lease = super::lease::read(&location, &pse_ids::CancellationToken::new()).await?;
+    declared_view(location, version, contract, state, lease).await
+}
+
+pub(super) async fn open_maintained_view(
+    location: url::Url,
+    version: i64,
+    contract: &super::contract::DeclaredCheck,
+    state: Arc<SessionState>,
+    lease: &super::lease::MaintenanceLease,
+) -> Result<ViewTable> {
+    lease.covers(&location)?;
+    declared_view(location, version, contract, state, None).await
+}
+
+async fn declared_view(
+    location: url::Url,
+    version: i64,
+    contract: &super::contract::DeclaredCheck,
+    state: Arc<SessionState>,
+    lease: Option<Arc<super::lease::ReadLease>>,
+) -> Result<ViewTable> {
+    let state = crate::cache_service::bind_state(&location, &state)?;
+    let opened = open_native(
+        location,
+        Some(delta_version(version)?),
+        crate::cache_service::snapshot::LoadRequirement::Query,
+        &state,
+    )
+    .await?;
+    contract.verify(&opened.table)?;
+    view(opened, contract.layout(), state, lease).await
+}
+
+pub(crate) struct Opened {
+    pub(crate) table: deltalake::DeltaTable,
+    pub(crate) owner: Option<Arc<crate::cache_service::snapshot::RetainedTable>>,
+}
+pub(crate) async fn open_native(
+    location: url::Url,
+    version: Option<u64>,
+    requirement: crate::cache_service::snapshot::LoadRequirement,
+    state: &Arc<SessionState>,
+) -> Result<Opened> {
+    if let Some(service) = state
+        .config()
+        .get_extension::<crate::cache_service::NativeCacheService>()
+    {
+        let owner = service
+            .open_snapshot(location, version, requirement, Arc::clone(state))
+            .await?;
+        Ok(Opened {
+            table: owner.table.clone(),
+            owner: Some(owner),
+        })
+    } else {
+        let mut builder = table_builder(location, state)?;
+        if let Some(version) = version {
+            builder = builder.with_version(version);
+        }
+        if requirement == crate::cache_service::snapshot::LoadRequirement::Metadata {
+            builder = builder.without_files();
+        }
+        let table = builder.load().await.map_err(external)?;
+        Ok(Opened { table, owner: None })
+    }
 }
 
 async fn view(
-    table: deltalake::DeltaTable,
+    opened: Opened,
     layout: &DurableLayout,
     state: Arc<SessionState>,
+    lease: Option<Arc<super::lease::ReadLease>>,
 ) -> Result<ViewTable> {
-    let provider = table.table_provider().with_session(state).build().await?;
-    let input = LogicalPlanBuilder::scan(
-        "delta_version",
-        provider_as_source(Arc::new(provider)),
-        None,
-    )?
-    .build()?;
+    let provider = opened
+        .table
+        .table_provider()
+        .with_session(state.clone())
+        .build()
+        .await?;
+    let provider: Arc<dyn datafusion::catalog::TableProvider> = Arc::new(provider);
+    let provider = super::leased::retain_reader_budget(provider, &state);
+    let provider = match opened.owner {
+        Some(owner) => super::leased::retain_snapshot(provider, owner),
+        None => provider,
+    };
+    let provider = super::leased::retain(provider, lease);
+    let input =
+        LogicalPlanBuilder::scan("delta_version", provider_as_source(provider), None)?.build()?;
     Ok(ViewTable::new(layout.decode(input)?, None))
 }
 /// Resolve Delta storage from the invocation's native object-store registry.
@@ -72,10 +144,61 @@ pub fn table_builder(location: url::Url, state: &SessionState) -> Result<DeltaTa
         .runtime_env()
         .object_store_registry
         .get_store(&location)?;
+    let policy = state
+        .config()
+        .get_extension::<crate::cache_service::NativeCacheService>();
     Ok(DeltaTableBuilder::from_url(location.clone())
         .map_err(external)?
-        .with_storage_backend(store, location))
+        .with_storage_backend(store, location)
+        .with_crc_replay_max_commits(
+            policy
+                .as_ref()
+                .map_or(0, |service| service.policy().crc_replay_max_commits),
+        ))
 }
+/// Best-effort native acceleration after a known durable commit. No failure here
+/// changes the mutation outcome or causes its input plan to run a second time.
+pub(crate) async fn committed(table: &deltalake::DeltaTable, state: &SessionState) {
+    let Some(service) = state
+        .config()
+        .get_extension::<crate::cache_service::NativeCacheService>()
+    else {
+        return;
+    };
+    if let Err(error) = service.remember_committed(table, state).await {
+        crate::cache_service::metrics::record(state, |metrics| {
+            &metrics.committed_snapshot_refusals
+        });
+        tracing::warn!(%error, "committed Delta snapshot was not retained");
+    }
+    let interval = service.policy().checksum_interval;
+    if interval != 0
+        && table
+            .version()
+            .is_some_and(|version| version % interval == 0)
+    {
+        let result = async {
+            table
+                .snapshot()?
+                .snapshot()
+                .snapshot_ref()
+                .clone()
+                .write_checksum(table.log_store().engine(None))
+                .await
+        }
+        .await;
+        match result {
+            Ok(_) => {
+                crate::cache_service::metrics::record(state, |metrics| &metrics.checksum_successes);
+            }
+            Err(error) => {
+                crate::cache_service::metrics::record(state, |metrics| &metrics.checksum_failures);
+                tracing::warn!(%error, "committed Delta checksum acceleration failed");
+            }
+        }
+    }
+}
+
 fn external(error: deltalake::DeltaTableError) -> DataFusionError {
     DataFusionError::External(Box::new(error))
 }

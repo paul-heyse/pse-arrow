@@ -5,23 +5,23 @@
 //! These functions preserve exact values. Their identifiers never establish validity,
 //! equality, uniqueness, truth, membership or dependency coverage.
 
-mod element;
+pub(crate) mod checked_value;
+pub(super) mod element;
 mod encode;
+mod fields;
 mod key;
-pub use element::array_element;
 pub use key::key;
 mod nonnull;
 pub(crate) use nonnull::nullable;
 pub use nonnull::{refine_filtered_fields, require_nonnull};
-mod structure;
-pub use structure::named_fields;
 mod index_tuple;
 mod list_concat;
 mod list_field;
 mod preserve_field;
 mod retain_metadata;
+pub(super) mod structure;
 pub(crate) use preserve_field::{
-    materialize as materialize_nested_fields, missing_metadata_only, nested_metadata,
+    materialize as materialize_nested_fields, nested_metadata, proven_native_layout,
 };
 pub(crate) use retain_metadata::{retain as retain_metadata, union as union_fields};
 
@@ -54,10 +54,6 @@ pub fn register(
     reserver: Arc<dyn pse_ids::MemoryReserver>,
 ) -> SessionStateBuilder {
     builder
-        .aggregate_functions()
-        .get_or_insert_with(Vec::new)
-        .extend(super::aggregate::functions());
-    builder
         .scalar_functions()
         .get_or_insert_with(Vec::new)
         .extend([
@@ -65,10 +61,8 @@ pub fn register(
             Arc::clone(&LITERAL),
             Arc::clone(&NAMED_ID),
             Arc::clone(&ID_LIST),
-            element::function(),
             nonnull::function(),
             nonnull::nullable_function(),
-            structure::function(),
             list_field::function(Arc::clone(&reserver)),
             list_concat::function(Arc::clone(&reserver)),
             preserve_field::function(Arc::clone(&reserver)),
@@ -188,21 +182,7 @@ impl ScalarUDFImpl for Codec {
         }
         let nullable =
             self.kind == Kind::NamedId && args.arg_fields.iter().any(|field| field.is_nullable());
-        let logical = match self.kind {
-            Kind::NamedId => FieldContract::id(),
-            Kind::IdList => FieldContract::list(FieldContract::id()),
-            Kind::Literal => FieldContract::native(DataType::Utf8),
-        };
-        let mut column =
-            FieldContract::payload("value", logical, "Exact native diagnostic codec output.");
-        column = column.with_nullable(nullable);
-        let registry =
-            pse_schema::registry().map_err(|error| DataFusionError::External(Box::new(error)))?;
-        Ok(Arc::new(
-            pse_schema::arrow::field_for(registry, &column)
-                .map_err(|error| DataFusionError::External(Box::new(error)))?
-                .with_name(self.name()),
-        ))
+        fields::output(self.kind, nullable)
     }
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         let arrays = args

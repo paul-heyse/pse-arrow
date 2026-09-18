@@ -4,7 +4,7 @@
 //! Reuse native P4/P5 producers for the actual selected method contexts.
 use super::{execute_selected_program, invalid, predicates};
 use crate::{
-    CompilerError, InputBundle, PassContext,
+    AlgorithmContext, AlgorithmInputs, CompilerError,
     passes::{native_outputs::Sources, native_rows::workspace},
 };
 use datafusion::logical_expr::{LogicalPlanBuilder, col, lit};
@@ -15,7 +15,7 @@ use pse_rules::strata::{
     completed::CompletedRelation,
     native_input::{NativeInput, NativeWitness},
 };
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::{collections::BTreeMap, sync::Arc};
 
 #[derive(Debug)]
@@ -27,16 +27,16 @@ pub(crate) struct AugmentedInference {
 
 /// Overrides retain their actual native completions; the shared producers run once.
 pub(crate) async fn evaluate_augmented(
-    spec: &PassSpec,
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
+    spec: &AlgorithmSpec,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
     overrides: &BTreeMap<RelationKey, Arc<NativeInput>>,
 ) -> Result<AugmentedInference, CompilerError> {
     inputs.validate(spec, ctx.registry)?;
     let base = ctx.session;
     let p4 = ctx
         .registry
-        .pass("P4@1")
+        .algorithm("P4@1")
         .ok_or_else(|| invalid("P4 declaration absent"))?;
     let mut rows = inputs.checked_rows(ctx.registry)?;
     let mut sources = Sources::from_inputs(inputs, ctx.registry)?;
@@ -126,9 +126,9 @@ pub(crate) async fn evaluate_augmented(
 async fn merge_evidence(
     key: RelationKey,
     inputs: [Arc<CompletedRelation>; 2],
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
-    ctx: &PassContext<'_>,
+    ctx: &AlgorithmContext<'_>,
 ) -> Result<Arc<NativeInput>, CompilerError> {
     if !matches!(
         key.qualified_name().as_str(),
@@ -153,14 +153,14 @@ async fn merge_evidence(
     let owner = session.with_checked_role_inputs(roles, ctx.cancel)?;
     let mut branches = Vec::new();
     let mut witnesses = Vec::new();
-    for (index, input) in inputs.into_iter().enumerate() {
+    for (input, index) in inputs.into_iter().zip(0_i64..) {
         let role = format!("shared-rule-evidence:{index}");
         let mut columns = target
             .columns
             .iter()
             .map(|field| col(field.name()))
             .collect::<Vec<_>>();
-        columns.push(lit(index as u64).alias("__evidence_branch"));
+        columns.push(lit(index).alias("__evidence_branch"));
         branches.push(
             LogicalPlanBuilder::from(owner.scan_role(&role)?)
                 .project(columns)
@@ -180,7 +180,7 @@ async fn merge_evidence(
                     .map(|name| (*name).to_owned())
                     .collect(),
             ),
-            when: Some(col("__evidence_branch").eq(lit(index as u64))),
+            when: Some(col("__evidence_branch").eq(lit(index))),
         });
     }
     Ok(NativeInput::build(

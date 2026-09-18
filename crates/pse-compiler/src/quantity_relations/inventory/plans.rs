@@ -14,6 +14,10 @@ use pse_relations::columnar::FieldCheckedBatch;
 use pse_schema::{Registry, model::RelationKey};
 use std::collections::BTreeMap;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "units keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn units(
     session: &SnapshotSession,
     registry: &Registry,

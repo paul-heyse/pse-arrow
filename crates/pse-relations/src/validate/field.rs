@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Paul Heyse
 
 use crate::{RelationError, ext::ExtMetadata};
-use arrow_schema::{DataType, Field};
+use arrow_schema::Field;
 use pse_ids::SemanticId;
 use pse_schema::Registry;
 use pse_schema::arrow::{
     KEY_ENUM, KEY_EXTENSION_METADATA, KEY_EXTENSION_NAME, KEY_FK, KEY_LOGICAL_TYPE,
     KEY_QUANTITY_TYPE, KEY_ROLE,
 };
-use pse_schema::model::{ColumnRole, EXTENSION_TYPES, FieldContract};
+use pse_schema::model::{ColumnRole, EXTENSION_TYPES, field::child_fields};
 
 /// Recursively checks field declarations and invokes the typed extension factories.
 /// Fields without semantic declarations may use any native Arrow layout;
@@ -24,7 +24,6 @@ pub fn validate_field(reg: &Registry, field: &Field) -> Result<(), Vec<RelationE
 }
 
 fn visit(reg: &Registry, field: &Field, path: &str, errors: &mut Vec<RelationError>) {
-    let declaration = FieldContract::from_field(field.clone());
     if let Err(error) = pse_schema::model::IntegerRange::from_field(field) {
         errors.push(error.into());
     }
@@ -43,13 +42,8 @@ fn visit(reg: &Registry, field: &Field, path: &str, errors: &mut Vec<RelationErr
             "extension metadata or enum identity without an extension name",
         ));
     }
-    for child in declaration.children() {
-        visit(
-            reg,
-            child.field(),
-            &format!("{path}.{}", child.name()),
-            errors,
-        );
+    for child in child_fields(field.data_type()) {
+        visit(reg, child, &format!("{path}.{}", child.name()), errors);
     }
 }
 
@@ -57,26 +51,11 @@ fn check_semantics(reg: &Registry, field: &Field, path: &str, errors: &mut Vec<R
     let metadata = field.metadata();
     if let Some(name) = metadata.get(KEY_LOGICAL_TYPE) {
         if let Some(logical) = reg.logical_type(name) {
-            let expected =
-                serde_json::from_str::<DataType>(&logical.arrow_storage)
-                    .map_err(|error| error.to_string())
-                    .and_then(|storage| {
-                        if logical.extension_name.as_ref().is_some_and(|name| {
-                            EXTENSION_TYPES.iter().any(|spec| spec.name == name)
-                        }) {
-                            Ok(storage)
-                        } else {
-                            pse_schema::arrow::bind_type(reg, &storage, path)
-                                .map_err(|error| error.to_string())
-                        }
-                    });
-            if expected.as_ref().ok() != Some(field.data_type()) {
+            let expected = reg.logical_storage(name);
+            if expected != Some(field.data_type()) {
                 errors.push(super::mismatch(
                     path,
-                    format!(
-                        "logical-type declaration differs from storage: expected {expected:?}, actual {:?}",
-                        field.data_type()
-                    ),
+                    format!("logical-type declaration differs from storage: expected {expected:?}, actual {:?}", field.data_type()),
                 ));
             }
             if logical.extension_name.as_deref()

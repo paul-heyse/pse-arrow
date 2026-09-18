@@ -28,7 +28,7 @@ fn declare_compiled_symbols(builder: &mut RegistryBuilder) {
         &["symbol_id"],
         vec![
             column("symbol_id", T::id()),
-            column("ordinal", T::native(arrow_schema::DataType::UInt64)),
+            column("ordinal", T::nonnegative(i64::MAX)),
             column("owner_instance_id", T::id()),
             column("symbol_decl_id", T::id()),
             column("qualified_name", T::native(arrow_schema::DataType::Utf8)),

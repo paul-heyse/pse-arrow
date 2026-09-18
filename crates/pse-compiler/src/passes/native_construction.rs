@@ -4,18 +4,18 @@
 //! Native finite-product framing and exact source-key association.
 mod axes;
 use crate::{CompilerError, passes::native_outputs::Sources};
+use datafusion::functions_nested::expr_fn::array_element;
 use datafusion::{
     common::{Column, ScalarValue, UnnestOptions},
     functions::core::expr_fn::coalesce,
     functions_nested::expr_fn::{array_length, make_array, range},
     logical_expr::{Expr, JoinType, LogicalPlan, LogicalPlanBuilder, Operator, col, lit},
 };
-use pse_catalog::session::scalar::array_element;
 use pse_catalog::session::{SnapshotSession, output::checked_literal, scalar};
 use pse_ids::{CancellationToken, SemanticId};
 use pse_relations::columnar::FieldCheckedBatch;
 use pse_rules::strata::native_input::{NativeInput, NativeWitness};
-use pse_schema::model::{FieldContract, PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, FieldContract, RelationKey};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::Not,
@@ -88,17 +88,17 @@ pub(crate) fn distinct(input: LogicalPlan) -> Result<LogicalPlan, CompilerError>
         .map_err(error)
 }
 pub(crate) fn union(inputs: Vec<LogicalPlan>) -> Result<LogicalPlan, CompilerError> {
-    let mut inputs = inputs.into_iter();
-    let mut result = inputs
+    let mut inputs = inputs.into_iter().peekable();
+    let first = inputs
         .next()
         .ok_or_else(|| invalid("product union has no declared branches"))?;
-    for input in inputs {
-        result = LogicalPlanBuilder::from(result)
-            .union(input)
-            .and_then(LogicalPlanBuilder::build)
-            .map_err(error)?;
+    if inputs.peek().is_none() {
+        return Ok(first);
     }
-    Ok(result)
+    let inputs = std::iter::once(first).chain(inputs).map(Arc::new).collect();
+    datafusion::logical_expr::Union::try_new_with_loose_types(inputs)
+        .map(LogicalPlan::Union)
+        .map_err(error)
 }
 pub(crate) fn prefix(input: LogicalPlan, alias: &str) -> Result<LogicalPlan, CompilerError> {
     let fields = input
@@ -129,7 +129,7 @@ pub(crate) fn explode(
 pub(crate) struct Plans<'a> {
     pub session: SnapshotSession,
     pub sources: Sources,
-    pub pass: &'a PassSpec,
+    pub pass: &'a AlgorithmSpec,
     pub cancel: &'a CancellationToken,
     pub used: BTreeSet<RelationKey>,
     ordinal: usize,
@@ -138,7 +138,7 @@ impl<'a> Plans<'a> {
     pub(crate) fn new(
         inputs: &BTreeMap<RelationKey, FieldCheckedBatch>,
         sources: &Sources,
-        pass: &'a PassSpec,
+        pass: &'a AlgorithmSpec,
         session: &SnapshotSession,
         cancel: &'a CancellationToken,
     ) -> Result<Self, CompilerError> {

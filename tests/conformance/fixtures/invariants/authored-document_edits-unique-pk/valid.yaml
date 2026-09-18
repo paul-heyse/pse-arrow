@@ -1,0 +1,14 @@
+{
+  "invariant": "authored.document_edits:unique:pk",
+  "rows": {
+    "authored.document_edits": [
+      {
+        "after": "[\"text\",\"value-1\"]",
+        "before": "[\"text\",\"value-1\"]",
+        "document_id": "[\"id\",\"01010101010101010101010101010101\"]",
+        "path": "[\"text\",\"value-1\"]"
+      }
+    ]
+  },
+  "expected_keys": []
+}

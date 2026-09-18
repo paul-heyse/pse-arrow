@@ -30,6 +30,7 @@ impl Functions {
         })
     }
     pub(super) fn scalar(&self, value: &ScalarUDF) -> Result<()> {
+        let value = super::field_transfer::native_scalar(value).map_or(value, AsRef::as_ref);
         check(
             self.scalar
                 .iter()
@@ -39,6 +40,7 @@ impl Functions {
         )
     }
     pub(super) fn aggregate(&self, value: &AggregateUDF) -> Result<()> {
+        let value = super::aggregate::native(value).map_or(value, AsRef::as_ref);
         check(
             self.aggregate
                 .iter()
@@ -67,7 +69,7 @@ impl Functions {
     }
     pub(super) fn admit_plan(&self, plan: &LogicalPlan) -> Result<()> {
         plan.apply_with_subqueries(|node| {
-            for expression in node.expressions() {
+            node.apply_expressions(|expression| {
                 expression.apply(|expression| {
                     match expression {
                         Expr::ScalarFunction(call) => self.scalar(&call.func)?,
@@ -85,8 +87,16 @@ impl Functions {
                     }
                     Ok(TreeNodeRecursion::Continue)
                 })?;
-            }
-            Ok(TreeNodeRecursion::Continue)
+                Ok(TreeNodeRecursion::Continue)
+            })?;
+            // Selected provider descriptors retain their actual private view
+            // implementations. Scan filters are serialized above and checked;
+            // the provider's implementation is admitted by source ownership.
+            Ok(if matches!(node, LogicalPlan::TableScan(_)) {
+                TreeNodeRecursion::Jump
+            } else {
+                TreeNodeRecursion::Continue
+            })
         })?;
         Ok(())
     }

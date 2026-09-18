@@ -62,6 +62,10 @@ is not validation. Masked children of absent parents are not visible values.
 Native plans and the common provider hierarchy own current data operations. Delta is
 the only durable authority. Coherent expression rows, typed numerical vectors and owned
 Arrow streams replace side tables, positional correspondence and general Cell conversion.
+Appendix B coverage follows explicit replacement declarations during this design cut:
+governance must prove each predecessor side table is absent and its coherent replacement
+field exists. The replacement ledger is a test obligation, never a runtime alias or a
+deferred-contract exemption. The blueprint amendment remains part of the decision PR.
 
 ### Consequences
 

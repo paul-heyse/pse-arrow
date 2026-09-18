@@ -7,6 +7,9 @@
     clippy::panic,
     reason = "independent contract assertions"
 )]
+#[path = "support/native_execution.rs"]
+mod native_execution;
+
 use datafusion::{
     arrow::{
         array::{ArrayRef, BooleanArray, Int64Array, RecordBatch, StringArray, StructArray},
@@ -14,7 +17,6 @@ use datafusion::{
         datatypes::{DataType, SchemaRef},
     },
     execution::{context::SessionContext, session_state::SessionStateBuilder},
-    physical_plan::collect,
 };
 use deltalake::{
     DeltaTableBuilder,
@@ -29,7 +31,7 @@ use pse_catalog::{
 use pse_schema::{RegistryBuilder, model::*};
 use std::sync::Arc;
 
-fn contract() -> DeclaredCheck {
+fn contract() -> (Arc<pse_schema::Registry>, DeclaredCheck) {
     let declaration = TaggedAlternative::new(
         "kind",
         [
@@ -67,8 +69,10 @@ fn contract() -> DeclaredCheck {
             FieldContract::payload("value", value, "selected value").optional(),
         ]),
     );
-    let registry = builder.build().unwrap();
-    DeclaredCheck::new(&registry, registry.relation("authored.choices").unwrap().id).unwrap()
+    let registry = Arc::new(builder.build().unwrap());
+    let check =
+        DeclaredCheck::new(&registry, registry.relation("authored.choices").unwrap().id).unwrap();
+    (registry, check)
 }
 
 fn batch(
@@ -107,7 +111,7 @@ fn batch(
 
 #[tokio::test]
 async fn cold_native_checks_enforce_alternatives_and_parent_masks() {
-    let contract = contract();
+    let (registry, contract) = contract();
     assert!(!contract.properties()["delta.constraints.pse_contract"].contains("pse_nested"));
     let root = tempfile::tempdir().unwrap();
     let location = url::Url::from_directory_path(root.path()).unwrap();
@@ -135,12 +139,9 @@ async fn cold_native_checks_enforce_alternatives_and_parent_masks() {
     )
     .unwrap();
     let state = context.state();
-    collect(
-        state.create_physical_plan(&write).await.unwrap(),
-        state.task_ctx(),
-    )
-    .await
-    .unwrap();
+    native_execution::run(&state, Arc::clone(&registry), &write)
+        .await
+        .unwrap();
     let cold = Arc::new(cold_state());
     for (tag, visible, flag, count, valid) in [
         ("unknown", true, true, None, false),
@@ -203,7 +204,7 @@ async fn cold_native_checks_enforce_alternatives_and_parent_masks() {
 
 #[tokio::test]
 async fn cold_delta_collection_checks_reject_duplicates_without_losing_empty_or_null() {
-    let contract = collection_contract();
+    let (registry, contract) = collection_contract();
     let root = tempfile::tempdir().unwrap();
     let uri = url::Url::from_directory_path(root.path()).unwrap();
     let context = native_context();
@@ -226,12 +227,9 @@ async fn cold_delta_collection_checks_reject_duplicates_without_losing_empty_or_
     )
     .unwrap();
     let state = context.state();
-    collect(
-        state.create_physical_plan(&write).await.unwrap(),
-        state.task_ctx(),
-    )
-    .await
-    .unwrap();
+    native_execution::run(&state, Arc::clone(&registry), &write)
+        .await
+        .unwrap();
     let cold = cold_state();
     for (values, valid) in [
         (Some(vec![]), true),
@@ -279,7 +277,7 @@ async fn cold_delta_collection_checks_reject_duplicates_without_losing_empty_or_
     }
 }
 
-fn collection_contract() -> DeclaredCheck {
+fn collection_contract() -> (Arc<pse_schema::Registry>, DeclaredCheck) {
     let mut registry = RegistryBuilder::new();
     registry.declare_relation(
         RelationDecl::new(
@@ -306,8 +304,10 @@ fn collection_contract() -> DeclaredCheck {
             .optional(),
         ]),
     );
-    let registry = registry.build().unwrap();
-    DeclaredCheck::new(&registry, registry.relation("authored.sets").unwrap().id).unwrap()
+    let registry = Arc::new(registry.build().unwrap());
+    let check =
+        DeclaredCheck::new(&registry, registry.relation("authored.sets").unwrap().id).unwrap();
+    (registry, check)
 }
 
 fn collection_batch(schema: SchemaRef, values: Option<&[i64]>) -> RecordBatch {

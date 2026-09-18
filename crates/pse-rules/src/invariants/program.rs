@@ -3,21 +3,24 @@
 
 //! Registry declarations become one native union of exact diagnostic projections.
 
+mod native;
+#[cfg(test)]
+mod tests;
+
 use crate::{
     RuleError,
     errmap::{engine, internal},
-    plan::{PortBinding, compile as compile_rule},
 };
 use datafusion::arrow::array::builder::{ListBuilder, make_builder};
 use datafusion::arrow::datatypes::DataType;
 use datafusion::common::ScalarValue;
-use datafusion::logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, col, lit};
+use datafusion::logical_expr::{Expr, LogicalPlan, LogicalPlanBuilder, Projection, Sort, col, lit};
 use pse_catalog::session::{
     SnapshotSession,
     output::{checked_literal, declare_relation_output},
     scalar,
 };
-use pse_ids::{CancellationToken, SnapshotId};
+use pse_ids::CancellationToken;
 use pse_schema::{
     Registry,
     model::{InvariantSpec, RelationKey, RelationSpec, SnapshotClass},
@@ -26,16 +29,15 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use super::InvariantScope;
 
-pub(super) fn compile(
+pub(super) async fn compile(
     candidates: &BTreeSet<RelationKey>,
     session: &SnapshotSession,
     registry: &Registry,
     scope: InvariantScope<'_>,
-    subject: Option<SnapshotId>,
     cancel: &CancellationToken,
 ) -> Result<(Option<LogicalPlan>, usize), RuleError> {
-    let mut branches = Vec::new();
-    let mut count = 0;
+    let (mut branches, mut count) = native::compile(candidates, session, registry, scope, cancel)?;
+    let mut declared = Vec::new();
     for invariant in registry.invariants() {
         if let InvariantScope::Required(selected) = scope
             && !selected.contains(&invariant.id)
@@ -51,12 +53,8 @@ pub(super) fn compile(
         if !candidates.contains(&target.key) || !applies(scope, target) {
             continue;
         }
-        let rule = registry
-            .rule(&invariant.rule)
-            .ok_or_else(|| internal("invariant rule absent"))?;
-        let dependencies = rule.plan.dependencies();
         if let InvariantScope::Affected(changed) = scope
-            && !dependencies.iter().any(|(name, _, _)| {
+            && !invariant.inputs.iter().any(|name| {
                 registry
                     .relation(name)
                     .is_some_and(|spec| changed.contains(&spec.key))
@@ -65,63 +63,46 @@ pub(super) fn compile(
             continue;
         }
         if scope == InvariantScope::SidecarRelation
-            && dependencies
+            && invariant
+                .inputs
                 .iter()
-                .any(|(name, _, _)| *name != target.key.qualified_name())
+                .any(|name| name != &invariant.relation)
         {
             continue;
         }
-        let mut binding = PortBinding::default();
-        for (relation, port, _) in dependencies {
-            let spec = registry
-                .relation(relation)
-                .ok_or_else(|| internal("invariant dependency undeclared"))?;
-            if !candidates.contains(&spec.key) {
-                return Err(internal(format!(
-                    "invariant {} lacks explicit dependency {}",
-                    invariant.qualified_name(),
-                    spec.key
-                )));
-            }
-            if binding
-                .ports
-                .insert(port.to_owned(), spec.key)
-                .is_some_and(|prior| prior != spec.key)
-            {
-                return Err(internal(
-                    "one invariant port is bound to different relations",
-                ));
-            }
-        }
-        let compiled = compile_rule(rule, &binding, session, registry)?;
+        let inputs = invariant
+            .inputs
+            .iter()
+            .map(|name| {
+                let spec = registry
+                    .relation(name)
+                    .ok_or_else(|| internal("invariant dependency undeclared"))?;
+                if !candidates.contains(&spec.key) {
+                    return Err(internal(format!(
+                        "invariant {} lacks explicit dependency {}",
+                        invariant.qualified_name(),
+                        spec.key
+                    )));
+                }
+                Ok(spec.key)
+            })
+            .collect::<Result<Vec<_>, RuleError>>()?;
+        declared.push((invariant, target, inputs));
+    }
+    let queries = declared
+        .iter()
+        .map(|(invariant, _, inputs)| (invariant.query.as_str(), inputs.as_slice()))
+        .collect::<Vec<_>>();
+    let plans = session.bind_declared_queries(&queries, cancel).await?;
+    for ((invariant, target, _), plan) in declared.into_iter().zip(plans) {
+        let keys = project_query_keys(plan, invariant, target, registry)?;
         branches.push(finding(
-            strip_order(compiled.plan),
-            invariant,
+            keys,
+            invariant.into(),
             "violation",
             invariant.doc,
-            subject,
             registry,
         )?);
-        if let Some(plan) = compiled.undecided {
-            branches.push(finding(
-                strip_order(plan),
-                invariant,
-                "unknown",
-                &format!("{}: invariant predicate is unknown", invariant.doc),
-                subject,
-                registry,
-            )?);
-        }
-        for (plan, reason) in compiled.checks {
-            branches.push(finding(
-                plan,
-                invariant,
-                "precondition",
-                &reason,
-                subject,
-                registry,
-            )?);
-        }
         count += 1;
     }
     if let InvariantScope::Required(selected) = scope
@@ -131,7 +112,51 @@ pub(super) fn compile(
             "required invariant declaration or target binding is absent",
         ));
     }
+    // All findings have the same declared result and exact immutable source scope.
+    // Derive their shared producers together instead of rewalking the complete
+    // compiler graph for every individual check and diagnostic projection.
+    if branches.is_empty() {
+        return Ok((None, count));
+    }
+    let target = registry
+        .relation("runtime.diagnostics_findings")
+        .ok_or_else(|| internal("diagnostic output is undeclared"))?;
+    let branches = session
+        .derive_plan_fields_many(&branches, cancel)?
+        .into_iter()
+        .map(|plan| declare_relation_output(plan, registry, target).map_err(engine))
+        .collect::<Result<Vec<_>, _>>()?;
     Ok((combine_findings(branches, registry)?, count))
+}
+
+fn project_query_keys(
+    plan: LogicalPlan,
+    invariant: &InvariantSpec,
+    target: &RelationSpec,
+    registry: &Registry,
+) -> Result<LogicalPlan, RuleError> {
+    let mut projection = Vec::with_capacity(invariant.key_columns.len());
+    for name in &invariant.key_columns {
+        let expected = target
+            .column(name)
+            .ok_or_else(|| internal("invariant key is not declared"))?;
+        let (_, actual) = plan
+            .schema()
+            .qualified_field_with_unqualified_name(name)
+            .map_err(engine)?;
+        let expected = pse_schema::arrow::field_for(registry, expected)
+            .map_err(pse_relations::RelationError::from)?;
+        if actual.data_type() != expected.data_type() {
+            return Err(internal(format!(
+                "invariant {} has an incompatible key field {name}",
+                invariant.qualified_name()
+            )));
+        }
+        projection.push(col(*name));
+    }
+    Ok(LogicalPlan::Projection(
+        Projection::try_new(projection, Arc::new(plan)).map_err(engine)?,
+    ))
 }
 
 fn combine_findings(
@@ -153,10 +178,21 @@ fn combine_findings(
     let plan = LogicalPlanBuilder::from(plan)
         .distinct()
         .map_err(engine)?
-        .sort([col("finding_id").sort(true, false)])
-        .map_err(engine)?
         .build()
         .map_err(engine)?;
+    let finding_id = plan
+        .schema()
+        .qualified_field_with_unqualified_name("finding_id")
+        .map_err(engine)?;
+    let ordering = Expr::Column(datafusion::common::Column::new(
+        finding_id.0.cloned(),
+        finding_id.1.name(),
+    ));
+    let plan = LogicalPlan::Sort(Sort {
+        expr: vec![ordering.sort(true, false)],
+        input: Arc::new(plan),
+        fetch: None,
+    });
     let spec = registry
         .relation("runtime.diagnostics_findings")
         .ok_or_else(|| internal("diagnostic relation absent"))?;
@@ -177,27 +213,34 @@ fn applies(scope: InvariantScope<'_>, target: &RelationSpec) -> bool {
     }
 }
 
-fn strip_order(plan: LogicalPlan) -> LogicalPlan {
-    if let LogicalPlan::Sort(sort) = plan {
-        sort.input.as_ref().clone()
-    } else {
-        plan
+#[derive(Clone, Copy)]
+struct Check<'a> {
+    id: pse_ids::SemanticId,
+    relation: &'a str,
+    severity: pse_schema::model::Severity,
+}
+impl<'a> From<&'a InvariantSpec> for Check<'a> {
+    fn from(value: &'a InvariantSpec) -> Self {
+        Self {
+            id: value.id,
+            relation: &value.relation,
+            severity: value.severity,
+        }
     }
 }
 
 fn finding(
     input: LogicalPlan,
-    invariant: &InvariantSpec,
+    check: Check<'_>,
     status: &str,
     message: &str,
-    subject: Option<SnapshotId>,
     registry: &Registry,
 ) -> Result<LogicalPlan, RuleError> {
     let target = registry
         .relation("runtime.diagnostics_findings")
         .ok_or_else(|| internal("diagnostic output is undeclared"))?;
     let relation = registry
-        .relation(&invariant.relation)
+        .relation(check.relation)
         .ok_or_else(|| internal("finding relation absent"))?
         .id;
     let (key, subjects) = finding_values(&input, registry, target, relation)?;
@@ -205,21 +248,11 @@ fn finding(
         registry,
         target,
         "check_id",
-        ScalarValue::FixedSizeBinary(16, Some(invariant.id.as_bytes().to_vec())),
+        ScalarValue::FixedSizeBinary(16, Some(check.id.as_bytes().to_vec())),
     )?;
     let finding_id = scalar::named_id(scalar::named_id(check_id.clone(), lit(status)), key.clone());
     let output = vec![
         finding_id.alias("finding_id"),
-        constant(
-            registry,
-            target,
-            "subject_snapshot",
-            ScalarValue::FixedSizeBinary(
-                32,
-                subject.map(|id| id.content_hash().as_bytes().to_vec()),
-            ),
-        )?
-        .alias("subject_snapshot"),
         constant(
             registry,
             target,
@@ -232,7 +265,7 @@ fn finding(
             registry,
             target,
             "severity",
-            ScalarValue::Utf8(Some(invariant.severity.as_str().to_owned())),
+            ScalarValue::Utf8(Some(check.severity.as_str().to_owned())),
         )?
         .alias("severity"),
         subjects.alias("subjects"),
@@ -246,12 +279,9 @@ fn finding(
         .alias("message"),
         empty_list(registry, target, "next_steps")?.alias("next_steps"),
     ];
-    let plan = LogicalPlanBuilder::from(input)
-        .project(output)
-        .map_err(engine)?
-        .build()
-        .map_err(engine)?;
-    declare_relation_output(plan, registry, target).map_err(engine)
+    Ok(LogicalPlan::Projection(
+        Projection::try_new(output, Arc::new(input)).map_err(engine)?,
+    ))
 }
 
 fn row_evidence(
@@ -282,11 +312,16 @@ fn row_evidence(
         ScalarValue::FixedSizeBinary(16, Some(relation.as_bytes().to_vec())),
     )
     .map_err(engine)?;
-    Ok(scalar::named_fields(vec![
+    Ok(datafusion::functions::core::expr_fn::named_struct(vec![
         lit("kind"),
         lit("row"),
         lit("row"),
-        scalar::named_fields(vec![lit("relation_id"), identity, lit("row_key"), key]),
+        datafusion::functions::core::expr_fn::named_struct(vec![
+            lit("relation_id"),
+            identity,
+            lit("row_key"),
+            key,
+        ]),
         lit("execution"),
         absent,
     ]))
@@ -301,7 +336,7 @@ fn finding_values(
     let columns = input.schema().columns();
     let names = columns
         .iter()
-        .map(datafusion::common::Column::flat_name)
+        .map(|column| column.name().to_owned())
         .collect::<Vec<_>>();
     let expressions = input
         .schema()

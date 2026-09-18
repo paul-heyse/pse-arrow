@@ -35,11 +35,12 @@ pub(super) async fn plans(
                 || FieldContract::from_field(field.clone()).fk().is_some()
         },
     )? {
+        let value = occurrence.value()?;
         let reference =
             ReferenceContract::for_contract(&FieldContract::from_field(occurrence.field))
                 .map_err(external)?
                 .ok_or_else(|| DataFusionError::Plan("missing reference contract".into()))?;
-        let local = components(&reference, &column("value"));
+        let local = components(&reference, &value);
         let present = all(local.iter().cloned().map(Expr::is_not_null));
         let source = LogicalPlanBuilder::from(occurrence.input)
             .filter(present)?

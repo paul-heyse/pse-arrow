@@ -2,7 +2,7 @@
 
 # Generated registry reference
 
-Projected from the admitted registry `93d9c882646e6fe036bb5c1bd27a900f7d415175c8ddb9eda45b566a6c5f4f85`. This identity is not evidence of runtime validity.
+Projected from the admitted registry `210dcd68b023ac3d812c69c3073c740436a3092793f2a7bc88d65239c37af8e2`. This identity is not evidence of runtime validity.
 
 - [authored relations](relations/authored.md)
 - [compiled relations](relations/compiled.md)
@@ -13,5 +13,5 @@ Projected from the admitted registry `93d9c882646e6fe036bb5c1bd27a900f7d415175c8
 - [runtime relations](relations/runtime.md)
 - [Enumerations](enums.md)
 - [Extension types](extension_types.md)
-- [Executable pass contracts](passes.md)
+- [Native algorithm signatures](algorithms.md)
 - [Rules and invariants](rules.md)

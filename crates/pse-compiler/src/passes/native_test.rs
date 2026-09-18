@@ -31,7 +31,7 @@ pub(super) fn read<T: RelationRow>(rows: &Inputs, registry: &Registry) -> Vec<T>
     T::rows(&rows[&T::relation(registry).unwrap().key]).unwrap()
 }
 
-pub(super) fn session(
+pub(crate) fn session(
     registry: &Arc<Registry>,
     inputs: Inputs,
     budget: &Arc<FixedBudget>,
@@ -61,6 +61,7 @@ pub(super) fn session(
         },
         native_engine_profile(),
     )?
+    .with_query_planner(crate::query_planner())
     .candidate_checked(inputs, Arc::clone(registry), cancel)?;
     Ok((session, sources))
 }

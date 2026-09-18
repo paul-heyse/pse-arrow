@@ -2,6 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Independent expected rows exercise the actual sealed-session relational compiler.
+#![allow(
+    clippy::unwrap_used,
+    reason = "independent fixture decoding assertions"
+)]
 use datafusion::execution::runtime_env::RuntimeEnv;
 use pse_catalog::session::{
     ExecutionSettings, SnapshotSession, ThreadBudget, build_candidate_session,
@@ -15,8 +19,8 @@ use pse_rules::{
 use pse_schema::{
     Registry, RegistryBuilder,
     model::{
-        Authority, Cell, DerivationGranularity, FieldContract, FieldContract as T, Namespace,
-        RelationDecl, RuleDecl, RuleExpr, RuleHead, RulePlan, SnapshotClass,
+        Authority, Cell, DependencyMode, DerivationGranularity, FieldContract, FieldContract as T,
+        Namespace, RelationDecl, RuleDecl, RuleInput, RuleQuery, SnapshotClass,
     },
 };
 use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
@@ -183,13 +187,18 @@ fn fixture() -> (Arc<Registry>, SnapshotSession, PortBinding) {
         },
     )
 }
-fn rule(plan: RulePlan) -> pse_schema::model::RuleSpec {
+fn rule(sql: &str) -> pse_schema::model::RuleSpec {
     let declaration = RuleDecl::new(
         "fixture",
         "1",
         1,
-        RuleHead::Relation("inferred.output".to_owned()),
-        plan,
+        "inferred.output",
+        sql,
+        vec![RuleInput {
+            relation: "authored.input".into(),
+            port: "input",
+            mode: DependencyMode::Read,
+        }],
     );
     pse_schema::model::RuleSpec {
         id: SemanticId::from_bytes([42; 16]),
@@ -198,66 +207,49 @@ fn rule(plan: RulePlan) -> pse_schema::model::RuleSpec {
         stratum: declaration.stratum,
         head: declaration.head,
         assertion_relation: None,
-        plan: declaration.plan,
+        queries: declaration.queries,
+        inputs: declaration.inputs,
         negation: declaration.negation,
         monotonic: declaration.monotonic,
         conflict_policy: declaration.conflict_policy,
     }
 }
-fn scan() -> RulePlan {
-    RulePlan::Scan {
-        relation: "authored.input".to_owned(),
-        port: "input",
-    }
+fn rows(registry: &Registry, batches: &[datafusion::arrow::array::RecordBatch]) -> Vec<Vec<Cell>> {
+    batches
+        .iter()
+        .flat_map(|batch| pse_relations::cells::decode_columns(registry, batch).unwrap())
+        .collect()
 }
-fn keys(input: RulePlan) -> RulePlan {
-    RulePlan::Project {
-        input: Box::new(input),
-        columns: vec![("id".into(), RuleExpr::col("id"))],
-    }
-}
-
 #[tokio::test]
 async fn null_safe_comparisons_emit_total_boolean_decisions() {
     let (registry, session, binding) = fixture();
     for (rhs, equal) in [
-        (Cell::Bool(true), [true, false, false]),
-        (Cell::Null, [false, true, false]),
+        ("true", [true, false, false]),
+        ("NULL", [false, true, false]),
     ] {
         for distinct in [false, true] {
-            let left = Box::new(RuleExpr::col("flag"));
-            let right = Box::new(RuleExpr::Lit(rhs.clone()));
-            let decision = if distinct {
-                RuleExpr::IsDistinctFrom(left, right)
+            let comparison = if distinct {
+                "IS DISTINCT FROM"
             } else {
-                RuleExpr::IsNotDistinctFrom(left, right)
+                "IS NOT DISTINCT FROM"
             };
-            let mut source = rule(RulePlan::Project {
-                input: Box::new(scan()),
-                columns: vec![
-                    ("id".into(), RuleExpr::col("id")),
-                    ("included".into(), decision),
-                ],
-            });
-            source.head = RuleHead::Relation("inferred.decisions".to_owned());
-            let compiled = compile(&source, &binding, &session, &registry).unwrap();
+            let mut source = rule(&format!(
+                "SELECT id, flag {comparison} {rhs} AS included FROM authored.input"
+            ));
+            source.head = "inferred.decisions".into();
+            let compiled = compile(&source, &binding, &session, &registry)
+                .await
+                .unwrap();
             let result = execute(&compiled, &session, &registry, &CancellationToken::new())
                 .await
                 .unwrap();
-            let actual = result
-                .head
-                .iter()
-                .flat_map(|batch| {
-                    assert!(
-                        !batch
-                            .schema()
-                            .field_with_name("included")
-                            .unwrap()
-                            .is_nullable()
-                    );
-                    pse_relations::cells::decode_columns(&registry, batch).unwrap()
-                })
-                .collect::<Vec<_>>();
+            assert!(result.head.iter().all(|batch| {
+                !batch
+                    .schema()
+                    .field_with_name("included")
+                    .unwrap()
+                    .is_nullable()
+            }));
             let expected = equal
                 .into_iter()
                 .enumerate()
@@ -265,193 +257,119 @@ async fn null_safe_comparisons_emit_total_boolean_decisions() {
                     vec![Cell::U64(index as u64 + 1), Cell::Bool(equal != distinct)]
                 })
                 .collect::<Vec<_>>();
-            assert_eq!(actual, expected);
+            assert_eq!(rows(&registry, &result.head), expected);
         }
     }
 }
-
 #[tokio::test]
 async fn projected_join_key_keeps_its_binding_beside_a_qualified_key() {
     let (registry, session, mut binding) = fixture();
-    binding
-        .ports
-        .insert("other".to_owned(), binding.ports["input"]);
-    let projected = RulePlan::Project {
-        input: Box::new(RulePlan::Filter {
-            input: Box::new(scan()),
-            predicate: RuleExpr::IsNotNull(Box::new(RuleExpr::col("parent"))),
-        }),
-        columns: vec![("id".into(), RuleExpr::col("parent"))],
-    };
-    let source = rule(keys(RulePlan::EquiJoin {
-        left: Box::new(projected),
-        right: Box::new(RulePlan::Scan {
-            relation: "authored.input".to_owned(),
-            port: "other",
-        }),
-        keys: vec![("id".into(), "other.id".into())],
-        null_equality: pse_schema::model::NullEquality::NullEqualsNothing,
-    }));
-    let compiled = compile(&source, &binding, &session, &registry).unwrap();
-    let outcome = execute(&compiled, &session, &registry, &CancellationToken::new())
+    binding.ports.insert("other".into(), binding.ports["input"]);
+    let mut source = rule(
+        "SELECT projected.id FROM (SELECT parent AS id FROM authored.input AS input WHERE parent IS NOT NULL) AS projected JOIN authored.input AS other ON projected.id = other.id",
+    );
+    source.inputs.push(RuleInput {
+        relation: "authored.input".into(),
+        port: "other",
+        mode: DependencyMode::Read,
+    });
+    let compiled = compile(&source, &binding, &session, &registry)
         .await
         .unwrap();
-    let actual = outcome
-        .head
-        .iter()
-        .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
-        .collect::<Vec<_>>();
-    assert_eq!(actual, vec![vec![Cell::U64(2)], vec![Cell::U64(3)]]);
+    let result = execute(&compiled, &session, &registry, &CancellationToken::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        rows(&registry, &result.head),
+        vec![vec![Cell::U64(2)], vec![Cell::U64(3)]]
+    );
 }
-
 #[tokio::test]
 async fn registered_native_calls_use_actual_coercion_and_return_fields() {
     let (registry, session, binding) = fixture();
-    let expression = RuleExpr::call(
-        "coalesce",
-        vec![RuleExpr::col("id"), RuleExpr::Lit(Cell::U64(0))],
-        T::native(datafusion::arrow::datatypes::DataType::UInt64),
-        false,
-    );
-    let source = rule(RulePlan::Project {
-        input: Box::new(scan()),
-        columns: vec![("id".into(), expression)],
-    });
-    let compiled = compile(&source, &binding, &session, &registry).unwrap();
-    let output = execute(&compiled, &session, &registry, &CancellationToken::new())
+    let source = rule("SELECT coalesce(id, CAST(0 AS BIGINT UNSIGNED)) AS id FROM authored.input");
+    let compiled = compile(&source, &binding, &session, &registry)
         .await
         .unwrap();
-    let actual = output
-        .head
-        .iter()
-        .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
-        .collect::<Vec<_>>();
+    let result = execute(&compiled, &session, &registry, &CancellationToken::new())
+        .await
+        .unwrap();
     assert_eq!(
-        actual,
+        rows(&registry, &result.head),
         vec![vec![Cell::U64(1)], vec![Cell::U64(2)], vec![Cell::U64(3)]]
     );
 }
-
-#[test]
-fn native_call_expectations_cannot_invent_function_or_semantic_result() {
+#[tokio::test]
+async fn native_binding_refuses_unknown_functions_and_incompatible_result_fields() {
     let (registry, session, binding) = fixture();
-    for expression in [
-        RuleExpr::call(
-            "function_not_in_retained_session",
-            vec![RuleExpr::col("id")],
-            T::native(datafusion::arrow::datatypes::DataType::UInt32),
-            false,
-        ),
-        RuleExpr::call(
-            "coalesce",
-            vec![RuleExpr::col("id"), RuleExpr::Lit(Cell::U64(0))],
-            T::id(),
-            false,
-        ),
+    for sql in [
+        "SELECT function_not_in_retained_session(id) AS id FROM authored.input",
+        "SELECT make_array(id) AS id FROM authored.input",
     ] {
-        let source = rule(RulePlan::Project {
-            input: Box::new(scan()),
-            columns: vec![("id".into(), expression)],
-        });
-        assert!(compile(&source, &binding, &session, &registry).is_err());
+        assert!(
+            compile(&rule(sql), &binding, &session, &registry)
+                .await
+                .is_err()
+        );
     }
 }
 #[tokio::test]
 async fn explicit_predicate_preserves_unknown_candidates_and_orders_actual_keys() {
     let (registry, session, binding) = fixture();
-    let rule = rule(keys(RulePlan::Assert {
-        input: Box::new(scan()),
-        predicate: RuleExpr::col("flag"),
-    }));
-    let compiled = compile(&rule, &binding, &session, &registry).unwrap();
-    let outcome = execute(&compiled, &session, &registry, &CancellationToken::new())
+    let mut source = rule("SELECT id FROM authored.input WHERE flag IS TRUE");
+    source.queries.push(RuleQuery {
+        truth: "unknown",
+        sql: "SELECT id FROM authored.input WHERE flag IS NULL".into(),
+    });
+    let compiled = compile(&source, &binding, &session, &registry)
         .await
         .unwrap();
-    let actual: Vec<_> = outcome
-        .head
-        .iter()
-        .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
-        .collect();
-    let unknown: Vec<_> = outcome
-        .undecided
-        .iter()
-        .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
-        .collect();
-    assert_eq!(actual, vec![vec![Cell::U64(1)]]);
-    assert_eq!(unknown, vec![vec![Cell::U64(2)]]);
-    assert_eq!(outcome.rules_fired[0].rows, 1);
-    assert!(outcome.explain_pgjson.contains("Plan"));
-}
-#[tokio::test]
-async fn duplicate_input_rows_are_visible_to_count_and_float_keys_are_rejected() {
-    let (registry, session, binding) = fixture();
-    let mut duplicate = keys(scan());
-    duplicate = RulePlan::Union(vec![duplicate.clone(), duplicate]);
-    let count = RulePlan::Aggregate {
-        input: Box::new(duplicate),
-        group: (vec!["id"]).into_iter().map(Into::into).collect(),
-        aggregates: vec![pse_schema::model::RuleAggregate {
-            function: pse_schema::model::RuleAggregateFn::Count,
-            input: None,
-            output_name: ("n").into(),
-            order_by: vec![],
-            null_policy: pse_schema::model::AggregateNullPolicy::Reject,
-            empty_policy: pse_schema::model::AggregateEmptyPolicy::Zero,
-        }],
-    };
-    let source = rule(keys(RulePlan::Filter {
-        input: Box::new(count),
-        predicate: RuleExpr::cmp(
-            pse_schema::model::CmpOp::Gt,
-            RuleExpr::col("n"),
-            RuleExpr::Lit(Cell::U64(1)),
-        ),
-    }));
-    let compiled = compile(&source, &binding, &session, &registry).unwrap();
     let result = execute(&compiled, &session, &registry, &CancellationToken::new())
         .await
         .unwrap();
-    let actual: Vec<_> = result
-        .head
-        .iter()
-        .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
-        .collect();
-    assert_eq!(
-        actual,
-        vec![vec![Cell::U64(1)], vec![Cell::U64(2)], vec![Cell::U64(3)]]
-    );
-    let bad = rule(keys(RulePlan::Distinct(Box::new(scan()))));
-    assert!(matches!(
-        compile(&bad, &binding, &session, &registry),
-        Err(pse_rules::RuleError::FloatKey { .. })
-    ));
+    assert_eq!(rows(&registry, &result.head), vec![vec![Cell::U64(1)]]);
+    assert_eq!(rows(&registry, &result.undecided), vec![vec![Cell::U64(2)]]);
+    assert_eq!(result.rules_fired[0].rows, 1);
+    assert!(result.plans[0].explain_pgjson().contains("Plan"));
+}
+#[tokio::test]
+async fn native_union_counts_duplicates_and_distinct_can_use_float_payloads() {
+    let (registry, session, binding) = fixture();
+    for sql in [
+        "SELECT id FROM (SELECT id FROM authored.input UNION ALL SELECT id FROM authored.input) GROUP BY id HAVING count(*) > 1",
+        "SELECT id FROM (SELECT DISTINCT * FROM authored.input)",
+    ] {
+        let compiled = compile(&rule(sql), &binding, &session, &registry)
+            .await
+            .unwrap();
+        let result = execute(&compiled, &session, &registry, &CancellationToken::new())
+            .await
+            .unwrap();
+        assert_eq!(
+            rows(&registry, &result.head),
+            vec![vec![Cell::U64(1)], vec![Cell::U64(2)], vec![Cell::U64(3)]]
+        );
+    }
 }
 #[tokio::test]
 async fn unnest_retains_parent_keys_and_obeys_explicit_null_policy() {
     let (registry, session, binding) = fixture();
-    let expansion = RulePlan::Unnest {
-        input: Box::new(scan()),
-        column: ("members").into(),
-        value_name: ("member").into(),
-        null_list: pse_schema::model::NullListPolicy::NoMembers,
-        empty_list: pse_schema::model::EmptyListPolicy::NoMembers,
-    };
-    let source = rule(RulePlan::Distinct(Box::new(keys(expansion.clone()))));
-    let compiled = compile(&source, &binding, &session, &registry).unwrap();
+    let source = rule(
+        "SELECT DISTINCT id FROM (SELECT id, unnest(coalesce(members, [])) AS member FROM authored.input)",
+    );
+    let compiled = compile(&source, &binding, &session, &registry)
+        .await
+        .unwrap();
     let result = execute(&compiled, &session, &registry, &CancellationToken::new())
         .await
         .unwrap();
-    let actual: Vec<_> = result
-        .head
-        .iter()
-        .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
-        .collect();
-    assert_eq!(actual, vec![vec![Cell::U64(1)]]);
-    let mut reject = expansion;
-    if let RulePlan::Unnest { null_list, .. } = &mut reject {
-        *null_list = pse_schema::model::NullListPolicy::Reject;
-    }
-    let compiled = compile(&rule(keys(reject)), &binding, &session, &registry).unwrap();
+    assert_eq!(rows(&registry, &result.head), vec![vec![Cell::U64(1)]]);
+    let source = rule(
+        "SELECT id FROM (SELECT id, unnest(pse_require_nonnull(members)) AS member FROM authored.input)",
+    );
+    let compiled = compile(&source, &binding, &session, &registry)
+        .await
+        .unwrap();
     assert!(
         execute(&compiled, &session, &registry, &CancellationToken::new())
             .await
@@ -459,74 +377,55 @@ async fn unnest_retains_parent_keys_and_obeys_explicit_null_policy() {
     );
 }
 #[tokio::test]
-async fn recursive_closure_matches_independent_edges_and_rejects_unfinished_work() {
+async fn native_recursive_cte_matches_independent_edges_and_cancellation_refuses_completion() {
     let (registry, session, binding) = fixture();
-    let edges = RulePlan::Filter {
-        input: Box::new(scan()),
-        predicate: RuleExpr::IsNotNull(Box::new(RuleExpr::col("parent"))),
-    };
-    let seed = RulePlan::Project {
-        input: Box::new(edges.clone()),
-        columns: vec![
-            ("origin".into(), RuleExpr::col("id")),
-            ("reached".into(), RuleExpr::col("parent")),
-        ],
-    };
-    let next = RulePlan::Project {
-        input: Box::new(edges),
-        columns: vec![
-            ("from".into(), RuleExpr::col("id")),
-            ("next".into(), RuleExpr::col("parent")),
-        ],
-    };
-    let step = RulePlan::Project {
-        input: Box::new(RulePlan::EquiJoin {
-            left: Box::new(RulePlan::RecursiveRef { name: "reach" }),
-            right: Box::new(next),
-            keys: (vec![("reached", "from")])
-                .into_iter()
-                .map(|(left, right)| (left.into(), right.into()))
-                .collect(),
-            null_equality: pse_schema::model::NullEquality::NullEqualsNothing,
-        }),
-        columns: vec![
-            ("origin".into(), RuleExpr::col("origin")),
-            ("reached".into(), RuleExpr::col("next")),
-        ],
-    };
-    let recursive = RulePlan::Recursive {
-        name: "reach",
-        seed: Box::new(seed),
-        step: Box::new(step),
-        is_distinct: false,
-        depth_bound: pse_schema::model::DepthBound::SeedRows,
-    };
-    let mut source = rule(recursive);
-    source.head = RuleHead::Relation("inferred.closure".to_owned());
-    let compiled = compile(&source, &binding, &session, &registry).unwrap();
-    let outcome = execute(&compiled, &session, &registry, &CancellationToken::new())
+    let cancel = CancellationToken::new();
+    let inputs = binding.ports.values().copied().collect::<Vec<_>>();
+    let plan = session
+        .bind_declared_query(
+            "WITH RECURSIVE reach(origin, reached) AS (
+        SELECT id, parent FROM authored.input WHERE parent IS NOT NULL
+        UNION ALL SELECT reach.origin, edges.parent FROM reach JOIN authored.input AS edges
+        ON reach.reached = edges.id WHERE edges.parent IS NOT NULL)
+        SELECT origin, reached FROM reach ORDER BY origin, reached",
+            &inputs,
+            &cancel,
+        )
         .await
         .unwrap();
-    let actual: Vec<_> = outcome
-        .head
-        .iter()
-        .flat_map(|batch| pse_relations::cells::decode_columns(&registry, batch).unwrap())
-        .collect();
+    let result = session
+        .prepare(plan, &cancel)
+        .unwrap()
+        .execute(&cancel)
+        .await
+        .unwrap()
+        .into_batches();
     assert_eq!(
-        actual,
+        rows(&registry, &result),
         vec![
             vec![Cell::U64(1), Cell::U64(2)],
             vec![Cell::U64(1), Cell::U64(3)],
             vec![Cell::U64(2), Cell::U64(3)]
         ]
     );
-    if let RulePlan::Recursive { step, .. } = &mut source.plan {
-        **step = RulePlan::RecursiveRef { name: "reach" };
-    }
-    let compiled = compile(&source, &binding, &session, &registry).unwrap();
-    assert!(
-        execute(&compiled, &session, &registry, &CancellationToken::new())
-            .await
-            .is_err()
-    );
+    let plan = session
+        .bind_declared_query(
+            "WITH RECURSIVE repeated(id) AS (
+        SELECT id FROM authored.input UNION ALL SELECT id FROM repeated)
+        SELECT id FROM repeated",
+            &inputs,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let mut stream = session
+        .prepare(plan, &cancel)
+        .unwrap()
+        .execute_stream(&cancel)
+        .await
+        .unwrap();
+    assert!(stream.next_batch(&cancel).await.unwrap().is_some());
+    cancel.cancel();
+    assert!(stream.next_batch(&cancel).await.is_err());
+    assert!(!stream.is_complete());
 }

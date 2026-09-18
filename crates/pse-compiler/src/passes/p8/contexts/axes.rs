@@ -4,17 +4,21 @@
 //! Ordered law axes come from declared names and their actual instance bindings.
 use super::native::{Sources, append, c, error, join, project, require};
 use crate::CompilerError;
+use datafusion::functions_aggregate::expr_fn::array_agg;
+use datafusion::functions_nested::expr_fn::array_element;
 use datafusion::{
     common::UnnestOptions,
     functions::core::expr_fn::coalesce,
     functions_nested::expr_fn::{array_length, range},
     logical_expr::{ExprFunctionExt, JoinType, LogicalPlan, LogicalPlanBuilder, col, lit},
 };
-use pse_catalog::session::aggregate::array_agg;
 use pse_catalog::session::scalar;
-use pse_catalog::session::scalar::array_element;
 use pse_ids::CancellationToken;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "apply keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn apply(
     base: LogicalPlan,
     sources: &mut Sources<'_>,

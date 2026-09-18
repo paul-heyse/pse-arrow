@@ -7,7 +7,6 @@
 
 mod collection;
 mod selection;
-pub use selection::{max, min};
 
 use datafusion::{
     arrow::{
@@ -17,28 +16,28 @@ use datafusion::{
     common::{DataFusionError, Result, ScalarValue},
     functions_aggregate::array_agg::array_agg_udaf,
     logical_expr::{
-        Accumulator, AggregateUDF, AggregateUDFImpl, Expr, GroupsAccumulator, ReversedUDAF,
-        Signature,
+        Accumulator, AggregateUDF, AggregateUDFImpl, GroupsAccumulator, ReversedUDAF, Signature,
         function::{AccumulatorArgs, StateFieldsArgs},
         utils::AggregateOrderSensitivity,
     },
 };
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
-static COLLECTION: LazyLock<Arc<AggregateUDF>> = LazyLock::new(|| {
-    Arc::new(AggregateUDF::from(Collection {
-        native: array_agg_udaf(),
-    }))
-});
-
-pub(crate) fn functions() -> impl Iterator<Item = Arc<AggregateUDF>> {
-    std::iter::once(Arc::clone(&COLLECTION)).chain(selection::functions())
+pub(crate) fn adapt(function: &Arc<AggregateUDF>) -> Option<Arc<AggregateUDF>> {
+    if function.as_ref() == array_agg_udaf().as_ref() {
+        Some(Arc::new(AggregateUDF::from(Collection {
+            native: Arc::clone(function),
+        })))
+    } else {
+        selection::adapt(function)
+    }
 }
-
-/// Native `ARRAY_AGG` with the complete input field retained as its list child.
-/// ORDER BY, DISTINCT, FILTER and null handling use DataFusion's expression builder.
-pub fn array_agg(value: Expr) -> Expr {
-    COLLECTION.call(vec![value])
+pub(crate) fn native(function: &AggregateUDF) -> Option<&Arc<AggregateUDF>> {
+    if let Some(collection) = function.inner().downcast_ref::<Collection>() {
+        Some(&collection.native)
+    } else {
+        selection::native(function)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -48,7 +47,7 @@ struct Collection {
 
 impl AggregateUDFImpl for Collection {
     fn name(&self) -> &'static str {
-        "pse_array_agg"
+        "array_agg"
     }
     fn signature(&self) -> &Signature {
         self.native.signature()
@@ -124,7 +123,9 @@ impl AggregateUDFImpl for Collection {
             }))
     }
     fn reverse_expr(&self) -> ReversedUDAF {
-        ReversedUDAF::Reversed(Arc::clone(&COLLECTION))
+        ReversedUDAF::Reversed(Arc::new(AggregateUDF::from(Collection {
+            native: Arc::clone(&self.native),
+        })))
     }
     fn supports_null_handling_clause(&self) -> bool {
         self.native.supports_null_handling_clause()
@@ -178,5 +179,5 @@ fn restore_scalar(value: ScalarValue, field: &FieldRef) -> Result<ScalarValue> {
 }
 
 fn invalid(reason: &str) -> DataFusionError {
-    DataFusionError::Internal(format!("pse_array_agg: {reason}"))
+    DataFusionError::Internal(format!("array_agg field transfer: {reason}"))
 }

@@ -15,9 +15,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// The generated contract identity, not evidence of row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    94u8, 29u8, 10u8, 208u8, 36u8, 211u8, 26u8, 1u8, 89u8, 194u8, 142u8, 207u8, 89u8,
-    228u8, 92u8, 95u8, 54u8, 188u8, 196u8, 176u8, 189u8, 18u8, 97u8, 188u8, 126u8, 157u8,
-    252u8, 6u8, 147u8, 179u8, 181u8, 87u8,
+    254u8, 18u8, 94u8, 130u8, 195u8, 168u8, 58u8, 11u8, 59u8, 115u8, 210u8, 242u8, 188u8,
+    41u8, 47u8, 228u8, 137u8, 220u8, 107u8, 247u8, 174u8, 61u8, 248u8, 86u8, 144u8,
+    197u8, 39u8, 100u8, 12u8, 246u8, 20u8, 43u8,
 ]);
 /// A row or nested value projected from the registry declaration.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -30,9 +30,9 @@ pub struct CompiledMathComplementarityRow {
     ///pair_id
     pub r#pair_id: pse_ids::SemanticId,
     ///expr_a_node_id
-    pub r#expr_a_node_id: u64,
+    pub r#expr_a_node_id: i64,
     ///expr_b_node_id
-    pub r#expr_b_node_id: u64,
+    pub r#expr_b_node_id: i64,
     ///formulation
     pub r#formulation: crate::generated::enums::ComplementarityForm,
 }
@@ -67,14 +67,14 @@ impl crate::typed::CellCodec for CompiledMathComplementarityRow {
                         stringify!(CompiledMathComplementarityRow),
                     ))?,
             )?,
-            r#expr_a_node_id: <u64 as crate::typed::CellCodec>::from_cell(
+            r#expr_a_node_id: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
                         stringify!(CompiledMathComplementarityRow),
                     ))?,
             )?,
-            r#expr_b_node_id: <u64 as crate::typed::CellCodec>::from_cell(
+            r#expr_b_node_id: <i64 as crate::typed::CellCodec>::from_cell(
                 values
                     .next()
                     .ok_or_else(|| crate::typed::mismatch(
@@ -126,8 +126,8 @@ impl crate::columnar::ArrowValue for CompiledMathComplementarityRow {
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <crate::generated::enums::ComplementarityForm as crate::columnar::ArrowValue>::append_null(
             children[3usize].as_mut(),
         )?;
@@ -145,11 +145,11 @@ impl crate::columnar::ArrowValue for CompiledMathComplementarityRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
-            r#expr_a_node_id: <u64 as crate::columnar::ArrowValue>::read(
+            r#expr_a_node_id: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#expr_b_node_id: <u64 as crate::columnar::ArrowValue>::read(
+            r#expr_b_node_id: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
                 index,
             )?,
@@ -187,7 +187,7 @@ impl CompiledMathComplementarityRow {
         )
     }
 }
-const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"e9f018658f2f16fb85ec135e9b980236\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"math_complementarity\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"pair_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"pair_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"pair_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"pair_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"expr_a_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"expr_a_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"expr_a_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"expr_b_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"expr_b_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"expr_b_node_id\"],[\"text\",\"\\\"UInt64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"u64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"formulation\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"formulation\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ComplementarityForm\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"formulation\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"98274f71c33d9b500c3fb02012671222\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"98274f71c33d9b500c3fb02012671222\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ComplementarityForm\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ComplementarityForm\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"98274f71c33d9b500c3fb02012671222\\\"}\"],[\"struct\",[[\"id\",\"98274f71c33d9b500c3fb02012671222\"],[\"text\",\"ComplementarityForm\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"smooth_eps\"],[\"null\",null],[\"bool\",false],[\"text\",\"smooth_eps\"]]],[\"struct\",[[\"text\",\"binary\"],[\"null\",null],[\"bool\",false],[\"text\",\"binary\"]]],[\"struct\",[[\"text\",\"sos1\"],[\"null\",null],[\"bool\",false],[\"text\",\"sos1\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.9 math: math_complementarity.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"e9f018658f2f16fb85ec135e9b980236\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
+const COMPILED_DECLARATION: &str = "[\"struct\",[[\"text\",\"compiled_relation_v1\"],[\"id\",\"e9f018658f2f16fb85ec135e9b980236\"],[\"struct\",[[\"text\",\"compiled\"],[\"text\",\"math_complementarity\"],[\"u64\",1]]],[\"text\",\"derived\"],[\"text\",\"derived\"],[\"text\",\"row\"],[\"text\",\"evolving\"],[\"list\",[[\"text\",\"pair_id\"]]],[\"list\",[[\"struct\",[[\"struct\",[[\"text\",\"pair_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"pair_id\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"text\",\"pair_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"semantic_id\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"key\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"semantic_id\"],[\"text\",\"pse.semantic_id\"],[\"text\",\"{\\\"FixedSizeBinary\\\":16}\"],[\"text\",\"version_only\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1}\"],[\"null\",null],[\"text\",\"128-bit semantic identity (blueprint §5.1).\"]]],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"expr_a_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"expr_a_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"expr_a_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"expr_b_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"expr_b_node_id\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]],[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]]]]]],[\"struct\",[[\"text\",\"expr_b_node_id\"],[\"text\",\"\\\"Int64\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.semantic.integer_range\"],[\"text\",\"[0,9223372036854775807]\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"i64\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"null\",null],[\"list\",[]]]],[\"null\",null]]],[\"struct\",[[\"struct\",[[\"text\",\"formulation\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"pse.domain.doc\"],[\"text\",\"formulation\"]]],[\"struct\",[[\"text\",\"pse.domain.extension\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.domain.parameter\"],[\"text\",\"ComplementarityForm\"]]],[\"struct\",[[\"text\",\"pse.domain.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"text\",\"formulation\"],[\"text\",\"\\\"Utf8\\\"\"],[\"bool\",false],[\"list\",[[\"struct\",[[\"text\",\"ARROW:extension:metadata\"],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"98274f71c33d9b500c3fb02012671222\\\"}\"]]],[\"struct\",[[\"text\",\"ARROW:extension:name\"],[\"text\",\"pse.enum\"]]],[\"struct\",[[\"text\",\"pse.semantic.enum\"],[\"text\",\"98274f71c33d9b500c3fb02012671222\"]]],[\"struct\",[[\"text\",\"pse.semantic.logical_type\"],[\"text\",\"enum:ComplementarityForm\"]]],[\"struct\",[[\"text\",\"pse.semantic.role\"],[\"text\",\"payload\"]]]]]]],[\"struct\",[[\"struct\",[[\"text\",\"extension\"],[\"text\",\"enum:ComplementarityForm\"],[\"text\",\"pse.enum\"],[\"text\",\"\\\"Utf8\\\"\"],[\"text\",\"enum\"],[\"u64\",1],[\"text\",\"{\\\"v\\\":1,\\\"enum_id\\\":\\\"98274f71c33d9b500c3fb02012671222\\\"}\"],[\"struct\",[[\"id\",\"98274f71c33d9b500c3fb02012671222\"],[\"text\",\"ComplementarityForm\"],[\"null\",null],[\"list\",[[\"struct\",[[\"text\",\"smooth_eps\"],[\"null\",null],[\"bool\",false],[\"text\",\"smooth_eps\"]]],[\"struct\",[[\"text\",\"binary\"],[\"null\",null],[\"bool\",false],[\"text\",\"binary\"]]],[\"struct\",[[\"text\",\"sos1\"],[\"null\",null],[\"bool\",false],[\"text\",\"sos1\"]]]]]]],[\"text\",\"A closed enumeration; the metadata carries the `enum_id`.\"]]],[\"list\",[]]]],[\"null\",null]]]]],[\"text\",\"blueprint §6.9 math: math_complementarity.\"],[\"list\",[[\"struct\",[[\"text\",\"pse.contract.checks\"],[\"text\",\"{}\"]]],[\"struct\",[[\"text\",\"pse.contract.delta_properties\"],[\"text\",\"{\\\"delta.checkpointInterval\\\":\\\"10\\\",\\\"delta.enableChangeDataFeed\\\":\\\"true\\\",\\\"delta.enableExpiredLogCleanup\\\":\\\"false\\\",\\\"delta.minWriterVersion\\\":\\\"3\\\"}\"]]],[\"struct\",[[\"text\",\"pse.contract.id\"],[\"text\",\"e9f018658f2f16fb85ec135e9b980236\"]]],[\"struct\",[[\"text\",\"pse.contract.version\"],[\"text\",\"1\"]]],[\"struct\",[[\"text\",\"pse.namespace\"],[\"text\",\"compiled\"]]]]]]]";
 /// Resolves this exact generated contract in a runtime registry.
 /// # Errors
 /// A missing or incompatible declaration.
@@ -263,7 +263,7 @@ impl crate::columnar::RelationRow for CompiledMathComplementarityRow {
         CompiledMathComplementarityView::from_checked(batch)?.rows()
     }
     fn builder_allocation_size() -> usize {
-        41_536_usize + size_of::<Self::Builder>()
+        46_016_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
         72usize
@@ -324,8 +324,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
 pub struct CompiledMathComplementarityView<'a> {
     batch: &'a crate::RecordBatch,
     pair_id_column: &'a arrow_array::FixedSizeBinaryArray,
-    expr_a_node_id_column: &'a arrow_array::UInt64Array,
-    expr_b_node_id_column: &'a arrow_array::UInt64Array,
+    expr_a_node_id_column: &'a arrow_array::Int64Array,
+    expr_b_node_id_column: &'a arrow_array::Int64Array,
     formulation_column: &'a arrow_array::StringArray,
 }
 impl<'a> CompiledMathComplementarityView<'a> {
@@ -368,10 +368,10 @@ impl<'a> CompiledMathComplementarityView<'a> {
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(0usize).as_ref())?,
             expr_a_node_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(1usize).as_ref())?,
             expr_b_node_id_column: crate::columnar::array::<
-                arrow_array::UInt64Array,
+                arrow_array::Int64Array,
             >(batch.column(2usize).as_ref())?,
             formulation_column: crate::columnar::array::<
                 arrow_array::StringArray,
@@ -407,7 +407,7 @@ impl<'a> CompiledMathComplementarityView<'a> {
         "expr_a_node_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn expr_a_node_id_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn expr_a_node_id_column(&self) -> &'a arrow_array::Int64Array {
         self.expr_a_node_id_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "expr_a_node_id", "`.")]
@@ -419,7 +419,7 @@ impl<'a> CompiledMathComplementarityView<'a> {
         "expr_b_node_id",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn expr_b_node_id_column(&self) -> &'a arrow_array::UInt64Array {
+    pub const fn expr_b_node_id_column(&self) -> &'a arrow_array::Int64Array {
         self.expr_b_node_id_column
     }
     #[doc = concat!("Borrows the exact declared field for `", "expr_b_node_id", "`.")]
@@ -529,6 +529,29 @@ impl CompiledMathComplementarityBuilder {
         &mut self,
         row: CompiledMathComplementarityRow,
     ) -> Result<(), crate::RelationError> {
+        let row_index = self.columns.len();
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&(row.r#expr_a_node_id).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "expr_a_node_id",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
+        if !((0_i64..=9_223_372_036_854_775_807_i64)
+            .contains(&(row.r#expr_b_node_id).to_owned()))
+        {
+            return Err(
+                crate::columnar::value_error(
+                    "expr_b_node_id",
+                    row_index,
+                    "value outside declared integer domain",
+                ),
+            );
+        }
         self.columns
             .append(move |columns| {
                 let row = &row;

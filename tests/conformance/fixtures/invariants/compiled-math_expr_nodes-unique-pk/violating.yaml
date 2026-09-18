@@ -3,15 +3,19 @@
   "rows": {
     "compiled.math_expr_nodes": [
       {
-        "node_id": "[\"u64\",1]",
+        "children": "[\"list\",[]]",
+        "node_id": "[\"i64\",1]",
         "opcode": "[\"enum\",\"Const\"]",
+        "payload": "[\"struct\",[[\"text\",\"affine\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"f64\",\"3ff0000000000000\"],[\"id\",\"01010101010101010101010101010101\"],[\"id\",\"01010101010101010101010101010101\"],[\"list\",[]]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "scope_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "subtree_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
       },
       {
-        "node_id": "[\"u64\",1]",
+        "children": "[\"list\",[]]",
+        "node_id": "[\"i64\",1]",
         "opcode": "[\"enum\",\"Const\"]",
+        "payload": "[\"struct\",[[\"text\",\"affine\"],[\"null\",null],[\"null\",null],[\"null\",null],[\"struct\",[[\"f64\",\"3ff0000000000000\"],[\"id\",\"01010101010101010101010101010101\"],[\"id\",\"01010101010101010101010101010101\"],[\"list\",[]]]],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null],[\"null\",null]]]",
         "quantity_type_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "scope_instance_id": "[\"id\",\"01010101010101010101010101010101\"]",
         "subtree_hash": "[\"hash\",\"0101010101010101010101010101010101010101010101010101010101010101\"]"
@@ -20,7 +24,7 @@
   },
   "expected_keys": [
     [
-      "[\"u64\",1]"
+      "[\"i64\",1]"
     ]
   ]
 }

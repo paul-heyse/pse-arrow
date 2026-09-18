@@ -4,7 +4,7 @@
 //! P3 retains actual construction outputs and their explicit source occurrences.
 use super::invalid;
 use crate::{
-    CompilerError, InputBundle,
+    AlgorithmInputs, CompilerError,
     passes::native_outputs::{self, GeneratedOutputs, Sources},
 };
 use pse_catalog::session::SnapshotSession;
@@ -13,7 +13,7 @@ use pse_relations::{columnar::FieldCheckedBatch, generated::provenance::derivati
 use pse_rules::strata::{LocatedRuleInput, RuleInputLocation, native_input::NativeInput};
 use pse_schema::{
     Registry,
-    model::{PassSpec, RelationKey},
+    model::{AlgorithmSpec, RelationKey},
 };
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -24,7 +24,7 @@ pub(super) struct Construction {
 impl Construction {
     pub(super) fn new(
         checked: &BTreeMap<RelationKey, FieldCheckedBatch>,
-        inputs: &InputBundle,
+        inputs: &AlgorithmInputs,
         registry: &Registry,
     ) -> Result<Self, CompilerError> {
         let sources = Sources::from_inputs(inputs, registry)?;
@@ -92,7 +92,7 @@ impl Construction {
 pub(super) async fn materialize(
     generated: GeneratedOutputs,
     construction: &Construction,
-    pass: &PassSpec,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<RelationKey, Arc<NativeInput>>, CompilerError> {

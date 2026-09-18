@@ -5,9 +5,9 @@
 
 use super::invalid;
 use crate::{
-    CompilerError, InputBundle, PassContext,
+    AlgorithmContext, AlgorithmInputs, CompilerError,
     mathir_relations::{Family, RelationSink, RelationSource, SourceFamily},
-    passes::native_rows::{AlgorithmInputs, column, engine, join, project, scan},
+    passes::native_rows::{AlgorithmInputs as NativeRows, column, engine, join, project, scan},
     quantity_relations::RelationSymbolSource,
 };
 use datafusion::logical_expr::{JoinType, LogicalPlan, LogicalPlanBuilder, col, lit};
@@ -23,16 +23,16 @@ use pse_relations::{
     columnar::{Collection, FieldCheckedBatch, RelationRow},
     generated::{compiled, enums::ExpressionRootRole, inferred},
 };
-use pse_schema::model::{PassSpec, RelationKey, RelationSpec};
+use pse_schema::model::{AlgorithmSpec, RelationKey, RelationSpec};
 use std::collections::{BTreeMap, BTreeSet};
 
 type Rows = BTreeMap<RelationKey, FieldCheckedBatch>;
-type RootKey = (SemanticId, ExpressionRootRole, u16);
+type RootKey = (SemanticId, ExpressionRootRole, i64);
 
 pub(super) async fn run(
-    ctx: &PassContext<'_>,
-    inputs: &InputBundle,
-    pass: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    inputs: &AlgorithmInputs,
+    pass: &AlgorithmSpec,
 ) -> Result<Rows, CompilerError> {
     let registry = ctx.registry.as_ref();
     let cancel = ctx.cancel;
@@ -60,7 +60,7 @@ pub(super) async fn run(
         ));
     }
     let symbols = RelationSymbolSource::load(ctx, inputs).await?;
-    let mut arguments = AlgorithmInputs::new(ctx.reserver, "P10:typed-graph-inputs");
+    let mut arguments = NativeRows::new(ctx.reserver, "P10:typed-graph-inputs");
     let roots = rows::<compiled::expression_roots::Row>(&mut arguments, &session, cancel).await?;
     let axes =
         rows::<compiled::expression_root_indices::Row>(&mut arguments, &session, cancel).await?;
@@ -149,8 +149,8 @@ fn root_environments(
 }
 
 async fn canonical_rows(
-    ctx: &PassContext<'_>,
-    pass: &PassSpec,
+    ctx: &AlgorithmContext<'_>,
+    pass: &AlgorithmSpec,
     session: &SnapshotSession,
     checked: &Rows,
     graph: &pse_mathir::CanonicalGraph,
@@ -212,7 +212,7 @@ async fn canonical_rows(
 }
 
 async fn rows<T: RelationRow>(
-    arguments: &mut AlgorithmInputs,
+    arguments: &mut NativeRows,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<Vec<T>, CompilerError> {
@@ -231,7 +231,7 @@ async fn rows<T: RelationRow>(
 }
 
 async fn contribution_types(
-    arguments: &mut AlgorithmInputs,
+    arguments: &mut NativeRows,
     session: &SnapshotSession,
     cancel: &CancellationToken,
 ) -> Result<BTreeMap<SemanticId, QuantityTypeId>, CompilerError> {

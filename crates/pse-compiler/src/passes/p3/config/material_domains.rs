@@ -24,6 +24,10 @@ use pse_relations::{
 };
 use std::collections::BTreeMap;
 
+#[expect(
+    clippy::too_many_lines,
+    reason = "bind keeps the native relation inputs and dependency ordered assembly visible in one place"
+)]
 pub(super) async fn bind(
     config: &mut Configuration<'_>,
     instance: &authored::instances::Row,
@@ -377,7 +381,7 @@ fn emit_member(
     let row = authored::domain_members::Row {
         domain_id: domain,
         member_id: member,
-        ordinal,
+        ordinal: i64::from(ordinal),
         label,
         coordinate: None,
         ref_entity_id: if phase.is_some() && species.is_some() {

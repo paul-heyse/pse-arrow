@@ -27,7 +27,7 @@ impl Realizer<'_> {
         let mut symbols = self.symbols.values().cloned().collect::<Vec<_>>();
         symbols.sort_by_key(|symbol| symbol.symbol_id);
         for (ordinal, mut row) in symbols.into_iter().enumerate() {
-            row.ordinal = u64::try_from(ordinal).map_err(|_| invalid("symbol ordinal overflow"))?;
+            row.ordinal = i64::try_from(ordinal).map_err(|_| invalid("symbol ordinal overflow"))?;
             self.active_support = self
                 .symbol_support
                 .get(&row.symbol_id)
@@ -59,10 +59,8 @@ impl Realizer<'_> {
                         support.extend(nodes.get(&NodeId(node)).into_iter().flatten().copied());
                     }
                 }
-                for (name, values) in [
-                    ("indexed_equation_id", equations),
-                    ("kernel_binding_id", kernels),
-                ] {
+                for (name, values) in [("indexed_equation_id", equations), ("binding_id", kernels)]
+                {
                     if let Some(id) = identity(input, name, row)? {
                         support.extend(values.get(&id).into_iter().flatten().copied());
                     }

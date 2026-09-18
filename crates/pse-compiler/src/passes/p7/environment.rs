@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 use super::{Realizer, invalid};
-use crate::CompilerError;
+use crate::{CompilerError, mathir_relations::domain::DomainValue};
 use pse_ids::SemanticId;
 use pse_mathir::{DomainRef, Payload, ValueRef};
 use pse_quantity::{BoundIndexId, BoundIndexRef, DomainId, QuantityTypeId, UnitId};
@@ -60,6 +60,10 @@ macro_rules! configuration_literal {
 }
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "environment keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn environment(
         &self,
         instance: &inferred::instances::Row,
@@ -101,11 +105,7 @@ impl Realizer<'_> {
             .iter()
             .filter(|row| row.source_id == source)
         {
-            let reference = DomainRef::from_columns(
-                row.domain_id.map(DomainId::from_id),
-                row.template_id,
-                row.domain_name.clone(),
-            )?;
+            let reference = row.domain.domain_ref()?;
             let domain = match &reference {
                 DomainRef::Actual(domain) => *domain,
                 DomainRef::Template { .. } => *env.domains.get(&reference).ok_or_else(|| {
@@ -162,7 +162,7 @@ impl Realizer<'_> {
         }
         if self
             .registry
-            .pass("P9@1")
+            .algorithm("P9@1")
             .is_some_and(|pass| pass.id == self.pass)
         {
             env.unbound_parameters.extend(

@@ -26,10 +26,20 @@ pub(super) fn emit(
     )?;
     output.use_row(declared);
     let groups = output.rows::<compiled::symbol_groups::Row>()?;
-    let source = groups
+    let owner_instance_id = if let Some(source) = inputs
+        .symbol_groups
         .iter()
         .find(|row| row.group_id == projection.source_group)
-        .ok_or_else(|| invalid("law projection source group absent"))?;
+    {
+        output.use_row(source);
+        source.owner_instance_id
+    } else {
+        groups
+            .iter()
+            .find(|row| row.group_id == projection.source_group)
+            .ok_or_else(|| invalid("law projection source group absent"))?
+            .owner_instance_id
+    };
     let group_id = projection.group.group;
     let expected = compiled::group_projections::Row {
         group_id,
@@ -63,7 +73,7 @@ pub(super) fn emit(
     output.push(expected)?;
     output.push(compiled::symbol_groups::Row {
         group_id,
-        owner_instance_id: source.owner_instance_id,
+        owner_instance_id,
         name: format!(
             "projection:{}:{:?}",
             projection.source_group.to_hex(),

@@ -8,9 +8,10 @@ use crate::{
     CompilerError,
     passes::native_rows::{AlgorithmInputs, Keyed},
 };
+use n::expression_sources::NormalizedExpressionSourcesFieldOwnerSelected as Owner;
 use pse_catalog::session::SnapshotSession;
 use pse_ids::{CancellationToken, MemoryReserver, SemanticId};
-use pse_mathir::NodeId;
+use pse_mathir::{DomainRef, NodeId};
 use pse_relations::{
     columnar::{FieldCheckedBatch, RelationRow},
     generated::{inferred as i, normalized as n},
@@ -21,6 +22,10 @@ use std::collections::{BTreeMap, BTreeSet};
 pub(crate) type Origin = (RelationKey, pse_ids::ContentHash);
 pub(crate) type Support = BTreeSet<Origin>;
 pub(crate) type Inputs = BTreeMap<RelationKey, FieldCheckedBatch>;
+
+fn input_role(key: RelationKey) -> String {
+    format!("predicate-input:{}", key.qualified_name())
+}
 
 pub(crate) struct Inventory<'a> {
     pub registry: &'a Registry,
@@ -47,6 +52,20 @@ pub(crate) struct Inventory<'a> {
     pub node_origins: BTreeMap<(String, NodeId), Support>,
 }
 impl<'a> Inventory<'a> {
+    pub(crate) fn scan<T: RelationRow>(
+        &self,
+    ) -> Result<datafusion::logical_expr::LogicalPlan, CompilerError> {
+        let spec = T::relation(self.registry)?;
+        self.scan_key(spec.key)
+    }
+
+    pub(crate) fn scan_key(
+        &self,
+        key: RelationKey,
+    ) -> Result<datafusion::logical_expr::LogicalPlan, CompilerError> {
+        Ok(self.session.scan_role(&input_role(key))?)
+    }
+
     pub(crate) async fn rows<T: RelationRow>(
         &mut self,
         cancel: &CancellationToken,
@@ -64,7 +83,7 @@ impl<'a> Inventory<'a> {
         let session = session.with_checked_role_inputs(
             inputs
                 .iter()
-                .map(|(key, input)| (key.qualified_name(), input.clone()))
+                .map(|(key, input)| (input_role(*key), input.clone()))
                 .collect(),
             cancel,
         )?;
@@ -142,12 +161,11 @@ impl<'a> Inventory<'a> {
     ) -> Result<&Keyed<n::instance_bindings::Row>, CompilerError> {
         let owner = self.instance(instance)?;
         let source = &self.source(source)?.row;
-        if source.owner_instance_id.is_some_and(|id| id != instance)
-            || source
-                .owner_template_id
-                .is_some_and(|id| id != owner.row.template_id)
-            || (source.owner_instance_id.is_none() && source.owner_template_id.is_none())
-        {
+        let matches = match source.owner.selected()? {
+            Owner::Instance(value) => value.instance_id == instance,
+            Owner::Template(value) => value.template_id == owner.row.template_id,
+        };
+        if !matches {
             return Err(invalid("source owner differs from the actual instance"));
         }
         Ok(owner)
@@ -155,21 +173,22 @@ impl<'a> Inventory<'a> {
     pub(crate) fn domain(
         &self,
         instance: &n::instance_bindings::Row,
-        domain: Option<SemanticId>,
-        template: Option<SemanticId>,
-        name: Option<&str>,
+        domain: &DomainRef,
         support: &mut Support,
     ) -> Result<SemanticId, CompilerError> {
-        if let Some(domain) = domain {
-            return Ok(domain);
-        }
-        if template != Some(instance.template_id) {
+        let (template, name) = match domain {
+            DomainRef::Actual(domain) => return Ok(domain.as_id()),
+            DomainRef::Template {
+                template_id,
+                domain_name,
+            } => (*template_id, domain_name),
+        };
+        if template != instance.template_id {
             return Err(invalid("source domain belongs to another template"));
         }
-        let name = name.ok_or_else(|| invalid("source domain name absent"))?;
         let binding = unique(
             &self.domain_bindings,
-            |row| row.instance_id == instance.instance_id && row.domain_name == name,
+            |row| row.instance_id == instance.instance_id && row.domain_name == *name,
             "instance domain binding",
         )?;
         support.insert(self.origin(binding)?);

@@ -26,9 +26,9 @@ use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, Default)]
 pub(super) struct Lookup {
-    pub(super) completed: crate::change_set::plans::Completions,
+    pub(super) completed: crate::native_relations::plans::Completions,
     pub(super) source_keys: BTreeMap<(SemanticId, String), pse_ids::ContentHash>,
-    next: BTreeMap<(SemanticId, String, u32), u32>,
+    next: BTreeMap<(SemanticId, String, i64), i64>,
     pub(super) local: BTreeMap<(SemanticId, String), Vec<PathMeaning>>,
     pub(super) global: BTreeMap<String, Vec<SemanticId>>,
     pub(super) units: BTreeMap<String, Vec<SemanticId>>,
@@ -36,7 +36,7 @@ pub(super) struct Lookup {
     pub(super) resolved: Vec<FieldCheckedBatch>,
 }
 fn engine(error: datafusion::common::DataFusionError) -> AuthoringError {
-    crate::change_set::plans::engine(error)
+    crate::native_relations::plans::engine(error)
 }
 fn qualified(alias: &str, name: &str) -> Expr {
     Expr::Column(Column::new(Some(alias), name))
@@ -211,13 +211,17 @@ async fn consume(
     output: &mut Lookup,
     cancel: &CancellationToken,
 ) -> Result<(), AuthoringError> {
-    use datafusion::arrow::array::{Array, FixedSizeBinaryArray, StringArray, UInt32Array};
+    use datafusion::arrow::array::{Array, FixedSizeBinaryArray, Int64Array, StringArray};
     let mut owners = BTreeMap::new();
     let mut builder =
         normalized::resolved_source_occurrences::Builder::with_registry(session.registry(), 0)?;
-    for batch in
-        crate::change_set::plans::execute_recorded(session, plan, cancel, &mut output.completed)
-            .await?
+    for batch in crate::native_relations::plans::execute_recorded(
+        session,
+        plan,
+        cancel,
+        &mut output.completed,
+    )
+    .await?
     {
         let strings = ["field_path", "kind", "name"]
             .into_iter()
@@ -264,7 +268,7 @@ async fn consume(
             let field_path = text("field_path")?;
             let ordinal = batch
                 .column_by_name("ordinal")
-                .and_then(|array| array.as_any().downcast_ref::<UInt32Array>())
+                .and_then(|array| array.as_any().downcast_ref::<Int64Array>())
                 .ok_or_else(|| contract(None, "occurrence ordinal absent"))?
                 .value(row);
             let kind_name = text("kind")?;
@@ -473,8 +477,6 @@ fn occurrence_rows(
             field_path: field_path.clone(),
             ordinal: 0,
             source_relation_id: spec.id,
-            source_row_ordinal: u64::try_from(row_ordinal)
-                .map_err(|_| contract(None, "source ordinal overflow"))?,
             owner_kind: match section
                 .expression_owner_kind
                 .ok_or_else(|| contract(None, "source owner kind absent"))?
@@ -491,7 +493,7 @@ fn occurrence_rows(
             },
         };
         builder.push(root.clone())?;
-        let mut ordinal = 1_u32;
+        let mut ordinal = 1_i64;
         for path in paths {
             let names = path
                 .segments
@@ -538,7 +540,7 @@ async fn bind_source_keys(
         .and_then(LogicalPlanBuilder::build)
         .map_err(engine)?;
     for batch in
-        crate::change_set::plans::execute_recorded(bound, keys, cancel, &mut result.completed)
+        crate::native_relations::plans::execute_recorded(bound, keys, cancel, &mut result.completed)
             .await?
     {
         use datafusion::arrow::array::{FixedSizeBinaryArray, StringArray};

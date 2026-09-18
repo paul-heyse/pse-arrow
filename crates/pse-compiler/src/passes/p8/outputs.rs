@@ -4,7 +4,7 @@
 //! Generated law columns retain the selected arguments and graph correspondence.
 use super::{expansion::invalid, inventory::Located};
 use crate::{
-    CompilerError, PassContext,
+    AlgorithmContext, CompilerError,
     mathir_relations::{Family, RelationSink},
     passes::{
         native_graph::{identity, ordinal},
@@ -17,7 +17,7 @@ use pse_relations::{
     RecordBatch,
     columnar::{FieldCheckedBatch, RelationRow},
 };
-use pse_schema::model::{PassSpec, RelationKey};
+use pse_schema::model::{AlgorithmSpec, RelationKey};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub(super) type Support = BTreeSet<SourceKey>;
@@ -29,7 +29,7 @@ pub(super) struct Output<'a> {
     pub kernels: BTreeMap<SemanticId, Support>,
 }
 impl<'a> Output<'a> {
-    pub(super) fn new(ctx: &PassContext<'a>) -> Result<Self, CompilerError> {
+    pub(super) fn new(ctx: &AlgorithmContext<'a>) -> Result<Self, CompilerError> {
         Ok(Self {
             columns: OutputRows::new(ctx.registry, ctx.reserver, ctx.cancel)?,
             active: Support::new(),
@@ -80,8 +80,8 @@ impl<'a> Output<'a> {
         mut self,
         loaded: &LoadedMath,
         retained: &super::graph::Batches,
-        ctx: &PassContext<'_>,
-        pass: &PassSpec,
+        ctx: &AlgorithmContext<'_>,
+        pass: &AlgorithmSpec,
         sources: &Sources,
         session: &pse_catalog::session::SnapshotSession,
     ) -> Result<(BTreeMap<RelationKey, FieldCheckedBatch>, Vec<RecordBatch>), CompilerError> {
@@ -97,7 +97,7 @@ impl<'a> Output<'a> {
                 }
                 for (field, values) in [
                     ("indexed_equation_id", &self.equations),
-                    ("kernel_binding_id", &self.kernels),
+                    ("binding_id", &self.kernels),
                 ] {
                     if let Some(id) = identity(batch, field, row)? {
                         support.extend(values.get(&id).into_iter().flatten().cloned());
@@ -120,22 +120,29 @@ impl<'a> Output<'a> {
                 .registry
                 .relation(&port.relation)
                 .ok_or_else(|| invalid("law output declaration absent"))?;
-            if let std::collections::btree_map::Entry::Vacant(entry) = rows.entry(relation.key) {
-                let batch = if let Some(batch) = retained.get(&relation.key) {
-                    // Forward the completed current relation itself. Rebuilding an
-                    // unchanged row would mint a second derivation for the same fact.
-                    batch.clone()
-                } else {
-                    FieldCheckedBatch::concat_reserved(
-                        ctx.registry,
-                        relation,
-                        &[],
-                        ctx.reserver,
-                        ctx.cancel,
-                    )?
-                };
-                entry.insert(batch);
-            }
+            let produced = rows.remove(&relation.key);
+            let rebuilt = super::graph::rebuilds_graph(relation.key)
+                || crate::passes::native_graph::root_field(&relation.key).is_some();
+            let prior = retained.get(&relation.key);
+            let inputs = match (produced, prior, rebuilt) {
+                (Some(new), Some(prior), false) => vec![prior.clone(), new],
+                (Some(new), _, true) | (Some(new), None, false) => vec![new],
+                (None, Some(prior), _) => vec![prior.clone()],
+                (None, None, _) => vec![],
+            };
+            // Existing rows retain their existing derivations. Only the new rows
+            // above generated support; native Arrow concatenation keeps the full
+            // relation without reminting provenance for unchanged facts.
+            rows.insert(
+                relation.key,
+                FieldCheckedBatch::concat_reserved(
+                    ctx.registry,
+                    relation,
+                    &inputs,
+                    ctx.reserver,
+                    ctx.cancel,
+                )?,
+            );
         }
         Ok((rows, derivations))
     }

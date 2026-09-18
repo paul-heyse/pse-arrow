@@ -14,6 +14,10 @@ use pse_templates::{
 use std::collections::BTreeMap;
 
 impl Realizer<'_> {
+    #[expect(
+        clippy::too_many_lines,
+        reason = "bind_paths keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(super) fn bind_paths(
         &mut self,
         instance: &inferred::instances::Row,
@@ -214,11 +218,15 @@ impl Realizer<'_> {
             configuration: &self.inventory.configuration,
         })
     }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "emit_collection keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     fn emit_collection(
         &mut self,
         instance: SemanticId,
         source: SemanticId,
-        path: u64,
+        path: i64,
         product: SemanticId,
         quantity: SemanticId,
         group: &GroupBinding,
@@ -279,7 +287,7 @@ impl Realizer<'_> {
         &self,
         env: &mut InstantiationEnvironment,
         source: SemanticId,
-        path: u64,
+        path: i64,
         target: &inferred::path_targets::Row,
         member: &ResolvedMember,
     ) -> Result<(), CompilerError> {

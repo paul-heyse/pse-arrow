@@ -1,8 +1,9 @@
 # Simulator acceptance contract
 
 Plan 07 UD00 / ADR-0068. **Proposed oracles; runtime qualification remains open.**
-`just simulator-acceptance <new-output-directory>` runs the ordinary Rust simulator
-integration target and cold Python integration target. Missing targets, missing
+The former `simulator-acceptance` command has been deleted. Plan 08 uses the
+[current-function architecture campaign](architecture-acceptance.md). The future
+Plan 07 simulator scope below remains unscheduled. Missing targets, missing
 solvers, unavailable backends and incomplete outcomes fail; P10 inspection is not a
 substitute. All tests use a zero-failure baseline and Rust force validation.
 

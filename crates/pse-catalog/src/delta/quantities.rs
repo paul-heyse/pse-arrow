@@ -42,10 +42,11 @@ pub(super) async fn plans(
     occurrences
         .into_iter()
         .map(|occurrence| {
+            let value = occurrence.value()?;
             let values = LogicalPlanBuilder::from(occurrence.input)
                 .project(vec![
-                    get_field(column("value"), "quantity_type_id").alias("quantity"),
-                    get_field(column("value"), "unit_id").alias("unit"),
+                    get_field(value.clone(), "quantity_type_id").alias("quantity"),
+                    get_field(value, "unit_id").alias("unit"),
                 ])?
                 .build()?;
             let invalid = if let (Some(types), Some(units)) = (&types, &units) {

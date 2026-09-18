@@ -9,6 +9,7 @@ use crate::{
         native_outputs::{SourceKey, Sources},
     },
 };
+use datafusion::functions_nested::expr_fn::array_element;
 use datafusion::{
     arrow::array::{Array, BooleanArray, FixedSizeBinaryArray, ListArray},
     functions::core::expr_fn::coalesce,
@@ -16,7 +17,6 @@ use datafusion::{
     functions_nested::expr_fn::array_length,
     logical_expr::{JoinType, LogicalPlan, LogicalPlanBuilder, col, lit, when},
 };
-use pse_catalog::session::scalar::array_element;
 use pse_catalog::session::{SnapshotSession, scalar};
 use pse_ids::{CancellationToken, MemoryReserver, ReservationLease, SemanticId};
 use pse_schema::{Registry, model::RelationKey};
@@ -54,6 +54,10 @@ impl<'a> ParameterIndexProjector<'a> {
             reserver,
         }
     }
+    #[expect(
+        clippy::too_many_lines,
+        reason = "project keeps the native relation inputs and dependency ordered assembly visible in one place"
+    )]
     pub(crate) async fn project(
         &self,
         method: SemanticId,
@@ -98,12 +102,12 @@ impl<'a> ParameterIndexProjector<'a> {
         let counts = LogicalPlanBuilder::from(mappings.clone())
             .aggregate(
                 Vec::<datafusion::logical_expr::Expr>::new(),
-                [count(lit(1_u64)).alias("mapping_count")],
+                [count(lit(1_i64)).alias("mapping_count")],
             )
             .and_then(LogicalPlanBuilder::build)
             .map_err(error)?;
         let extent =
-            u64::try_from(domains.len()).map_err(|_| invalid("parameter dimension overflow"))?;
+            i64::try_from(domains.len()).map_err(|_| invalid("parameter dimension overflow"))?;
         let joined = join(parameter_rows, counts, JoinType::Inner, [lit(true)])?;
         let mut plan = append(
             joined,
@@ -133,7 +137,7 @@ impl<'a> ParameterIndexProjector<'a> {
                 [
                     c(&mapping_alias, "method_id").eq(self.sid(method)?),
                     c(&mapping_alias, "parameter_kind").eq(lit(parameter)),
-                    c(&mapping_alias, "position").eq(lit(u64::try_from(position)
+                    c(&mapping_alias, "position").eq(lit(i64::try_from(position)
                         .map_err(|_| invalid("parameter dimension overflow"))?)),
                 ],
             )?;

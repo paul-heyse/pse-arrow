@@ -467,128 +467,164 @@
     {
       "template_id": "2577134c3e12496992b50cc82ca48e67",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "3052ab8ba2de43ea991f4218a2ed9fd3",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "b089dc177dce48b99f0e475ccc67bf85",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "832aae444b324a1a9b32718e2a866f62",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "7576aa44561f4fb08fbf86b270c3d630",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "6e482b65d0cc4ad08f563d4aee4e3b72",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "13c8184cff2045859c00b728fdd76cfc",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "5454a3d1dbe940d0a0349550fb99d8c8",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "d298696baa814349be87d8fb90b6dd5e",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "79c382ff546b465f87bfa3d6b1cfb9b1",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "2fb62558e10d4e7e83877e96a2cf4f58",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "7847e98d76134bdc945a238495d0554d",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "7847e98d76134bdc945a238495d0554d",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "de055848e5fd48d0823a3210495db961",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "de055848e5fd48d0823a3210495db961",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "f73f81599948430599c4bf9a615366d1",
       "name": "p",
-      "source": "phase",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "phase",
+        "domain": null,
+        "parameter": null
+      }
     },
     {
       "template_id": "f73f81599948430599c4bf9a615366d1",
       "name": "j",
-      "source": "species",
-      "domain_id": null,
-      "parameter_name": null
+      "source": {
+        "kind": "species",
+        "domain": null,
+        "parameter": null
+      }
     }
   ],
   "template_symbols": [
