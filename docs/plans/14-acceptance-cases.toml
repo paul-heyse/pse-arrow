@@ -4,7 +4,6 @@ version = 3
 plan = 14
 review_gates = ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "PS-G1", "PS-G2", "PS-G3"]
 inventory = "docs/plans/14-execution-inventory.md"
-barrier = "build/plan14/implementation-barrier.json"
 development = "build/plan14/development-checks.json"
 implementation = ["M00", "M01", "M02", "M03", "M04", "M05", "M06", "M07", "M08", "M09", "M10", "M11", "M12", "M13", "M14", "M15", "M16", "M17", "M18", "M19", "M20", "M21"]
 deletions = ["X01", "X02", "X03", "X04", "X05", "X06", "X07", "X08", "X09", "X10", "X11", "X12"]

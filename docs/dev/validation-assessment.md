@@ -21,12 +21,10 @@ and collects pytest identities without executing them.
 ## Scope and order
 
 `scripts/validation_scope.py` owns explicit functional/performance classifications
-and expands aggregate recipes. `scripts/implementation_phase.py` checks closed
-inventory rows and a fresh source-bound implementation seal. M00–M21 and X01–X12
-must each occur once with status `complete`; text elsewhere in an evidence column
-cannot close a package. Native process recipes and aggregate campaigns
-use the same phase guard. Isolated units, compilation and pure regeneration remain
-available during implementation.
+and expands aggregate recipes. `scripts/implementation_phase.py` validates the
+current acceptance manifest and requires current functional evidence before product
+performance campaigns. The M21 source seal and inventory-closure gate were removed
+at the maintainer's request. Qualification executes directly against current source.
 
 Functional qualification includes current format/lint/governance/generation/family/
 documentation checks, workspace and native tests, release/doctest/feature/coverage
@@ -63,7 +61,7 @@ mode/profile. Missing, duplicate, skipped, wrong-profile or interrupted results 
 not qualify. Requirement coverage is separate from command exit status. Manifest
 rows remain `implemented-unqualified`; only authenticated execution proves coverage.
 
-One bounded product-input inventory owns source sealing and continuation. It includes
+One bounded product-input inventory owns execution provenance and continuation. It includes
 source, manifests/locks, generated contracts, reference packages, selected governance
 skills/rules, plans and design documents. Hashes preserve additions, removals, executable
 modes and symlink destinations. Build output, credentials in `.envrc.local`, local
@@ -87,8 +85,7 @@ advisory status; tool failures remain failures. The zero-finding target is uncha
 ## Repairs and continuation
 
 Use a fresh output directory with `--resume-from`, repeat `--rerun` for all invalidated
-gates and state `--change-reason`. A changed implementation needs current M21 closure
-and a new seal before qualifying it. Retained results must remain compatible with the
+gates and state `--change-reason`. Retained results must remain compatible with the
 current scope, source changes and their authenticated origin/artifact chain. A prior
 passing summary alone is insufficient. Performance receives the complete functional
 campaign through `--functional-from`; missing or stale coverage is refused.

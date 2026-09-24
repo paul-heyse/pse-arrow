@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     source_files(&workspace_root, &workspace_root.join("crates"), &mut source)?;
     source_files(&workspace_root, &workspace_root.join("vendor"), &mut source)?;
     let source = identity::digest(source);
-    fs::write(out_dir.join("source.identity"), source.as_bytes())?;
+    write_changed(&out_dir.join("source.identity"), source.as_bytes())?;
     let mut configuration = Vec::new();
     for name in [
         "Cargo.toml",
@@ -73,8 +73,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ));
     }
     configuration.push(("rustc".into(), rustc_version().into_bytes()));
-    fs::write(
-        out_dir.join("build.identity"),
+    write_changed(
+        &out_dir.join("build.identity"),
         identity::digest(configuration).as_bytes(),
     )?;
     Ok(())
@@ -87,12 +87,20 @@ fn stage(root: &Path, out_dir: &Path, src: &str, dst: &str) {
     println!("cargo:rerun-if-changed={}", from.display());
     let bytes = fs::read(&from).unwrap_or_default();
     let to = out_dir.join(dst);
-    if let Err(err) = fs::write(&to, bytes) {
+    if let Err(err) = write_changed(&to, &bytes) {
         println!(
             "cargo:warning=pse-buildinfo: could not write {}: {err}",
             to.display()
         );
     }
+}
+
+/// Preserve Cargo's freshness inputs when a rerun produces identical provenance.
+fn write_changed(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    if !fs::read(path).is_ok_and(|current| current == bytes) {
+        fs::write(path, bytes)?;
+    }
+    Ok(())
 }
 
 /// The `release:` line of `rustc -vV`, e.g. `1.98.1`. Falls back to `RUSTC_VERSION_HINT`

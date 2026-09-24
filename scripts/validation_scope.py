@@ -17,7 +17,6 @@ class Gate:
     recipe: str | None = None
     mode: str = ""
     profile: str = ""
-    requires_barrier: bool = False
 
 
 # Explicit classifications cover direct recipes as well as aggregate expansion.
@@ -31,59 +30,6 @@ PERFORMANCE_GATES = frozenset(
         "bench-recovery",
         "plan14-measure",
         "plan14-reviews",
-    }
-)
-QUALIFICATION_GATES = frozenset(
-    {
-        "test",
-        "test-package",
-        "test-release",
-        "doctest",
-        "doctest-release",
-        "py-test",
-        "parity",
-        "parity-container",
-        "governance-tests",
-        "coverage",
-        "assessment-python",
-        "assessment-python-unit",
-        "assessment-python-component",
-        "assessment-python-integration",
-        "plan14-native",
-        "plan14-python",
-        "features-combinations",
-        "features-no-default",
-        "inspection-fixture",
-        "codegen-relations-check",
-        "codegen-python-check",
-        "codegen-docs-check",
-        "fmt-rust-check",
-        "lint-toml",
-        "clippy-default",
-        "clippy-no-default",
-        "python-contracts-check",
-        "fmt-py-check",
-        "lint-py",
-        "typecheck",
-        "lint-imports",
-        "lint-typos",
-        "lint-license",
-        "lint-actions",
-        "lint-zizmor",
-        "lint-shell",
-        "lint-ast",
-        "lint-agents",
-        "setup-test",
-        "solver-pin-check",
-        "codegen-bindgen-check",
-        "codegen-rust-contracts-check",
-        "adr-frontmatter-check",
-        "adr-index-check",
-        "register-lint",
-        "docs-rust",
-        "docs",
-        "unsafe-surface",
-        "conformance-fixtures-check",
     }
 )
 
@@ -100,8 +46,8 @@ def declared(name: str) -> Gate:
     if name == "doc-lint":
         return Gate(name, role="deferred")
     if name in PERFORMANCE_GATES:
-        return Gate(name, phase="performance", requires_barrier=True)
-    return Gate(name, requires_barrier=name in QUALIFICATION_GATES)
+        return Gate(name, phase="performance")
+    return Gate(name)
 
 
 # Aggregates expand recursively, so both ordinary recipes and the full campaign
@@ -183,7 +129,6 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
                 phase="performance",
                 mode="native-force-validate",
                 profile="performance-native",
-                requires_barrier=True,
             ),
             Gate(
                 "plan14-reviews",
@@ -191,7 +136,6 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
                 phase="performance",
                 mode="native-force-validate",
                 profile="performance-native",
-                requires_barrier=True,
             ),
         ]
     if phase != "functional":
@@ -238,7 +182,6 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
             enumerate_native=True,
             mode="pse-relations/force-validate",
             profile="rust-boundary",
-            requires_barrier=True,
         )
         for name in ("test", "governance-tests", "test-release")
     )
@@ -263,7 +206,6 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
             else ("py-sync-native", "inspection-fixture"),
             mode="python-" + kind,
             profile="python-" + kind,
-            requires_barrier=True,
         )
         for kind in ("unit", "component", "integration")
     )
@@ -290,7 +232,6 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
             enumerate_native=True,
             mode="native-force-validate",
             profile="rust-native",
-            requires_barrier=True,
         )
     )
     gates.append(
@@ -301,7 +242,6 @@ def comprehensive(phase: str = "functional") -> list[Gate]:
             dependencies=("py-sync-native",),
             mode="python-native",
             profile="python-native",
-            requires_barrier=True,
         )
     )
     return gates

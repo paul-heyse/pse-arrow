@@ -61,24 +61,15 @@ class AcceptanceTests(unittest.TestCase):
             {r["id"] for r in declaration["acceptance"] if r["phase"] == "performance"},
             {"Q18"},
         )
-        for gate in [
-            "plan14-native",
-            "plan14-python",
-            "plan14-measure",
-            "plan14-reviews",
-            "bench-smoke",
-            "codegen-contracts-check",
-            "ci-pr",
-        ]:
+        for gate in ("plan14-native", "plan14-python", "codegen-contracts-check", "codegen"):
+            phase.guard(ROOT, [gate])
+        for gate in ("plan14-measure", "plan14-reviews", "bench-smoke"):
             with (
                 self.subTest(gate=gate),
-                patch.object(phase, "preflight", side_effect=ValueError("barrier")),
-                self.assertRaisesRegex(ValueError, "barrier"),
+                patch.object(phase, "require_functional", side_effect=ValueError("functional evidence")),
+                self.assertRaisesRegex(ValueError, "functional evidence"),
             ):
                 phase.guard(ROOT, [gate])
-        with patch.object(phase, "preflight") as preflight:
-            phase.guard(ROOT, ["codegen"])
-            preflight.assert_not_called()
         self.assertEqual(
             [g.name for g in comprehensive("performance")],
             ["plan14-measure", "plan14-reviews"],

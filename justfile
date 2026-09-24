@@ -17,7 +17,7 @@
 # Every gate passes `--locked`: there is no cargo config key for it, and an unlocked
 # resolve would silently move a pin.
 
-set shell := ["bash", "-euo", "pipefail", "-c"]
+set shell := ["bash", "scripts/build-shell.sh", "-euo", "pipefail", "-c"]
 
 # The development interpreter. `.python-version` is the single source of truth (uv,
 # direnv, doctor and CI all read it); earlier interpreters are a CI-matrix concern.
@@ -234,6 +234,7 @@ audit-machete:
 features-combinations:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     "{{ py }}" -m scripts.implementation_phase guard features-combinations
     source scripts/native-solver-env.sh
     cargo hack --keep-going check --workspace --feature-powerset --depth 2 --locked
@@ -242,6 +243,7 @@ features-combinations:
 features-no-default:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     "{{ py }}" -m scripts.implementation_phase guard features-no-default
     source scripts/native-solver-env.sh
     cargo hack --keep-going check --workspace --no-default-features --locked
@@ -385,15 +387,22 @@ engine-boundary-check:
     cargo metadata --format-version 1 --locked --offline | .venv/bin/python scripts/native-engine-boundaries.py
 
 [group('local')]
-[doc('Measure one isolated cold test build and controlled body/API/feature/workspace rebuilds; executes no tests')]
-bench-builds output:
-    "{{ py }}" -m scripts.build_measurements {{ quote(output) }}
+[doc('Measure current isolated cold/warm/body/API builds, cache reuse and optional recovery; executes no tests')]
+[positional-arguments]
+bench-builds output *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source scripts/native-solver-env.sh
+    source scripts/native-math-env.sh
+    export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
+    "{{ py }}" -m scripts.build_measurements "$@"
 
 [group('local')]
 [doc('Unit control for pinned Ipopt C linking and ABI widths; no solver execution')]
 unit-ipopt-abi:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     cargo nextest run -p pse-ipopt-sys -p pse-relations --lib --locked --features pse-ipopt-sys/link,pse-relations/force-validate -E 'test(abi_tests::)'
 
@@ -402,6 +411,7 @@ unit-ipopt-abi:
 check-solver-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo check -p pse-backend-native -p pse-runtime -p pse-compiler -p pse-relations --all-targets --locked --features pse-runtime/native-solvers,pse-relations/force-validate
@@ -411,6 +421,7 @@ check-solver-contracts:
 lint-solver-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo clippy --no-deps -p pse-backend-native -p pse-runtime -p pse-py -p pse-compiler -p pse-math --all-targets --locked --features pse-py/native-solvers,pse-relations/force-validate -- -D warnings
@@ -420,6 +431,7 @@ lint-solver-contracts:
 unit-native-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo nextest run -p pse-backend-native -p pse-ipopt-sys -p pse-relations -p pse-compiler -p pse-structural -p pse-runtime -p pse-math --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'package(pse-backend-native) | package(pse-compiler) | package(pse-math) | test(abi_tests::) | test(flowsheet::tests::) | test(initialization::tests::) | test(math::tests::) | test(workflow::tests::)'
@@ -430,6 +442,7 @@ unit-native-contracts:
 unit-public-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo nextest run -p pse-runtime -p pse-relations --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(workflow::tests::)'
@@ -440,6 +453,7 @@ unit-public-contracts:
 bench-recovery mode *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     mode="$1"
     shift
     features="pse-relations/force-validate"
@@ -505,6 +519,7 @@ py-sync:
 py-sync-native:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
@@ -518,6 +533,7 @@ py-sync-native:
 check-native-python:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo check -p pse-py --locked --features force-validate,native-solvers
@@ -527,6 +543,7 @@ check-native-python:
 py-native-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     "{{ py }}" -m pytest python/pse/tests/test_native_workflow.py python/pse/tests/test_native_boundary_contracts.py -m unit -q
@@ -686,6 +703,7 @@ mutants-file path:
 unsafe-surface:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     exec "{{ py }}" -m scripts.audit_tools unsafe-surface
 
@@ -757,6 +775,7 @@ codegen-bootstrap *args:
 codegen-contracts:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
@@ -871,24 +890,16 @@ lint-license:
 wheels-check ref="main":
     gh workflow run wheels.yml --ref "{{ ref }}" -f targets=all
 
-[group('local')]
-[doc('Verify the selected implementation/deletion receipt without running integration or benchmarks')]
-architecture-preflight *args:
-    cargo run --quiet --package xtask --locked --no-default-features -- architecture-preflight {{ args }}
 
 [group('local')]
-[doc('Validate current acceptance source mappings without sealing or running product gates')]
+[doc('Validate current acceptance source mappings without running product gates')]
 architecture-manifest *args:
     "{{ py }}" -m scripts.implementation_phase check-manifest {{ args }}
 
-[group('local')]
-[doc('Plan 14 M21: seal the complete implementation/deletion ledger against current source')]
-architecture-seal *args:
-    cargo run --quiet --package xtask --locked --no-default-features -- architecture-seal {{ args }}
 
 [group('local')]
-[doc('Plan 10 N18 only: measure native consolidation after the source-qualified barrier')]
-bench-consolidation: architecture-preflight
+[doc('Measure native consolidation after current functional qualification')]
+bench-consolidation:
     "{{ py }}" -m scripts.implementation_phase guard bench-consolidation
     just bench-consolidation-native
 
@@ -977,6 +988,7 @@ bench-production:
 unit-dynamics-fitting:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     cargo nextest run -p pse-backend-native -p pse-runtime -p pse-math -p pse-compiler -p pse-relations --lib --locked --features pse-runtime/native-solvers,pse-relations/force-validate -E 'test(dynamics::) | test(fitting::) | test(workflow::tests::) | test(function_coordinates)'
@@ -1002,6 +1014,7 @@ plan14-fixtures:
 plan14-discover:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     if [[ -f .envrc.local ]]; then source .envrc.local; fi
@@ -1016,6 +1029,7 @@ plan14-discover:
 plan14-native *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     if [[ -f .envrc.local ]]; then source .envrc.local; fi
@@ -1029,6 +1043,7 @@ plan14-native *args:
 plan14-python output:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     if [[ -f .envrc.local ]]; then source .envrc.local; fi
@@ -1047,6 +1062,7 @@ plan14-tools output:
 plan14-measure output:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     if [[ -f .envrc.local ]]; then source .envrc.local; fi
@@ -1065,6 +1081,7 @@ plan14-reviews output:
 unit-plan14-sources:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     "{{ py }}" -m pytest python/pse/tests/test_plan14_acceptance.py::test_shared_source_contracts
@@ -1079,6 +1096,7 @@ plan14-development output:
 plan14-development-run profile output *args:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     if [[ -f .envrc.local ]]; then source .envrc.local; fi
@@ -1096,6 +1114,7 @@ plan14-development-run profile output *args:
 unit-m21:
     #!/usr/bin/env bash
     set -euo pipefail
+    source scripts/build-env.sh
     source scripts/native-solver-env.sh
     source scripts/native-math-env.sh
     if [[ -f .envrc.local ]]; then source .envrc.local; fi
@@ -1106,3 +1125,37 @@ unit-m21:
 unit-m21-authoring *args:
     cargo nextest run -p pse-authoring -p pse-relations --test dsl_examples --test dsl_roundtrip --locked {{ validate }} {{ args }}
     cargo nextest run -p pse-ids -p pse-relations --lib --test golden_vectors --locked {{ validate }} -E 'package(pse-ids)' {{ args }}
+
+[group('local')]
+[doc('Run an existing recipe with the dated experimental nightly and compiler caching')]
+[positional-arguments]
+build-dev +args:
+    python3 -m scripts.build_environment --mode nightly --cache on -- just "$@"
+
+[group('local')]
+[doc('Run an existing recipe with the canonical stable toolchain')]
+[positional-arguments]
+build-stable +args:
+    python3 -m scripts.build_environment --mode stable -- just "$@"
+
+[group('local')]
+[doc('Run an existing recipe with compiler wrappers explicitly disabled')]
+[positional-arguments]
+build-uncached +args:
+    python3 -m scripts.build_environment --cache off -- just "$@"
+
+[group('local')]
+[doc('Qualify sccache parser and incremental pass-through in a disposable cache')]
+build-cache-probe:
+    "{{ py }}" -m scripts.build_cache_probe
+
+[group('discovery')]
+[doc('Inventory build and persistent cache storage; never deletes artifacts')]
+build-storage:
+    "{{ py }}" -m scripts.build_storage
+
+[group('discovery')]
+[doc('Plan or verify a system LLVM migration; direct sudo --apply is explicit')]
+[positional-arguments]
+llvm-system *args:
+    python3 scripts/llvm_system.py "$@"

@@ -55,16 +55,6 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Cmd {
-    /// Verify the exact-source Plan 10 barrier without dispatching a campaign.
-    ArchitecturePreflight {
-        #[arg(long, default_value_t = 0)]
-        plan: u8,
-    },
-    /// Seal the completed implementation and deletion ledger at N17.
-    ArchitectureSeal {
-        #[arg(long, default_value_t = 0)]
-        plan: u8,
-    },
     /// Qualify existing native functions, Delta lifecycle, cold readers and target architecture.
     ArchitectureAcceptance {
         /// New directory for final architecture command logs and measurements.
@@ -149,12 +139,6 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let root = workspace_root()?;
     match cli.command {
-        Cmd::ArchitecturePreflight { plan } => {
-            architecture_acceptance::selected(&root, plan, "preflight", None)
-        }
-        Cmd::ArchitectureSeal { plan } => {
-            architecture_acceptance::selected(&root, plan, "seal", None)
-        }
         Cmd::ArchitectureAcceptance { output, options } => {
             architecture_acceptance::run(&root, &output, &options)
         }

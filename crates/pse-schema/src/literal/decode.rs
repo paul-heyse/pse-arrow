@@ -80,7 +80,8 @@ pub(super) fn value(field: &Field, tagged: &Value) -> Result<ArrayRef> {
             let source = value
                 .as_i64()
                 .ok_or_else(|| invalid("exact temporal integer required"))?;
-            let native = <$ty>::try_from(source).map_err(|error| invalid(error.to_string()))?;
+            let native = <$ty>::try_from(source)
+                .map_err(|_| invalid("temporal integer exceeds its native range"))?;
             {
                 let array: ArrayRef = Arc::new(
                     <$array>::from(vec![native]).with_data_type(field.data_type().clone()),

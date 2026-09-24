@@ -1,6 +1,6 @@
 ---
 title: Rust build performance and persistent compilation reuse
-status: draft
+status: in-progress
 date: 2026-09-24
 adrs: []
 phase: 1
@@ -20,12 +20,12 @@ incremental compilation; preserve artifacts with bounded retention; qualify a da
 nightly LLVM toolchain with a parallel frontend as the normal local development
 choice. Keep pinned stable LLVM for canonical qualification and releases. Then reduce
 avoidable build variants and measure dependency optimization settings. Retain existing
-debug settings and LLD until evidence justifies changes. Cranelift is a later
+debug settings. Mold is the user-selected Linux linker; linker comparison is excluded. Cranelift is a later
 compatibility experiment, not the recommended simulator development default.
 
-No build configuration, dependency pin, installed toolchain or cache was changed
-during this assessment. All execution packets below are **Proposed**. CLI/graph probes
-establish availability and configuration, not speedups.
+The initial assessment changed no build configuration, dependency pin, installed
+toolchain or cache. Implementation is now in progress; the checkpoint below records
+the execution boundary. CLI/graph probes establish configuration, not speedups.
 
 ## Current evidence
 
@@ -241,7 +241,7 @@ capabilities. No blanket dependency upgrade or zero-duplicate mandate.
 
 | Option | Disposition |
 |---|---|
-| mold | Compare against existing rust-lld if linking materially affects wall time. Qualify both test executables and PyO3 shared libraries. [Rust 1.90](https://blog.rust-lang.org/2025/09/18/Rust-1.90.0/) establishes the existing LLD default; use [mold's instructions](https://github.com/rui314/mold#how-to-use) for the experiment. |
+| mold | Already selected by the user before implementation. Retain it; no linker comparison or separate mold qualification campaign. |
 | Wild linker | Defer until LLD/mold leave a measured linking bottleneck, then check native/PyO3 compatibility. |
 | Cranelift | Defer default adoption: [upstream](https://github.com/rust-lang/rustc_codegen_cranelift#not-yet-supported) lists partial `std::arch` SIMD and experimental panic unwinding. Our numeric stack, `catch_unwind` and PyO3 require explicit proof. Never switch to abort to make it build. Slower tests can erase compilation savings. |
 | `hint-mostly-unused` | Test only on measured large, sparsely used dependencies. [Its contract](https://doc.rust-lang.org/nightly/unstable-book/compiler-flags/hint-mostly-unused.html) defers codegen to consumers; cost may move onto frequently rebuilt crates. |
@@ -294,7 +294,8 @@ Preserve rejected candidates' reasons rather than their target trees.
 ## Execution packets
 
 Use the existing just/scripts surface. These are tooling work items, not new simulator
-packages or a new build system. All statuses are **Proposed**.
+packages or a new build system. Implementation is in progress; no packet is fully
+qualified yet.
 
 | Packet | Work and dependencies | Targeted acceptance and deletion |
 |---|---|---|
@@ -318,8 +319,8 @@ combined winner because independent improvements may interact.
   paths deliberately select the dated nightly.
 - Evidence must record the compiler/configuration and native bytes actually used.
   Recollect affected receipts after changes; cache hits do not replace provenance.
-  This new plan also changes the source scope of the M21 seal. B06 coordinates M22
-  rather than claiming old receipts certify new artifacts.
+  The maintainer removed the M21 source seal during this implementation. B06
+  coordinates M22 and records fresh execution evidence for the new artifacts.
 - `pse-buildinfo/build.rs` intentionally tracks crate/vendor sources. Diagnose rebuilds;
   do not drop provenance inputs for speed. Avoid rewriting identical generated output
   where supported, preserving generator/content contracts. Use Cargo's
@@ -338,9 +339,10 @@ combined winner because independent improvements may interact.
 CLI acceptance/rejection controls; four no-build unit-graph resolutions; sccache
 version/statistics; pinned native build-script/GMP cache contracts.
 
-**Measured:** retained M21 durations and current disk usage under the stated conditions.
-No optimization speedup is measured yet. No full Rust/Python rebuild or integration
-test ran for this planning task.
+**Measured:** the verified Linux stable campaigns below establish artifact-recovery
+cache benefit. Earlier campaigns with changed source or recovery paths remain
+diagnostic. The corrected runner preserves recovery paths and separates memory
+sampling from wall-clock timing.
 
 **Proposed:** B00–B06. Completion must name commands, compiler/profile, validation mode
 and failures against baseline zero. B06 owns broad qualification and final
@@ -349,25 +351,98 @@ development-cache success does not establish scientific simulator qualification.
 
 ## Open items
 
-- Winning frontend/jobs, dependency profiles, cache size and linker require measurements.
-- Nightly and sccache are not yet qualified together on the product. Two manifest
-  warnings remain unresolved, not accepted as a new baseline.
+- The maintainer accepted one frontend thread and 16 Cargo jobs and stopped further
+  concurrency screening. The 32 GiB persistent compiler cache is configured and its
+  recovery benefit accepted; no further cache comparisons are required. Dependency
+  profile decisions remain open. Mold is settled and excluded from comparisons.
+- Nightly and sccache are not yet qualified together on the product. The two unused
+  manifest declarations were removed without changing resolved dependency pins.
 - Doctor reports an outdated Python environment and an extension import failure in
   the unlinked shell. Resolve through the native recipe environment before Python
-  measurements; separate repair time from compilation. Planning did not resynchronize it.
+  measurements; separate repair time from compilation. `just py-sync-native` rebuilt
+  and installed the extension during implementation; native recipes supply its loader
+  environment.
 - Cranelift becomes actionable only with compatible SIMD/unwind/FFI and a measured
   improvement in total feedback latency.
+
+## Implementation checkpoint
+
+The common environment, persistent native preparations and expanded build runner are
+implemented. See [build reuse](../dev/build-performance.md) for commands, ownership
+and retention. Stable remains canonical; the dated nightly route is experimental.
+The two unused workspace declarations (`arrow-data`, `datafusion-physical-plan`) were
+removed; resolved family pins and force-validation remain enforced by existing checks.
+Dependency optimization defaults remain unchanged pending paired execution evidence.
+
+Tooling controls exercise explicit/missing/disabled wrappers, subprocess propagation,
+flag precedence, native identity invalidation, corrupted/missing files, interruption
+and concurrent publication. Stable and dated-nightly disposable cache probes observe
+an eligible Rust cache hit and incremental pass-through. Product timing and full
+qualification are tracked below as results become available.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Pending B00–B06. This document and its index entry are the planning deliverables.
+**Implemented, qualification incomplete:** common compiler/cache environment,
+experimental dated-nightly route, persistent native preparations, storage inventory,
+isolated measurement controls and unchanged-output writes in `pse-buildinfo`.
+The M21 source seal and its CLI/recipe gates were removed at maintainer request;
+actual functional-evidence checks for performance remain.
+
+**Tested:** `just setup-test` passed 80 isolated tooling tests, zero failures against
+baseline zero. `just unit-consolidation-tools` passed its Python controls and the Rust
+historical-plan rejection unit with explicit force-validation. Disposable stable and
+nightly cache probes observed eligible Rust hits and incremental pass-through.
+
+**Tested:** the maintainer applied the staged LLVM migration. Subsequent
+`python3 scripts/llvm_system.py --verify` passed installed prefix/resource/library,
+C/C++ execution, login, noninteractive, standard-PATH and user-service checks.
+See [system LLVM selection](../dev/llvm-system.md) for rollback and environment scope.
+The existing tracked Cargo mold settings are preserved.
+
+**Measured:** `just bench-builds build/plan15/stable-uncached-verified --cache off
+--recovery` and `just bench-builds build/plan15/stable-cached-system --cache on
+--cold-cache --recovery --second-worktree --execute` used stable 1.98.1, dev profile,
+16 jobs and explicit Arrow force-validation. Both preserved the original source.
+
+| Workload | Uncached | Cached |
+|---|---:|---:|
+| Cold target/compiler cache | 163.48 s | 194.21 s |
+| Unchanged build, median of three | 0.177 s | 0.164 s |
+| Private edit, median of three | 0.608 s | 0.659 s |
+| Public edit, median of three | 0.615 s | 0.669 s |
+| Artifact loss, same target path | 164.21 s | 28.48 s |
+
+Recovery recorded 346 Rust and 108 C/assembler hits. A second worktree took 196.34 s
+and recorded zero Rust hits, with 108 C/assembler hits. Cold/recovery values are
+individual samples; warm/edit reports retain dispersion. The maintainer accepted
+this evidence as sufficient and ended caching comparisons.
+
+**Tested:** the cached campaign and nightly one-/two-thread screens each executed
+18 compiler and 33 relations tests three times, zero failures against baseline zero.
+Nightly screens (`--mode nightly --frontend 1` or `2`, `--jobs 16 --cache off
+--screen --execute`) took 154.70 s and 157.08 s cold respectively. The maintainer
+accepted one thread/16 jobs; the four-thread run was stopped and eight-thread/job-count
+screens were not run. The nightly temporal-conversion warning was subsequently fixed;
+its targeted qualification remains pending.
+
+B04 profile/variant decisions and B06 final integration qualification remain open.
+No simulator M22 qualification is claimed. This checkpoint precedes that final Plan 14
+phase; committing it does not claim the remaining gates passed.
 
 ### A mistake made and corrected
 
-Record during implementation; no optimization has been deployed by this plan yet.
+The initial recovery experiment changed the target directory, defeating cache reuse
+through changed compiler input paths. Recovery now removes only its owned artifacts
+and rebuilds at the same path. A polling sleep also quantized short build timings;
+memory sampling now runs independently of process completion.
 
 ### Deviations from the plan, deliberate
 
-Record retained/rejected experiments and the evidence for priority changes.
+Mold comparisons are excluded at maintainer direction. Stable remains canonical while
+the nightly route is experimental. System LLVM discovery was repaired before further
+comparisons, and the obsolete M21 source seal was deleted at maintainer direction.
+Linux performance is the priority; Windows CI work is deferred at maintainer direction.
+Ordinary work stays in the existing `main` checkout, with separate trees reserved for
+genuinely concurrent agent editing that requires isolation.

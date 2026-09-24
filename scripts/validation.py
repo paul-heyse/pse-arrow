@@ -25,18 +25,26 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts import implementation_phase, validation_cases, validation_receipts
+from scripts import (
+    build_environment,
+    implementation_phase,
+    validation_cases,
+    validation_receipts,
+)
 from scripts.validation_scope import EXCLUSIONS, GROUPS, Gate, comprehensive, expand
 
 
 def command_env() -> dict[str, str]:
     # xtask can invoke just, which can invoke this runner. Cargo's parent package
     # variables are not valid inputs to nested builds (including uv/maturin).
-    return {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(("CARGO_PKG_", "CARGO_MANIFEST_"))
-    }
+    return build_environment.configure(
+        Path(__file__).resolve().parents[1],
+        {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith(("CARGO_PKG_", "CARGO_MANIFEST_"))
+        },
+    )
 
 
 def git(root: Path, *args: str) -> bytes:
@@ -421,6 +429,10 @@ def run_gates(
                 "RUSTUP_TOOLCHAIN",
                 "CARGO_TARGET_DIR",
                 "RUSTFLAGS",
+                "CARGO_ENCODED_RUSTFLAGS",
+                "RUSTC_WRAPPER",
+                "SCCACHE_DIR",
+                "SUITESPARSE_LIBRARY_DIR",
                 "CARGO_BUILD_JOBS",
                 "IPOPT_DIR",
                 "UV_PROJECT_ENVIRONMENT",

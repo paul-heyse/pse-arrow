@@ -88,9 +88,6 @@ arrow-array = { version = "=59.3.0", default-features = false, features = [
   "ffi",
 ] }
 arrow-buffer = "=59.3.0"
-arrow-data = { version = "=59.3.0", default-features = false, features = [
-  "ffi",
-] }
 arrow-schema = { version = "=59.3.0", default-features = false, features = [
   "ffi",
   "canonical_extension_types",
@@ -117,7 +114,6 @@ datafusion-functions-nested = "=55.1.0"
 datafusion-functions-aggregate = "=55.1.0"
 datafusion-execution = "=55.1.0"
 datafusion-catalog = "=55.1.0"
-datafusion-physical-plan = "=55.1.0"
 datafusion-physical-expr = "=55.1.0"
 datafusion-optimizer = "=55.1.0"
 datafusion-proto = "=55.1.0"

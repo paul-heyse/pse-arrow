@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Disposable controls for the implementation-only phase boundary."""
+"""Disposable controls for current-plan qualification evidence."""
 
 # ruff: noqa: PT009, PT027
 from __future__ import annotations
@@ -14,6 +14,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts import implementation_phase as phase
+from scripts import validation
+from scripts.validation_receipts import verify_native
 from scripts.validation_scope import Gate
 
 
@@ -38,7 +40,7 @@ class PhaseTests(unittest.TestCase):
         }
         self.declaration = {"plan": 14, "cases": [self.case]}
 
-    def development_fixture(self):
+    def development_fixture(self) -> tuple[Path, dict, dict, Gate]:
         directory = self.root / "development"
         directory.mkdir()
         log = directory / "unit.log"
@@ -47,8 +49,6 @@ class PhaseTests(unittest.TestCase):
         report.write_text(
             '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="fixture" name="example"/></testsuite>'
         )
-        from scripts import validation
-
         results, errors = validation.collect_report(report, directory, "unit", 0)
         self.assertFalse(errors)
         case = {
@@ -95,7 +95,7 @@ class PhaseTests(unittest.TestCase):
         path.write_text(json.dumps(receipt))
         return directory, receipt, {"plan": 14, "cases": [case]}, gate
 
-    def test_actual_runner_receipt_and_rejection_controls(self):
+    def test_actual_runner_receipt_and_rejection_controls(self) -> None:
         directory, receipt, declaration, gate = self.development_fixture()
         with (
             patch.object(phase, "development", return_value=[gate]),
@@ -128,22 +128,15 @@ class PhaseTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 phase.validate_development(self.root, declaration, directory)
 
-    def test_native_identity_revalidated_after_success(self):
-        from scripts.validation_receipts import verify_native
-
+    def test_native_identity_revalidated_after_success(self) -> None:
         library = self.root / "library.so"
         library.write_bytes(b"original linked library")
         native = {
             "schema": "plan14-native-profile-v1",
             "files": {str(library): phase.digest(library)},
-            "threads": {
-                name: "1"
-                for name in (
-                    "OMP_NUM_THREADS",
-                    "OPENBLAS_NUM_THREADS",
-                    "MKL_NUM_THREADS",
-                )
-            },
+            "threads": dict.fromkeys(
+                ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"), "1"
+            ),
         }
         verify_native(native)
         for threads in (
@@ -229,7 +222,6 @@ class PhaseTests(unittest.TestCase):
                 "manifest",
                 return_value={"plan": 14, "blocked_before_barrier": ["bench-smoke"]},
             ),
-            patch.object(phase, "preflight"),
             patch.object(
                 phase,
                 "require_functional",
@@ -243,37 +235,16 @@ class PhaseTests(unittest.TestCase):
                 ):
                     phase.guard(self.root, [name])
 
-    def test_every_package_and_deletion_must_close(self) -> None:
-        declaration = {
-            "plan": 14,
-            "inventory": "inventory.md",
-            "implementation": ["M00", "M21"],
-            "deletions": ["X01"],
-        }
-        inventory = self.root / "inventory.md"
-        inventory.write_text(
-            "| M00 | fixture | complete |\n| M21 | fixture | open |\n| X01 | fixture | complete |\n"
-        )
-        with self.assertRaises(ValueError):
-            phase.require_closed(self.root, declaration)
-        inventory.write_text(inventory.read_text().replace("open", "complete"))
-        phase.require_closed(self.root, declaration)
-        inventory.write_text(inventory.read_text() + "| M00 | duplicate | complete |\n")
-        with self.assertRaises(ValueError):
-            phase.require_closed(self.root, declaration)
-
-    def test_transitive_campaign_guard_and_unit_allowance(self) -> None:
-        declaration = {"blocked_before_barrier": ["test", "codegen-relations-check"]}
-        with (
-            patch.object(phase, "manifest", return_value=declaration),
-            patch.object(
-                phase, "preflight", side_effect=ValueError("open")
-            ) as preflight,
-        ):
-            phase.guard(self.root, ["unit-package", "codegen", "check-library"])
-            preflight.assert_not_called()
-            for group in ["ci-fast", "governance", "codegen-check"]:
-                with self.subTest(group=group), self.assertRaises(ValueError):
+    def test_qualification_runs_without_an_m21_source_seal(self) -> None:
+        with patch.object(phase, "manifest", return_value={"plan": 14}):
+            for group in (
+                "quality",
+                "ci-fast",
+                "governance",
+                "codegen-check",
+                "plan14-native",
+            ):
+                with self.subTest(group=group):
                     phase.guard(self.root, [group])
 
     def test_manifest_refuses_duplicate_case_identity(self) -> None:
@@ -315,20 +286,6 @@ class PhaseTests(unittest.TestCase):
             with self.subTest(change=change), self.assertRaises(ValueError):
                 phase.validate_scope({**value, **change})
         phase.validate_scope(value)
-
-    def test_old_source_seal_cannot_authorize_current_plan(self) -> None:
-        (self.root / "Cargo.toml").write_text(
-            "[workspace.metadata.pse.execution]\nactive-plan = 14\n"
-        )
-        (self.root / "barrier.json").write_text(json.dumps({"version": 1, "plan": 13}))
-        with (
-            patch.object(
-                phase, "manifest", return_value={"plan": 14, "barrier": "barrier.json"}
-            ),
-            patch.object(phase, "require_closed"),
-            self.assertRaisesRegex(ValueError, "wrong plan"),
-        ):
-            phase.preflight(self.root)
 
 
 if __name__ == "__main__":

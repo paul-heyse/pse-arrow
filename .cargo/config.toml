@@ -10,7 +10,7 @@
 # would pass in one place and fail in the other.
 #
 # sccache is not wired in here: a mandatory `rustc-wrapper` breaks every contributor who
-# lacks it. The justfile / .envrc set RUSTC_WRAPPER per command instead. (sccache cannot
+# lacks it. scripts/build-env.sh activates installed sccache for just and direnv. (sccache cannot
 # cache cdylib/bin/proc-macro crates, which is why pse-py is a thin shell over rlibs.)
 #
 # There is no config key for `--locked`; every gate passes it explicitly.

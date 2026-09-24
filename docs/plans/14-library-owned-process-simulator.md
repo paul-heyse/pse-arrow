@@ -864,9 +864,9 @@ feature. Recheck every retained Plan 13 mechanism against its D01 rationale and
 current caller. Delete orphaned remnants rather than keeping them “for evidence.”
 
 Ensure the new acceptance inventory is executable and complete for the selected
-target. Any source manifest/barrier records this implementation's scope; it is not
-a quality result and must not inherit a Plan 13 seal. Keep source sealing minimal
-and reuse applicable tooling instead of building a new governance subsystem.
+target. The source manifest records this implementation's scope and executed evidence.
+Qualification runs directly against current sources; the maintainer removed the M21
+source seal. Reuse existing execution reports instead of a separate authorization receipt.
 
 **Targeted acceptance:** code/consumer/manifest inspection and isolated controls
 show the final paths and deletion closure. Product acceptance remains not_run until
@@ -1216,7 +1216,8 @@ policy, generated contracts, source consumers and exact unit-evidence tooling no
 match this target. No production Pyomo/legacy math fallback is retained.
 
 **Tested:** targeted unit/profile evidence and its zero baseline are recorded in the
-M21 packet. Source/native seals authorize only this implementation checkpoint.
+M21 packet. Execution receipts retain source and native identity; no M21 source seal
+is required to run qualification.
 Earlier remaining-work paragraphs are historical checkpoints. M22 remains open for
 complete functional/scientific/runtime/static qualification, measurement, independent
 reviews and formal ADR/blueprint reconciliation. No end-to-end speedup or scientific

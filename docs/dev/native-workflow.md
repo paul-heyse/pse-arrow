@@ -266,3 +266,6 @@ unit, tolerance, nullable acceptance, errors and declaration provenance for solv
 simulation and fitting. Read it alongside native status and mathematical feasibility.
 The same generated sources/results survive exact publication; M22 qualifies the
 complete installed-process and reopen journeys.
+
+Build caching, persistent native prefixes and experimental nightly commands are documented
+in [Rust build reuse](build-performance.md).

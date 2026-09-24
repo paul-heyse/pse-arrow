@@ -30,8 +30,8 @@ direction. M00–M21 and their approved hard-cut deletions are implemented; see 
 [foundation contract](docs/plans/14-math-foundation-contract.md) and
 [execution inventory](docs/plans/14-execution-inventory.md). Start next with M22's
 full qualification; see the [M21 packet](docs/plans/14-m21-execution.md).
-Targeted units pass and the implementation barrier authenticates current source/native
-evidence. Complete process acceptance bodies are compiled and discovered, not qualified. ADR-0082–0084 remain proposed; full qualification is M22.
+Targeted units pass. Qualification runs directly against current source and records
+its executed evidence; no M21 source seal is required. Complete process acceptance bodies are compiled and discovered, not qualified. ADR-0082–0084 remain proposed; full qualification is M22.
 It supersedes Plan 13's execution scope: no unfinished package, acceptance ID,
 campaign or old source seal is inherited automatically. Retain a graph, Salsa,
 publication or resource mechanism only when evidence establishes its role in the new
@@ -63,7 +63,7 @@ after every change. Plans here are large; per-change polish costs more than it c
 **At the end of the plan, once:** integration, component, solver and Python journeys;
 performance campaigns; formatting and lint (`fmt-rust-check`, `clippy-*`, `lint-typos`,
 `lint-license`, `quality`); `governance`; `codegen-check`; `adr-lint`/`adr-index`;
-`lint-agents`; `docs`; architecture manifest/seal/preflight; evidence-labelled
+`lint-agents`; `docs`; architecture manifest; evidence-labelled
 write-ups and the plan Outcome. Fix what they find in one pass, then rerun the affected
 gates until the whole set is green against the zero baseline.
 
@@ -297,6 +297,18 @@ Project state still belongs here: plans go in `docs/plans/`, never in a private 
 directory. When a change to the blueprint or an accepted ADR is genuinely the work, set
 `PSE_DESIGN_EDIT=1` for that session and say in the PR why. The escape exists so the guard
 can stay strict; using it silently defeats it.
+
+## Personal-project checkout workflow
+
+This is a personal project. Use the existing checkout on `main` for ordinary
+development and GitHub updates. Do not routinely create or switch branches,
+worktrees or separate checkouts for a task.
+
+Use separate branches or worktrees only when genuinely concurrent agent editing
+requires isolation. Coordinate file ownership first and preserve other agents'
+uncommitted changes. Keep checkout and Cargo target paths stable to retain build
+artifacts and compiler-cache reuse; the Plan 15 second-worktree experiment produced
+no Rust cache hits after those paths changed.
 
 ## Agent runtimes
 

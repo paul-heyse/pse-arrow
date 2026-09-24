@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Plan-qualified implementation barriers; no product execution during sealing."""
+"""Current-plan evidence validation and functional-before-performance ordering."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 from scripts import validation as validation_tools
 from scripts import validation_cases, validation_receipts
-from scripts.validation_scope import comprehensive, expand, development
+from scripts.validation_scope import comprehensive, development, expand
 
 
 def active_plan(root: Path) -> int:
@@ -110,18 +110,6 @@ def relative(root: Path, name: str) -> Path:
     return result
 
 
-def require_closed(root: Path, declaration: dict) -> None:
-    inventory = relative(root, declaration["inventory"]).read_text()
-    rows: dict[str, list[str]] = {}
-    for line in inventory.splitlines():
-        columns = [column.strip() for column in line.strip().strip("|").split("|")]
-        if len(columns) >= 3 and re.fullmatch(r"[MX][0-9]{2}", columns[0]):
-            rows.setdefault(columns[0], []).append(columns[2])
-    for item in declaration["implementation"] + declaration["deletions"]:
-        if rows.get(item) != ["complete"]:
-            raise ValueError(f"Plan {declaration['plan']} barrier open: {item}")
-
-
 def validate_development(root: Path, declaration: dict, directory: Path) -> None:
     """Authenticate actual runner receipt and unit coverage, using the shared collector."""
     receipt = json.loads((directory / "checks.json").read_text())
@@ -181,13 +169,6 @@ def validate_development(root: Path, declaration: dict, directory: Path) -> None
         raise ValueError(f"missing development cases: {missing}")
 
 
-def development_directory(root: Path, pointer: dict) -> Path:
-    path = relative(root, pointer["receipt"])
-    if digest(path) != pointer["digest"]:
-        raise ValueError("changed development runner receipt")
-    return path.parent
-
-
 def execution_plan(root: Path, selected: int | None) -> int:
     active = active_plan(root)
     if selected is not None and selected != active:
@@ -195,40 +176,6 @@ def execution_plan(root: Path, selected: int | None) -> int:
             f"historical plan {selected} cannot authorize active Plan {active}"
         )
     return active
-
-
-def seal(root: Path, plan: int | None = None) -> None:
-    plan = execution_plan(root, plan)
-    declaration = manifest(root, plan)
-    validate_sources(root, declaration)
-    require_closed(root, declaration)
-    pointer = json.loads(relative(root, declaration["development"]).read_text())
-    validate_development(root, declaration, development_directory(root, pointer))
-    path = relative(root, declaration["barrier"])
-    path.parent.mkdir(parents=True, exist_ok=True)
-    validation_tools.write_json(
-        path,
-        {
-            "version": 3,
-            "plan": plan,
-            "source_files": validation_tools.sources(root),
-            "development": pointer,
-        },
-    )
-
-
-def preflight(root: Path, plan: int | None = None) -> None:
-    plan = execution_plan(root, plan)
-    declaration = manifest(root, plan)
-    require_closed(root, declaration)
-    receipt = json.loads(relative(root, declaration["barrier"]).read_text())
-    if receipt.get("version") != 3 or receipt.get("plan") != plan:
-        raise ValueError("wrong plan or unsupported source seal")
-    if receipt["source_files"] != validation_tools.sources(root):
-        raise ValueError("source differs from implementation/deletion seal")
-    validate_development(
-        root, declaration, development_directory(root, receipt["development"])
-    )
 
 
 def require_functional(root: Path, directory: Path | None) -> dict:
@@ -295,20 +242,15 @@ def require_functional(root: Path, directory: Path | None) -> dict:
 
 def guard(root: Path, names: list[str], functional_from: Path | None = None) -> None:
     # This checkout's active plan is explicit in its manifest, not an environment override.
-    declaration = manifest(root)
+    manifest(root)
     gates = expand(tuple(names))
-    phases = {gate.phase for gate in gates if gate.requires_barrier}
-    if phases:
-        preflight(root)
-    if "performance" in phases:
+    if any(gate.phase == "performance" for gate in gates):
         require_functional(root, functional_from)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "action", choices=("guard", "seal", "preflight", "acceptance", "check-manifest")
-    )
+    parser.add_argument("action", choices=("guard", "acceptance", "check-manifest"))
     parser.add_argument("names", nargs="*")
     parser.add_argument("--plan", type=int, choices=(14,))
     args = parser.parse_args()
@@ -320,12 +262,9 @@ def main() -> int:
             guard(root, args.names)
         elif args.action == "check-manifest":
             validate_sources(root, manifest(root, execution_plan(root, args.plan)))
-        elif args.action == "seal":
-            seal(root, args.plan)
-        else:
-            preflight(root, args.plan)
-            if args.action == "acceptance":
-                return subprocess.call(["just", "assessment", args.names[0]], cwd=root)
+        elif args.action == "acceptance":
+            execution_plan(root, args.plan)
+            return subprocess.call(["just", "assessment", args.names[0]], cwd=root)
     except (OSError, ValueError, KeyError) as error:
         print(f"Plan {args.plan}: {error}")
         return 1

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Active-plan CLI adapter. Source seals, coverage and receipts have one owner in scripts.
+//! Active-plan CLI adapter. Coverage and execution receipts are owned by scripts.
 use anyhow::{Context, Result, ensure};
 use std::{
     path::{Path, PathBuf},
@@ -47,7 +47,6 @@ pub(crate) fn run(root: &Path, output: &Path, options: &RunOptions) -> Result<()
         options.plan == 0 || options.plan == plan,
         "historical plan cannot authorize current execution"
     );
-    selected(root, plan, "preflight", None)?;
     let mut command = Command::new(root.join(if cfg!(windows) {
         ".venv/Scripts/python.exe"
     } else {
@@ -84,37 +83,6 @@ fn active_plan(root: &Path) -> Result<u8> {
         .context("missing active execution plan")?;
     ensure!(plan == 14, "unsupported active execution plan");
     Ok(u8::try_from(plan)?)
-}
-
-pub(crate) fn selected(root: &Path, plan: u8, action: &str, output: Option<&Path>) -> Result<()> {
-    let active = active_plan(root)?;
-    ensure!(
-        plan == 0 || plan == active,
-        "historical plan cannot authorize current execution"
-    );
-    let plan = active;
-    ensure!(plan == 14, "unknown plan {plan}");
-    let python = root.join(if cfg!(windows) {
-        ".venv/Scripts/python.exe"
-    } else {
-        ".venv/bin/python"
-    });
-    let mut command = Command::new(python);
-    command.current_dir(root).args([
-        "-m",
-        "scripts.implementation_phase",
-        action,
-        "--plan",
-        &plan.to_string(),
-    ]);
-    if let Some(output) = output {
-        command.arg(output);
-    }
-    ensure!(
-        command.status()?.success(),
-        "Plan {plan} {action} refused; implementation/deletion barrier remains open"
-    );
-    Ok(())
 }
 
 #[cfg(test)]

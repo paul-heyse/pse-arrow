@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -16,10 +17,32 @@ from scripts import build_measurements, validation
 
 
 class BuildMeasurementTests(unittest.TestCase):
+    def test_profile_candidate_is_available_to_nested_cargo_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory)
+            (source / ".cargo").mkdir()
+            config = source / ".cargo/config.toml"
+            config.write_text('[target.x86_64-unknown-linux-gnu]\nlinker = "clang"\n')
+            build_measurements.profile_override(source, 1, True)
+            parsed = tomllib.loads(config.read_text())
+            self.assertEqual(
+                parsed["target"]["x86_64-unknown-linux-gnu"]["linker"], "clang"
+            )
+            self.assertEqual(parsed["profile"]["dev"]["package"]["*"], {"opt-level": 1})
+            self.assertEqual(
+                parsed["profile"]["dev"]["package"]["deltalake-core"],
+                {"incremental": False},
+            )
+            with self.assertRaisesRegex(ValueError, "profile policy"):
+                build_measurements.profile_override(source, 2, False)
+
     def test_snapshot_keeps_dirty_deleted_untracked_ignored_tracked_modes_and_symlinks(
         self,
     ) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(validation, "SOURCE_PATHS", (".",)),
+        ):
             root = Path(directory) / "original"
             root.mkdir()
             subprocess.run(["git", "init", "--quiet"], cwd=root, check=True)
@@ -82,22 +105,28 @@ class BuildMeasurementTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     build_measurements.artifacts(path)
 
-    def test_barrier_refusal_precedes_snapshot_and_every_process(self) -> None:
+    def test_invalid_manifest_refusal_precedes_snapshot_and_every_process(self) -> None:
         with (
             patch("sys.argv", ["build_measurements", "build/refused"]),
             patch.object(
                 build_measurements.implementation_phase,
                 "guard",
-                side_effect=ValueError("W18 open"),
+                side_effect=ValueError("invalid current manifest"),
             ) as guard,
             patch.object(build_measurements, "snapshot") as snapshot,
             patch.object(build_measurements, "measure") as measure,
         ):
-            with self.assertRaisesRegex(ValueError, "W18 open"):
+            with self.assertRaisesRegex(ValueError, "invalid current manifest"):
                 build_measurements.main()
             self.assertEqual(guard.call_args.args[1], ["bench-builds"])
             snapshot.assert_not_called()
             measure.assert_not_called()
+
+    def test_new_cache_counters_are_counted_from_zero(self) -> None:
+        self.assertEqual(
+            build_measurements.counter_delta({"hits": {}}, {"hits": {"Rust": 2}}),
+            {"hits": {"Rust": 2}},
+        )
 
     def test_actual_unified_feature_mode_must_match_the_build_label(self) -> None:
         unit = {"target": {"name": "arrow_data"}, "features": ["force_validate"]}

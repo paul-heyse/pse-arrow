@@ -29,13 +29,12 @@ satisfies a current requirement.
 | `just plan14-tools <directory>` | Run isolated evidence/deletion controls and emit their report |
 | `just architecture-manifest` | Check current manifest ownership/source routes |
 | `just plan14-development <new-directory>` | M21: run only exact manifest unit cases through Nextest, pytest and unittest; authenticate reports and native identity |
-| `just architecture-seal` | M21: require complete inventory and fresh successful development runner evidence, then bind current sources |
-| `just architecture-preflight` | Verify the current implementation seal; no product qualification |
 | `just architecture-acceptance <new-directory> --phase functional` | M22: Q01–Q17 and applicable full repository gates |
 | `just architecture-acceptance <new-directory> --phase performance --functional-from <functional-directory>` | M22: complete measurements and independent G1–G8 and PS-G1–PS-G3 decisions after functional success |
 
-Both assessment and architecture-acceptance routes enforce the same barrier. A source
-seal proves only the implementation checkpoint. Native test bodies inside `#[test]`
+Assessment and architecture acceptance run directly against current sources. The
+M21 source seal was removed at the maintainer's request. Performance campaigns still
+require current successful functional evidence. Native test bodies inside `#[test]`
 modules remain component/integration journeys when that is what they execute.
 
 ## Native and physical profiles
@@ -98,8 +97,8 @@ then reconcile formal ADR/blueprint status and current capability claims.
 
 The development receipt is the existing version-3 `checks.json` plus retained raw
 reports and native provenance, with mode `development`. Its pointer lives at
-`build/plan14/development-checks.json`. Handwritten pass counts cannot seal a plan.
-Sealing and preflight reparse the reports and revalidate the actual binaries/linked
-libraries, including retained continuation evidence. Changed source or native bytes
-require fresh affected evidence and a new seal. These artifacts are local build
+`build/plan14/development-checks.json`. Handwritten pass counts cannot replace actual
+execution evidence. Collectors reparse the reports and revalidate actual binaries and
+linked libraries, including retained continuation evidence. Changed source or native
+bytes require fresh affected evidence. These artifacts are local build
 outputs; they are not a committed declaration of scientific acceptance.
